@@ -838,13 +838,14 @@ fn update_provider_summary(ui: &WindowUi, provider: &Provider) {
 }
 
 fn show_error(parent: &adw::ApplicationWindow, heading: &str, error: &dyn std::error::Error) {
-    let dialog = adw::MessageDialog::builder()
-        .transient_for(parent)
+    let dialog = adw::AlertDialog::builder()
         .heading(heading)
         .body(error.to_string())
+        .close_response("ok")
+        .default_response("ok")
         .build();
     dialog.add_response("ok", "OK");
-    dialog.present();
+    dialog.present(Some(parent));
 }
 
 fn icon_button(icon_name: &str, tooltip: &str) -> gtk::Button {
