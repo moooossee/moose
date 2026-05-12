@@ -1,0 +1,2 @@
+option('cargo_profile', type: 'combo', choices: ['dev', 'release'], value: 'dev')
+option('gui', type: 'boolean', value: false)

@@ -1,0 +1,5 @@
+/target/
+/builddir/
+/.flatpak-builder/
+/repo/
+/build/

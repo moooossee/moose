@@ -1,0 +1,25 @@
+app-id: io.github.moooossee.Moose
+runtime: org.gnome.Platform
+runtime-version: '50'
+sdk: org.gnome.Sdk
+command: moose
+sdk-extensions:
+  - org.freedesktop.Sdk.Extension.rust-stable
+build-options:
+  append-path: /usr/lib/sdk/rust-stable/bin
+  env:
+    CARGO_HOME: /run/build/moose/cargo
+finish-args:
+  - --socket=wayland
+  - --share=network
+modules:
+  - name: moose
+    buildsystem: meson
+    config-opts:
+      - -Dgui=true
+      - -Dcargo_profile=release
+      - --buildtype=release
+    sources:
+      - cargo-sources.json
+      - type: dir
+        path: .

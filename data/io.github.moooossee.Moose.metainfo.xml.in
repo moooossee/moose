@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>io.github.moooossee.Moose</id>
+  <name>Moose</name>
+  <summary>Chat with local AI</summary>
+  <developer id="io.github.moooossee">
+    <name>moooossee</name>
+  </developer>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>GPL-3.0-or-later</project_license>
+  <description>
+    <p>Moose lets you chat with local AI models through Ollama while keeping conversations, providers and model state on your computer.</p>
+    <p>It can connect to an Ollama service you already manage, and is designed to support an app-managed Ollama runtime when it can be shipped within Flathub requirements.</p>
+  </description>
+  <launchable type="desktop-id">io.github.moooossee.Moose.desktop</launchable>
+  <url type="homepage">https://github.com/moooossee/moose</url>
+  <url type="bugtracker">https://github.com/moooossee/moose/issues</url>
+  <url type="vcs-browser">https://github.com/moooossee/moose</url>
+  <branding>
+    <color type="primary" scheme_preference="light">#7db7b3</color>
+    <color type="primary" scheme_preference="dark">#24504d</color>
+  </branding>
+  <content_rating type="oars-1.1" />
+  <releases>
+    <release version="0.1.0" date="2026-05-11">
+      <description>
+        <p>Initial development shell with Flatpak metadata and GNOME application structure.</p>
+      </description>
+    </release>
+  </releases>
+  <supports>
+    <control>keyboard</control>
+    <control>pointing</control>
+  </supports>
+  <requires>
+    <display_length compare="ge">768</display_length>
+  </requires>
+</component>

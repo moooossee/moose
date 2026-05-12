@@ -1,0 +1,9 @@
+[Desktop Entry]
+Name=Moose
+Exec=moose
+Type=Application
+Icon=io.github.moooossee.Moose
+Categories=Network;Chat;
+Keywords=AI;Ollama;LLM;Chat;Models;
+StartupNotify=true
+DBusActivatable=true
