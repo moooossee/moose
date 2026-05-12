@@ -803,7 +803,7 @@ fn append_message(messages: &gtk::Box, role: &str, content: &str) -> gtk::Label 
         .xalign(text_alignment)
         .justify(justification)
         .wrap(true)
-        .wrap_mode(gtk::pango::WrapMode::WordChar)
+        .wrap_mode(gtk::pango::WrapMode::Char)
         .natural_wrap_mode(gtk::NaturalWrapMode::None)
         .width_chars(120)
         .selectable(true)
