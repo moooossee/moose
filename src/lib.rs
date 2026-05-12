@@ -1,4 +1,5 @@
 pub mod chat;
+pub mod conversations;
 pub mod core;
 pub mod error;
 pub mod ollama;
