@@ -13,6 +13,8 @@ use crate::{
 pub struct OllamaClient {
     client: reqwest::Client,
     base_url: reqwest::Url,
+    request_timeout: Duration,
+    stream_timeout: Duration,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -90,9 +92,18 @@ impl OllamaClient {
 
     pub fn with_timeout(base_url: &str, timeout: Duration) -> Result<Self> {
         let normalized_url = validate_base_url(base_url)?;
-        let client = reqwest::Client::builder().timeout(timeout).build()?;
+        let stream_timeout = Duration::from_secs(300);
+        let client = reqwest::Client::builder()
+            .connect_timeout(timeout)
+            .read_timeout(stream_timeout)
+            .build()?;
         let base_url = reqwest::Url::parse(&normalized_url)?;
-        Ok(Self { client, base_url })
+        Ok(Self {
+            client,
+            base_url,
+            request_timeout: timeout,
+            stream_timeout,
+        })
     }
 
     pub fn base_url(&self) -> &reqwest::Url {
@@ -143,7 +154,15 @@ impl OllamaClient {
         let mut buffer = Vec::new();
 
         while let Some(chunk) = stream.next().await {
-            let chunk = chunk?;
+            let chunk = chunk.map_err(|error| {
+                if error.is_timeout() {
+                    MooseError::StreamStalled {
+                        seconds: self.stream_timeout.as_secs(),
+                    }
+                } else {
+                    MooseError::Http(error)
+                }
+            })?;
             buffer.extend_from_slice(&chunk);
 
             while let Some(index) = buffer.iter().position(|byte| *byte == b'\n') {
@@ -170,7 +189,12 @@ impl OllamaClient {
     }
 
     async fn get_text(&self, endpoint: &str) -> Result<String> {
-        let response = self.client.get(self.endpoint(endpoint)?).send().await?;
+        let response = self
+            .client
+            .get(self.endpoint(endpoint)?)
+            .timeout(self.request_timeout)
+            .send()
+            .await?;
         if !response.status().is_success() {
             return Err(response_error(response).await);
         }

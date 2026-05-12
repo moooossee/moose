@@ -12,6 +12,8 @@ pub enum MooseError {
     Database(#[from] rusqlite::Error),
     #[error("HTTP request failed: {0}")]
     Http(#[from] reqwest::Error),
+    #[error("generation stream stalled after {seconds} seconds")]
+    StreamStalled { seconds: u64 },
     #[error("HTTP request returned status {status}: {message}")]
     HttpStatus {
         status: reqwest::StatusCode,
