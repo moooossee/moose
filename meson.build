@@ -9,6 +9,7 @@ project(
 python = find_program('python3')
 cargo_build = files('build-aux/cargo-build.py')
 datadir = get_option('datadir')
+styledir = join_paths(datadir, 'moose')
 service_config = configuration_data()
 service_config.set('bindir', join_paths(get_option('prefix'), get_option('bindir')))
 
@@ -22,6 +23,7 @@ custom_target(
     meson.project_build_root(),
     get_option('cargo_profile'),
     get_option('gui').to_string(),
+    join_paths(get_option('prefix'), styledir, 'io.github.moooossee.Moose.css'),
     '@OUTPUT@'
   ],
   build_by_default: true,
@@ -56,4 +58,9 @@ configure_file(
 install_data(
   'data/icons/hicolor/scalable/apps/io.github.moooossee.Moose.svg',
   install_dir: join_paths(datadir, 'icons', 'hicolor', 'scalable', 'apps')
+)
+
+install_data(
+  'data/io.github.moooossee.Moose.css',
+  install_dir: styledir
 )

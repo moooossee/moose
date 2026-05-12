@@ -1,4 +1,4 @@
-use std::{cell::RefCell, rc::Rc, sync::mpsc, time::Duration};
+use std::{cell::RefCell, fs, rc::Rc, sync::mpsc, time::Duration};
 
 use adw::prelude::*;
 use gtk::{Align, Orientation};
@@ -13,7 +13,11 @@ use crate::{
     storage::{ProviderRepository, open_database},
 };
 
+const CHAT_CSS: &str = include_str!("../../data/io.github.moooossee.Moose.css");
+
 pub fn build(app: &adw::Application) -> adw::ApplicationWindow {
+    install_chat_css();
+
     let window = adw::ApplicationWindow::builder()
         .application(app)
         .title(APPLICATION_NAME)
@@ -313,49 +317,78 @@ fn chat() -> Chat {
         .vexpand(true)
         .build();
 
-    let messages = gtk::Box::builder()
-        .orientation(Orientation::Vertical)
-        .spacing(12)
-        .margin_top(18)
-        .margin_bottom(18)
-        .margin_start(18)
-        .margin_end(18)
+    let empty_clamp = adw::Clamp::builder()
+        .maximum_size(860)
+        .tightening_threshold(560)
+        .hexpand(true)
+        .vexpand(true)
+        .child(&status_page)
         .build();
 
-    let scrolled = gtk::ScrolledWindow::builder()
+    let messages = gtk::Box::builder()
+        .orientation(Orientation::Vertical)
+        .spacing(8)
+        .hexpand(true)
+        .build();
+    messages.add_css_class("moose-chat-column");
+
+    let messages_clamp = adw::Clamp::builder()
+        .maximum_size(980)
+        .tightening_threshold(560)
         .hexpand(true)
         .vexpand(true)
         .child(&messages)
         .build();
 
+    let scrolled = gtk::ScrolledWindow::builder()
+        .hexpand(true)
+        .vexpand(true)
+        .child(&messages_clamp)
+        .build();
+
     let message_stack = gtk::Stack::builder().hexpand(true).vexpand(true).build();
-    message_stack.add_named(&status_page, Some("empty"));
+    message_stack.add_named(&empty_clamp, Some("empty"));
     message_stack.add_named(&scrolled, Some("messages"));
     message_stack.set_visible_child_name("empty");
 
     let composer = gtk::Box::builder()
         .orientation(Orientation::Horizontal)
         .spacing(6)
-        .margin_top(9)
-        .margin_bottom(9)
-        .margin_start(12)
-        .margin_end(12)
+        .hexpand(true)
         .build();
+    composer.add_css_class("moose-composer");
 
     let entry = gtk::Entry::builder()
         .placeholder_text("Message")
         .hexpand(true)
         .build();
-    let stop_button = icon_button("media-playback-stop-symbolic", "Cancel Generation");
-    let send_button = icon_button("send-symbolic", "Send Message");
+    entry.add_css_class("flat");
+    entry.add_css_class("moose-composer-entry");
 
+    let stop_button = composer_button("media-playback-stop-symbolic", "Cancel Generation");
+    let send_button = composer_button("mail-send-symbolic", "Send Message");
+
+    send_button.add_css_class("suggested-action");
+    stop_button.add_css_class("destructive-action");
     send_button.set_sensitive(false);
     stop_button.set_sensitive(false);
     composer.append(&entry);
     composer.append(&stop_button);
     composer.append(&send_button);
+
+    let composer_clamp = adw::Clamp::builder()
+        .maximum_size(980)
+        .tightening_threshold(560)
+        .margin_top(10)
+        .margin_bottom(16)
+        .margin_start(12)
+        .margin_end(12)
+        .hexpand(true)
+        .child(&composer)
+        .build();
+
     root.append(&message_stack);
-    root.append(&composer);
+    root.append(&composer_clamp);
 
     Chat {
         root,
@@ -636,21 +669,22 @@ fn send_message(ui: &Rc<WindowUi>, backend: &Rc<Backend>) {
         }
     };
 
-    let request = match ChatRequest::streaming(model, vec![ChatMessage::user(prompt.clone())]) {
-        Ok(request) => request,
-        Err(error) => {
-            ui.toast_overlay.add_toast(adw::Toast::new(&format!(
-                "Message could not be sent: {error}"
-            )));
-            return;
-        }
-    };
+    let request =
+        match ChatRequest::streaming(model.clone(), vec![ChatMessage::user(prompt.clone())]) {
+            Ok(request) => request,
+            Err(error) => {
+                ui.toast_overlay.add_toast(adw::Toast::new(&format!(
+                    "Message could not be sent: {error}"
+                )));
+                return;
+            }
+        };
 
     backend.abort_generation();
     ui.entry.set_text("");
     ui.message_stack.set_visible_child_name("messages");
     append_message(&ui.messages, "You", &prompt);
-    let assistant_label = append_message(&ui.messages, "Moose", "");
+    let assistant_label = append_message(&ui.messages, &model, "");
     ui.send_button.set_sensitive(false);
     ui.stop_button.set_sensitive(true);
 
@@ -743,25 +777,44 @@ fn set_model_picker(ui: &WindowUi, models: Vec<String>) {
 }
 
 fn append_message(messages: &gtk::Box, role: &str, content: &str) -> gtk::Label {
+    let is_user = role == "You";
+    let horizontal_alignment = if is_user { Align::End } else { Align::Start };
+    let text_alignment = if is_user { 1.0 } else { 0.0 };
+    let justification = if is_user {
+        gtk::Justification::Right
+    } else {
+        gtk::Justification::Left
+    };
     let row = gtk::Box::builder()
         .orientation(Orientation::Vertical)
-        .spacing(4)
+        .spacing(6)
+        .halign(horizontal_alignment)
+        .hexpand(true)
         .build();
     let role_label = gtk::Label::builder()
         .label(role)
-        .halign(Align::Start)
-        .xalign(0.0)
+        .halign(horizontal_alignment)
+        .xalign(text_alignment)
+        .justify(justification)
         .build();
     let content_label = gtk::Label::builder()
         .label(content)
-        .halign(Align::Fill)
-        .xalign(0.0)
+        .halign(horizontal_alignment)
+        .xalign(text_alignment)
+        .justify(justification)
         .wrap(true)
+        .max_width_chars(104)
         .selectable(true)
         .build();
 
+    row.add_css_class("moose-message");
+    if is_user {
+        role_label.add_css_class("moose-message-user");
+    }
     role_label.add_css_class("caption-heading");
+    role_label.add_css_class("dim-label");
     content_label.add_css_class("body");
+    content_label.add_css_class("moose-message-content");
     row.append(&role_label);
     row.append(&content_label);
     messages.append(&row);
@@ -799,6 +852,29 @@ fn icon_button(icon_name: &str, tooltip: &str) -> gtk::Button {
     button.add_css_class("flat");
     button.set_tooltip_text(Some(tooltip));
     button
+}
+
+fn composer_button(icon_name: &str, tooltip: &str) -> gtk::Button {
+    let button = gtk::Button::from_icon_name(icon_name);
+    button.add_css_class("circular");
+    button.add_css_class("moose-composer-button");
+    button.set_tooltip_text(Some(tooltip));
+    button
+}
+
+fn install_chat_css() {
+    let provider = gtk::CssProvider::new();
+    let css = option_env!("MOOSE_STYLE_PATH")
+        .and_then(|path| fs::read_to_string(path).ok())
+        .unwrap_or_else(|| CHAT_CSS.to_string());
+    provider.load_from_string(&css);
+    if let Some(display) = gtk::gdk::Display::default() {
+        gtk::style_context_add_provider_for_display(
+            &display,
+            &provider,
+            gtk::STYLE_PROVIDER_PRIORITY_APPLICATION,
+        );
+    }
 }
 
 fn section_label(text: &str) -> gtk::Label {

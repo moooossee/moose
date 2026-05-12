@@ -1,0 +1,31 @@
+.moose-chat-column {
+  padding: 26px 18px 18px 18px;
+}
+
+.moose-message {
+  padding: 8px 2px 16px 2px;
+}
+
+.moose-message-user {
+  color: @accent_color;
+}
+
+.moose-message-content {
+  line-height: 1.45;
+}
+
+.moose-composer {
+  background-color: @card_bg_color;
+  border: 1px solid @borders;
+  border-radius: 12px;
+  padding: 8px;
+}
+
+.moose-composer-entry {
+  min-height: 44px;
+}
+
+.moose-composer-button {
+  min-height: 44px;
+  min-width: 44px;
+}
