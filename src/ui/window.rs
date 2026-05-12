@@ -778,7 +778,6 @@ fn set_model_picker(ui: &WindowUi, models: Vec<String>) {
 
 fn append_message(messages: &gtk::Box, role: &str, content: &str) -> gtk::Label {
     let is_user = role == "You";
-    let horizontal_alignment = if is_user { Align::End } else { Align::Start };
     let text_alignment = if is_user { 1.0 } else { 0.0 };
     let justification = if is_user {
         gtk::Justification::Right
@@ -788,22 +787,25 @@ fn append_message(messages: &gtk::Box, role: &str, content: &str) -> gtk::Label 
     let row = gtk::Box::builder()
         .orientation(Orientation::Vertical)
         .spacing(6)
-        .halign(horizontal_alignment)
+        .halign(Align::Fill)
         .hexpand(true)
         .build();
     let role_label = gtk::Label::builder()
         .label(role)
-        .halign(horizontal_alignment)
+        .halign(Align::Fill)
         .xalign(text_alignment)
         .justify(justification)
         .build();
     let content_label = gtk::Label::builder()
         .label(content)
-        .halign(horizontal_alignment)
+        .halign(Align::Fill)
+        .hexpand(true)
         .xalign(text_alignment)
         .justify(justification)
         .wrap(true)
-        .max_width_chars(104)
+        .wrap_mode(gtk::pango::WrapMode::WordChar)
+        .natural_wrap_mode(gtk::NaturalWrapMode::None)
+        .width_chars(120)
         .selectable(true)
         .build();
 
