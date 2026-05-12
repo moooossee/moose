@@ -28,9 +28,11 @@ pub struct OllamaModel {
     pub digest: Option<String>,
     pub size_bytes: Option<u64>,
     pub family: Option<String>,
+    pub families: Vec<String>,
     pub parameter_size: Option<String>,
     pub quantization_level: Option<String>,
     pub modified_at: Option<String>,
+    pub supports_chat: bool,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -60,8 +62,14 @@ struct TagModel {
 #[derive(Debug, Deserialize)]
 struct TagModelDetails {
     family: Option<String>,
+    families: Option<Vec<String>>,
     parameter_size: Option<String>,
     quantization_level: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+struct ErrorResponse {
+    error: String,
 }
 
 #[derive(Debug, Deserialize)]
@@ -128,7 +136,7 @@ impl OllamaClient {
             .await?;
 
         if !response.status().is_success() {
-            return Err(MooseError::HttpStatus(response.status()));
+            return Err(response_error(response).await);
         }
 
         let mut stream = response.bytes_stream();
@@ -164,7 +172,7 @@ impl OllamaClient {
     async fn get_text(&self, endpoint: &str) -> Result<String> {
         let response = self.client.get(self.endpoint(endpoint)?).send().await?;
         if !response.status().is_success() {
-            return Err(MooseError::HttpStatus(response.status()));
+            return Err(response_error(response).await);
         }
         response.text().await.map_err(Into::into)
     }
@@ -195,16 +203,24 @@ pub fn parse_models_response(input: &str) -> Result<Vec<OllamaModel>> {
         .into_iter()
         .map(|model| {
             let details = model.details;
+            let family = details.as_ref().and_then(|details| details.family.clone());
+            let families = details
+                .as_ref()
+                .and_then(|details| details.families.clone())
+                .unwrap_or_else(|| family.iter().cloned().collect());
+            let supports_chat = supports_chat(&family, &families);
             OllamaModel {
                 name: model.name,
                 digest: model.digest,
                 size_bytes: model.size,
-                family: details.as_ref().and_then(|details| details.family.clone()),
+                family,
+                families,
                 parameter_size: details
                     .as_ref()
                     .and_then(|details| details.parameter_size.clone()),
                 quantization_level: details.and_then(|details| details.quantization_level),
                 modified_at: model.modified_at,
+                supports_chat,
             }
         })
         .collect())
@@ -226,10 +242,37 @@ pub fn parse_chat_stream_line(line: &str) -> Result<Option<ChatStreamEvent>> {
         .map(|message| ChatStreamEvent::Token(message.content)))
 }
 
+async fn response_error(response: reqwest::Response) -> MooseError {
+    let status = response.status();
+    let body = response.text().await.unwrap_or_default();
+    let message = parse_error_body(&body).unwrap_or_else(|| status.to_string());
+    MooseError::HttpStatus { status, message }
+}
+
+fn parse_error_body(body: &str) -> Option<String> {
+    serde_json::from_str::<ErrorResponse>(body)
+        .ok()
+        .map(|response| response.error)
+        .or_else(|| {
+            let trimmed = body.trim();
+            (!trimmed.is_empty()).then(|| trimmed.to_string())
+        })
+}
+
+fn supports_chat(family: &Option<String>, families: &[String]) -> bool {
+    let has_unsupported_family = family
+        .iter()
+        .chain(families.iter())
+        .map(|family| family.as_str())
+        .any(|family| matches!(family, "bert" | "clip"));
+    !has_unsupported_family
+}
+
 #[cfg(test)]
 mod tests {
     use super::{
-        OllamaClient, parse_chat_stream_line, parse_models_response, parse_version_response,
+        OllamaClient, parse_chat_stream_line, parse_error_body, parse_models_response,
+        parse_version_response,
     };
     use crate::chat::ChatStreamEvent;
 
@@ -257,6 +300,7 @@ mod tests {
                         "digest": "sha256:abc",
                         "details": {
                             "family": "llama",
+                            "families": ["llama"],
                             "parameter_size": "3.2B",
                             "quantization_level": "Q4_K_M"
                         }
@@ -270,6 +314,30 @@ mod tests {
         assert_eq!(models[0].name, "llama3.2:latest");
         assert_eq!(models[0].size_bytes, Some(2019393189));
         assert_eq!(models[0].family.as_deref(), Some("llama"));
+        assert!(models[0].supports_chat);
+    }
+
+    #[test]
+    fn parse_models_marks_embedding_models_as_not_chat_capable() {
+        let models = parse_models_response(
+            r#"{
+                "models": [
+                    {
+                        "name": "all-minilm:latest",
+                        "size": 45960996,
+                        "details": {
+                            "family": "bert",
+                            "families": ["bert"],
+                            "parameter_size": "23M",
+                            "quantization_level": "F16"
+                        }
+                    }
+                ]
+            }"#,
+        )
+        .unwrap();
+
+        assert!(!models[0].supports_chat);
     }
 
     #[test]
@@ -287,5 +355,12 @@ mod tests {
 
         assert_eq!(token, Some(ChatStreamEvent::Token("Hello".to_string())));
         assert_eq!(done, Some(ChatStreamEvent::Done));
+    }
+
+    #[test]
+    fn parse_error_body_reads_ollama_error() {
+        let message = parse_error_body(r#"{"error":"model does not support chat"}"#).unwrap();
+
+        assert_eq!(message, "model does not support chat");
     }
 }

@@ -555,7 +555,11 @@ fn refresh_models(ui: &Rc<WindowUi>, backend: &Rc<Backend>) {
 
         match client.list_models().await {
             Ok(models) => {
-                let names = models.into_iter().map(|model| model.name).collect();
+                let names = models
+                    .into_iter()
+                    .filter(|model| model.supports_chat)
+                    .map(|model| model.name)
+                    .collect();
                 let _ = sender.send(ModelLoadEvent::Loaded {
                     available: true,
                     status: health.message,

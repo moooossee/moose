@@ -12,8 +12,11 @@ pub enum MooseError {
     Database(#[from] rusqlite::Error),
     #[error("HTTP request failed: {0}")]
     Http(#[from] reqwest::Error),
-    #[error("HTTP request returned status {0}")]
-    HttpStatus(reqwest::StatusCode),
+    #[error("HTTP request returned status {status}: {message}")]
+    HttpStatus {
+        status: reqwest::StatusCode,
+        message: String,
+    },
     #[error("JSON parsing failed: {0}")]
     Json(#[from] serde_json::Error),
     #[error("URL parsing failed: {0}")]
