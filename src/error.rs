@@ -45,6 +45,12 @@ pub enum MooseError {
     InvalidIdentifier,
     #[error("invalid generation settings")]
     InvalidGenerationSettings,
+    #[error("conversation was not found")]
+    ConversationNotFound,
+    #[error("message was not found")]
+    MessageNotFound,
+    #[error("generation settings were not found")]
+    GenerationSettingsNotFound,
     #[error("invalid Ollama response: {0}")]
     InvalidOllamaResponse(String),
     #[error("numeric conversion failed: {0}")]

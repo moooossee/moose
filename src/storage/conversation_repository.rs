@@ -1,0 +1,349 @@
+use std::rc::Rc;
+
+use rusqlite::{Connection, OptionalExtension, Row, params};
+
+use crate::{
+    conversations::{
+        Conversation, ConversationTitleUpdate, GenerationSettings, Message, MessageRole,
+        MessageStatus, MessageUpdate, NewConversation, NewGenerationSettings, NewMessage,
+        validate_conversation_title, validate_message_content,
+    },
+    core::utc_now,
+    error::{MooseError, Result},
+};
+
+#[derive(Clone)]
+pub struct ConversationRepository {
+    connection: Rc<Connection>,
+}
+
+impl ConversationRepository {
+    pub fn new(connection: Rc<Connection>) -> Self {
+        Self { connection }
+    }
+
+    pub fn create(&self, new_conversation: NewConversation) -> Result<Conversation> {
+        let conversation = new_conversation.into_conversation()?;
+
+        self.connection.execute(
+            "INSERT INTO conversations (
+                id, provider_id, model_id, title, created_at, updated_at, archived_at
+             )
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+            params![
+                conversation.id,
+                conversation.provider_id,
+                conversation.model_id,
+                conversation.title,
+                conversation.created_at,
+                conversation.updated_at,
+                conversation.archived_at,
+            ],
+        )?;
+
+        self.get_required(&conversation.id)
+    }
+
+    pub fn list_recent(&self, limit: usize) -> Result<Vec<Conversation>> {
+        let limit = i64::try_from(limit)?;
+        let mut statement = self.connection.prepare(
+            "SELECT id, provider_id, model_id, title, created_at, updated_at, archived_at
+             FROM conversations
+             WHERE archived_at IS NULL
+             ORDER BY updated_at DESC, created_at DESC
+             LIMIT ?1",
+        )?;
+        let conversations = statement
+            .query_map(params![limit], conversation_from_row)?
+            .collect::<std::result::Result<Vec<_>, _>>()?;
+        Ok(conversations)
+    }
+
+    pub fn get(&self, id: &str) -> Result<Option<Conversation>> {
+        self.connection
+            .query_row(
+                "SELECT id, provider_id, model_id, title, created_at, updated_at, archived_at
+                 FROM conversations
+                 WHERE id = ?1",
+                params![id],
+                conversation_from_row,
+            )
+            .optional()
+            .map_err(Into::into)
+    }
+
+    pub fn update_title(&self, update: ConversationTitleUpdate) -> Result<Conversation> {
+        let title = validate_conversation_title(&update.title)?;
+        let timestamp = utc_now();
+        let changed = self.connection.execute(
+            "UPDATE conversations
+             SET title = ?1, updated_at = ?2
+             WHERE id = ?3",
+            params![title, timestamp, update.id],
+        )?;
+
+        if changed == 0 {
+            return Err(MooseError::ConversationNotFound);
+        }
+
+        self.get_required(&update.id)
+    }
+
+    pub fn archive(&self, id: &str) -> Result<Conversation> {
+        let timestamp = utc_now();
+        let changed = self.connection.execute(
+            "UPDATE conversations
+             SET archived_at = ?1, updated_at = ?1
+             WHERE id = ?2",
+            params![timestamp, id],
+        )?;
+
+        if changed == 0 {
+            return Err(MooseError::ConversationNotFound);
+        }
+
+        self.get_required(id)
+    }
+
+    pub fn delete(&self, id: &str) -> Result<()> {
+        let changed = self
+            .connection
+            .execute("DELETE FROM conversations WHERE id = ?1", params![id])?;
+
+        if changed == 0 {
+            return Err(MooseError::ConversationNotFound);
+        }
+
+        Ok(())
+    }
+
+    pub fn create_message(&self, new_message: NewMessage) -> Result<Message> {
+        let message = new_message.into_message()?;
+
+        self.connection.execute(
+            "INSERT INTO messages (
+                id, conversation_id, role, content, status, token_count, created_at, completed_at
+             )
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
+            params![
+                message.id,
+                message.conversation_id,
+                message.role.as_str(),
+                message.content,
+                message.status.as_str(),
+                message.token_count,
+                message.created_at,
+                message.completed_at,
+            ],
+        )?;
+
+        self.touch_conversation(&message.conversation_id)?;
+        self.get_message_required(&message.id)
+    }
+
+    pub fn list_messages(&self, conversation_id: &str) -> Result<Vec<Message>> {
+        let mut statement = self.connection.prepare(
+            "SELECT id, conversation_id, role, content, status, token_count, created_at, completed_at
+             FROM messages
+             WHERE conversation_id = ?1
+             ORDER BY created_at ASC, id ASC",
+        )?;
+        let messages = statement
+            .query_map(params![conversation_id], message_from_row)?
+            .collect::<std::result::Result<Vec<_>, _>>()?;
+        Ok(messages)
+    }
+
+    pub fn get_message(&self, id: &str) -> Result<Option<Message>> {
+        self.connection
+            .query_row(
+                "SELECT id, conversation_id, role, content, status, token_count, created_at, completed_at
+                 FROM messages
+                 WHERE id = ?1",
+                params![id],
+                message_from_row,
+            )
+            .optional()
+            .map_err(Into::into)
+    }
+
+    pub fn update_message(&self, update: MessageUpdate) -> Result<Message> {
+        let content = validate_message_content(&update.content, &update.status)?;
+        let completed_at = update.status.is_finished().then(utc_now);
+        let changed = self.connection.execute(
+            "UPDATE messages
+             SET content = ?1, status = ?2, token_count = ?3, completed_at = ?4
+             WHERE id = ?5",
+            params![
+                content,
+                update.status.as_str(),
+                update.token_count,
+                completed_at,
+                update.id,
+            ],
+        )?;
+
+        if changed == 0 {
+            return Err(MooseError::MessageNotFound);
+        }
+
+        let message = self.get_message_required(&update.id)?;
+        self.touch_conversation(&message.conversation_id)?;
+        Ok(message)
+    }
+
+    pub fn create_generation_settings(
+        &self,
+        new_settings: NewGenerationSettings,
+    ) -> Result<GenerationSettings> {
+        let settings = new_settings.into_generation_settings()?;
+
+        self.connection.execute(
+            "INSERT INTO generation_settings (
+                id, conversation_id, model, temperature, top_p, top_k, seed, num_ctx, system_prompt, created_at
+             )
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
+            params![
+                settings.id,
+                settings.conversation_id,
+                settings.model,
+                settings.temperature,
+                settings.top_p,
+                settings.top_k,
+                settings.seed,
+                settings.num_ctx,
+                settings.system_prompt,
+                settings.created_at,
+            ],
+        )?;
+
+        if let Some(conversation_id) = &settings.conversation_id {
+            self.touch_conversation(conversation_id)?;
+        }
+
+        self.get_generation_settings_required(&settings.id)
+    }
+
+    pub fn list_generation_settings(
+        &self,
+        conversation_id: &str,
+    ) -> Result<Vec<GenerationSettings>> {
+        let mut statement = self.connection.prepare(
+            "SELECT id, conversation_id, model, temperature, top_p, top_k, seed, num_ctx, system_prompt, created_at
+             FROM generation_settings
+             WHERE conversation_id = ?1
+             ORDER BY created_at DESC, id DESC",
+        )?;
+        let settings = statement
+            .query_map(params![conversation_id], generation_settings_from_row)?
+            .collect::<std::result::Result<Vec<_>, _>>()?;
+        Ok(settings)
+    }
+
+    pub fn latest_generation_settings(
+        &self,
+        conversation_id: &str,
+    ) -> Result<Option<GenerationSettings>> {
+        self.connection
+            .query_row(
+                "SELECT id, conversation_id, model, temperature, top_p, top_k, seed, num_ctx, system_prompt, created_at
+                 FROM generation_settings
+                 WHERE conversation_id = ?1
+                 ORDER BY created_at DESC, id DESC
+                 LIMIT 1",
+                params![conversation_id],
+                generation_settings_from_row,
+            )
+            .optional()
+            .map_err(Into::into)
+    }
+
+    fn get_required(&self, id: &str) -> Result<Conversation> {
+        self.get(id)?.ok_or(MooseError::ConversationNotFound)
+    }
+
+    fn get_message_required(&self, id: &str) -> Result<Message> {
+        self.get_message(id)?.ok_or(MooseError::MessageNotFound)
+    }
+
+    fn get_generation_settings_required(&self, id: &str) -> Result<GenerationSettings> {
+        self.connection
+            .query_row(
+                "SELECT id, conversation_id, model, temperature, top_p, top_k, seed, num_ctx, system_prompt, created_at
+                 FROM generation_settings
+                 WHERE id = ?1",
+                params![id],
+                generation_settings_from_row,
+            )
+            .optional()?
+            .ok_or(MooseError::GenerationSettingsNotFound)
+    }
+
+    fn touch_conversation(&self, id: &str) -> Result<()> {
+        let changed = self.connection.execute(
+            "UPDATE conversations SET updated_at = ?1 WHERE id = ?2",
+            params![utc_now(), id],
+        )?;
+
+        if changed == 0 {
+            return Err(MooseError::ConversationNotFound);
+        }
+
+        Ok(())
+    }
+}
+
+fn conversation_from_row(row: &Row<'_>) -> rusqlite::Result<Conversation> {
+    Ok(Conversation {
+        id: row.get(0)?,
+        provider_id: row.get(1)?,
+        model_id: row.get(2)?,
+        title: row.get(3)?,
+        created_at: row.get(4)?,
+        updated_at: row.get(5)?,
+        archived_at: row.get(6)?,
+    })
+}
+
+fn message_from_row(row: &Row<'_>) -> rusqlite::Result<Message> {
+    let role: String = row.get(2)?;
+    let status: String = row.get(4)?;
+
+    Ok(Message {
+        id: row.get(0)?,
+        conversation_id: row.get(1)?,
+        role: role.parse::<MessageRole>().map_err(|error| {
+            rusqlite::Error::FromSqlConversionFailure(
+                2,
+                rusqlite::types::Type::Text,
+                Box::new(error),
+            )
+        })?,
+        content: row.get(3)?,
+        status: status.parse::<MessageStatus>().map_err(|error| {
+            rusqlite::Error::FromSqlConversionFailure(
+                4,
+                rusqlite::types::Type::Text,
+                Box::new(error),
+            )
+        })?,
+        token_count: row.get(5)?,
+        created_at: row.get(6)?,
+        completed_at: row.get(7)?,
+    })
+}
+
+fn generation_settings_from_row(row: &Row<'_>) -> rusqlite::Result<GenerationSettings> {
+    Ok(GenerationSettings {
+        id: row.get(0)?,
+        conversation_id: row.get(1)?,
+        model: row.get(2)?,
+        temperature: row.get(3)?,
+        top_p: row.get(4)?,
+        top_k: row.get(5)?,
+        seed: row.get(6)?,
+        num_ctx: row.get(7)?,
+        system_prompt: row.get(8)?,
+        created_at: row.get(9)?,
+    })
+}

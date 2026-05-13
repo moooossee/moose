@@ -291,7 +291,7 @@ pub fn validate_message_content(value: &str, status: &MessageStatus) -> Result<S
         return Err(MooseError::InvalidMessageContent);
     }
 
-    if value.trim().is_empty() && !matches!(status, MessageStatus::Streaming) {
+    if value.trim().is_empty() && matches!(status, MessageStatus::Complete) {
         return Err(MooseError::InvalidMessageContent);
     }
 
