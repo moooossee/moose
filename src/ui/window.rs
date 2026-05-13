@@ -6,7 +6,9 @@ use gtk::{Align, Orientation};
 use crate::{
     APPLICATION_ID, APPLICATION_NAME,
     chat::{ChatMessage, ChatRequest, ChatStreamEvent},
-    conversations::{MessageUpdate, NewConversation, NewMessage},
+    conversations::{
+        Conversation, Message, MessageRole, MessageUpdate, NewConversation, NewMessage,
+    },
     error::Result,
     ollama::OllamaClient,
     platform::AppPaths,
@@ -55,18 +57,22 @@ pub fn build(app: &adw::Application) -> adw::ApplicationWindow {
     window.set_size_request(768, 520);
 
     let model_names = Rc::new(RefCell::new(Vec::new()));
+    let conversation_ids = Rc::new(RefCell::new(Vec::new()));
     let ui = Rc::new(WindowUi {
+        window: window.clone(),
         toast_overlay,
         provider_row: sidebar.provider_row,
         provider_status: sidebar.provider_status,
         refresh_button: sidebar.refresh_button,
         model_picker: sidebar.model_picker,
+        conversation_list: sidebar.conversation_list,
         messages: chat.messages,
         message_stack: chat.message_stack,
         entry: chat.entry,
         send_button: chat.send_button,
         stop_button: chat.stop_button,
         model_names,
+        conversation_ids,
     });
 
     match Backend::new() {
@@ -82,6 +88,7 @@ pub fn build(app: &adw::Application) -> adw::ApplicationWindow {
                 &preferences_button,
             );
             refresh_models(&ui, &backend);
+            refresh_conversations(&ui, &backend);
         }
         Err(error) => {
             ui.provider_status.set_text("Storage Error");
@@ -108,17 +115,20 @@ struct Backend {
 }
 
 struct WindowUi {
+    window: adw::ApplicationWindow,
     toast_overlay: adw::ToastOverlay,
     provider_row: adw::ActionRow,
     provider_status: gtk::Label,
     refresh_button: gtk::Button,
     model_picker: gtk::DropDown,
+    conversation_list: gtk::ListBox,
     messages: gtk::Box,
     message_stack: gtk::Stack,
     entry: gtk::Entry,
     send_button: gtk::Button,
     stop_button: gtk::Button,
     model_names: Rc<RefCell<Vec<String>>>,
+    conversation_ids: Rc<RefCell<Vec<String>>>,
 }
 
 struct Sidebar {
@@ -127,6 +137,7 @@ struct Sidebar {
     provider_status: gtk::Label,
     refresh_button: gtk::Button,
     model_picker: gtk::DropDown,
+    conversation_list: gtk::ListBox,
 }
 
 struct Chat {
@@ -221,8 +232,18 @@ fn bind_actions(
                 "Conversation could not be saved: {error}"
             )));
         }
-        target_backend.active_conversation_id.borrow_mut().take();
-        clear_messages(&target_ui);
+        match create_empty_conversation(&target_backend) {
+            Ok(conversation_id) => {
+                clear_messages(&target_ui);
+                refresh_conversations(&target_ui, &target_backend);
+                select_conversation(&target_ui, &conversation_id);
+            }
+            Err(error) => {
+                target_ui.toast_overlay.add_toast(adw::Toast::new(&format!(
+                    "Conversation could not be created: {error}"
+                )));
+            }
+        }
     });
 
     let target_ui = Rc::clone(ui);
@@ -256,6 +277,7 @@ fn bind_actions(
         .connect_clicked(move |_| match target_backend.cancel_generation() {
             Ok(true) => {
                 finish_generation(&target_ui);
+                refresh_conversations(&target_ui, &target_backend);
                 target_ui
                     .toast_overlay
                     .add_toast(adw::Toast::new("Generation cancelled"));
@@ -274,6 +296,34 @@ fn bind_actions(
         target_ui
             .send_button
             .set_sensitive(selected_model(dropdown, &target_ui.model_names).is_some());
+    });
+
+    let target_ui = Rc::clone(ui);
+    let target_backend = Rc::clone(backend);
+    ui.conversation_list.connect_row_selected(move |_, row| {
+        let Some(row) = row else {
+            return;
+        };
+
+        if target_backend.active_generation.borrow().is_some() {
+            target_ui
+                .toast_overlay
+                .add_toast(adw::Toast::new("Finish the active generation first"));
+            return;
+        }
+
+        let Ok(index) = usize::try_from(row.index()) else {
+            return;
+        };
+        let Some(conversation_id) = target_ui.conversation_ids.borrow().get(index).cloned() else {
+            return;
+        };
+
+        if let Err(error) = load_conversation(&target_ui, &target_backend, &conversation_id) {
+            target_ui.toast_overlay.add_toast(adw::Toast::new(&format!(
+                "Conversation could not be loaded: {error}"
+            )));
+        }
     });
 
     let parent = window.clone();
@@ -319,21 +369,15 @@ fn sidebar() -> Sidebar {
     model_box.append(&section_label("Model"));
     model_box.append(&model_picker);
 
-    let conversation_group = gtk::ListBox::new();
-    conversation_group.add_css_class("boxed-list");
-    conversation_group.set_selection_mode(gtk::SelectionMode::Single);
-    conversation_group.append(
-        &adw::ActionRow::builder()
-            .title("New Conversation")
-            .subtitle("Unsaved")
-            .build(),
-    );
+    let conversation_list = gtk::ListBox::new();
+    conversation_list.add_css_class("boxed-list");
+    conversation_list.set_selection_mode(gtk::SelectionMode::Single);
 
     root.append(&section_label("Provider"));
     root.append(&provider_group);
     root.append(&model_box);
     root.append(&section_label("Conversations"));
-    root.append(&conversation_group);
+    root.append(&conversation_list);
 
     Sidebar {
         root,
@@ -341,6 +385,7 @@ fn sidebar() -> Sidebar {
         provider_status,
         refresh_button,
         model_picker,
+        conversation_list,
     }
 }
 
@@ -744,6 +789,7 @@ fn send_message(ui: &Rc<WindowUi>, backend: &Rc<Backend>) {
             return;
         }
     };
+    refresh_conversations(ui, backend);
 
     backend.abort_generation();
     *backend.active_assistant_message_id.borrow_mut() = Some(assistant_message_id);
@@ -795,6 +841,7 @@ fn send_message(ui: &Rc<WindowUi>, backend: &Rc<Backend>) {
                             "Conversation could not be saved: {error}"
                         )));
                     }
+                    refresh_conversations(&target_ui, &target_backend);
                     return gtk::glib::ControlFlow::Break;
                 }
                 Ok(ChatUiEvent::Failed(error)) => {
@@ -808,6 +855,7 @@ fn send_message(ui: &Rc<WindowUi>, backend: &Rc<Backend>) {
                             "Conversation could not be saved: {save_error}"
                         )));
                     }
+                    refresh_conversations(&target_ui, &target_backend);
                     target_ui
                         .toast_overlay
                         .add_toast(adw::Toast::new(&format!("Generation failed: {error}")));
@@ -825,11 +873,260 @@ fn send_message(ui: &Rc<WindowUi>, backend: &Rc<Backend>) {
                             "Conversation could not be saved: {error}"
                         )));
                     }
+                    refresh_conversations(&target_ui, &target_backend);
                     return gtk::glib::ControlFlow::Break;
                 }
             }
         }
     });
+}
+
+fn refresh_conversations(ui: &Rc<WindowUi>, backend: &Rc<Backend>) {
+    match backend.conversation_repository.list_recent(30) {
+        Ok(conversations) => set_conversation_list(ui, backend, conversations),
+        Err(error) => ui.toast_overlay.add_toast(adw::Toast::new(&format!(
+            "Conversations could not be loaded: {error}"
+        ))),
+    }
+}
+
+fn confirm_delete_conversation(ui: &Rc<WindowUi>, backend: &Rc<Backend>, conversation_id: &str) {
+    if backend.active_generation.borrow().is_some() {
+        ui.toast_overlay
+            .add_toast(adw::Toast::new("Finish the active generation first"));
+        return;
+    }
+
+    let title = match backend.conversation_repository.get(&conversation_id) {
+        Ok(Some(conversation)) => conversation.title,
+        Ok(None) => {
+            refresh_conversations(ui, backend);
+            ui.toast_overlay
+                .add_toast(adw::Toast::new("Conversation was not found"));
+            return;
+        }
+        Err(error) => {
+            ui.toast_overlay.add_toast(adw::Toast::new(&format!(
+                "Conversation could not be loaded: {error}"
+            )));
+            return;
+        }
+    };
+
+    let dialog = adw::AlertDialog::builder()
+        .heading("Delete Conversation?")
+        .body(&format!("Delete \"{title}\" and all of its messages?"))
+        .close_response("cancel")
+        .default_response("cancel")
+        .build();
+    dialog.add_response("cancel", "Cancel");
+    dialog.add_response("delete", "Delete");
+    dialog.set_response_appearance("delete", adw::ResponseAppearance::Destructive);
+
+    let target_ui = Rc::clone(ui);
+    let target_backend = Rc::clone(backend);
+    let target_conversation_id = conversation_id.to_string();
+    dialog.connect_response(Some("delete"), move |_, _| {
+        delete_conversation(&target_ui, &target_backend, &target_conversation_id);
+    });
+    dialog.present(Some(&ui.window));
+}
+
+fn delete_conversation(ui: &Rc<WindowUi>, backend: &Rc<Backend>, conversation_id: &str) {
+    match backend.conversation_repository.delete(conversation_id) {
+        Ok(()) => {
+            if backend.active_conversation_id.borrow().as_deref() == Some(conversation_id) {
+                backend.active_conversation_id.borrow_mut().take();
+                backend.active_assistant_message_id.borrow_mut().take();
+                backend.active_assistant_content.borrow_mut().clear();
+                ui.conversation_list.unselect_all();
+                clear_messages(ui);
+            }
+            refresh_conversations(ui, backend);
+            ui.toast_overlay
+                .add_toast(adw::Toast::new("Conversation deleted"));
+        }
+        Err(error) => ui.toast_overlay.add_toast(adw::Toast::new(&format!(
+            "Conversation could not be deleted: {error}"
+        ))),
+    }
+}
+
+fn create_empty_conversation(backend: &Backend) -> Result<String> {
+    let provider = backend.provider.borrow().clone();
+    let conversation = backend.conversation_repository.create(NewConversation {
+        provider_id: provider.id,
+        model_id: None,
+        title: "New Conversation".to_string(),
+    })?;
+    let conversation_id = conversation.id;
+    *backend.active_conversation_id.borrow_mut() = Some(conversation_id.clone());
+    backend.active_assistant_message_id.borrow_mut().take();
+    backend.active_assistant_content.borrow_mut().clear();
+    Ok(conversation_id)
+}
+
+fn select_conversation(ui: &WindowUi, conversation_id: &str) {
+    let Some(index) = ui
+        .conversation_ids
+        .borrow()
+        .iter()
+        .position(|id| id == conversation_id)
+    else {
+        ui.conversation_list.unselect_all();
+        return;
+    };
+
+    let Ok(index) = i32::try_from(index) else {
+        ui.conversation_list.unselect_all();
+        return;
+    };
+
+    if let Some(row) = ui.conversation_list.row_at_index(index) {
+        ui.conversation_list.select_row(Some(&row));
+    } else {
+        ui.conversation_list.unselect_all();
+    }
+}
+
+fn set_conversation_list(
+    ui: &Rc<WindowUi>,
+    backend: &Rc<Backend>,
+    conversations: Vec<Conversation>,
+) {
+    while let Some(child) = ui.conversation_list.first_child() {
+        ui.conversation_list.remove(&child);
+    }
+
+    *ui.conversation_ids.borrow_mut() = conversations
+        .iter()
+        .map(|conversation| conversation.id.clone())
+        .collect();
+
+    if conversations.is_empty() {
+        let row = adw::ActionRow::builder()
+            .title("No Conversations")
+            .subtitle("Start a new chat")
+            .sensitive(false)
+            .build();
+        ui.conversation_list.append(&row);
+        return;
+    }
+
+    for conversation in conversations {
+        ui.conversation_list
+            .append(&conversation_row(&conversation, ui, backend));
+    }
+}
+
+fn conversation_row(
+    conversation: &Conversation,
+    ui: &Rc<WindowUi>,
+    backend: &Rc<Backend>,
+) -> adw::ActionRow {
+    let row = adw::ActionRow::builder()
+        .title(&conversation.title)
+        .subtitle(&conversation.updated_at)
+        .build();
+    let click = gtk::GestureClick::builder().button(3).build();
+    let target_row = row.clone();
+    let target_ui = Rc::clone(ui);
+    let target_backend = Rc::clone(backend);
+    let conversation_id = conversation.id.clone();
+
+    click.connect_pressed(move |_, _, x, y| {
+        show_conversation_menu(
+            &target_row,
+            &target_ui,
+            &target_backend,
+            &conversation_id,
+            x,
+            y,
+        );
+    });
+    row.add_controller(click);
+    row
+}
+
+fn show_conversation_menu(
+    row: &adw::ActionRow,
+    ui: &Rc<WindowUi>,
+    backend: &Rc<Backend>,
+    conversation_id: &str,
+    x: f64,
+    y: f64,
+) {
+    let popover = gtk::Popover::builder()
+        .autohide(true)
+        .has_arrow(false)
+        .build();
+    let menu = gtk::Box::builder()
+        .orientation(Orientation::Vertical)
+        .spacing(0)
+        .build();
+    let delete_button = gtk::Button::with_label("Delete Conversation");
+
+    delete_button.add_css_class("flat");
+    delete_button.add_css_class("destructive-action");
+    menu.append(&delete_button);
+    popover.set_child(Some(&menu));
+    popover.set_parent(row);
+    popover.set_pointing_to(Some(&gtk::gdk::Rectangle::new(
+        x.round() as i32,
+        y.round() as i32,
+        1,
+        1,
+    )));
+
+    let target_ui = Rc::clone(ui);
+    let target_backend = Rc::clone(backend);
+    let target_conversation_id = conversation_id.to_string();
+    let target_popover = popover.clone();
+    delete_button.connect_clicked(move |_| {
+        target_popover.popdown();
+        confirm_delete_conversation(&target_ui, &target_backend, &target_conversation_id);
+    });
+    popover.popup();
+}
+
+fn load_conversation(ui: &WindowUi, backend: &Backend, conversation_id: &str) -> Result<()> {
+    let messages = backend
+        .conversation_repository
+        .list_messages(conversation_id)?;
+
+    clear_messages(ui);
+    *backend.active_conversation_id.borrow_mut() = Some(conversation_id.to_string());
+    backend.active_assistant_message_id.borrow_mut().take();
+    backend.active_assistant_content.borrow_mut().clear();
+
+    for message in &messages {
+        append_stored_message(&ui.messages, message);
+    }
+
+    if messages.is_empty() {
+        ui.message_stack.set_visible_child_name("empty");
+    } else {
+        ui.message_stack.set_visible_child_name("messages");
+    }
+
+    Ok(())
+}
+
+fn append_stored_message(messages: &gtk::Box, message: &Message) {
+    append_message(
+        messages,
+        message_role_label(&message.role),
+        message.content.as_str(),
+    );
+}
+
+fn message_role_label(role: &MessageRole) -> &'static str {
+    match role {
+        MessageRole::System => "System",
+        MessageRole::User => "You",
+        MessageRole::Assistant => "Assistant",
+        MessageRole::Tool => "Tool",
+    }
 }
 
 fn ensure_active_conversation(backend: &Backend, prompt: &str) -> Result<String> {
