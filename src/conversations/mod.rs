@@ -20,6 +20,14 @@ pub struct Conversation {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
+pub struct ConversationSummary {
+    pub conversation: Conversation,
+    pub preview: String,
+    pub last_message_status: Option<MessageStatus>,
+    pub last_message_created_at: Option<String>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct NewConversation {
     pub provider_id: String,
     pub model_id: Option<String>,
@@ -119,6 +127,24 @@ impl NewConversation {
             updated_at: timestamp,
             archived_at: None,
         })
+    }
+}
+
+impl ConversationSummary {
+    pub fn from_latest_message(conversation: Conversation, message: Option<Message>) -> Self {
+        let last_message_status = message.as_ref().map(|message| message.status.clone());
+        let last_message_created_at = message.as_ref().map(|message| message.created_at.clone());
+        let preview = message
+            .as_ref()
+            .map(message_preview)
+            .unwrap_or_else(|| "Empty conversation".to_string());
+
+        Self {
+            conversation,
+            preview,
+            last_message_status,
+            last_message_created_at,
+        }
     }
 }
 
@@ -324,11 +350,33 @@ fn invalid_text_character(character: char) -> bool {
     character.is_control() && !matches!(character, '\n' | '\r' | '\t')
 }
 
+fn message_preview(message: &Message) -> String {
+    match message.status {
+        MessageStatus::Streaming => "Generating response...".to_string(),
+        MessageStatus::Cancelled => "Generation cancelled".to_string(),
+        MessageStatus::Failed => "Generation failed".to_string(),
+        MessageStatus::Complete => compact_preview(&message.content),
+    }
+}
+
+fn compact_preview(content: &str) -> String {
+    let compact = content.split_whitespace().collect::<Vec<_>>().join(" ");
+    if compact.is_empty() {
+        return "Empty conversation".to_string();
+    }
+
+    let mut preview = compact.chars().take(96).collect::<String>();
+    if compact.chars().count() > 96 {
+        preview.push_str("...");
+    }
+    preview
+}
+
 #[cfg(test)]
 mod tests {
     use super::{
-        MessageRole, MessageStatus, NewConversation, NewGenerationSettings, NewMessage,
-        validate_conversation_title,
+        ConversationSummary, MessageRole, MessageStatus, NewConversation, NewGenerationSettings,
+        NewMessage, validate_conversation_title,
     };
 
     #[test]
@@ -411,5 +459,50 @@ mod tests {
         .unwrap();
 
         assert_eq!(settings.model.as_deref(), Some("llama3.2:latest"));
+    }
+
+    #[test]
+    fn conversation_summary_compacts_complete_message_preview() {
+        let conversation = NewConversation {
+            provider_id: "provider-id".to_string(),
+            model_id: None,
+            title: "Preview".to_string(),
+        }
+        .into_conversation()
+        .unwrap();
+        let message = NewMessage::user("conversation-id", "Hello\n\nfrom Moose")
+            .into_message()
+            .unwrap();
+        let summary = ConversationSummary::from_latest_message(conversation, Some(message));
+
+        assert_eq!(summary.preview, "Hello from Moose");
+        assert_eq!(summary.last_message_status, Some(MessageStatus::Complete));
+    }
+
+    #[test]
+    fn conversation_summary_names_incomplete_message_states() {
+        let conversation = NewConversation {
+            provider_id: "provider-id".to_string(),
+            model_id: None,
+            title: "States".to_string(),
+        }
+        .into_conversation()
+        .unwrap();
+        let mut message = NewMessage::assistant_streaming("conversation-id")
+            .into_message()
+            .unwrap();
+
+        let streaming =
+            ConversationSummary::from_latest_message(conversation.clone(), Some(message.clone()));
+        assert_eq!(streaming.preview, "Generating response...");
+
+        message.status = MessageStatus::Cancelled;
+        let cancelled =
+            ConversationSummary::from_latest_message(conversation.clone(), Some(message.clone()));
+        assert_eq!(cancelled.preview, "Generation cancelled");
+
+        message.status = MessageStatus::Failed;
+        let failed = ConversationSummary::from_latest_message(conversation, Some(message));
+        assert_eq!(failed.preview, "Generation failed");
     }
 }

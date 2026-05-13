@@ -7,7 +7,8 @@ use crate::{
     APPLICATION_ID, APPLICATION_NAME,
     chat::{ChatMessage, ChatRequest, ChatStreamEvent},
     conversations::{
-        Conversation, Message, MessageRole, MessageUpdate, NewConversation, NewMessage,
+        ConversationSummary, Message, MessageRole, MessageStatus, MessageUpdate, NewConversation,
+        NewMessage,
     },
     error::Result,
     ollama::OllamaClient,
@@ -67,12 +68,14 @@ pub fn build(app: &adw::Application) -> adw::ApplicationWindow {
         model_picker: sidebar.model_picker,
         conversation_list: sidebar.conversation_list,
         messages: chat.messages,
+        chat_status_page: chat.status_page,
         message_stack: chat.message_stack,
         entry: chat.entry,
         send_button: chat.send_button,
         stop_button: chat.stop_button,
         model_names,
         conversation_ids,
+        restoring_conversation_selection: RefCell::new(false),
     });
 
     match Backend::new() {
@@ -123,12 +126,14 @@ struct WindowUi {
     model_picker: gtk::DropDown,
     conversation_list: gtk::ListBox,
     messages: gtk::Box,
+    chat_status_page: adw::StatusPage,
     message_stack: gtk::Stack,
     entry: gtk::Entry,
     send_button: gtk::Button,
     stop_button: gtk::Button,
     model_names: Rc<RefCell<Vec<String>>>,
     conversation_ids: Rc<RefCell<Vec<String>>>,
+    restoring_conversation_selection: RefCell<bool>,
 }
 
 struct Sidebar {
@@ -143,6 +148,7 @@ struct Sidebar {
 struct Chat {
     root: gtk::Box,
     messages: gtk::Box,
+    status_page: adw::StatusPage,
     message_stack: gtk::Stack,
     entry: gtk::Entry,
     send_button: gtk::Button,
@@ -235,6 +241,7 @@ fn bind_actions(
         match create_empty_conversation(&target_backend) {
             Ok(conversation_id) => {
                 clear_messages(&target_ui);
+                set_chat_empty_state(&target_ui, "Empty Conversation", "Send a message to begin.");
                 refresh_conversations(&target_ui, &target_backend);
                 select_conversation(&target_ui, &conversation_id);
             }
@@ -301,6 +308,10 @@ fn bind_actions(
     let target_ui = Rc::clone(ui);
     let target_backend = Rc::clone(backend);
     ui.conversation_list.connect_row_selected(move |_, row| {
+        if *target_ui.restoring_conversation_selection.borrow() {
+            return;
+        }
+
         let Some(row) = row else {
             return;
         };
@@ -479,6 +490,7 @@ fn chat() -> Chat {
     Chat {
         root,
         messages,
+        status_page,
         message_stack,
         entry,
         send_button,
@@ -882,8 +894,8 @@ fn send_message(ui: &Rc<WindowUi>, backend: &Rc<Backend>) {
 }
 
 fn refresh_conversations(ui: &Rc<WindowUi>, backend: &Rc<Backend>) {
-    match backend.conversation_repository.list_recent(30) {
-        Ok(conversations) => set_conversation_list(ui, backend, conversations),
+    match backend.conversation_repository.list_recent_summaries(30) {
+        Ok(summaries) => set_conversation_list(ui, backend, summaries),
         Err(error) => ui.toast_overlay.add_toast(adw::Toast::new(&format!(
             "Conversations could not be loaded: {error}"
         ))),
@@ -992,47 +1004,59 @@ fn select_conversation(ui: &WindowUi, conversation_id: &str) {
 fn set_conversation_list(
     ui: &Rc<WindowUi>,
     backend: &Rc<Backend>,
-    conversations: Vec<Conversation>,
+    summaries: Vec<ConversationSummary>,
 ) {
+    *ui.restoring_conversation_selection.borrow_mut() = true;
+
     while let Some(child) = ui.conversation_list.first_child() {
         ui.conversation_list.remove(&child);
     }
 
-    *ui.conversation_ids.borrow_mut() = conversations
+    *ui.conversation_ids.borrow_mut() = summaries
         .iter()
-        .map(|conversation| conversation.id.clone())
+        .map(|summary| summary.conversation.id.clone())
         .collect();
 
-    if conversations.is_empty() {
+    if summaries.is_empty() {
         let row = adw::ActionRow::builder()
-            .title("No Conversations")
-            .subtitle("Start a new chat")
+            .title("No conversations yet")
+            .subtitle("Start a conversation")
             .sensitive(false)
             .build();
         ui.conversation_list.append(&row);
+        ui.conversation_list.unselect_all();
+        *ui.restoring_conversation_selection.borrow_mut() = false;
         return;
     }
 
-    for conversation in conversations {
+    for summary in summaries {
         ui.conversation_list
-            .append(&conversation_row(&conversation, ui, backend));
+            .append(&conversation_row(&summary, ui, backend));
     }
+
+    if let Some(conversation_id) = backend.active_conversation_id.borrow().as_deref() {
+        select_conversation(ui, conversation_id);
+    } else {
+        ui.conversation_list.unselect_all();
+    }
+
+    *ui.restoring_conversation_selection.borrow_mut() = false;
 }
 
 fn conversation_row(
-    conversation: &Conversation,
+    summary: &ConversationSummary,
     ui: &Rc<WindowUi>,
     backend: &Rc<Backend>,
 ) -> adw::ActionRow {
     let row = adw::ActionRow::builder()
-        .title(&conversation.title)
-        .subtitle(&conversation.updated_at)
+        .title(&summary.conversation.title)
         .build();
+
     let click = gtk::GestureClick::builder().button(3).build();
     let target_row = row.clone();
     let target_ui = Rc::clone(ui);
     let target_backend = Rc::clone(backend);
-    let conversation_id = conversation.id.clone();
+    let conversation_id = summary.conversation.id.clone();
 
     click.connect_pressed(move |_, _, x, y| {
         show_conversation_menu(
@@ -1104,6 +1128,7 @@ fn load_conversation(ui: &WindowUi, backend: &Backend, conversation_id: &str) ->
     }
 
     if messages.is_empty() {
+        set_chat_empty_state(ui, "Empty Conversation", "Send a message to begin.");
         ui.message_stack.set_visible_child_name("empty");
     } else {
         ui.message_stack.set_visible_child_name("messages");
@@ -1113,11 +1138,8 @@ fn load_conversation(ui: &WindowUi, backend: &Backend, conversation_id: &str) ->
 }
 
 fn append_stored_message(messages: &gtk::Box, message: &Message) {
-    append_message(
-        messages,
-        message_role_label(&message.role),
-        message.content.as_str(),
-    );
+    let content = stored_message_content(message);
+    append_message(messages, message_role_label(&message.role), &content);
 }
 
 fn message_role_label(role: &MessageRole) -> &'static str {
@@ -1126,6 +1148,25 @@ fn message_role_label(role: &MessageRole) -> &'static str {
         MessageRole::User => "You",
         MessageRole::Assistant => "Assistant",
         MessageRole::Tool => "Tool",
+    }
+}
+
+fn stored_message_content(message: &Message) -> String {
+    match message.status {
+        MessageStatus::Streaming if message.content.trim().is_empty() => {
+            "Generating response...".to_string()
+        }
+        MessageStatus::Cancelled => message_content_with_state(message, "Generation cancelled"),
+        MessageStatus::Failed => message_content_with_state(message, "Generation failed"),
+        _ => message.content.clone(),
+    }
+}
+
+fn message_content_with_state(message: &Message, state: &str) -> String {
+    if message.content.trim().is_empty() {
+        state.to_string()
+    } else {
+        format!("{}\n\n{state}", message.content)
     }
 }
 
@@ -1264,6 +1305,11 @@ fn append_message(messages: &gtk::Box, role: &str, content: &str) -> gtk::Label 
     content_label
 }
 
+fn set_chat_empty_state(ui: &WindowUi, title: &str, description: &str) {
+    ui.chat_status_page.set_title(title);
+    ui.chat_status_page.set_description(Some(description));
+}
+
 fn clear_messages(ui: &WindowUi) {
     while let Some(child) = ui.messages.first_child() {
         ui.messages.remove(&child);
@@ -1272,6 +1318,11 @@ fn clear_messages(ui: &WindowUi) {
     ui.stop_button.set_sensitive(false);
     ui.send_button
         .set_sensitive(selected_model(&ui.model_picker, &ui.model_names).is_some());
+    set_chat_empty_state(
+        ui,
+        "No Conversation Selected",
+        "Choose a model and start a conversation.",
+    );
     ui.message_stack.set_visible_child_name("empty");
 }
 

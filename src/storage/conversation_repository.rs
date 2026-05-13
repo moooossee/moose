@@ -4,9 +4,9 @@ use rusqlite::{Connection, OptionalExtension, Row, params};
 
 use crate::{
     conversations::{
-        Conversation, ConversationTitleUpdate, GenerationSettings, Message, MessageRole,
-        MessageStatus, MessageUpdate, NewConversation, NewGenerationSettings, NewMessage,
-        validate_conversation_title, validate_message_content,
+        Conversation, ConversationSummary, ConversationTitleUpdate, GenerationSettings, Message,
+        MessageRole, MessageStatus, MessageUpdate, NewConversation, NewGenerationSettings,
+        NewMessage, validate_conversation_title, validate_message_content,
     },
     core::utc_now,
     error::{MooseError, Result},
@@ -57,6 +57,30 @@ impl ConversationRepository {
             .query_map(params![limit], conversation_from_row)?
             .collect::<std::result::Result<Vec<_>, _>>()?;
         Ok(conversations)
+    }
+
+    pub fn list_recent_summaries(&self, limit: usize) -> Result<Vec<ConversationSummary>> {
+        let limit = i64::try_from(limit)?;
+        let mut statement = self.connection.prepare(
+            "SELECT
+                c.id, c.provider_id, c.model_id, c.title, c.created_at, c.updated_at, c.archived_at,
+                m.id, m.conversation_id, m.role, m.content, m.status, m.token_count, m.created_at, m.completed_at
+             FROM conversations c
+             LEFT JOIN messages m ON m.id = (
+                SELECT id
+                FROM messages
+                WHERE conversation_id = c.id
+                ORDER BY created_at DESC, id DESC
+                LIMIT 1
+             )
+             WHERE c.archived_at IS NULL
+             ORDER BY c.updated_at DESC, c.created_at DESC
+             LIMIT ?1",
+        )?;
+        let summaries = statement
+            .query_map(params![limit], conversation_summary_from_row)?
+            .collect::<std::result::Result<Vec<_>, _>>()?;
+        Ok(summaries)
     }
 
     pub fn get(&self, id: &str) -> Result<Option<Conversation>> {
@@ -305,6 +329,52 @@ fn conversation_from_row(row: &Row<'_>) -> rusqlite::Result<Conversation> {
     })
 }
 
+fn conversation_summary_from_row(row: &Row<'_>) -> rusqlite::Result<ConversationSummary> {
+    let conversation = Conversation {
+        id: row.get(0)?,
+        provider_id: row.get(1)?,
+        model_id: row.get(2)?,
+        title: row.get(3)?,
+        created_at: row.get(4)?,
+        updated_at: row.get(5)?,
+        archived_at: row.get(6)?,
+    };
+    let message_id: Option<String> = row.get(7)?;
+    let message = message_id
+        .map(|id| {
+            let role: String = row.get(9)?;
+            let status: String = row.get(11)?;
+
+            Ok::<Message, rusqlite::Error>(Message {
+                id,
+                conversation_id: row.get(8)?,
+                role: role.parse::<MessageRole>().map_err(|error| {
+                    rusqlite::Error::FromSqlConversionFailure(
+                        9,
+                        rusqlite::types::Type::Text,
+                        Box::new(error),
+                    )
+                })?,
+                content: row.get(10)?,
+                status: status.parse::<MessageStatus>().map_err(|error| {
+                    rusqlite::Error::FromSqlConversionFailure(
+                        11,
+                        rusqlite::types::Type::Text,
+                        Box::new(error),
+                    )
+                })?,
+                token_count: row.get(12)?,
+                created_at: row.get(13)?,
+                completed_at: row.get(14)?,
+            })
+        })
+        .transpose()?;
+    Ok(ConversationSummary::from_latest_message(
+        conversation,
+        message,
+    ))
+}
+
 fn message_from_row(row: &Row<'_>) -> rusqlite::Result<Message> {
     let role: String = row.get(2)?;
     let status: String = row.get(4)?;
@@ -346,4 +416,79 @@ fn generation_settings_from_row(row: &Row<'_>) -> rusqlite::Result<GenerationSet
         system_prompt: row.get(8)?,
         created_at: row.get(9)?,
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use std::rc::Rc;
+
+    use crate::{
+        conversations::{MessageStatus, MessageUpdate, NewConversation, NewMessage},
+        providers::NewProvider,
+        storage::{ConversationRepository, ProviderRepository, open_in_memory_database},
+    };
+
+    #[test]
+    fn conversation_repository_lists_recent_summaries_with_previews() {
+        let connection = Rc::new(open_in_memory_database().unwrap());
+        let provider_repository = ProviderRepository::new(Rc::clone(&connection));
+        let conversation_repository = ConversationRepository::new(connection);
+        let provider = provider_repository
+            .create(NewProvider::local_ollama(true))
+            .unwrap();
+        let conversation = conversation_repository
+            .create(NewConversation {
+                provider_id: provider.id,
+                model_id: None,
+                title: "First prompt".to_string(),
+            })
+            .unwrap();
+        conversation_repository
+            .create_message(NewMessage::user(&conversation.id, "Hello\nfrom Moose"))
+            .unwrap();
+
+        let summaries = conversation_repository.list_recent_summaries(10).unwrap();
+
+        assert_eq!(summaries.len(), 1);
+        assert_eq!(summaries[0].conversation.id, conversation.id);
+        assert_eq!(summaries[0].preview, "Hello from Moose");
+        assert_eq!(
+            summaries[0].last_message_status,
+            Some(MessageStatus::Complete)
+        );
+    }
+
+    #[test]
+    fn conversation_repository_summary_uses_latest_message_state() {
+        let connection = Rc::new(open_in_memory_database().unwrap());
+        let provider_repository = ProviderRepository::new(Rc::clone(&connection));
+        let conversation_repository = ConversationRepository::new(connection);
+        let provider = provider_repository
+            .create(NewProvider::local_ollama(true))
+            .unwrap();
+        let conversation = conversation_repository
+            .create(NewConversation {
+                provider_id: provider.id,
+                model_id: None,
+                title: "Generation".to_string(),
+            })
+            .unwrap();
+        conversation_repository
+            .create_message(NewMessage::user(&conversation.id, "Write a note"))
+            .unwrap();
+        let assistant = conversation_repository
+            .create_message(NewMessage::assistant_streaming(&conversation.id))
+            .unwrap();
+        conversation_repository
+            .update_message(MessageUpdate::failed(assistant.id, ""))
+            .unwrap();
+
+        let summary = conversation_repository
+            .list_recent_summaries(10)
+            .unwrap()
+            .remove(0);
+
+        assert_eq!(summary.preview, "Generation failed");
+        assert_eq!(summary.last_message_status, Some(MessageStatus::Failed));
+    }
 }
