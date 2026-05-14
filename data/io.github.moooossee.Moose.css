@@ -1,3 +1,80 @@
+.moose-sidebar {
+  background-color: @sidebar_bg_color;
+  border-right: 1px solid @borders;
+}
+
+.moose-sidebar-topbar {
+  padding: 6px 7px 5px 9px;
+}
+
+.moose-sidebar-title {
+  font-size: 0.98em;
+  font-weight: 600;
+}
+
+.moose-sidebar-button,
+.moose-header-button,
+.moose-provider-button {
+  border-radius: 7px;
+  min-height: 30px;
+  min-width: 30px;
+  padding: 0;
+}
+
+.moose-sidebar-section {
+  font-size: 0.82em;
+  margin: 4px 9px 5px 9px;
+  opacity: 0.58;
+}
+
+.moose-sidebar-scroll {
+  background-color: transparent;
+}
+
+.moose-conversation-list {
+  background-color: transparent;
+  padding: 0 5px 6px 5px;
+}
+
+.moose-conversation-list row {
+  border-radius: 7px;
+  margin: 0;
+}
+
+.moose-conversation-list row:hover {
+  background-color: alpha(@window_fg_color, 0.045);
+}
+
+.moose-conversation-list row:selected {
+  background-color: alpha(@accent_color, 0.11);
+}
+
+.moose-conversation-row {
+  min-height: 36px;
+}
+
+.moose-sidebar-footer {
+  border-top: 1px solid alpha(@borders, 0.65);
+  padding: 5px 7px 7px 7px;
+}
+
+.moose-provider-list {
+  background-color: transparent;
+}
+
+.moose-provider-list row {
+  background-color: transparent;
+  border-radius: 7px;
+}
+
+.moose-provider-row {
+  min-height: 36px;
+}
+
+.moose-provider-status {
+  font-size: 0.82em;
+}
+
 .moose-chat-column {
   padding: 26px 18px 18px 18px;
 }
@@ -17,7 +94,7 @@
 .moose-composer {
   background-color: @card_bg_color;
   border: 1px solid @borders;
-  border-radius: 12px;
+  border-radius: 16px;
   padding: 8px;
 }
 
@@ -28,4 +105,15 @@
 .moose-composer-button {
   min-height: 44px;
   min-width: 44px;
+}
+
+.moose-model-row {
+  padding: 0 4px 2px 4px;
+}
+
+.moose-model-picker {
+  border-radius: 8px;
+  font-size: 0.9em;
+  min-height: 30px;
+  min-width: 210px;
 }

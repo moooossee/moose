@@ -19,11 +19,21 @@ pub struct ChatMessage {
     pub content: String,
 }
 
-#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
+#[derive(Clone, Debug, PartialEq, Serialize)]
 pub struct ChatRequest {
     pub model: String,
     pub messages: Vec<ChatMessage>,
     pub stream: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub format: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub options: Option<ChatOptions>,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize)]
+pub struct ChatOptions {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub temperature: Option<f64>,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -33,6 +43,13 @@ pub enum ChatStreamEvent {
 }
 
 impl ChatMessage {
+    pub fn system(content: impl Into<String>) -> Self {
+        Self {
+            role: ChatRole::System,
+            content: content.into(),
+        }
+    }
+
     pub fn user(content: impl Into<String>) -> Self {
         Self {
             role: ChatRole::User,
@@ -54,7 +71,21 @@ impl ChatRequest {
             model: validate_model_name(model.as_ref())?,
             messages,
             stream: true,
+            format: None,
+            options: None,
         })
+    }
+
+    pub fn streaming_with_temperature(
+        model: impl AsRef<str>,
+        messages: Vec<ChatMessage>,
+        temperature: f64,
+    ) -> Result<Self> {
+        let mut request = Self::streaming(model, messages)?;
+        request.options = Some(ChatOptions {
+            temperature: Some(temperature),
+        });
+        Ok(request)
     }
 }
 

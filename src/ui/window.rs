@@ -1,23 +1,31 @@
 use std::{cell::RefCell, fs, rc::Rc, sync::mpsc, time::Duration};
 
 use adw::prelude::*;
-use gtk::{Align, Orientation};
+use serde::Deserialize;
 
 use crate::{
-    APPLICATION_ID, APPLICATION_NAME,
+    APPLICATION_NAME,
     chat::{ChatMessage, ChatRequest, ChatStreamEvent},
     conversations::{
-        ConversationSummary, Message, MessageRole, MessageStatus, MessageUpdate, NewConversation,
+        ConversationTitleUpdate, DEFAULT_CONVERSATION_TITLE, MessageUpdate, NewConversation,
         NewMessage,
     },
     error::Result,
     ollama::OllamaClient,
     platform::AppPaths,
-    providers::{DEFAULT_OLLAMA_BASE_URL, NewProvider, Provider, ProviderKind, ProviderUpdate},
+    providers::Provider,
     storage::{ConversationRepository, ProviderRepository, open_database},
 };
 
+mod chat_view;
+mod conversation_list;
+mod preferences;
+mod sidebar;
+mod widgets;
+
 const CHAT_CSS: &str = include_str!("../../data/io.github.moooossee.Moose.css");
+const TITLE_SYSTEM_PROMPT: &str = "You are an assistant that generates short chat titles based on the prompt. If you want to, you can add a single emoji. Format the response as a single JSON object.";
+const TITLE_MAX_CHARS: usize = 30;
 
 pub fn build(app: &adw::Application) -> adw::ApplicationWindow {
     install_chat_css();
@@ -29,32 +37,38 @@ pub fn build(app: &adw::Application) -> adw::ApplicationWindow {
         .default_height(720)
         .build();
 
-    let header_bar = adw::HeaderBar::new();
-    let new_chat_button = icon_button("list-add-symbolic", "New Conversation");
-    let search_button = icon_button("system-search-symbolic", "Search Conversations");
-    let preferences_button = icon_button("preferences-system-symbolic", "Preferences");
+    let sidebar = sidebar::build();
+    let chat = chat_view::build();
+    let new_chat_button = sidebar.new_chat_button.clone();
+    let search_button = sidebar.search_button.clone();
 
-    header_bar.pack_start(&new_chat_button);
-    header_bar.pack_start(&search_button);
+    let header_bar = adw::HeaderBar::new();
+    let sidebar_toggle_button = widgets::icon_button("sidebar-show-symbolic", "Hide Sidebar");
+    let preferences_button = widgets::icon_button("preferences-system-symbolic", "Preferences");
+    sidebar_toggle_button.add_css_class("moose-header-button");
+    preferences_button.add_css_class("moose-header-button");
+    header_bar.pack_start(&sidebar_toggle_button);
     header_bar.pack_end(&preferences_button);
 
-    let toolbar_view = adw::ToolbarView::new();
+    let content_toolbar = adw::ToolbarView::new();
     let toast_overlay = adw::ToastOverlay::new();
-    let split_view = adw::NavigationSplitView::new();
-    let sidebar = sidebar();
-    let chat = chat();
-    let sidebar_page = adw::NavigationPage::new(&sidebar.root, "Conversations");
-    let content_page = adw::NavigationPage::new(&chat.root, "Chat");
+    toast_overlay.set_child(Some(&chat.root));
+    content_toolbar.add_top_bar(&header_bar);
+    content_toolbar.set_content(Some(&toast_overlay));
 
-    split_view.set_min_sidebar_width(260.0);
-    split_view.set_max_sidebar_width(360.0);
-    split_view.set_sidebar_width_fraction(0.28);
-    split_view.set_sidebar(Some(&sidebar_page));
-    split_view.set_content(Some(&content_page));
-    toast_overlay.set_child(Some(&split_view));
-    toolbar_view.add_top_bar(&header_bar);
-    toolbar_view.set_content(Some(&toast_overlay));
-    window.set_content(Some(&toolbar_view));
+    let split_view = adw::OverlaySplitView::builder()
+        .min_sidebar_width(232.0)
+        .max_sidebar_width(292.0)
+        .sidebar_width_fraction(0.21)
+        .pin_sidebar(true)
+        .show_sidebar(true)
+        .enable_hide_gesture(true)
+        .enable_show_gesture(true)
+        .sidebar(&sidebar.root)
+        .content(&content_toolbar)
+        .build();
+
+    window.set_content(Some(&split_view));
     window.set_size_request(768, 520);
 
     let model_names = Rc::new(RefCell::new(Vec::new()));
@@ -65,7 +79,7 @@ pub fn build(app: &adw::Application) -> adw::ApplicationWindow {
         provider_row: sidebar.provider_row,
         provider_status: sidebar.provider_status,
         refresh_button: sidebar.refresh_button,
-        model_picker: sidebar.model_picker,
+        model_picker: chat.model_picker,
         conversation_list: sidebar.conversation_list,
         messages: chat.messages,
         chat_status_page: chat.status_page,
@@ -77,6 +91,8 @@ pub fn build(app: &adw::Application) -> adw::ApplicationWindow {
         conversation_ids,
         restoring_conversation_selection: RefCell::new(false),
     });
+
+    bind_sidebar_visibility(&split_view, &sidebar_toggle_button);
 
     match Backend::new() {
         Ok(backend) => {
@@ -91,7 +107,7 @@ pub fn build(app: &adw::Application) -> adw::ApplicationWindow {
                 &preferences_button,
             );
             refresh_models(&ui, &backend);
-            refresh_conversations(&ui, &backend);
+            conversation_list::refresh(&ui, &backend);
         }
         Err(error) => {
             ui.provider_status.set_text("Storage Error");
@@ -136,25 +152,6 @@ struct WindowUi {
     restoring_conversation_selection: RefCell<bool>,
 }
 
-struct Sidebar {
-    root: gtk::Box,
-    provider_row: adw::ActionRow,
-    provider_status: gtk::Label,
-    refresh_button: gtk::Button,
-    model_picker: gtk::DropDown,
-    conversation_list: gtk::ListBox,
-}
-
-struct Chat {
-    root: gtk::Box,
-    messages: gtk::Box,
-    status_page: adw::StatusPage,
-    message_stack: gtk::Stack,
-    entry: gtk::Entry,
-    send_button: gtk::Button,
-    stop_button: gtk::Button,
-}
-
 enum ModelLoadEvent {
     Loaded {
         available: bool,
@@ -170,10 +167,20 @@ enum ChatUiEvent {
     Failed(String),
 }
 
+enum TitleUiEvent {
+    Generated(String),
+    Failed,
+}
+
 enum AssistantMessageEnd {
     Complete,
     Cancelled,
     Failed,
+}
+
+#[derive(Deserialize)]
+struct GeneratedTitle {
+    title: String,
 }
 
 impl Backend {
@@ -222,6 +229,26 @@ impl Backend {
     }
 }
 
+fn bind_sidebar_visibility(
+    split_view: &adw::OverlaySplitView,
+    sidebar_toggle_button: &gtk::Button,
+) {
+    let target_split_view = split_view.clone();
+    sidebar_toggle_button.connect_clicked(move |_| {
+        target_split_view.set_show_sidebar(!target_split_view.shows_sidebar());
+    });
+
+    let target_toggle_button = sidebar_toggle_button.clone();
+    split_view.connect_show_sidebar_notify(move |split_view| {
+        let tooltip = if split_view.shows_sidebar() {
+            "Hide Sidebar"
+        } else {
+            "Show Sidebar"
+        };
+        target_toggle_button.set_tooltip_text(Some(tooltip));
+    });
+}
+
 fn bind_actions(
     window: &adw::ApplicationWindow,
     ui: &Rc<WindowUi>,
@@ -242,8 +269,8 @@ fn bind_actions(
             Ok(conversation_id) => {
                 clear_messages(&target_ui);
                 set_chat_empty_state(&target_ui, "Empty Conversation", "Send a message to begin.");
-                refresh_conversations(&target_ui, &target_backend);
-                select_conversation(&target_ui, &conversation_id);
+                conversation_list::refresh(&target_ui, &target_backend);
+                conversation_list::select(&target_ui, &conversation_id);
             }
             Err(error) => {
                 target_ui.toast_overlay.add_toast(adw::Toast::new(&format!(
@@ -284,7 +311,7 @@ fn bind_actions(
         .connect_clicked(move |_| match target_backend.cancel_generation() {
             Ok(true) => {
                 finish_generation(&target_ui);
-                refresh_conversations(&target_ui, &target_backend);
+                conversation_list::refresh(&target_ui, &target_backend);
                 target_ui
                     .toast_overlay
                     .add_toast(adw::Toast::new("Generation cancelled"));
@@ -323,14 +350,7 @@ fn bind_actions(
             return;
         }
 
-        let Ok(index) = usize::try_from(row.index()) else {
-            return;
-        };
-        let Some(conversation_id) = target_ui.conversation_ids.borrow().get(index).cloned() else {
-            return;
-        };
-
-        if let Err(error) = load_conversation(&target_ui, &target_backend, &conversation_id) {
+        if let Err(error) = conversation_list::load_selected(&target_ui, &target_backend, row) {
             target_ui.toast_overlay.add_toast(adw::Toast::new(&format!(
                 "Conversation could not be loaded: {error}"
             )));
@@ -341,318 +361,8 @@ fn bind_actions(
     let target_ui = Rc::clone(ui);
     let target_backend = Rc::clone(backend);
     preferences_button.connect_clicked(move |_| {
-        preferences_dialog(&parent, &target_ui, &target_backend).present(Some(&parent));
+        preferences::dialog(&parent, &target_ui, &target_backend).present(Some(&parent));
     });
-}
-
-fn sidebar() -> Sidebar {
-    let root = gtk::Box::builder()
-        .orientation(Orientation::Vertical)
-        .spacing(12)
-        .margin_top(12)
-        .margin_bottom(12)
-        .margin_start(12)
-        .margin_end(12)
-        .build();
-
-    let provider_group = gtk::ListBox::new();
-    provider_group.add_css_class("boxed-list");
-    provider_group.set_selection_mode(gtk::SelectionMode::None);
-
-    let provider_status = status_label("Checking");
-    let refresh_button = icon_button("view-refresh-symbolic", "Refresh Models");
-    let provider_row = adw::ActionRow::builder()
-        .title("Local Ollama")
-        .subtitle(DEFAULT_OLLAMA_BASE_URL)
-        .build();
-    provider_row.add_suffix(&provider_status);
-    provider_row.add_suffix(&refresh_button);
-    provider_group.append(&provider_row);
-
-    let model_picker = gtk::DropDown::from_strings(&["No model selected"]);
-    model_picker.set_tooltip_text(Some("Active Model"));
-    model_picker.set_sensitive(false);
-
-    let model_box = gtk::Box::builder()
-        .orientation(Orientation::Vertical)
-        .spacing(6)
-        .build();
-    model_box.append(&section_label("Model"));
-    model_box.append(&model_picker);
-
-    let conversation_list = gtk::ListBox::new();
-    conversation_list.add_css_class("boxed-list");
-    conversation_list.set_selection_mode(gtk::SelectionMode::Single);
-
-    root.append(&section_label("Provider"));
-    root.append(&provider_group);
-    root.append(&model_box);
-    root.append(&section_label("Conversations"));
-    root.append(&conversation_list);
-
-    Sidebar {
-        root,
-        provider_row,
-        provider_status,
-        refresh_button,
-        model_picker,
-        conversation_list,
-    }
-}
-
-fn chat() -> Chat {
-    let root = gtk::Box::builder()
-        .orientation(Orientation::Vertical)
-        .spacing(0)
-        .build();
-
-    let status_page = adw::StatusPage::builder()
-        .icon_name(APPLICATION_ID)
-        .title("No Conversation Selected")
-        .description("Choose a model and start a conversation.")
-        .hexpand(true)
-        .vexpand(true)
-        .build();
-
-    let empty_clamp = adw::Clamp::builder()
-        .maximum_size(860)
-        .tightening_threshold(560)
-        .hexpand(true)
-        .vexpand(true)
-        .child(&status_page)
-        .build();
-
-    let messages = gtk::Box::builder()
-        .orientation(Orientation::Vertical)
-        .spacing(8)
-        .hexpand(true)
-        .build();
-    messages.add_css_class("moose-chat-column");
-
-    let messages_clamp = adw::Clamp::builder()
-        .maximum_size(980)
-        .tightening_threshold(560)
-        .hexpand(true)
-        .vexpand(true)
-        .child(&messages)
-        .build();
-
-    let scrolled = gtk::ScrolledWindow::builder()
-        .hexpand(true)
-        .vexpand(true)
-        .child(&messages_clamp)
-        .build();
-
-    let message_stack = gtk::Stack::builder().hexpand(true).vexpand(true).build();
-    message_stack.add_named(&empty_clamp, Some("empty"));
-    message_stack.add_named(&scrolled, Some("messages"));
-    message_stack.set_visible_child_name("empty");
-
-    let composer = gtk::Box::builder()
-        .orientation(Orientation::Horizontal)
-        .spacing(6)
-        .hexpand(true)
-        .build();
-    composer.add_css_class("moose-composer");
-
-    let entry = gtk::Entry::builder()
-        .placeholder_text("Message")
-        .hexpand(true)
-        .build();
-    entry.add_css_class("flat");
-    entry.add_css_class("moose-composer-entry");
-
-    let stop_button = composer_button("media-playback-stop-symbolic", "Cancel Generation");
-    let send_button = composer_button("mail-send-symbolic", "Send Message");
-
-    send_button.add_css_class("suggested-action");
-    stop_button.add_css_class("destructive-action");
-    send_button.set_sensitive(false);
-    stop_button.set_sensitive(false);
-    composer.append(&entry);
-    composer.append(&stop_button);
-    composer.append(&send_button);
-
-    let composer_clamp = adw::Clamp::builder()
-        .maximum_size(980)
-        .tightening_threshold(560)
-        .margin_top(10)
-        .margin_bottom(16)
-        .margin_start(12)
-        .margin_end(12)
-        .hexpand(true)
-        .child(&composer)
-        .build();
-
-    root.append(&message_stack);
-    root.append(&composer_clamp);
-
-    Chat {
-        root,
-        messages,
-        status_page,
-        message_stack,
-        entry,
-        send_button,
-        stop_button,
-    }
-}
-
-fn preferences_dialog(
-    parent: &adw::ApplicationWindow,
-    ui: &Rc<WindowUi>,
-    backend: &Rc<Backend>,
-) -> adw::PreferencesDialog {
-    let dialog = adw::PreferencesDialog::builder()
-        .title("Preferences")
-        .search_enabled(false)
-        .build();
-
-    let provider = backend.provider.borrow().clone();
-    let provider_page = adw::PreferencesPage::builder()
-        .title("Provider")
-        .icon_name("network-server-symbolic")
-        .build();
-    let provider_group = adw::PreferencesGroup::builder()
-        .title("Ollama Provider")
-        .build();
-    let name_row = adw::EntryRow::builder()
-        .title("Name")
-        .text(&provider.name)
-        .build();
-    let url_row = adw::EntryRow::builder()
-        .title("Base URL")
-        .text(&provider.base_url)
-        .build();
-    let action_box = gtk::Box::builder()
-        .orientation(Orientation::Horizontal)
-        .spacing(6)
-        .halign(Align::End)
-        .margin_top(6)
-        .margin_bottom(6)
-        .build();
-    let save_button = icon_button("document-save-symbolic", "Save Provider");
-    let add_button = icon_button("list-add-symbolic", "Add Provider");
-    let delete_button = icon_button("user-trash-symbolic", "Delete Provider");
-
-    save_button.add_css_class("suggested-action");
-    delete_button.add_css_class("destructive-action");
-    action_box.append(&add_button);
-    action_box.append(&delete_button);
-    action_box.append(&save_button);
-    provider_group.add(&name_row);
-    provider_group.add(&url_row);
-    provider_group.add(&action_box);
-    provider_page.add(&provider_group);
-
-    let privacy_page = adw::PreferencesPage::builder()
-        .title("Privacy")
-        .icon_name("changes-prevent-symbolic")
-        .build();
-    let privacy_group = adw::PreferencesGroup::builder().title("Local Data").build();
-    privacy_group.add(
-        &adw::ActionRow::builder()
-            .title("Telemetry")
-            .subtitle("Disabled")
-            .build(),
-    );
-    privacy_group.add(
-        &adw::ActionRow::builder()
-            .title("Conversation Storage")
-            .subtitle("Local application data")
-            .build(),
-    );
-    privacy_page.add(&privacy_group);
-
-    dialog.add(&provider_page);
-    dialog.add(&privacy_page);
-
-    let target_ui = Rc::clone(ui);
-    let target_backend = Rc::clone(backend);
-    let target_parent = parent.clone();
-    let target_name_row = name_row.clone();
-    let target_url_row = url_row.clone();
-    save_button.connect_clicked(move |_| {
-        let current = target_backend.provider.borrow().clone();
-        match target_backend.repository.update(ProviderUpdate {
-            id: current.id,
-            name: target_name_row.text().to_string(),
-            base_url: target_url_row.text().to_string(),
-            is_default: true,
-        }) {
-            Ok(provider) => {
-                *target_backend.provider.borrow_mut() = provider.clone();
-                update_provider_summary(&target_ui, &provider);
-                refresh_models(&target_ui, &target_backend);
-                target_ui
-                    .toast_overlay
-                    .add_toast(adw::Toast::new("Provider saved"));
-            }
-            Err(error) => show_error(&target_parent, "Provider could not be saved", &error),
-        }
-    });
-
-    let target_ui = Rc::clone(ui);
-    let target_backend = Rc::clone(backend);
-    let target_parent = parent.clone();
-    let target_name_row = name_row.clone();
-    let target_url_row = url_row.clone();
-    add_button.connect_clicked(move |_| {
-        let count = target_backend
-            .repository
-            .list()
-            .map(|items| items.len() + 1);
-        let name = count
-            .map(|count| format!("Ollama Provider {count}"))
-            .unwrap_or_else(|_| "Ollama Provider".to_string());
-        match target_backend.repository.create(NewProvider {
-            kind: ProviderKind::Ollama,
-            name,
-            base_url: DEFAULT_OLLAMA_BASE_URL.to_string(),
-            is_managed: false,
-            is_default: true,
-        }) {
-            Ok(provider) => {
-                *target_backend.provider.borrow_mut() = provider.clone();
-                target_name_row.set_text(&provider.name);
-                target_url_row.set_text(&provider.base_url);
-                update_provider_summary(&target_ui, &provider);
-                refresh_models(&target_ui, &target_backend);
-                target_ui
-                    .toast_overlay
-                    .add_toast(adw::Toast::new("Provider added"));
-            }
-            Err(error) => show_error(&target_parent, "Provider could not be added", &error),
-        }
-    });
-
-    let target_ui = Rc::clone(ui);
-    let target_backend = Rc::clone(backend);
-    let target_parent = parent.clone();
-    let target_name_row = name_row;
-    let target_url_row = url_row;
-    delete_button.connect_clicked(move |_| {
-        let current = target_backend.provider.borrow().clone();
-        match target_backend
-            .repository
-            .delete(&current.id)
-            .and_then(|_| target_backend.repository.ensure_default_provider())
-        {
-            Ok(provider) => {
-                *target_backend.provider.borrow_mut() = provider.clone();
-                target_name_row.set_text(&provider.name);
-                target_url_row.set_text(&provider.base_url);
-                update_provider_summary(&target_ui, &provider);
-                refresh_models(&target_ui, &target_backend);
-                target_ui
-                    .toast_overlay
-                    .add_toast(adw::Toast::new("Provider removed"));
-            }
-            Err(error) => show_error(&target_parent, "Provider could not be removed", &error),
-        }
-    });
-
-    dialog
 }
 
 fn refresh_models(ui: &Rc<WindowUi>, backend: &Rc<Backend>) {
@@ -783,8 +493,8 @@ fn send_message(ui: &Rc<WindowUi>, backend: &Rc<Backend>) {
                 return;
             }
         };
-    let conversation_id = match ensure_active_conversation(backend, &prompt) {
-        Ok(conversation_id) => conversation_id,
+    let (conversation_id, should_generate_title) = match ensure_active_conversation(backend) {
+        Ok(result) => result,
         Err(error) => {
             ui.toast_overlay.add_toast(adw::Toast::new(&format!(
                 "Conversation could not be saved: {error}"
@@ -801,15 +511,25 @@ fn send_message(ui: &Rc<WindowUi>, backend: &Rc<Backend>) {
             return;
         }
     };
-    refresh_conversations(ui, backend);
+    conversation_list::refresh(ui, backend);
+    if should_generate_title {
+        generate_conversation_title(
+            ui,
+            backend,
+            client.clone(),
+            conversation_id.clone(),
+            prompt.clone(),
+            model.clone(),
+        );
+    }
 
     backend.abort_generation();
     *backend.active_assistant_message_id.borrow_mut() = Some(assistant_message_id);
     backend.active_assistant_content.borrow_mut().clear();
     ui.entry.set_text("");
     ui.message_stack.set_visible_child_name("messages");
-    append_message(&ui.messages, "You", &prompt);
-    let assistant_label = append_message(&ui.messages, &model, "");
+    chat_view::append_message(&ui.messages, "You", &prompt);
+    let assistant_label = chat_view::append_message(&ui.messages, &model, "");
     ui.send_button.set_sensitive(false);
     ui.stop_button.set_sensitive(true);
 
@@ -853,7 +573,7 @@ fn send_message(ui: &Rc<WindowUi>, backend: &Rc<Backend>) {
                             "Conversation could not be saved: {error}"
                         )));
                     }
-                    refresh_conversations(&target_ui, &target_backend);
+                    conversation_list::refresh(&target_ui, &target_backend);
                     return gtk::glib::ControlFlow::Break;
                 }
                 Ok(ChatUiEvent::Failed(error)) => {
@@ -867,7 +587,7 @@ fn send_message(ui: &Rc<WindowUi>, backend: &Rc<Backend>) {
                             "Conversation could not be saved: {save_error}"
                         )));
                     }
-                    refresh_conversations(&target_ui, &target_backend);
+                    conversation_list::refresh(&target_ui, &target_backend);
                     target_ui
                         .toast_overlay
                         .add_toast(adw::Toast::new(&format!("Generation failed: {error}")));
@@ -885,7 +605,7 @@ fn send_message(ui: &Rc<WindowUi>, backend: &Rc<Backend>) {
                             "Conversation could not be saved: {error}"
                         )));
                     }
-                    refresh_conversations(&target_ui, &target_backend);
+                    conversation_list::refresh(&target_ui, &target_backend);
                     return gtk::glib::ControlFlow::Break;
                 }
             }
@@ -893,224 +613,18 @@ fn send_message(ui: &Rc<WindowUi>, backend: &Rc<Backend>) {
     });
 }
 
-fn refresh_conversations(ui: &Rc<WindowUi>, backend: &Rc<Backend>) {
-    match backend.conversation_repository.list_recent_summaries(30) {
-        Ok(summaries) => set_conversation_list(ui, backend, summaries),
-        Err(error) => ui.toast_overlay.add_toast(adw::Toast::new(&format!(
-            "Conversations could not be loaded: {error}"
-        ))),
-    }
-}
-
-fn confirm_delete_conversation(ui: &Rc<WindowUi>, backend: &Rc<Backend>, conversation_id: &str) {
-    if backend.active_generation.borrow().is_some() {
-        ui.toast_overlay
-            .add_toast(adw::Toast::new("Finish the active generation first"));
-        return;
-    }
-
-    let title = match backend.conversation_repository.get(&conversation_id) {
-        Ok(Some(conversation)) => conversation.title,
-        Ok(None) => {
-            refresh_conversations(ui, backend);
-            ui.toast_overlay
-                .add_toast(adw::Toast::new("Conversation was not found"));
-            return;
-        }
-        Err(error) => {
-            ui.toast_overlay.add_toast(adw::Toast::new(&format!(
-                "Conversation could not be loaded: {error}"
-            )));
-            return;
-        }
-    };
-
-    let dialog = adw::AlertDialog::builder()
-        .heading("Delete Conversation?")
-        .body(&format!("Delete \"{title}\" and all of its messages?"))
-        .close_response("cancel")
-        .default_response("cancel")
-        .build();
-    dialog.add_response("cancel", "Cancel");
-    dialog.add_response("delete", "Delete");
-    dialog.set_response_appearance("delete", adw::ResponseAppearance::Destructive);
-
-    let target_ui = Rc::clone(ui);
-    let target_backend = Rc::clone(backend);
-    let target_conversation_id = conversation_id.to_string();
-    dialog.connect_response(Some("delete"), move |_, _| {
-        delete_conversation(&target_ui, &target_backend, &target_conversation_id);
-    });
-    dialog.present(Some(&ui.window));
-}
-
-fn delete_conversation(ui: &Rc<WindowUi>, backend: &Rc<Backend>, conversation_id: &str) {
-    match backend.conversation_repository.delete(conversation_id) {
-        Ok(()) => {
-            if backend.active_conversation_id.borrow().as_deref() == Some(conversation_id) {
-                backend.active_conversation_id.borrow_mut().take();
-                backend.active_assistant_message_id.borrow_mut().take();
-                backend.active_assistant_content.borrow_mut().clear();
-                ui.conversation_list.unselect_all();
-                clear_messages(ui);
-            }
-            refresh_conversations(ui, backend);
-            ui.toast_overlay
-                .add_toast(adw::Toast::new("Conversation deleted"));
-        }
-        Err(error) => ui.toast_overlay.add_toast(adw::Toast::new(&format!(
-            "Conversation could not be deleted: {error}"
-        ))),
-    }
-}
-
 fn create_empty_conversation(backend: &Backend) -> Result<String> {
     let provider = backend.provider.borrow().clone();
     let conversation = backend.conversation_repository.create(NewConversation {
         provider_id: provider.id,
         model_id: None,
-        title: "New Conversation".to_string(),
+        title: DEFAULT_CONVERSATION_TITLE.to_string(),
     })?;
     let conversation_id = conversation.id;
     *backend.active_conversation_id.borrow_mut() = Some(conversation_id.clone());
     backend.active_assistant_message_id.borrow_mut().take();
     backend.active_assistant_content.borrow_mut().clear();
     Ok(conversation_id)
-}
-
-fn select_conversation(ui: &WindowUi, conversation_id: &str) {
-    let Some(index) = ui
-        .conversation_ids
-        .borrow()
-        .iter()
-        .position(|id| id == conversation_id)
-    else {
-        ui.conversation_list.unselect_all();
-        return;
-    };
-
-    let Ok(index) = i32::try_from(index) else {
-        ui.conversation_list.unselect_all();
-        return;
-    };
-
-    if let Some(row) = ui.conversation_list.row_at_index(index) {
-        ui.conversation_list.select_row(Some(&row));
-    } else {
-        ui.conversation_list.unselect_all();
-    }
-}
-
-fn set_conversation_list(
-    ui: &Rc<WindowUi>,
-    backend: &Rc<Backend>,
-    summaries: Vec<ConversationSummary>,
-) {
-    *ui.restoring_conversation_selection.borrow_mut() = true;
-
-    while let Some(child) = ui.conversation_list.first_child() {
-        ui.conversation_list.remove(&child);
-    }
-
-    *ui.conversation_ids.borrow_mut() = summaries
-        .iter()
-        .map(|summary| summary.conversation.id.clone())
-        .collect();
-
-    if summaries.is_empty() {
-        let row = adw::ActionRow::builder()
-            .title("No conversations yet")
-            .subtitle("Start a conversation")
-            .sensitive(false)
-            .build();
-        ui.conversation_list.append(&row);
-        ui.conversation_list.unselect_all();
-        *ui.restoring_conversation_selection.borrow_mut() = false;
-        return;
-    }
-
-    for summary in summaries {
-        ui.conversation_list
-            .append(&conversation_row(&summary, ui, backend));
-    }
-
-    if let Some(conversation_id) = backend.active_conversation_id.borrow().as_deref() {
-        select_conversation(ui, conversation_id);
-    } else {
-        ui.conversation_list.unselect_all();
-    }
-
-    *ui.restoring_conversation_selection.borrow_mut() = false;
-}
-
-fn conversation_row(
-    summary: &ConversationSummary,
-    ui: &Rc<WindowUi>,
-    backend: &Rc<Backend>,
-) -> adw::ActionRow {
-    let row = adw::ActionRow::builder()
-        .title(&summary.conversation.title)
-        .build();
-
-    let click = gtk::GestureClick::builder().button(3).build();
-    let target_row = row.clone();
-    let target_ui = Rc::clone(ui);
-    let target_backend = Rc::clone(backend);
-    let conversation_id = summary.conversation.id.clone();
-
-    click.connect_pressed(move |_, _, x, y| {
-        show_conversation_menu(
-            &target_row,
-            &target_ui,
-            &target_backend,
-            &conversation_id,
-            x,
-            y,
-        );
-    });
-    row.add_controller(click);
-    row
-}
-
-fn show_conversation_menu(
-    row: &adw::ActionRow,
-    ui: &Rc<WindowUi>,
-    backend: &Rc<Backend>,
-    conversation_id: &str,
-    x: f64,
-    y: f64,
-) {
-    let popover = gtk::Popover::builder()
-        .autohide(true)
-        .has_arrow(false)
-        .build();
-    let menu = gtk::Box::builder()
-        .orientation(Orientation::Vertical)
-        .spacing(0)
-        .build();
-    let delete_button = gtk::Button::with_label("Delete Conversation");
-
-    delete_button.add_css_class("flat");
-    delete_button.add_css_class("destructive-action");
-    menu.append(&delete_button);
-    popover.set_child(Some(&menu));
-    popover.set_parent(row);
-    popover.set_pointing_to(Some(&gtk::gdk::Rectangle::new(
-        x.round() as i32,
-        y.round() as i32,
-        1,
-        1,
-    )));
-
-    let target_ui = Rc::clone(ui);
-    let target_backend = Rc::clone(backend);
-    let target_conversation_id = conversation_id.to_string();
-    let target_popover = popover.clone();
-    delete_button.connect_clicked(move |_| {
-        target_popover.popdown();
-        confirm_delete_conversation(&target_ui, &target_backend, &target_conversation_id);
-    });
-    popover.popup();
 }
 
 fn load_conversation(ui: &WindowUi, backend: &Backend, conversation_id: &str) -> Result<()> {
@@ -1124,7 +638,7 @@ fn load_conversation(ui: &WindowUi, backend: &Backend, conversation_id: &str) ->
     backend.active_assistant_content.borrow_mut().clear();
 
     for message in &messages {
-        append_stored_message(&ui.messages, message);
+        chat_view::append_stored_message(&ui.messages, message);
     }
 
     if messages.is_empty() {
@@ -1137,53 +651,198 @@ fn load_conversation(ui: &WindowUi, backend: &Backend, conversation_id: &str) ->
     Ok(())
 }
 
-fn append_stored_message(messages: &gtk::Box, message: &Message) {
-    let content = stored_message_content(message);
-    append_message(messages, message_role_label(&message.role), &content);
-}
-
-fn message_role_label(role: &MessageRole) -> &'static str {
-    match role {
-        MessageRole::System => "System",
-        MessageRole::User => "You",
-        MessageRole::Assistant => "Assistant",
-        MessageRole::Tool => "Tool",
-    }
-}
-
-fn stored_message_content(message: &Message) -> String {
-    match message.status {
-        MessageStatus::Streaming if message.content.trim().is_empty() => {
-            "Generating response...".to_string()
-        }
-        MessageStatus::Cancelled => message_content_with_state(message, "Generation cancelled"),
-        MessageStatus::Failed => message_content_with_state(message, "Generation failed"),
-        _ => message.content.clone(),
-    }
-}
-
-fn message_content_with_state(message: &Message, state: &str) -> String {
-    if message.content.trim().is_empty() {
-        state.to_string()
-    } else {
-        format!("{}\n\n{state}", message.content)
-    }
-}
-
-fn ensure_active_conversation(backend: &Backend, prompt: &str) -> Result<String> {
+fn ensure_active_conversation(backend: &Backend) -> Result<(String, bool)> {
     if let Some(conversation_id) = backend.active_conversation_id.borrow().clone() {
-        return Ok(conversation_id);
+        let should_generate_title = should_generate_conversation_title(backend, &conversation_id)?;
+        return Ok((conversation_id, should_generate_title));
     }
 
     let provider = backend.provider.borrow().clone();
     let conversation = backend.conversation_repository.create(NewConversation {
         provider_id: provider.id,
         model_id: None,
-        title: conversation_title(prompt),
+        title: DEFAULT_CONVERSATION_TITLE.to_string(),
     })?;
     let conversation_id = conversation.id;
     *backend.active_conversation_id.borrow_mut() = Some(conversation_id.clone());
-    Ok(conversation_id)
+    Ok((conversation_id, true))
+}
+
+fn should_generate_conversation_title(backend: &Backend, conversation_id: &str) -> Result<bool> {
+    let Some(conversation) = backend.conversation_repository.get(conversation_id)? else {
+        return Ok(false);
+    };
+
+    if !conversation.title.starts_with(DEFAULT_CONVERSATION_TITLE) {
+        return Ok(false);
+    }
+
+    Ok(backend
+        .conversation_repository
+        .list_messages(conversation_id)?
+        .is_empty())
+}
+
+fn generate_conversation_title(
+    ui: &Rc<WindowUi>,
+    backend: &Rc<Backend>,
+    client: OllamaClient,
+    conversation_id: String,
+    prompt: String,
+    fallback_model: String,
+) {
+    let (sender, receiver) = mpsc::channel();
+    backend.runtime.spawn(async move {
+        let event = match generate_model_title(client, &fallback_model, &prompt).await {
+            Ok(title) => TitleUiEvent::Generated(title),
+            Err(_) => TitleUiEvent::Failed,
+        };
+        let _ = sender.send(event);
+    });
+
+    let target_ui = Rc::clone(ui);
+    let target_backend = Rc::clone(backend);
+    gtk::glib::timeout_add_local(Duration::from_millis(80), move || {
+        match receiver.try_recv() {
+            Ok(TitleUiEvent::Generated(title)) => {
+                let _ = apply_generated_conversation_title(
+                    &target_ui,
+                    &target_backend,
+                    &conversation_id,
+                    &title,
+                );
+                gtk::glib::ControlFlow::Break
+            }
+            Ok(TitleUiEvent::Failed) | Err(mpsc::TryRecvError::Disconnected) => {
+                gtk::glib::ControlFlow::Break
+            }
+            Err(mpsc::TryRecvError::Empty) => gtk::glib::ControlFlow::Continue,
+        }
+    });
+}
+
+async fn generate_model_title(
+    client: OllamaClient,
+    fallback_model: &str,
+    prompt: &str,
+) -> Result<String> {
+    let mut request = ChatRequest::streaming_with_temperature(
+        fallback_model,
+        vec![
+            ChatMessage::system(TITLE_SYSTEM_PROMPT),
+            ChatMessage::user(format!(
+                "Generate a concise title for this chat prompt. Return only JSON using this shape: {{\"title\":\"string\"}}.\n\nPrompt:\n{prompt}"
+            )),
+        ],
+        0.2,
+    )?;
+    request.format = Some("json".to_string());
+    let mut response = String::new();
+    client
+        .stream_chat(request, |event| {
+            if let ChatStreamEvent::Token(token) = event {
+                response.push_str(&token);
+            }
+        })
+        .await?;
+    parse_generated_title(&response)
+}
+
+fn parse_generated_title(response: &str) -> Result<String> {
+    let trimmed = response.trim();
+    let json = if trimmed.starts_with('{') && trimmed.ends_with('}') {
+        trimmed
+    } else if let (Some(start), Some(end)) = (trimmed.find('{'), trimmed.rfind('}')) {
+        &trimmed[start..=end]
+    } else {
+        trimmed
+    };
+    let generated: GeneratedTitle = serde_json::from_str(json)?;
+    let title = generated
+        .title
+        .split_whitespace()
+        .collect::<Vec<_>>()
+        .join(" ");
+    let title = title.trim();
+    if title.is_empty() {
+        return Err(crate::error::MooseError::InvalidConversationTitle);
+    }
+    Ok(truncate_title(title))
+}
+
+fn truncate_title(title: &str) -> String {
+    let count = title.chars().count();
+    if count <= TITLE_MAX_CHARS {
+        return title.to_string();
+    }
+
+    let mut truncated = title
+        .chars()
+        .take(TITLE_MAX_CHARS.saturating_sub(3))
+        .collect::<String>();
+    truncated.push_str("...");
+    truncated
+}
+
+fn apply_generated_conversation_title(
+    ui: &Rc<WindowUi>,
+    backend: &Rc<Backend>,
+    conversation_id: &str,
+    title: &str,
+) -> Result<()> {
+    let Some(conversation) = backend.conversation_repository.get(conversation_id)? else {
+        return Ok(());
+    };
+
+    if !conversation.title.starts_with(DEFAULT_CONVERSATION_TITLE) {
+        return Ok(());
+    }
+
+    let title = numbered_conversation_title(backend, conversation_id, title)?;
+    backend
+        .conversation_repository
+        .update_title(ConversationTitleUpdate {
+            id: conversation_id.to_string(),
+            title,
+        })?;
+    conversation_list::refresh(ui, backend);
+    if backend.active_conversation_id.borrow().as_deref() == Some(conversation_id) {
+        conversation_list::select(ui, conversation_id);
+    }
+    Ok(())
+}
+
+fn numbered_conversation_title(
+    backend: &Backend,
+    conversation_id: &str,
+    title: &str,
+) -> Result<String> {
+    let existing_titles = backend
+        .conversation_repository
+        .list_recent(500)?
+        .into_iter()
+        .filter(|conversation| conversation.id != conversation_id)
+        .map(|conversation| conversation.title)
+        .collect::<Vec<_>>();
+
+    if !existing_titles.iter().any(|existing| existing == title) {
+        return Ok(title.to_string());
+    }
+
+    for number in 2.. {
+        let suffix = format!(" {number}");
+        let base_limit = TITLE_MAX_CHARS.saturating_sub(suffix.chars().count());
+        let mut candidate = title.chars().take(base_limit).collect::<String>();
+        candidate.push_str(&suffix);
+        if !existing_titles
+            .iter()
+            .any(|existing| existing == &candidate)
+        {
+            return Ok(candidate);
+        }
+    }
+
+    Ok(title.to_string())
 }
 
 fn save_pending_exchange(backend: &Backend, conversation_id: &str, prompt: &str) -> Result<String> {
@@ -1211,15 +870,6 @@ fn persist_active_assistant_message(backend: &Backend, end: AssistantMessageEnd)
     backend.conversation_repository.update_message(update)?;
     backend.active_assistant_content.borrow_mut().clear();
     Ok(())
-}
-
-fn conversation_title(prompt: &str) -> String {
-    let title = prompt.split_whitespace().collect::<Vec<_>>().join(" ");
-    if title.is_empty() {
-        "New Conversation".to_string()
-    } else {
-        title.chars().take(80).collect()
-    }
 }
 
 fn finish_generation(ui: &WindowUi) {
@@ -1258,56 +908,8 @@ fn set_model_picker(ui: &WindowUi, models: Vec<String>) {
     ui.send_button.set_sensitive(true);
 }
 
-fn append_message(messages: &gtk::Box, role: &str, content: &str) -> gtk::Label {
-    let is_user = role == "You";
-    let text_alignment = if is_user { 1.0 } else { 0.0 };
-    let justification = if is_user {
-        gtk::Justification::Right
-    } else {
-        gtk::Justification::Left
-    };
-    let row = gtk::Box::builder()
-        .orientation(Orientation::Vertical)
-        .spacing(6)
-        .halign(Align::Fill)
-        .hexpand(true)
-        .build();
-    let role_label = gtk::Label::builder()
-        .label(role)
-        .halign(Align::Fill)
-        .xalign(text_alignment)
-        .justify(justification)
-        .build();
-    let content_label = gtk::Label::builder()
-        .label(content)
-        .halign(Align::Fill)
-        .hexpand(true)
-        .xalign(text_alignment)
-        .justify(justification)
-        .wrap(true)
-        .wrap_mode(gtk::pango::WrapMode::Char)
-        .natural_wrap_mode(gtk::NaturalWrapMode::None)
-        .width_chars(120)
-        .selectable(true)
-        .build();
-
-    row.add_css_class("moose-message");
-    if is_user {
-        role_label.add_css_class("moose-message-user");
-    }
-    role_label.add_css_class("caption-heading");
-    role_label.add_css_class("dim-label");
-    content_label.add_css_class("body");
-    content_label.add_css_class("moose-message-content");
-    row.append(&role_label);
-    row.append(&content_label);
-    messages.append(&row);
-    content_label
-}
-
 fn set_chat_empty_state(ui: &WindowUi, title: &str, description: &str) {
-    ui.chat_status_page.set_title(title);
-    ui.chat_status_page.set_description(Some(description));
+    chat_view::set_empty_state(&ui.chat_status_page, title, description);
 }
 
 fn clear_messages(ui: &WindowUi) {
@@ -1328,7 +930,8 @@ fn clear_messages(ui: &WindowUi) {
 
 fn update_provider_summary(ui: &WindowUi, provider: &Provider) {
     ui.provider_row.set_title(&provider.name);
-    ui.provider_row.set_subtitle(&provider.base_url);
+    ui.provider_row.set_subtitle("");
+    ui.provider_row.set_tooltip_text(Some(&provider.base_url));
 }
 
 fn show_error(parent: &adw::ApplicationWindow, heading: &str, error: &dyn std::error::Error) {
@@ -1340,21 +943,6 @@ fn show_error(parent: &adw::ApplicationWindow, heading: &str, error: &dyn std::e
         .build();
     dialog.add_response("ok", "OK");
     dialog.present(Some(parent));
-}
-
-fn icon_button(icon_name: &str, tooltip: &str) -> gtk::Button {
-    let button = gtk::Button::from_icon_name(icon_name);
-    button.add_css_class("flat");
-    button.set_tooltip_text(Some(tooltip));
-    button
-}
-
-fn composer_button(icon_name: &str, tooltip: &str) -> gtk::Button {
-    let button = gtk::Button::from_icon_name(icon_name);
-    button.add_css_class("circular");
-    button.add_css_class("moose-composer-button");
-    button.set_tooltip_text(Some(tooltip));
-    button
 }
 
 fn install_chat_css() {
@@ -1370,24 +958,4 @@ fn install_chat_css() {
             gtk::STYLE_PROVIDER_PRIORITY_APPLICATION,
         );
     }
-}
-
-fn section_label(text: &str) -> gtk::Label {
-    let label = gtk::Label::builder()
-        .label(text)
-        .halign(Align::Start)
-        .xalign(0.0)
-        .build();
-    label.add_css_class("heading");
-    label
-}
-
-fn status_label(text: &str) -> gtk::Label {
-    let label = gtk::Label::builder()
-        .label(text)
-        .halign(Align::Center)
-        .valign(Align::Center)
-        .build();
-    label.add_css_class("dim-label");
-    label
 }

@@ -8,6 +8,8 @@ use crate::{
     providers::validate_model_name,
 };
 
+pub const DEFAULT_CONVERSATION_TITLE: &str = "New Conversation";
+
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct Conversation {
     pub id: String,
