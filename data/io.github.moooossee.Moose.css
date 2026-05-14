@@ -117,3 +117,40 @@
   min-height: 30px;
   min-width: 210px;
 }
+
+.moose-model-manager {
+  background-color: @window_bg_color;
+}
+
+.moose-model-manager-content {
+  padding: 30px 22px 24px 22px;
+}
+
+.moose-model-manager-header {
+  padding: 8px 0 4px 0;
+}
+
+.moose-model-search {
+  min-height: 38px;
+  min-width: 320px;
+}
+
+.moose-model-section {
+  font-size: 0.82em;
+  margin: 4px 2px 0 2px;
+  opacity: 0.62;
+}
+
+.moose-model-scroll {
+  background-color: transparent;
+  min-height: 320px;
+}
+
+.moose-model-list {
+  background-color: transparent;
+  padding: 0 0 18px 0;
+}
+
+.moose-model-list row {
+  border-radius: 7px;
+}

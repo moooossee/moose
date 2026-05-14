@@ -19,6 +19,7 @@ use crate::{
 
 mod chat_view;
 mod conversation_list;
+mod model_manager;
 mod preferences;
 mod sidebar;
 mod widgets;
@@ -39,8 +40,10 @@ pub fn build(app: &adw::Application) -> adw::ApplicationWindow {
 
     let sidebar = sidebar::build();
     let chat = chat_view::build();
+    let models = model_manager::build();
     let new_chat_button = sidebar.new_chat_button.clone();
     let search_button = sidebar.search_button.clone();
+    let model_manager_button = sidebar.model_manager_button.clone();
 
     let header_bar = adw::HeaderBar::new();
     let sidebar_toggle_button = widgets::icon_button("sidebar-show-symbolic", "Hide Sidebar");
@@ -52,7 +55,12 @@ pub fn build(app: &adw::Application) -> adw::ApplicationWindow {
 
     let content_toolbar = adw::ToolbarView::new();
     let toast_overlay = adw::ToastOverlay::new();
-    toast_overlay.set_child(Some(&chat.root));
+    let content_stack = gtk::Stack::builder().hexpand(true).vexpand(true).build();
+    content_stack.set_transition_type(gtk::StackTransitionType::Crossfade);
+    content_stack.add_named(&chat.root, Some("chat"));
+    content_stack.add_named(&models, Some("models"));
+    content_stack.set_visible_child_name("chat");
+    toast_overlay.set_child(Some(&content_stack));
     content_toolbar.add_top_bar(&header_bar);
     content_toolbar.set_content(Some(&toast_overlay));
 
@@ -76,6 +84,7 @@ pub fn build(app: &adw::Application) -> adw::ApplicationWindow {
     let ui = Rc::new(WindowUi {
         window: window.clone(),
         toast_overlay,
+        content_stack,
         provider_row: sidebar.provider_row,
         provider_status: sidebar.provider_status,
         refresh_button: sidebar.refresh_button,
@@ -104,6 +113,7 @@ pub fn build(app: &adw::Application) -> adw::ApplicationWindow {
                 &backend,
                 &new_chat_button,
                 &search_button,
+                &model_manager_button,
                 &preferences_button,
             );
             refresh_models(&ui, &backend);
@@ -136,6 +146,7 @@ struct Backend {
 struct WindowUi {
     window: adw::ApplicationWindow,
     toast_overlay: adw::ToastOverlay,
+    content_stack: gtk::Stack,
     provider_row: adw::ActionRow,
     provider_status: gtk::Label,
     refresh_button: gtk::Button,
@@ -255,11 +266,13 @@ fn bind_actions(
     backend: &Rc<Backend>,
     new_chat_button: &gtk::Button,
     search_button: &gtk::Button,
+    model_manager_button: &gtk::Button,
     preferences_button: &gtk::Button,
 ) {
     let target_ui = Rc::clone(ui);
     let target_backend = Rc::clone(backend);
     new_chat_button.connect_clicked(move |_| {
+        show_chat(&target_ui);
         if let Err(error) = target_backend.cancel_generation() {
             target_ui.toast_overlay.add_toast(adw::Toast::new(&format!(
                 "Conversation could not be saved: {error}"
@@ -285,6 +298,18 @@ fn bind_actions(
         target_ui
             .toast_overlay
             .add_toast(adw::Toast::new("Conversation search is not ready yet"));
+    });
+
+    let target_ui = Rc::clone(ui);
+    let target_backend = Rc::clone(backend);
+    model_manager_button.connect_clicked(move |_| {
+        if target_backend.active_generation.borrow().is_some() {
+            target_ui
+                .toast_overlay
+                .add_toast(adw::Toast::new("Finish the active generation first"));
+            return;
+        }
+        show_model_manager(&target_ui);
     });
 
     let target_ui = Rc::clone(ui);
@@ -354,6 +379,8 @@ fn bind_actions(
             target_ui.toast_overlay.add_toast(adw::Toast::new(&format!(
                 "Conversation could not be loaded: {error}"
             )));
+        } else {
+            show_chat(&target_ui);
         }
     });
 
@@ -910,6 +937,14 @@ fn set_model_picker(ui: &WindowUi, models: Vec<String>) {
 
 fn set_chat_empty_state(ui: &WindowUi, title: &str, description: &str) {
     chat_view::set_empty_state(&ui.chat_status_page, title, description);
+}
+
+fn show_chat(ui: &WindowUi) {
+    ui.content_stack.set_visible_child_name("chat");
+}
+
+fn show_model_manager(ui: &WindowUi) {
+    ui.content_stack.set_visible_child_name("models");
 }
 
 fn clear_messages(ui: &WindowUi) {
