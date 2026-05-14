@@ -11,7 +11,7 @@ use crate::{
         NewMessage,
     },
     error::Result,
-    ollama::OllamaClient,
+    ollama::{OllamaClient, OllamaModel},
     platform::AppPaths,
     providers::Provider,
     storage::{ConversationRepository, ProviderRepository, open_database},
@@ -40,7 +40,7 @@ pub fn build(app: &adw::Application) -> adw::ApplicationWindow {
 
     let sidebar = sidebar::build();
     let chat = chat_view::build();
-    let models = model_manager::build();
+    let model_manager = model_manager::build();
     let new_chat_button = sidebar.new_chat_button.clone();
     let search_button = sidebar.search_button.clone();
     let model_manager_button = sidebar.model_manager_button.clone();
@@ -58,7 +58,7 @@ pub fn build(app: &adw::Application) -> adw::ApplicationWindow {
     let content_stack = gtk::Stack::builder().hexpand(true).vexpand(true).build();
     content_stack.set_transition_type(gtk::StackTransitionType::Crossfade);
     content_stack.add_named(&chat.root, Some("chat"));
-    content_stack.add_named(&models, Some("models"));
+    content_stack.add_named(&model_manager.root, Some("models"));
     content_stack.set_visible_child_name("chat");
     toast_overlay.set_child(Some(&content_stack));
     content_toolbar.add_top_bar(&header_bar);
@@ -80,11 +80,13 @@ pub fn build(app: &adw::Application) -> adw::ApplicationWindow {
     window.set_size_request(768, 520);
 
     let model_names = Rc::new(RefCell::new(Vec::new()));
+    let installed_models = Rc::new(RefCell::new(Vec::new()));
     let conversation_ids = Rc::new(RefCell::new(Vec::new()));
     let ui = Rc::new(WindowUi {
         window: window.clone(),
         toast_overlay,
         content_stack,
+        model_manager,
         provider_row: sidebar.provider_row,
         provider_status: sidebar.provider_status,
         refresh_button: sidebar.refresh_button,
@@ -97,6 +99,7 @@ pub fn build(app: &adw::Application) -> adw::ApplicationWindow {
         send_button: chat.send_button,
         stop_button: chat.stop_button,
         model_names,
+        installed_models,
         conversation_ids,
         restoring_conversation_selection: RefCell::new(false),
     });
@@ -124,6 +127,7 @@ pub fn build(app: &adw::Application) -> adw::ApplicationWindow {
             ui.send_button.set_sensitive(false);
             ui.stop_button.set_sensitive(false);
             ui.refresh_button.set_sensitive(false);
+            ui.model_manager.refresh_button.set_sensitive(false);
             ui.toast_overlay
                 .add_toast(adw::Toast::new(&format!("Storage setup failed: {error}")));
         }
@@ -147,6 +151,7 @@ struct WindowUi {
     window: adw::ApplicationWindow,
     toast_overlay: adw::ToastOverlay,
     content_stack: gtk::Stack,
+    model_manager: model_manager::ModelManager,
     provider_row: adw::ActionRow,
     provider_status: gtk::Label,
     refresh_button: gtk::Button,
@@ -159,6 +164,7 @@ struct WindowUi {
     send_button: gtk::Button,
     stop_button: gtk::Button,
     model_names: Rc<RefCell<Vec<String>>>,
+    installed_models: Rc<RefCell<Vec<OllamaModel>>>,
     conversation_ids: Rc<RefCell<Vec<String>>>,
     restoring_conversation_selection: RefCell<bool>,
 }
@@ -167,7 +173,7 @@ enum ModelLoadEvent {
     Loaded {
         available: bool,
         status: String,
-        models: Vec<String>,
+        models: Vec<OllamaModel>,
     },
     Failed(String),
 }
@@ -320,6 +326,21 @@ fn bind_actions(
 
     let target_ui = Rc::clone(ui);
     let target_backend = Rc::clone(backend);
+    ui.model_manager.refresh_button.connect_clicked(move |_| {
+        refresh_models(&target_ui, &target_backend);
+    });
+
+    let target_ui = Rc::clone(ui);
+    ui.model_manager
+        .search_entry
+        .connect_search_changed(move |entry| {
+            let query = entry.text().to_string();
+            let models = target_ui.installed_models.borrow();
+            model_manager::set_models(&target_ui.model_manager, models.as_slice(), &query);
+        });
+
+    let target_ui = Rc::clone(ui);
+    let target_backend = Rc::clone(backend);
     ui.send_button.connect_clicked(move |_| {
         send_message(&target_ui, &target_backend);
     });
@@ -401,13 +422,22 @@ fn refresh_models(ui: &Rc<WindowUi>, backend: &Rc<Backend>) {
                 "Provider URL is invalid: {error}"
             )));
             set_model_picker(ui, Vec::new());
+            set_installed_models(ui, Vec::new());
+            model_manager::set_unavailable(
+                &ui.model_manager,
+                "Invalid Provider URL",
+                "The active provider URL could not be used.",
+            );
             return;
         }
     };
 
     ui.provider_status.set_text("Checking");
     ui.refresh_button.set_sensitive(false);
+    ui.model_manager.refresh_button.set_sensitive(false);
     set_model_picker(ui, Vec::new());
+    set_installed_models(ui, Vec::new());
+    model_manager::set_loading(&ui.model_manager);
 
     let (sender, receiver) = mpsc::channel();
     backend.runtime.spawn(async move {
@@ -423,15 +453,10 @@ fn refresh_models(ui: &Rc<WindowUi>, backend: &Rc<Backend>) {
 
         match client.list_models().await {
             Ok(models) => {
-                let names = models
-                    .into_iter()
-                    .filter(|model| model.supports_chat)
-                    .map(|model| model.name)
-                    .collect();
                 let _ = sender.send(ModelLoadEvent::Loaded {
                     available: true,
                     status: health.message,
-                    models: names,
+                    models,
                 });
             }
             Err(error) => {
@@ -449,6 +474,7 @@ fn refresh_models(ui: &Rc<WindowUi>, backend: &Rc<Backend>) {
                 models,
             }) => {
                 target_ui.refresh_button.set_sensitive(true);
+                target_ui.model_manager.refresh_button.set_sensitive(true);
                 target_ui.provider_status.set_text(if available {
                     "Connected"
                 } else {
@@ -458,24 +484,46 @@ fn refresh_models(ui: &Rc<WindowUi>, backend: &Rc<Backend>) {
                     target_ui
                         .toast_overlay
                         .add_toast(adw::Toast::new(&format!("Ollama unavailable: {status}")));
+                    set_model_picker(&target_ui, Vec::new());
+                    set_installed_models(&target_ui, Vec::new());
+                    model_manager::set_unavailable(
+                        &target_ui.model_manager,
+                        "Ollama Unavailable",
+                        "The active provider did not respond.",
+                    );
+                    return gtk::glib::ControlFlow::Break;
                 }
-                set_model_picker(&target_ui, models);
+                set_models(&target_ui, models);
                 gtk::glib::ControlFlow::Break
             }
             Ok(ModelLoadEvent::Failed(error)) => {
                 target_ui.refresh_button.set_sensitive(true);
+                target_ui.model_manager.refresh_button.set_sensitive(true);
                 target_ui.provider_status.set_text("Error");
                 target_ui
                     .toast_overlay
                     .add_toast(adw::Toast::new(&format!("Model list failed: {error}")));
                 set_model_picker(&target_ui, Vec::new());
+                set_installed_models(&target_ui, Vec::new());
+                model_manager::set_unavailable(
+                    &target_ui.model_manager,
+                    "Models Could Not Load",
+                    "Ollama returned an error while listing local models.",
+                );
                 gtk::glib::ControlFlow::Break
             }
             Err(mpsc::TryRecvError::Empty) => gtk::glib::ControlFlow::Continue,
             Err(mpsc::TryRecvError::Disconnected) => {
                 target_ui.refresh_button.set_sensitive(true);
+                target_ui.model_manager.refresh_button.set_sensitive(true);
                 target_ui.provider_status.set_text("Disconnected");
                 set_model_picker(&target_ui, Vec::new());
+                set_installed_models(&target_ui, Vec::new());
+                model_manager::set_unavailable(
+                    &target_ui.model_manager,
+                    "Ollama Disconnected",
+                    "The model refresh stopped before a response was received.",
+                );
                 gtk::glib::ControlFlow::Break
             }
         }
@@ -911,6 +959,23 @@ fn selected_model(
 ) -> Option<String> {
     let selected = usize::try_from(dropdown.selected()).ok()?;
     model_names.borrow().get(selected).cloned()
+}
+
+fn set_models(ui: &WindowUi, models: Vec<OllamaModel>) {
+    let chat_models = models
+        .iter()
+        .filter(|model| model.supports_chat)
+        .map(|model| model.name.clone())
+        .collect();
+    set_model_picker(ui, chat_models);
+    set_installed_models(ui, models);
+}
+
+fn set_installed_models(ui: &WindowUi, models: Vec<OllamaModel>) {
+    let query = ui.model_manager.search_entry.text().to_string();
+    *ui.installed_models.borrow_mut() = models;
+    let installed_models = ui.installed_models.borrow();
+    model_manager::set_models(&ui.model_manager, installed_models.as_slice(), &query);
 }
 
 fn set_model_picker(ui: &WindowUi, models: Vec<String>) {

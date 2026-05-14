@@ -1,11 +1,21 @@
 use adw::prelude::*;
 use gtk::{Align, Orientation, PolicyType};
 
-use crate::APPLICATION_ID;
+use crate::{APPLICATION_ID, ollama::OllamaModel};
 
 use super::widgets::{icon_button, section_label};
 
-pub(super) fn build() -> gtk::Box {
+#[derive(Clone)]
+pub(super) struct ModelManager {
+    pub(super) root: gtk::Box,
+    pub(super) refresh_button: gtk::Button,
+    pub(super) search_entry: gtk::SearchEntry,
+    model_list: gtk::ListBox,
+    status_page: adw::StatusPage,
+    stack: gtk::Stack,
+}
+
+pub(super) fn build() -> ModelManager {
     let root = gtk::Box::builder()
         .orientation(Orientation::Vertical)
         .spacing(0)
@@ -122,5 +132,203 @@ pub(super) fn build() -> gtk::Box {
         .build();
 
     root.append(&clamp);
-    root
+
+    ModelManager {
+        root,
+        refresh_button,
+        search_entry,
+        model_list,
+        status_page,
+        stack,
+    }
+}
+
+pub(super) fn set_loading(manager: &ModelManager) {
+    clear_models(manager);
+    manager.refresh_button.set_sensitive(false);
+    manager.search_entry.set_sensitive(false);
+    manager.status_page.set_title("Loading Models");
+    manager.status_page.set_description(None);
+    manager.stack.set_visible_child_name("empty");
+}
+
+pub(super) fn set_unavailable(manager: &ModelManager, title: &str, description: &str) {
+    clear_models(manager);
+    manager.refresh_button.set_sensitive(true);
+    manager.search_entry.set_sensitive(false);
+    manager.status_page.set_title(title);
+    manager.status_page.set_description(Some(description));
+    manager.stack.set_visible_child_name("empty");
+}
+
+pub(super) fn set_models(manager: &ModelManager, models: &[OllamaModel], query: &str) {
+    clear_models(manager);
+    manager.refresh_button.set_sensitive(true);
+    manager.search_entry.set_sensitive(!models.is_empty());
+
+    if models.is_empty() {
+        manager.status_page.set_title("No Local Models");
+        manager
+            .status_page
+            .set_description(Some("Ollama did not report any installed models."));
+        manager.stack.set_visible_child_name("empty");
+        return;
+    }
+
+    let query = query.trim().to_ascii_lowercase();
+    let filtered_models = models
+        .iter()
+        .filter(|model| model_matches_query(model, &query))
+        .collect::<Vec<_>>();
+
+    if filtered_models.is_empty() {
+        manager.status_page.set_title("No Matching Models");
+        manager
+            .status_page
+            .set_description(Some("No installed models match the current search."));
+        manager.stack.set_visible_child_name("empty");
+        return;
+    }
+
+    for model in filtered_models {
+        manager.model_list.append(&model_row(model));
+    }
+
+    manager.stack.set_visible_child_name("models");
+}
+
+fn clear_models(manager: &ModelManager) {
+    while let Some(child) = manager.model_list.first_child() {
+        manager.model_list.remove(&child);
+    }
+}
+
+fn model_row(model: &OllamaModel) -> adw::ActionRow {
+    let row = adw::ActionRow::builder()
+        .title(&model.name)
+        .subtitle(&model_subtitle(model))
+        .subtitle_lines(2)
+        .build();
+    row.add_css_class("moose-model-row-item");
+    row.set_tooltip_text(Some(&model.name));
+
+    let meta = gtk::Box::builder()
+        .orientation(Orientation::Horizontal)
+        .spacing(6)
+        .halign(Align::End)
+        .valign(Align::Center)
+        .build();
+
+    let capability = if model.supports_chat { "Chat" } else { "Other" };
+    meta.append(&pill_label(capability));
+    meta.append(&pill_label(&format_size(model.size_bytes)));
+    row.add_suffix(&meta);
+    row
+}
+
+fn pill_label(text: &str) -> gtk::Label {
+    let label = gtk::Label::builder()
+        .label(text)
+        .halign(Align::Center)
+        .valign(Align::Center)
+        .build();
+    label.add_css_class("moose-model-pill");
+    label
+}
+
+fn model_subtitle(model: &OllamaModel) -> String {
+    let mut parts = Vec::new();
+
+    if let Some(family) = model.family.as_deref().filter(|value| !value.is_empty()) {
+        parts.push(family.to_string());
+    }
+
+    if let Some(parameter_size) = model
+        .parameter_size
+        .as_deref()
+        .filter(|value| !value.is_empty())
+    {
+        parts.push(parameter_size.to_string());
+    }
+
+    if let Some(quantization_level) = model
+        .quantization_level
+        .as_deref()
+        .filter(|value| !value.is_empty())
+    {
+        parts.push(quantization_level.to_string());
+    }
+
+    if let Some(modified_at) = model
+        .modified_at
+        .as_deref()
+        .filter(|value| !value.is_empty())
+    {
+        parts.push(format!("Modified {}", compact_timestamp(modified_at)));
+    }
+
+    if parts.is_empty() {
+        "Installed locally".to_string()
+    } else {
+        parts.join(" - ")
+    }
+}
+
+fn compact_timestamp(value: &str) -> String {
+    value
+        .split_once('T')
+        .map(|(date, _)| date)
+        .unwrap_or(value)
+        .to_string()
+}
+
+fn format_size(size_bytes: Option<u64>) -> String {
+    let Some(size_bytes) = size_bytes else {
+        return "Unknown size".to_string();
+    };
+
+    let units = ["B", "KB", "MB", "GB", "TB"];
+    let mut size = size_bytes as f64;
+    let mut unit_index = 0;
+
+    while size >= 1024.0 && unit_index + 1 < units.len() {
+        size /= 1024.0;
+        unit_index += 1;
+    }
+
+    if unit_index == 0 {
+        format!("{size_bytes} {}", units[unit_index])
+    } else if size >= 10.0 {
+        format!("{size:.0} {}", units[unit_index])
+    } else {
+        format!("{size:.1} {}", units[unit_index])
+    }
+}
+
+fn model_matches_query(model: &OllamaModel, query: &str) -> bool {
+    if query.is_empty() {
+        return true;
+    }
+
+    contains_query(&model.name, query)
+        || model
+            .family
+            .as_deref()
+            .is_some_and(|family| contains_query(family, query))
+        || model
+            .families
+            .iter()
+            .any(|family| contains_query(family, query))
+        || model
+            .parameter_size
+            .as_deref()
+            .is_some_and(|parameter_size| contains_query(parameter_size, query))
+        || model
+            .quantization_level
+            .as_deref()
+            .is_some_and(|quantization_level| contains_query(quantization_level, query))
+}
+
+fn contains_query(value: &str, query: &str) -> bool {
+    value.to_ascii_lowercase().contains(query)
 }
