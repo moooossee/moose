@@ -10,10 +10,11 @@ use crate::{
         ConversationTitleUpdate, DEFAULT_CONVERSATION_TITLE, MessageUpdate, NewConversation,
         NewMessage,
     },
+    core::new_id,
     error::Result,
-    ollama::{OllamaClient, OllamaModel},
+    ollama::{OllamaClient, OllamaModel, OllamaPullProgress},
     platform::AppPaths,
-    providers::Provider,
+    providers::{Provider, validate_model_name},
     storage::{ConversationRepository, ProviderRepository, open_database},
 };
 
@@ -142,9 +143,15 @@ struct Backend {
     provider: RefCell<Provider>,
     runtime: tokio::runtime::Runtime,
     active_generation: RefCell<Option<tokio::task::JoinHandle<()>>>,
+    active_model_pull: RefCell<Option<ActiveModelPull>>,
     active_conversation_id: RefCell<Option<String>>,
     active_assistant_message_id: RefCell<Option<String>>,
     active_assistant_content: RefCell<String>,
+}
+
+struct ActiveModelPull {
+    id: String,
+    handle: tokio::task::JoinHandle<()>,
 }
 
 struct WindowUi {
@@ -184,6 +191,12 @@ enum ChatUiEvent {
     Failed(String),
 }
 
+enum ModelPullUiEvent {
+    Progress(OllamaPullProgress),
+    Done,
+    Failed(String),
+}
+
 enum TitleUiEvent {
     Generated(String),
     Failed,
@@ -218,6 +231,7 @@ impl Backend {
             provider: RefCell::new(provider),
             runtime,
             active_generation: RefCell::new(None),
+            active_model_pull: RefCell::new(None),
             active_conversation_id: RefCell::new(None),
             active_assistant_message_id: RefCell::new(None),
             active_assistant_content: RefCell::new(String::new()),
@@ -243,6 +257,26 @@ impl Backend {
         };
         persist_active_assistant_message(self, AssistantMessageEnd::Cancelled)?;
         Ok(was_active)
+    }
+
+    fn cancel_model_pull(&self) -> bool {
+        if let Some(active) = self.active_model_pull.borrow_mut().take() {
+            active.handle.abort();
+            true
+        } else {
+            false
+        }
+    }
+
+    fn finish_model_pull(&self, id: &str) -> bool {
+        let mut active_model_pull = self.active_model_pull.borrow_mut();
+        let is_current = active_model_pull
+            .as_ref()
+            .is_some_and(|active| active.id == id);
+        if is_current {
+            active_model_pull.take();
+        }
+        is_current
     }
 }
 
@@ -330,13 +364,39 @@ fn bind_actions(
         refresh_models(&target_ui, &target_backend);
     });
 
+    let parent = window.clone();
     let target_ui = Rc::clone(ui);
+    let target_backend = Rc::clone(backend);
+    ui.model_manager.pull_button.connect_clicked(move |_| {
+        show_pull_dialog(&parent, &target_ui, &target_backend);
+    });
+
+    let target_ui = Rc::clone(ui);
+    let target_backend = Rc::clone(backend);
+    ui.model_manager
+        .pull_cancel_button
+        .connect_clicked(move |_| {
+            if target_backend.cancel_model_pull() {
+                target_ui.refresh_button.set_sensitive(true);
+                model_manager::set_pull_finished(
+                    &target_ui.model_manager,
+                    "Download Cancelled",
+                    "The model download was cancelled.",
+                    0.0,
+                );
+                target_ui
+                    .toast_overlay
+                    .add_toast(adw::Toast::new("Model download cancelled"));
+            }
+        });
+
+    let target_ui = Rc::clone(ui);
+    let target_backend = Rc::clone(backend);
     ui.model_manager
         .search_entry
         .connect_search_changed(move |entry| {
             let query = entry.text().to_string();
-            let models = target_ui.installed_models.borrow();
-            model_manager::set_models(&target_ui.model_manager, models.as_slice(), &query);
+            render_model_manager(&target_ui, &target_backend, &query);
         });
 
     let target_ui = Rc::clone(ui);
@@ -414,6 +474,12 @@ fn bind_actions(
 }
 
 fn refresh_models(ui: &Rc<WindowUi>, backend: &Rc<Backend>) {
+    if backend.active_model_pull.borrow().is_some() {
+        ui.toast_overlay
+            .add_toast(adw::Toast::new("Finish the active model download first"));
+        return;
+    }
+
     let client = match backend.client() {
         Ok(client) => client,
         Err(error) => {
@@ -422,7 +488,7 @@ fn refresh_models(ui: &Rc<WindowUi>, backend: &Rc<Backend>) {
                 "Provider URL is invalid: {error}"
             )));
             set_model_picker(ui, Vec::new());
-            set_installed_models(ui, Vec::new());
+            set_installed_models(ui, backend, Vec::new());
             model_manager::set_unavailable(
                 &ui.model_manager,
                 "Invalid Provider URL",
@@ -436,7 +502,7 @@ fn refresh_models(ui: &Rc<WindowUi>, backend: &Rc<Backend>) {
     ui.refresh_button.set_sensitive(false);
     ui.model_manager.refresh_button.set_sensitive(false);
     set_model_picker(ui, Vec::new());
-    set_installed_models(ui, Vec::new());
+    set_installed_models(ui, backend, Vec::new());
     model_manager::set_loading(&ui.model_manager);
 
     let (sender, receiver) = mpsc::channel();
@@ -466,6 +532,7 @@ fn refresh_models(ui: &Rc<WindowUi>, backend: &Rc<Backend>) {
     });
 
     let target_ui = Rc::clone(ui);
+    let target_backend = Rc::clone(backend);
     gtk::glib::timeout_add_local(Duration::from_millis(50), move || {
         match receiver.try_recv() {
             Ok(ModelLoadEvent::Loaded {
@@ -485,7 +552,7 @@ fn refresh_models(ui: &Rc<WindowUi>, backend: &Rc<Backend>) {
                         .toast_overlay
                         .add_toast(adw::Toast::new(&format!("Ollama unavailable: {status}")));
                     set_model_picker(&target_ui, Vec::new());
-                    set_installed_models(&target_ui, Vec::new());
+                    set_installed_models(&target_ui, &target_backend, Vec::new());
                     model_manager::set_unavailable(
                         &target_ui.model_manager,
                         "Ollama Unavailable",
@@ -493,7 +560,7 @@ fn refresh_models(ui: &Rc<WindowUi>, backend: &Rc<Backend>) {
                     );
                     return gtk::glib::ControlFlow::Break;
                 }
-                set_models(&target_ui, models);
+                set_models(&target_ui, &target_backend, models);
                 gtk::glib::ControlFlow::Break
             }
             Ok(ModelLoadEvent::Failed(error)) => {
@@ -504,7 +571,7 @@ fn refresh_models(ui: &Rc<WindowUi>, backend: &Rc<Backend>) {
                     .toast_overlay
                     .add_toast(adw::Toast::new(&format!("Model list failed: {error}")));
                 set_model_picker(&target_ui, Vec::new());
-                set_installed_models(&target_ui, Vec::new());
+                set_installed_models(&target_ui, &target_backend, Vec::new());
                 model_manager::set_unavailable(
                     &target_ui.model_manager,
                     "Models Could Not Load",
@@ -518,7 +585,7 @@ fn refresh_models(ui: &Rc<WindowUi>, backend: &Rc<Backend>) {
                 target_ui.model_manager.refresh_button.set_sensitive(true);
                 target_ui.provider_status.set_text("Disconnected");
                 set_model_picker(&target_ui, Vec::new());
-                set_installed_models(&target_ui, Vec::new());
+                set_installed_models(&target_ui, &target_backend, Vec::new());
                 model_manager::set_unavailable(
                     &target_ui.model_manager,
                     "Ollama Disconnected",
@@ -530,6 +597,228 @@ fn refresh_models(ui: &Rc<WindowUi>, backend: &Rc<Backend>) {
     });
 }
 
+fn show_pull_dialog(parent: &adw::ApplicationWindow, ui: &Rc<WindowUi>, backend: &Rc<Backend>) {
+    if backend.active_generation.borrow().is_some() {
+        ui.toast_overlay
+            .add_toast(adw::Toast::new("Finish the active generation first"));
+        return;
+    }
+
+    if backend.active_model_pull.borrow().is_some() {
+        ui.toast_overlay
+            .add_toast(adw::Toast::new("A model download is already running"));
+        return;
+    }
+
+    let model_row = adw::EntryRow::builder().title("Model Name").build();
+    let group = adw::PreferencesGroup::new();
+    group.add(&model_row);
+
+    let dialog = adw::AlertDialog::builder()
+        .heading("Pull Model")
+        .body("Enter an Ollama model name, such as llama3.2:latest.")
+        .extra_child(&group)
+        .close_response("cancel")
+        .default_response("pull")
+        .build();
+    dialog.add_response("cancel", "Cancel");
+    dialog.add_response("pull", "Download");
+    dialog.set_response_appearance("pull", adw::ResponseAppearance::Suggested);
+
+    let target_parent = parent.clone();
+    let target_ui = Rc::clone(ui);
+    let target_backend = Rc::clone(backend);
+    dialog.connect_response(Some("pull"), move |_, _| {
+        let model_text = model_row.text().to_string();
+        let model = match validate_model_name(&model_text) {
+            Ok(model) => model,
+            Err(_) => {
+                target_ui
+                    .toast_overlay
+                    .add_toast(adw::Toast::new("Model name is invalid"));
+                return;
+            }
+        };
+
+        request_model_pull(&target_parent, &target_ui, &target_backend, model);
+    });
+
+    dialog.present(Some(parent));
+}
+
+fn request_model_pull(
+    parent: &adw::ApplicationWindow,
+    ui: &Rc<WindowUi>,
+    backend: &Rc<Backend>,
+    model: String,
+) {
+    let model = match validate_model_name(&model) {
+        Ok(model) => model,
+        Err(_) => {
+            ui.toast_overlay
+                .add_toast(adw::Toast::new("Model name is invalid"));
+            return;
+        }
+    };
+
+    if provider_is_local(&backend.provider.borrow()) {
+        start_model_pull(ui, backend, model);
+    } else {
+        confirm_remote_model_pull(parent, ui, backend, model);
+    }
+}
+
+fn confirm_remote_model_pull(
+    parent: &adw::ApplicationWindow,
+    ui: &Rc<WindowUi>,
+    backend: &Rc<Backend>,
+    model: String,
+) {
+    let provider = backend.provider.borrow().clone();
+    let dialog = adw::AlertDialog::builder()
+        .heading("Download on Remote Provider?")
+        .body(format!(
+            "The model will be downloaded by {} at {}.",
+            provider.name, provider.base_url
+        ))
+        .close_response("cancel")
+        .default_response("download")
+        .build();
+    dialog.add_response("cancel", "Cancel");
+    dialog.add_response("download", "Download");
+    dialog.set_response_appearance("download", adw::ResponseAppearance::Suggested);
+
+    let target_ui = Rc::clone(ui);
+    let target_backend = Rc::clone(backend);
+    dialog.connect_response(Some("download"), move |_, _| {
+        start_model_pull(&target_ui, &target_backend, model.clone());
+    });
+
+    dialog.present(Some(parent));
+}
+
+fn start_model_pull(ui: &Rc<WindowUi>, backend: &Rc<Backend>, model: String) {
+    if backend.active_generation.borrow().is_some() {
+        ui.toast_overlay
+            .add_toast(adw::Toast::new("Finish the active generation first"));
+        return;
+    }
+
+    if backend.active_model_pull.borrow().is_some() {
+        ui.toast_overlay
+            .add_toast(adw::Toast::new("A model download is already running"));
+        return;
+    }
+
+    let client = match backend.client() {
+        Ok(client) => client,
+        Err(error) => {
+            ui.toast_overlay.add_toast(adw::Toast::new(&format!(
+                "Provider URL is invalid: {error}"
+            )));
+            return;
+        }
+    };
+
+    show_model_manager(ui);
+    ui.refresh_button.set_sensitive(false);
+    model_manager::set_pull_started(&ui.model_manager, &model);
+
+    let (sender, receiver) = mpsc::channel();
+    let target_model = model.clone();
+    let pull_id = new_id();
+    let handle = backend.runtime.spawn(async move {
+        let progress_sender = sender.clone();
+        let result = client
+            .pull_model(&target_model, |progress| {
+                let _ = progress_sender.send(ModelPullUiEvent::Progress(progress));
+            })
+            .await;
+
+        match result {
+            Ok(()) => {
+                let _ = sender.send(ModelPullUiEvent::Done);
+            }
+            Err(error) => {
+                let _ = sender.send(ModelPullUiEvent::Failed(error.to_string()));
+            }
+        }
+    });
+    *backend.active_model_pull.borrow_mut() = Some(ActiveModelPull {
+        id: pull_id.clone(),
+        handle,
+    });
+
+    let target_ui = Rc::clone(ui);
+    let target_backend = Rc::clone(backend);
+    gtk::glib::timeout_add_local(Duration::from_millis(80), move || {
+        loop {
+            match receiver.try_recv() {
+                Ok(ModelPullUiEvent::Progress(progress)) => {
+                    model_manager::set_pull_progress(&target_ui.model_manager, &model, &progress);
+                }
+                Ok(ModelPullUiEvent::Done) => {
+                    if !target_backend.finish_model_pull(&pull_id) {
+                        return gtk::glib::ControlFlow::Break;
+                    }
+                    target_ui.refresh_button.set_sensitive(true);
+                    model_manager::set_pull_finished(
+                        &target_ui.model_manager,
+                        "Download Complete",
+                        &format!("{model} is ready to use."),
+                        1.0,
+                    );
+                    target_ui
+                        .toast_overlay
+                        .add_toast(adw::Toast::new("Model download complete"));
+                    refresh_models(&target_ui, &target_backend);
+                    return gtk::glib::ControlFlow::Break;
+                }
+                Ok(ModelPullUiEvent::Failed(error)) => {
+                    if !target_backend.finish_model_pull(&pull_id) {
+                        return gtk::glib::ControlFlow::Break;
+                    }
+                    target_ui.refresh_button.set_sensitive(true);
+                    model_manager::set_pull_finished(
+                        &target_ui.model_manager,
+                        "Download Failed",
+                        &error,
+                        0.0,
+                    );
+                    target_ui
+                        .toast_overlay
+                        .add_toast(adw::Toast::new(&format!("Model download failed: {error}")));
+                    return gtk::glib::ControlFlow::Break;
+                }
+                Err(mpsc::TryRecvError::Empty) => return gtk::glib::ControlFlow::Continue,
+                Err(mpsc::TryRecvError::Disconnected) => {
+                    if target_backend.finish_model_pull(&pull_id) {
+                        target_ui.refresh_button.set_sensitive(true);
+                        model_manager::set_pull_finished(
+                            &target_ui.model_manager,
+                            "Download Stopped",
+                            "The model download stopped before completion.",
+                            0.0,
+                        );
+                    }
+                    return gtk::glib::ControlFlow::Break;
+                }
+            }
+        }
+    });
+}
+
+fn provider_is_local(provider: &Provider) -> bool {
+    reqwest::Url::parse(&provider.base_url)
+        .ok()
+        .and_then(|url| url.host_str().map(str::to_string))
+        .map(|host| {
+            let host = host.trim_matches(['[', ']']);
+            matches!(host, "localhost" | "127.0.0.1" | "::1")
+        })
+        .unwrap_or(false)
+}
+
 fn send_message(ui: &Rc<WindowUi>, backend: &Rc<Backend>) {
     let prompt = ui.entry.text().trim().to_string();
     if prompt.is_empty() {
@@ -539,6 +828,12 @@ fn send_message(ui: &Rc<WindowUi>, backend: &Rc<Backend>) {
     if backend.active_generation.borrow().is_some() {
         ui.toast_overlay
             .add_toast(adw::Toast::new("Generation is already running"));
+        return;
+    }
+
+    if backend.active_model_pull.borrow().is_some() {
+        ui.toast_overlay
+            .add_toast(adw::Toast::new("Finish the active model download first"));
         return;
     }
 
@@ -961,21 +1256,37 @@ fn selected_model(
     model_names.borrow().get(selected).cloned()
 }
 
-fn set_models(ui: &WindowUi, models: Vec<OllamaModel>) {
+fn set_models(ui: &Rc<WindowUi>, backend: &Rc<Backend>, models: Vec<OllamaModel>) {
     let chat_models = models
         .iter()
         .filter(|model| model.supports_chat)
         .map(|model| model.name.clone())
         .collect();
     set_model_picker(ui, chat_models);
-    set_installed_models(ui, models);
+    set_installed_models(ui, backend, models);
 }
 
-fn set_installed_models(ui: &WindowUi, models: Vec<OllamaModel>) {
-    let query = ui.model_manager.search_entry.text().to_string();
+fn set_installed_models(ui: &Rc<WindowUi>, backend: &Rc<Backend>, models: Vec<OllamaModel>) {
     *ui.installed_models.borrow_mut() = models;
+    let query = ui.model_manager.search_entry.text().to_string();
+    render_model_manager(ui, backend, &query);
+}
+
+fn render_model_manager(ui: &Rc<WindowUi>, backend: &Rc<Backend>, query: &str) {
     let installed_models = ui.installed_models.borrow();
-    model_manager::set_models(&ui.model_manager, installed_models.as_slice(), &query);
+    let target_parent = ui.window.clone();
+    let target_ui = Rc::clone(ui);
+    let target_backend = Rc::clone(backend);
+    let on_pull = Rc::new(move |model: String| {
+        request_model_pull(&target_parent, &target_ui, &target_backend, model);
+    });
+    model_manager::set_models(
+        &ui.model_manager,
+        &ui.window,
+        installed_models.as_slice(),
+        query,
+        on_pull,
+    );
 }
 
 fn set_model_picker(ui: &WindowUi, models: Vec<String>) {

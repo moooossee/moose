@@ -141,6 +141,17 @@
   opacity: 0.62;
 }
 
+.moose-pull-panel {
+  background-color: @card_bg_color;
+  border: 1px solid @borders;
+  border-radius: 8px;
+  padding: 12px;
+}
+
+.moose-pull-progress {
+  min-height: 6px;
+}
+
 .moose-model-scroll {
   background-color: transparent;
   min-height: 320px;
@@ -153,6 +164,15 @@
 
 .moose-model-list row {
   border-radius: 7px;
+}
+
+.moose-model-dialog-content {
+  min-width: 460px;
+  padding: 6px 24px 24px 24px;
+}
+
+.moose-model-dialog-scroll {
+  background-color: transparent;
 }
 
 .moose-model-row-item {

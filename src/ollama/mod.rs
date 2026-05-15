@@ -1,12 +1,12 @@
 use std::time::Duration;
 
 use futures_util::StreamExt;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
 use crate::{
     chat::{ChatRequest, ChatStreamEvent},
     error::{MooseError, Result},
-    providers::validate_base_url,
+    providers::{validate_base_url, validate_model_name},
 };
 
 #[derive(Clone)]
@@ -40,6 +40,21 @@ pub struct OllamaModel {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct OllamaVersion {
     pub version: String,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct OllamaPullProgress {
+    pub status: String,
+    pub digest: Option<String>,
+    pub total_bytes: Option<u64>,
+    pub completed_bytes: Option<u64>,
+    pub done: bool,
+}
+
+#[derive(Debug, Serialize)]
+struct PullRequest {
+    model: String,
+    stream: bool,
 }
 
 #[derive(Debug, Deserialize)]
@@ -83,6 +98,14 @@ struct ChatLine {
 #[derive(Debug, Deserialize)]
 struct ChatLineMessage {
     content: String,
+}
+
+#[derive(Debug, Deserialize)]
+struct PullLine {
+    status: String,
+    digest: Option<String>,
+    total: Option<u64>,
+    completed: Option<u64>,
 }
 
 impl OllamaClient {
@@ -135,6 +158,38 @@ impl OllamaClient {
         parse_models_response(&text)
     }
 
+    pub async fn pull_model<F>(&self, model: &str, mut on_progress: F) -> Result<()>
+    where
+        F: FnMut(OllamaPullProgress) + Send,
+    {
+        let request = PullRequest {
+            model: validate_model_name(model)?,
+            stream: true,
+        };
+        let response = self
+            .client
+            .post(self.endpoint("pull")?)
+            .json(&request)
+            .send()
+            .await?;
+
+        if !response.status().is_success() {
+            return Err(response_error(response).await);
+        }
+
+        self.stream_lines(response, |line| {
+            if let Some(progress) = parse_pull_stream_line(line)? {
+                let done = progress.done;
+                on_progress(progress);
+                if done {
+                    return Ok(true);
+                }
+            }
+            Ok(false)
+        })
+        .await
+    }
+
     pub async fn stream_chat<F>(&self, request: ChatRequest, mut on_event: F) -> Result<()>
     where
         F: FnMut(ChatStreamEvent) + Send,
@@ -150,42 +205,17 @@ impl OllamaClient {
             return Err(response_error(response).await);
         }
 
-        let mut stream = response.bytes_stream();
-        let mut buffer = Vec::new();
-
-        while let Some(chunk) = stream.next().await {
-            let chunk = chunk.map_err(|error| {
-                if error.is_timeout() {
-                    MooseError::StreamStalled {
-                        seconds: self.stream_timeout.as_secs(),
-                    }
-                } else {
-                    MooseError::Http(error)
-                }
-            })?;
-            buffer.extend_from_slice(&chunk);
-
-            while let Some(index) = buffer.iter().position(|byte| *byte == b'\n') {
-                let line = buffer.drain(..=index).collect::<Vec<_>>();
-                let line = std::str::from_utf8(&line[..line.len().saturating_sub(1)])?.trim();
-                if let Some(event) = parse_chat_stream_line(line)? {
-                    let done = matches!(event, ChatStreamEvent::Done);
-                    on_event(event);
-                    if done {
-                        return Ok(());
-                    }
+        self.stream_lines(response, |line| {
+            if let Some(event) = parse_chat_stream_line(line)? {
+                let done = matches!(event, ChatStreamEvent::Done);
+                on_event(event);
+                if done {
+                    return Ok(true);
                 }
             }
-        }
-
-        let line = std::str::from_utf8(&buffer)?.trim();
-        if !line.is_empty()
-            && let Some(event) = parse_chat_stream_line(line)?
-        {
-            on_event(event);
-        }
-
-        Ok(())
+            Ok(false)
+        })
+        .await
     }
 
     async fn get_text(&self, endpoint: &str) -> Result<String> {
@@ -210,6 +240,42 @@ impl OllamaClient {
         );
         url.set_path(&path);
         Ok(url)
+    }
+
+    async fn stream_lines<F>(&self, response: reqwest::Response, mut on_line: F) -> Result<()>
+    where
+        F: FnMut(&str) -> Result<bool>,
+    {
+        let mut stream = response.bytes_stream();
+        let mut buffer = Vec::new();
+
+        while let Some(chunk) = stream.next().await {
+            let chunk = chunk.map_err(|error| {
+                if error.is_timeout() {
+                    MooseError::StreamStalled {
+                        seconds: self.stream_timeout.as_secs(),
+                    }
+                } else {
+                    MooseError::Http(error)
+                }
+            })?;
+            buffer.extend_from_slice(&chunk);
+
+            while let Some(index) = buffer.iter().position(|byte| *byte == b'\n') {
+                let line = buffer.drain(..=index).collect::<Vec<_>>();
+                let line = std::str::from_utf8(&line[..line.len().saturating_sub(1)])?.trim();
+                if on_line(line)? {
+                    return Ok(());
+                }
+            }
+        }
+
+        let line = std::str::from_utf8(&buffer)?.trim();
+        if !line.is_empty() {
+            on_line(line)?;
+        }
+
+        Ok(())
     }
 }
 
@@ -266,6 +332,28 @@ pub fn parse_chat_stream_line(line: &str) -> Result<Option<ChatStreamEvent>> {
         .map(|message| ChatStreamEvent::Token(message.content)))
 }
 
+pub fn parse_pull_stream_line(line: &str) -> Result<Option<OllamaPullProgress>> {
+    if line.is_empty() {
+        return Ok(None);
+    }
+
+    let response: PullLine = serde_json::from_str(line)?;
+    let status = response.status.trim().to_string();
+    if status.is_empty() {
+        return Err(MooseError::InvalidOllamaResponse(
+            "missing pull status".to_string(),
+        ));
+    }
+
+    Ok(Some(OllamaPullProgress {
+        done: status == "success",
+        status,
+        digest: response.digest,
+        total_bytes: response.total,
+        completed_bytes: response.completed,
+    }))
+}
+
 async fn response_error(response: reqwest::Response) -> MooseError {
     let status = response.status();
     let body = response.text().await.unwrap_or_default();
@@ -296,7 +384,7 @@ fn supports_chat(family: &Option<String>, families: &[String]) -> bool {
 mod tests {
     use super::{
         OllamaClient, parse_chat_stream_line, parse_error_body, parse_models_response,
-        parse_version_response,
+        parse_pull_stream_line, parse_version_response,
     };
     use crate::chat::ChatStreamEvent;
 
@@ -386,5 +474,35 @@ mod tests {
         let message = parse_error_body(r#"{"error":"model does not support chat"}"#).unwrap();
 
         assert_eq!(message, "model does not support chat");
+    }
+
+    #[test]
+    fn parse_pull_stream_reads_progress() {
+        let progress = parse_pull_stream_line(
+            r#"{"status":"downloading","digest":"sha256:abc","total":200,"completed":50}"#,
+        )
+        .unwrap()
+        .unwrap();
+
+        assert_eq!(progress.status, "downloading");
+        assert_eq!(progress.digest.as_deref(), Some("sha256:abc"));
+        assert_eq!(progress.total_bytes, Some(200));
+        assert_eq!(progress.completed_bytes, Some(50));
+        assert!(!progress.done);
+    }
+
+    #[test]
+    fn parse_pull_stream_marks_success_done() {
+        let progress = parse_pull_stream_line(r#"{"status":"success"}"#)
+            .unwrap()
+            .unwrap();
+
+        assert_eq!(progress.status, "success");
+        assert!(progress.done);
+    }
+
+    #[test]
+    fn parse_pull_stream_rejects_missing_status() {
+        assert!(parse_pull_stream_line(r#"{"completed":50}"#).is_err());
     }
 }
