@@ -168,7 +168,7 @@ struct WindowUi {
     messages: gtk::Box,
     chat_status_page: adw::StatusPage,
     message_stack: gtk::Stack,
-    entry: gtk::Entry,
+    entry: gtk::TextView,
     send_button: gtk::Button,
     stop_button: gtk::Button,
     model_names: Rc<RefCell<Vec<String>>>,
@@ -418,8 +418,23 @@ fn bind_actions(
 
     let target_ui = Rc::clone(ui);
     let target_backend = Rc::clone(backend);
-    ui.entry.connect_activate(move |_| {
-        send_message(&target_ui, &target_backend);
+    let key_controller = gtk::EventControllerKey::new();
+    key_controller.connect_key_pressed(move |_, key, _, state| {
+        let is_enter = key == gtk::gdk::Key::Return
+            || key == gtk::gdk::Key::KP_Enter
+            || key == gtk::gdk::Key::ISO_Enter;
+        if is_enter && !state.contains(gtk::gdk::ModifierType::SHIFT_MASK) {
+            send_message(&target_ui, &target_backend);
+            gtk::glib::Propagation::Stop
+        } else {
+            gtk::glib::Propagation::Proceed
+        }
+    });
+    ui.entry.add_controller(key_controller);
+
+    let target_ui = Rc::clone(ui);
+    ui.entry.buffer().connect_changed(move |_| {
+        update_send_button(&target_ui);
     });
 
     let target_ui = Rc::clone(ui);
@@ -443,10 +458,8 @@ fn bind_actions(
         });
 
     let target_ui = Rc::clone(ui);
-    ui.model_picker.connect_selected_notify(move |dropdown| {
-        target_ui
-            .send_button
-            .set_sensitive(selected_model(dropdown, &target_ui.model_names).is_some());
+    ui.model_picker.connect_selected_notify(move |_| {
+        update_send_button(&target_ui);
     });
 
     let target_ui = Rc::clone(ui);
@@ -1001,7 +1014,7 @@ fn provider_is_local(provider: &Provider) -> bool {
 }
 
 fn send_message(ui: &Rc<WindowUi>, backend: &Rc<Backend>) {
-    let prompt = ui.entry.text().trim().to_string();
+    let prompt = prompt_text(&ui.entry).trim().to_string();
     if prompt.is_empty() {
         return;
     }
@@ -1083,7 +1096,7 @@ fn send_message(ui: &Rc<WindowUi>, backend: &Rc<Backend>) {
     backend.abort_generation();
     *backend.active_assistant_message_id.borrow_mut() = Some(assistant_message_id);
     backend.active_assistant_content.borrow_mut().clear();
-    ui.entry.set_text("");
+    clear_prompt(&ui.entry);
     ui.message_stack.set_visible_child_name("messages");
     chat_view::append_message(&ui.messages, "You", &prompt);
     let assistant_label = chat_view::append_message(&ui.messages, &model, "");
@@ -1431,8 +1444,28 @@ fn persist_active_assistant_message(backend: &Backend, end: AssistantMessageEnd)
 
 fn finish_generation(ui: &WindowUi) {
     ui.stop_button.set_sensitive(false);
-    ui.send_button
-        .set_sensitive(selected_model(&ui.model_picker, &ui.model_names).is_some());
+    update_send_button(ui);
+}
+
+fn prompt_text(entry: &gtk::TextView) -> String {
+    let buffer = entry.buffer();
+    let (start, end) = buffer.bounds();
+    buffer.text(&start, &end, true).to_string()
+}
+
+fn clear_prompt(entry: &gtk::TextView) {
+    entry.buffer().set_text("");
+}
+
+fn prompt_is_ready(entry: &gtk::TextView) -> bool {
+    !prompt_text(entry).trim().is_empty()
+}
+
+fn update_send_button(ui: &WindowUi) {
+    let can_send = selected_model(&ui.model_picker, &ui.model_names).is_some()
+        && prompt_is_ready(&ui.entry)
+        && !ui.stop_button.is_sensitive();
+    ui.send_button.set_sensitive(can_send);
 }
 
 fn selected_model(
@@ -1492,7 +1525,7 @@ fn set_model_picker(ui: &WindowUi, models: Vec<String>) {
         ui.model_picker.set_model(Some(&list));
         ui.model_picker.set_selected(0);
         ui.model_picker.set_sensitive(false);
-        ui.send_button.set_sensitive(false);
+        update_send_button(ui);
         return;
     }
 
@@ -1502,7 +1535,7 @@ fn set_model_picker(ui: &WindowUi, models: Vec<String>) {
     ui.model_picker.set_model(Some(&list));
     ui.model_picker.set_selected(0);
     ui.model_picker.set_sensitive(true);
-    ui.send_button.set_sensitive(true);
+    update_send_button(ui);
 }
 
 fn set_chat_empty_state(ui: &WindowUi, title: &str, description: &str) {
@@ -1521,10 +1554,9 @@ fn clear_messages(ui: &WindowUi) {
     while let Some(child) = ui.messages.first_child() {
         ui.messages.remove(&child);
     }
-    ui.entry.set_text("");
+    clear_prompt(&ui.entry);
     ui.stop_button.set_sensitive(false);
-    ui.send_button
-        .set_sensitive(selected_model(&ui.model_picker, &ui.model_names).is_some());
+    update_send_button(ui);
     set_chat_empty_state(
         ui,
         "No Conversation Selected",

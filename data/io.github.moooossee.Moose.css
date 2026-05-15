@@ -99,7 +99,26 @@
 }
 
 .moose-composer-entry {
+  background-color: transparent;
+  caret-color: @window_fg_color;
+}
+
+.moose-composer-entry text {
+  background-color: transparent;
+}
+
+.moose-composer-input {
+  background-color: transparent;
+  border-radius: 8px;
   min-height: 44px;
+}
+
+.moose-composer-input viewport {
+  background-color: transparent;
+}
+
+.moose-composer-placeholder {
+  opacity: 0.72;
 }
 
 .moose-composer-button {
@@ -108,14 +127,23 @@
 }
 
 .moose-model-row {
-  padding: 0 4px 2px 4px;
+  background-color: alpha(@card_bg_color, 0.72);
+  border: 1px solid alpha(@borders, 0.72);
+  border-radius: 12px;
+  padding: 4px 8px 4px 10px;
+}
+
+.moose-model-icon {
+  margin-right: 2px;
+  opacity: 0.75;
 }
 
 .moose-model-picker {
+  background-color: transparent;
   border-radius: 8px;
   font-size: 0.9em;
-  min-height: 30px;
-  min-width: 210px;
+  min-height: 32px;
+  min-width: 260px;
 }
 
 .moose-model-manager {

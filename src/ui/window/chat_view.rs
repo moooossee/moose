@@ -13,7 +13,7 @@ pub(super) struct Chat {
     pub(super) messages: gtk::Box,
     pub(super) status_page: adw::StatusPage,
     pub(super) message_stack: gtk::Stack,
-    pub(super) entry: gtk::Entry,
+    pub(super) entry: gtk::TextView,
     pub(super) model_picker: gtk::DropDown,
     pub(super) send_button: gtk::Button,
     pub(super) stop_button: gtk::Button,
@@ -74,18 +74,65 @@ pub(super) fn build() -> Chat {
         .build();
     composer.add_css_class("moose-composer");
 
+    let composer_area = gtk::Box::builder()
+        .orientation(Orientation::Vertical)
+        .spacing(6)
+        .hexpand(true)
+        .build();
+
     let input_row = gtk::Box::builder()
         .orientation(Orientation::Horizontal)
         .spacing(6)
         .hexpand(true)
         .build();
 
-    let entry = gtk::Entry::builder()
-        .placeholder_text("Message")
+    let entry_buffer = gtk::TextBuffer::new(None);
+    let entry = gtk::TextView::builder()
+        .buffer(&entry_buffer)
+        .accepts_tab(false)
+        .bottom_margin(10)
         .hexpand(true)
+        .left_margin(12)
+        .right_margin(12)
+        .top_margin(10)
+        .wrap_mode(gtk::WrapMode::WordChar)
         .build();
     entry.add_css_class("flat");
     entry.add_css_class("moose-composer-entry");
+
+    let entry_scroll = gtk::ScrolledWindow::builder()
+        .child(&entry)
+        .hexpand(true)
+        .hscrollbar_policy(gtk::PolicyType::Never)
+        .max_content_height(156)
+        .min_content_height(44)
+        .propagate_natural_height(true)
+        .vscrollbar_policy(gtk::PolicyType::Automatic)
+        .build();
+    entry_scroll.add_css_class("moose-composer-input");
+
+    let entry_placeholder = gtk::Label::builder()
+        .can_target(false)
+        .halign(Align::Start)
+        .label("Message")
+        .margin_start(14)
+        .margin_top(11)
+        .valign(Align::Start)
+        .build();
+    entry_placeholder.add_css_class("dim-label");
+    entry_placeholder.add_css_class("moose-composer-placeholder");
+
+    let entry_overlay = gtk::Overlay::builder()
+        .child(&entry_scroll)
+        .hexpand(true)
+        .build();
+    entry_overlay.add_overlay(&entry_placeholder);
+    entry_overlay.set_measure_overlay(&entry_placeholder, false);
+
+    entry_buffer.connect_changed(move |buffer| {
+        let (start, end) = buffer.bounds();
+        entry_placeholder.set_visible(buffer.text(&start, &end, true).is_empty());
+    });
 
     let stop_button = composer_button("media-playback-stop-symbolic", "Cancel Generation");
     let send_button = composer_button("mail-send-symbolic", "Send Message");
@@ -94,7 +141,9 @@ pub(super) fn build() -> Chat {
     stop_button.add_css_class("destructive-action");
     send_button.set_sensitive(false);
     stop_button.set_sensitive(false);
-    input_row.append(&entry);
+    send_button.set_valign(Align::End);
+    stop_button.set_valign(Align::End);
+    input_row.append(&entry_overlay);
     input_row.append(&stop_button);
     input_row.append(&send_button);
 
@@ -102,20 +151,26 @@ pub(super) fn build() -> Chat {
     model_picker.set_tooltip_text(Some("Active Model"));
     model_picker.set_sensitive(false);
     model_picker.set_halign(Align::Start);
-    model_picker.set_size_request(210, -1);
+    model_picker.set_size_request(260, -1);
     model_picker.add_css_class("flat");
     model_picker.add_css_class("moose-model-picker");
+
+    let model_icon = gtk::Image::from_icon_name("computer-symbolic");
+    model_icon.add_css_class("dim-label");
+    model_icon.add_css_class("moose-model-icon");
 
     let model_row = gtk::Box::builder()
         .orientation(Orientation::Horizontal)
         .spacing(6)
-        .hexpand(true)
+        .halign(Align::Start)
         .build();
     model_row.add_css_class("moose-model-row");
+    model_row.append(&model_icon);
     model_row.append(&model_picker);
 
     composer.append(&input_row);
-    composer.append(&model_row);
+    composer_area.append(&composer);
+    composer_area.append(&model_row);
 
     let composer_clamp = adw::Clamp::builder()
         .maximum_size(980)
@@ -125,7 +180,7 @@ pub(super) fn build() -> Chat {
         .margin_start(12)
         .margin_end(12)
         .hexpand(true)
-        .child(&composer)
+        .child(&composer_area)
         .build();
 
     root.append(&message_stack);
