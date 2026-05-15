@@ -57,6 +57,11 @@ struct PullRequest {
     stream: bool,
 }
 
+#[derive(Debug, Serialize)]
+struct DeleteRequest {
+    model: String,
+}
+
 #[derive(Debug, Deserialize)]
 struct VersionResponse {
     version: String,
@@ -188,6 +193,25 @@ impl OllamaClient {
             Ok(false)
         })
         .await
+    }
+
+    pub async fn delete_model(&self, model: &str) -> Result<()> {
+        let request = DeleteRequest {
+            model: validate_model_name(model)?,
+        };
+        let response = self
+            .client
+            .delete(self.endpoint("delete")?)
+            .timeout(self.request_timeout)
+            .json(&request)
+            .send()
+            .await?;
+
+        if !response.status().is_success() {
+            return Err(response_error(response).await);
+        }
+
+        Ok(())
     }
 
     pub async fn stream_chat<F>(&self, request: ChatRequest, mut on_event: F) -> Result<()>

@@ -1490,6 +1490,7 @@ pub(super) fn set_models(
     models: &[OllamaModel],
     query: &str,
     on_pull: Rc<dyn Fn(String)>,
+    on_delete: Rc<dyn Fn(String)>,
 ) {
     clear_model_lists(manager);
     manager.pull_button.set_sensitive(true);
@@ -1497,30 +1498,27 @@ pub(super) fn set_models(
     manager.search_entry.set_sensitive(true);
 
     let query = query.trim().to_ascii_lowercase();
-    let visible_models = models
+    let filtered_models = models
         .iter()
-        .filter(|model| model.supports_chat)
-        .collect::<Vec<_>>();
-    let filtered_models = visible_models
-        .iter()
-        .copied()
         .filter(|model| model_matches_query(model, &query))
         .collect::<Vec<_>>();
 
     if filtered_models.is_empty() {
-        let row = empty_row(if visible_models.is_empty() {
-            "No installed chat models"
+        let row = empty_row(if models.is_empty() {
+            "No installed models"
         } else {
             "No installed matches"
         });
         manager.model_list.append(&row);
     } else {
         for model in filtered_models {
-            manager.model_list.append(&model_row(model));
+            manager
+                .model_list
+                .append(&model_row(model, Rc::clone(&on_delete)));
         }
     }
 
-    let installed_names = visible_models
+    let installed_names = models
         .iter()
         .map(|model| model.name.as_str())
         .collect::<Vec<_>>();
@@ -1603,6 +1601,33 @@ pub(super) fn set_pull_finished(manager: &ModelManager, title: &str, status: &st
     manager.refresh_button.set_sensitive(true);
 }
 
+pub(super) fn set_delete_started(manager: &ModelManager, model: &str) {
+    manager.pull_panel.set_visible(true);
+    manager.pull_button.set_sensitive(false);
+    manager.refresh_button.set_sensitive(false);
+    manager.pull_cancel_button.set_sensitive(false);
+    manager.pull_title.set_label(&format!("Deleting {model}"));
+    manager.pull_status.set_label("Removing model from Ollama");
+    manager.pull_progress.set_fraction(0.0);
+    manager.pull_progress_label.set_label("");
+}
+
+pub(super) fn set_delete_finished(
+    manager: &ModelManager,
+    title: &str,
+    status: &str,
+    fraction: f64,
+) {
+    manager.pull_panel.set_visible(true);
+    manager.pull_title.set_label(title);
+    manager.pull_status.set_label(status);
+    manager.pull_progress.set_fraction(fraction.clamp(0.0, 1.0));
+    manager.pull_progress_label.set_label("");
+    manager.pull_cancel_button.set_sensitive(false);
+    manager.pull_button.set_sensitive(true);
+    manager.refresh_button.set_sensitive(true);
+}
+
 fn clear_model_lists(manager: &ModelManager) {
     while let Some(child) = manager.model_list.first_child() {
         manager.model_list.remove(&child);
@@ -1622,7 +1647,7 @@ fn empty_row(title: &str) -> adw::ActionRow {
     row
 }
 
-fn model_row(model: &OllamaModel) -> adw::ActionRow {
+fn model_row(model: &OllamaModel, on_delete: Rc<dyn Fn(String)>) -> adw::ActionRow {
     let row = adw::ActionRow::builder()
         .title(&model.name)
         .subtitle(&model_subtitle(model))
@@ -1642,6 +1667,14 @@ fn model_row(model: &OllamaModel) -> adw::ActionRow {
     meta.append(&pill_label(capability));
     meta.append(&pill_label(&format_size(model.size_bytes)));
     row.add_suffix(&meta);
+
+    let delete_button = icon_button("user-trash-symbolic", &format!("Delete {}", model.name));
+    delete_button.add_css_class("destructive-action");
+    let model_name = model.name.clone();
+    delete_button.connect_clicked(move |_| {
+        on_delete(model_name.clone());
+    });
+    row.add_suffix(&delete_button);
     row
 }
 

@@ -144,6 +144,7 @@ struct Backend {
     runtime: tokio::runtime::Runtime,
     active_generation: RefCell<Option<tokio::task::JoinHandle<()>>>,
     active_model_pull: RefCell<Option<ActiveModelPull>>,
+    active_model_delete: RefCell<Option<tokio::task::JoinHandle<()>>>,
     active_conversation_id: RefCell<Option<String>>,
     active_assistant_message_id: RefCell<Option<String>>,
     active_assistant_content: RefCell<String>,
@@ -197,6 +198,11 @@ enum ModelPullUiEvent {
     Failed(String),
 }
 
+enum ModelDeleteUiEvent {
+    Done,
+    Failed(String),
+}
+
 enum TitleUiEvent {
     Generated(String),
     Failed,
@@ -232,6 +238,7 @@ impl Backend {
             runtime,
             active_generation: RefCell::new(None),
             active_model_pull: RefCell::new(None),
+            active_model_delete: RefCell::new(None),
             active_conversation_id: RefCell::new(None),
             active_assistant_message_id: RefCell::new(None),
             active_assistant_content: RefCell::new(String::new()),
@@ -277,6 +284,10 @@ impl Backend {
             active_model_pull.take();
         }
         is_current
+    }
+
+    fn finish_model_delete(&self) {
+        self.active_model_delete.borrow_mut().take();
     }
 }
 
@@ -477,6 +488,12 @@ fn refresh_models(ui: &Rc<WindowUi>, backend: &Rc<Backend>) {
     if backend.active_model_pull.borrow().is_some() {
         ui.toast_overlay
             .add_toast(adw::Toast::new("Finish the active model download first"));
+        return;
+    }
+
+    if backend.active_model_delete.borrow().is_some() {
+        ui.toast_overlay
+            .add_toast(adw::Toast::new("Finish the active model deletion first"));
         return;
     }
 
@@ -710,6 +727,12 @@ fn start_model_pull(ui: &Rc<WindowUi>, backend: &Rc<Backend>, model: String) {
         return;
     }
 
+    if backend.active_model_delete.borrow().is_some() {
+        ui.toast_overlay
+            .add_toast(adw::Toast::new("Finish the active model deletion first"));
+        return;
+    }
+
     let client = match backend.client() {
         Ok(client) => client,
         Err(error) => {
@@ -808,6 +831,164 @@ fn start_model_pull(ui: &Rc<WindowUi>, backend: &Rc<Backend>, model: String) {
     });
 }
 
+fn confirm_model_delete(
+    parent: &adw::ApplicationWindow,
+    ui: &Rc<WindowUi>,
+    backend: &Rc<Backend>,
+    model: String,
+) {
+    let model = match validate_model_name(&model) {
+        Ok(model) => model,
+        Err(_) => {
+            ui.toast_overlay
+                .add_toast(adw::Toast::new("Model name is invalid"));
+            return;
+        }
+    };
+
+    if backend.active_generation.borrow().is_some() {
+        ui.toast_overlay
+            .add_toast(adw::Toast::new("Finish the active generation first"));
+        return;
+    }
+
+    if backend.active_model_pull.borrow().is_some() {
+        ui.toast_overlay
+            .add_toast(adw::Toast::new("Finish the active model download first"));
+        return;
+    }
+
+    if backend.active_model_delete.borrow().is_some() {
+        ui.toast_overlay
+            .add_toast(adw::Toast::new("A model deletion is already running"));
+        return;
+    }
+
+    let provider = backend.provider.borrow().clone();
+    let body = if provider_is_local(&provider) {
+        format!("Delete \"{model}\" from Ollama? You can download it again later.")
+    } else {
+        format!(
+            "Delete \"{model}\" from {} at {}? This changes the remote provider.",
+            provider.name, provider.base_url
+        )
+    };
+
+    let dialog = adw::AlertDialog::builder()
+        .heading("Delete Model?")
+        .body(body)
+        .close_response("cancel")
+        .default_response("cancel")
+        .build();
+    dialog.add_response("cancel", "Cancel");
+    dialog.add_response("delete", "Delete");
+    dialog.set_response_appearance("delete", adw::ResponseAppearance::Destructive);
+
+    let target_ui = Rc::clone(ui);
+    let target_backend = Rc::clone(backend);
+    dialog.connect_response(Some("delete"), move |_, _| {
+        start_model_delete(&target_ui, &target_backend, model.clone());
+    });
+
+    dialog.present(Some(parent));
+}
+
+fn start_model_delete(ui: &Rc<WindowUi>, backend: &Rc<Backend>, model: String) {
+    if backend.active_generation.borrow().is_some() {
+        ui.toast_overlay
+            .add_toast(adw::Toast::new("Finish the active generation first"));
+        return;
+    }
+
+    if backend.active_model_pull.borrow().is_some() {
+        ui.toast_overlay
+            .add_toast(adw::Toast::new("Finish the active model download first"));
+        return;
+    }
+
+    if backend.active_model_delete.borrow().is_some() {
+        ui.toast_overlay
+            .add_toast(adw::Toast::new("A model deletion is already running"));
+        return;
+    }
+
+    let client = match backend.client() {
+        Ok(client) => client,
+        Err(error) => {
+            ui.toast_overlay.add_toast(adw::Toast::new(&format!(
+                "Provider URL is invalid: {error}"
+            )));
+            return;
+        }
+    };
+
+    show_model_manager(ui);
+    ui.refresh_button.set_sensitive(false);
+    model_manager::set_delete_started(&ui.model_manager, &model);
+
+    let (sender, receiver) = mpsc::channel();
+    let target_model = model.clone();
+    let handle = backend.runtime.spawn(async move {
+        match client.delete_model(&target_model).await {
+            Ok(()) => {
+                let _ = sender.send(ModelDeleteUiEvent::Done);
+            }
+            Err(error) => {
+                let _ = sender.send(ModelDeleteUiEvent::Failed(error.to_string()));
+            }
+        }
+    });
+    *backend.active_model_delete.borrow_mut() = Some(handle);
+
+    let target_ui = Rc::clone(ui);
+    let target_backend = Rc::clone(backend);
+    gtk::glib::timeout_add_local(Duration::from_millis(80), move || {
+        match receiver.try_recv() {
+            Ok(ModelDeleteUiEvent::Done) => {
+                target_backend.finish_model_delete();
+                target_ui.refresh_button.set_sensitive(true);
+                model_manager::set_delete_finished(
+                    &target_ui.model_manager,
+                    "Model Deleted",
+                    &format!("{model} was removed from Ollama."),
+                    1.0,
+                );
+                target_ui
+                    .toast_overlay
+                    .add_toast(adw::Toast::new("Model deleted"));
+                refresh_models(&target_ui, &target_backend);
+                gtk::glib::ControlFlow::Break
+            }
+            Ok(ModelDeleteUiEvent::Failed(error)) => {
+                target_backend.finish_model_delete();
+                target_ui.refresh_button.set_sensitive(true);
+                model_manager::set_delete_finished(
+                    &target_ui.model_manager,
+                    "Delete Failed",
+                    &error,
+                    0.0,
+                );
+                target_ui
+                    .toast_overlay
+                    .add_toast(adw::Toast::new(&format!("Model deletion failed: {error}")));
+                gtk::glib::ControlFlow::Break
+            }
+            Err(mpsc::TryRecvError::Empty) => gtk::glib::ControlFlow::Continue,
+            Err(mpsc::TryRecvError::Disconnected) => {
+                target_backend.finish_model_delete();
+                target_ui.refresh_button.set_sensitive(true);
+                model_manager::set_delete_finished(
+                    &target_ui.model_manager,
+                    "Delete Stopped",
+                    "The model deletion stopped before completion.",
+                    0.0,
+                );
+                gtk::glib::ControlFlow::Break
+            }
+        }
+    });
+}
+
 fn provider_is_local(provider: &Provider) -> bool {
     reqwest::Url::parse(&provider.base_url)
         .ok()
@@ -834,6 +1015,12 @@ fn send_message(ui: &Rc<WindowUi>, backend: &Rc<Backend>) {
     if backend.active_model_pull.borrow().is_some() {
         ui.toast_overlay
             .add_toast(adw::Toast::new("Finish the active model download first"));
+        return;
+    }
+
+    if backend.active_model_delete.borrow().is_some() {
+        ui.toast_overlay
+            .add_toast(adw::Toast::new("Finish the active model deletion first"));
         return;
     }
 
@@ -1280,12 +1467,19 @@ fn render_model_manager(ui: &Rc<WindowUi>, backend: &Rc<Backend>, query: &str) {
     let on_pull = Rc::new(move |model: String| {
         request_model_pull(&target_parent, &target_ui, &target_backend, model);
     });
+    let target_parent = ui.window.clone();
+    let target_ui = Rc::clone(ui);
+    let target_backend = Rc::clone(backend);
+    let on_delete = Rc::new(move |model: String| {
+        confirm_model_delete(&target_parent, &target_ui, &target_backend, model);
+    });
     model_manager::set_models(
         &ui.model_manager,
         &ui.window,
         installed_models.as_slice(),
         query,
         on_pull,
+        on_delete,
     );
 }
 
