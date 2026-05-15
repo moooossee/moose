@@ -5,7 +5,10 @@ use gtk::{Align, Orientation};
 
 use crate::providers::{DEFAULT_OLLAMA_BASE_URL, NewProvider, ProviderKind, ProviderUpdate};
 
-use super::{Backend, WindowUi, refresh_models, show_error, update_provider_summary, widgets};
+use super::{
+    Backend, WindowUi, apply_active_provider, provider_change_is_blocked, refresh_models,
+    show_error, update_provider_summary, widgets,
+};
 
 pub(super) fn dialog(
     parent: &adw::ApplicationWindow,
@@ -82,6 +85,10 @@ pub(super) fn dialog(
     let target_name_row = name_row.clone();
     let target_url_row = url_row.clone();
     save_button.connect_clicked(move |_| {
+        if provider_change_is_blocked(&target_ui, &target_backend) {
+            return;
+        }
+
         let current = target_backend.provider.borrow().clone();
         match target_backend.repository.update(ProviderUpdate {
             id: current.id,
@@ -107,6 +114,10 @@ pub(super) fn dialog(
     let target_name_row = name_row.clone();
     let target_url_row = url_row.clone();
     add_button.connect_clicked(move |_| {
+        if provider_change_is_blocked(&target_ui, &target_backend) {
+            return;
+        }
+
         let count = target_backend
             .repository
             .list()
@@ -122,11 +133,9 @@ pub(super) fn dialog(
             is_default: true,
         }) {
             Ok(provider) => {
-                *target_backend.provider.borrow_mut() = provider.clone();
                 target_name_row.set_text(&provider.name);
                 target_url_row.set_text(&provider.base_url);
-                update_provider_summary(&target_ui, &provider);
-                refresh_models(&target_ui, &target_backend);
+                apply_active_provider(&target_ui, &target_backend, provider);
                 target_ui
                     .toast_overlay
                     .add_toast(adw::Toast::new("Provider added"));
@@ -141,6 +150,10 @@ pub(super) fn dialog(
     let target_name_row = name_row;
     let target_url_row = url_row;
     delete_button.connect_clicked(move |_| {
+        if provider_change_is_blocked(&target_ui, &target_backend) {
+            return;
+        }
+
         let current = target_backend.provider.borrow().clone();
         match target_backend
             .repository
@@ -148,11 +161,9 @@ pub(super) fn dialog(
             .and_then(|_| target_backend.repository.ensure_default_provider())
         {
             Ok(provider) => {
-                *target_backend.provider.borrow_mut() = provider.clone();
                 target_name_row.set_text(&provider.name);
                 target_url_row.set_text(&provider.base_url);
-                update_provider_summary(&target_ui, &provider);
-                refresh_models(&target_ui, &target_backend);
+                apply_active_provider(&target_ui, &target_backend, provider);
                 target_ui
                     .toast_overlay
                     .add_toast(adw::Toast::new("Provider removed"));

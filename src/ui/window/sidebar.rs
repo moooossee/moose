@@ -13,6 +13,7 @@ pub(super) struct Sidebar {
     pub(super) model_manager_button: gtk::Button,
     pub(super) provider_row: adw::ActionRow,
     pub(super) provider_status: gtk::Label,
+    pub(super) provider_switch_button: gtk::Button,
     pub(super) refresh_button: gtk::Button,
     pub(super) conversation_list: gtk::ListBox,
 }
@@ -60,12 +61,15 @@ pub(super) fn build() -> Sidebar {
 
     let provider_status = status_label("Checking");
     provider_status.add_css_class("moose-provider-status");
+    let provider_switch_button = icon_button("pan-down-symbolic", "Switch Provider");
+    provider_switch_button.add_css_class("moose-provider-button");
     let refresh_button = icon_button("view-refresh-symbolic", "Refresh Models");
     refresh_button.add_css_class("moose-provider-button");
     let provider_row = adw::ActionRow::builder().title("Local Ollama").build();
     provider_row.set_tooltip_text(Some(DEFAULT_OLLAMA_BASE_URL));
     provider_row.add_css_class("moose-provider-row");
     provider_row.add_suffix(&provider_status);
+    provider_row.add_suffix(&provider_switch_button);
     provider_row.add_suffix(&refresh_button);
     provider_group.append(&provider_row);
 
@@ -104,6 +108,7 @@ pub(super) fn build() -> Sidebar {
         model_manager_button,
         provider_row,
         provider_status,
+        provider_switch_button,
         refresh_button,
         conversation_list,
     }

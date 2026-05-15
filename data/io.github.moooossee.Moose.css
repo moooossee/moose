@@ -55,11 +55,12 @@
 
 .moose-sidebar-footer {
   border-top: 1px solid alpha(@borders, 0.65);
-  padding: 5px 7px 7px 7px;
+  padding: 4px 6px 6px 6px;
 }
 
 .moose-provider-list {
   background-color: transparent;
+  padding: 0;
 }
 
 .moose-provider-list row {
@@ -68,11 +69,21 @@
 }
 
 .moose-provider-row {
-  min-height: 36px;
+  min-height: 34px;
 }
 
 .moose-provider-status {
   font-size: 0.82em;
+  opacity: 0.72;
+}
+
+.moose-provider-active-icon {
+  color: @accent_color;
+}
+
+.moose-provider-add-button {
+  min-height: 32px;
+  min-width: 32px;
 }
 
 .moose-chat-column {

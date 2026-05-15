@@ -14,7 +14,9 @@ use crate::{
     error::Result,
     ollama::{OllamaClient, OllamaModel, OllamaPullProgress},
     platform::AppPaths,
-    providers::{Provider, validate_model_name},
+    providers::{
+        DEFAULT_OLLAMA_BASE_URL, NewProvider, Provider, ProviderKind, validate_model_name,
+    },
     storage::{ConversationRepository, ProviderRepository, open_database},
 };
 
@@ -90,6 +92,7 @@ pub fn build(app: &adw::Application) -> adw::ApplicationWindow {
         model_manager,
         provider_row: sidebar.provider_row,
         provider_status: sidebar.provider_status,
+        provider_switch_button: sidebar.provider_switch_button,
         refresh_button: sidebar.refresh_button,
         model_picker: chat.model_picker,
         conversation_list: sidebar.conversation_list,
@@ -162,6 +165,7 @@ struct WindowUi {
     model_manager: model_manager::ModelManager,
     provider_row: adw::ActionRow,
     provider_status: gtk::Label,
+    provider_switch_button: gtk::Button,
     refresh_button: gtk::Button,
     model_picker: gtk::DropDown,
     conversation_list: gtk::ListBox,
@@ -371,6 +375,12 @@ fn bind_actions(
 
     let target_ui = Rc::clone(ui);
     let target_backend = Rc::clone(backend);
+    ui.provider_switch_button.connect_clicked(move |button| {
+        show_provider_switcher(button, &target_ui, &target_backend);
+    });
+
+    let target_ui = Rc::clone(ui);
+    let target_backend = Rc::clone(backend);
     ui.model_manager.refresh_button.connect_clicked(move |_| {
         refresh_models(&target_ui, &target_backend);
     });
@@ -495,6 +505,321 @@ fn bind_actions(
     preferences_button.connect_clicked(move |_| {
         preferences::dialog(&parent, &target_ui, &target_backend).present(Some(&parent));
     });
+}
+
+fn show_provider_switcher(anchor: &gtk::Button, ui: &Rc<WindowUi>, backend: &Rc<Backend>) {
+    let providers = match backend.repository.list() {
+        Ok(providers) => providers,
+        Err(error) => {
+            ui.toast_overlay.add_toast(adw::Toast::new(&format!(
+                "Providers could not be loaded: {error}"
+            )));
+            return;
+        }
+    };
+
+    let popover = gtk::Popover::builder()
+        .autohide(true)
+        .has_arrow(false)
+        .build();
+    popover.set_parent(anchor);
+
+    let content = gtk::Box::builder()
+        .orientation(gtk::Orientation::Vertical)
+        .spacing(8)
+        .margin_top(8)
+        .margin_bottom(8)
+        .margin_start(8)
+        .margin_end(8)
+        .build();
+    content.set_size_request(320, -1);
+
+    let list = gtk::ListBox::new();
+    list.set_selection_mode(gtk::SelectionMode::None);
+    list.add_css_class("moose-provider-list");
+
+    let active_provider_id = backend.provider.borrow().id.clone();
+    for provider in providers {
+        let row = provider_switch_row(&provider, provider.id == active_provider_id);
+        let provider_id = provider.id.clone();
+        let target_ui = Rc::clone(ui);
+        let target_backend = Rc::clone(backend);
+        let target_popover = popover.clone();
+        let click = gtk::GestureClick::builder().button(1).build();
+        click.connect_released(move |_, _, _, _| {
+            target_popover.popdown();
+            activate_provider(&target_ui, &target_backend, &provider_id);
+        });
+        row.add_controller(click);
+
+        let delete_button =
+            widgets::icon_button("user-trash-symbolic", &format!("Delete {}", provider.name));
+        delete_button.add_css_class("destructive-action");
+        let provider_id = provider.id.clone();
+        let target_ui = Rc::clone(ui);
+        let target_backend = Rc::clone(backend);
+        let target_popover = popover.clone();
+        delete_button.connect_clicked(move |_| {
+            target_popover.popdown();
+            confirm_provider_delete(&target_ui, &target_backend, &provider_id);
+        });
+        row.add_suffix(&delete_button);
+        list.append(&row);
+    }
+
+    let add_button = widgets::icon_button("list-add-symbolic", "Add Provider");
+    add_button.set_halign(gtk::Align::Center);
+    add_button.add_css_class("suggested-action");
+    add_button.add_css_class("moose-provider-add-button");
+    let target_ui = Rc::clone(ui);
+    let target_backend = Rc::clone(backend);
+    let target_popover = popover.clone();
+    add_button.connect_clicked(move |_| {
+        target_popover.popdown();
+        show_add_provider_dialog(&target_ui, &target_backend);
+    });
+
+    content.append(&list);
+    content.append(&add_button);
+    popover.set_child(Some(&content));
+    popover.popup();
+}
+
+fn provider_switch_row(provider: &Provider, is_active: bool) -> adw::ActionRow {
+    let row = adw::ActionRow::builder()
+        .title(&provider.name)
+        .subtitle(&provider.base_url)
+        .subtitle_lines(2)
+        .build();
+    row.add_css_class("moose-provider-row");
+    row.set_tooltip_text(Some(&provider.base_url));
+    if is_active {
+        let active_icon = gtk::Image::from_icon_name("object-select-symbolic");
+        active_icon.set_tooltip_text(Some("Active Provider"));
+        active_icon.add_css_class("moose-provider-active-icon");
+        row.add_suffix(&active_icon);
+    }
+    row
+}
+
+fn show_add_provider_dialog(ui: &Rc<WindowUi>, backend: &Rc<Backend>) {
+    let name_row = adw::EntryRow::builder()
+        .title("Name")
+        .text(&next_provider_name(backend))
+        .build();
+    let url_row = adw::EntryRow::builder()
+        .title("Base URL")
+        .text(DEFAULT_OLLAMA_BASE_URL)
+        .build();
+    let group = adw::PreferencesGroup::new();
+    group.add(&name_row);
+    group.add(&url_row);
+
+    let dialog = adw::AlertDialog::builder()
+        .heading("Add Provider")
+        .body("Configure an Ollama provider.")
+        .extra_child(&group)
+        .close_response("cancel")
+        .default_response("add")
+        .build();
+    dialog.add_response("cancel", "Cancel");
+    dialog.add_response("add", "Add");
+    dialog.set_response_appearance("add", adw::ResponseAppearance::Suggested);
+
+    let target_ui = Rc::clone(ui);
+    let target_backend = Rc::clone(backend);
+    dialog.connect_response(Some("add"), move |_, _| {
+        add_provider_from_sidebar(
+            &target_ui,
+            &target_backend,
+            name_row.text().to_string(),
+            url_row.text().to_string(),
+        );
+    });
+
+    dialog.present(Some(&ui.window));
+}
+
+fn confirm_provider_delete(ui: &Rc<WindowUi>, backend: &Rc<Backend>, provider_id: &str) {
+    if provider_change_is_blocked(ui, backend) {
+        return;
+    }
+
+    let provider = match backend.repository.get(provider_id) {
+        Ok(Some(provider)) => provider,
+        Ok(None) => {
+            ui.toast_overlay
+                .add_toast(adw::Toast::new("Provider was not found"));
+            return;
+        }
+        Err(error) => {
+            ui.toast_overlay.add_toast(adw::Toast::new(&format!(
+                "Provider could not be loaded: {error}"
+            )));
+            return;
+        }
+    };
+
+    let provider_id = provider.id.clone();
+    let dialog = adw::AlertDialog::builder()
+        .heading("Delete Provider?")
+        .body(format!(
+            "Delete \"{}\" at {}?",
+            provider.name.as_str(),
+            provider.base_url.as_str()
+        ))
+        .close_response("cancel")
+        .default_response("cancel")
+        .build();
+    dialog.add_response("cancel", "Cancel");
+    dialog.add_response("delete", "Delete");
+    dialog.set_response_appearance("delete", adw::ResponseAppearance::Destructive);
+
+    let target_ui = Rc::clone(ui);
+    let target_backend = Rc::clone(backend);
+    dialog.connect_response(Some("delete"), move |_, _| {
+        delete_provider_from_sidebar(&target_ui, &target_backend, &provider_id);
+    });
+    dialog.present(Some(&ui.window));
+}
+
+fn next_provider_name(backend: &Backend) -> String {
+    backend
+        .repository
+        .list()
+        .map(|providers| format!("Ollama Provider {}", providers.len() + 1))
+        .unwrap_or_else(|_| "Ollama Provider".to_string())
+}
+
+fn add_provider_from_sidebar(
+    ui: &Rc<WindowUi>,
+    backend: &Rc<Backend>,
+    name: String,
+    base_url: String,
+) {
+    if provider_change_is_blocked(ui, backend) {
+        return;
+    }
+
+    match backend.repository.create(NewProvider {
+        kind: ProviderKind::Ollama,
+        name,
+        base_url,
+        is_managed: false,
+        is_default: true,
+    }) {
+        Ok(provider) => {
+            apply_active_provider(ui, backend, provider);
+            ui.toast_overlay
+                .add_toast(adw::Toast::new("Provider added"));
+        }
+        Err(error) => show_error(&ui.window, "Provider could not be added", &error),
+    }
+}
+
+fn delete_provider_from_sidebar(ui: &Rc<WindowUi>, backend: &Rc<Backend>, provider_id: &str) {
+    if provider_change_is_blocked(ui, backend) {
+        return;
+    }
+
+    let was_active = backend.provider.borrow().id.as_str() == provider_id;
+    match backend.repository.delete(provider_id) {
+        Ok(()) => {
+            if was_active {
+                match backend.repository.ensure_default_provider() {
+                    Ok(provider) => apply_active_provider(ui, backend, provider),
+                    Err(error) => {
+                        show_error(&ui.window, "Provider could not be selected", &error);
+                        return;
+                    }
+                }
+            }
+            ui.toast_overlay
+                .add_toast(adw::Toast::new("Provider deleted"));
+        }
+        Err(error) => show_error(&ui.window, "Provider could not be deleted", &error),
+    }
+}
+
+fn activate_provider(ui: &Rc<WindowUi>, backend: &Rc<Backend>, provider_id: &str) {
+    if backend.provider.borrow().id.as_str() == provider_id {
+        return;
+    }
+
+    if provider_change_is_blocked(ui, backend) {
+        return;
+    }
+
+    let provider = match backend.repository.get(provider_id) {
+        Ok(Some(provider)) => provider,
+        Ok(None) => {
+            ui.toast_overlay
+                .add_toast(adw::Toast::new("Provider was not found"));
+            return;
+        }
+        Err(error) => {
+            ui.toast_overlay.add_toast(adw::Toast::new(&format!(
+                "Provider could not be loaded: {error}"
+            )));
+            return;
+        }
+    };
+
+    match backend
+        .repository
+        .set_default(provider_id)
+        .and_then(|_| backend.repository.get(provider_id))
+    {
+        Ok(Some(provider)) => {
+            apply_active_provider(ui, backend, provider);
+            ui.toast_overlay
+                .add_toast(adw::Toast::new("Provider switched"));
+        }
+        Ok(None) => {
+            apply_active_provider(ui, backend, provider);
+            ui.toast_overlay
+                .add_toast(adw::Toast::new("Provider switched"));
+        }
+        Err(error) => show_error(&ui.window, "Provider could not be switched", &error),
+    }
+}
+
+fn provider_change_is_blocked(ui: &Rc<WindowUi>, backend: &Rc<Backend>) -> bool {
+    if backend.active_generation.borrow().is_some() {
+        ui.toast_overlay
+            .add_toast(adw::Toast::new("Finish the active generation first"));
+        return true;
+    }
+
+    if backend.active_model_pull.borrow().is_some() {
+        ui.toast_overlay
+            .add_toast(adw::Toast::new("Finish the active model download first"));
+        return true;
+    }
+
+    if backend.active_model_delete.borrow().is_some() {
+        ui.toast_overlay
+            .add_toast(adw::Toast::new("Finish the active model deletion first"));
+        return true;
+    }
+
+    false
+}
+
+fn apply_active_provider(ui: &Rc<WindowUi>, backend: &Rc<Backend>, provider: Provider) {
+    *backend.provider.borrow_mut() = provider.clone();
+    reset_active_conversation(ui, backend);
+    update_provider_summary(ui, &provider);
+    refresh_models(ui, backend);
+    conversation_list::refresh(ui, backend);
+}
+
+fn reset_active_conversation(ui: &WindowUi, backend: &Backend) {
+    backend.active_conversation_id.borrow_mut().take();
+    backend.active_assistant_message_id.borrow_mut().take();
+    backend.active_assistant_content.borrow_mut().clear();
+    ui.conversation_list.unselect_all();
+    clear_messages(ui);
 }
 
 fn refresh_models(ui: &Rc<WindowUi>, backend: &Rc<Backend>) {
