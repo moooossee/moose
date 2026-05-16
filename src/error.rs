@@ -45,12 +45,18 @@ pub enum MooseError {
     InvalidIdentifier,
     #[error("invalid generation settings")]
     InvalidGenerationSettings,
+    #[error("invalid download job status")]
+    InvalidDownloadJobStatus,
+    #[error("invalid download job progress")]
+    InvalidDownloadJobProgress,
     #[error("conversation was not found")]
     ConversationNotFound,
     #[error("message was not found")]
     MessageNotFound,
     #[error("generation settings were not found")]
     GenerationSettingsNotFound,
+    #[error("download job was not found")]
+    DownloadJobNotFound,
     #[error("invalid Ollama response: {0}")]
     InvalidOllamaResponse(String),
     #[error("numeric conversion failed: {0}")]

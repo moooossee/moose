@@ -4,20 +4,20 @@ use adw::prelude::*;
 use serde::Deserialize;
 
 use crate::{
-    APPLICATION_NAME,
+    APPLICATION_ID, APPLICATION_NAME,
     chat::{ChatMessage, ChatRequest, ChatStreamEvent},
     conversations::{
         ConversationTitleUpdate, DEFAULT_CONVERSATION_TITLE, MessageUpdate, NewConversation,
         NewMessage,
     },
-    core::new_id,
     error::Result,
+    models::{DownloadJob, DownloadJobStatus, NewDownloadJob},
     ollama::{OllamaClient, OllamaModel, OllamaPullProgress},
     platform::AppPaths,
     providers::{
         DEFAULT_OLLAMA_BASE_URL, NewProvider, Provider, ProviderKind, validate_model_name,
     },
-    storage::{ConversationRepository, ProviderRepository, open_database},
+    storage::{ConversationRepository, DownloadJobRepository, ProviderRepository, open_database},
 };
 
 mod chat_view;
@@ -132,6 +132,7 @@ pub fn build(app: &adw::Application) -> adw::ApplicationWindow {
             ui.stop_button.set_sensitive(false);
             ui.refresh_button.set_sensitive(false);
             ui.model_manager.refresh_button.set_sensitive(false);
+            ui.model_manager.download_jobs_button.set_sensitive(false);
             ui.toast_overlay
                 .add_toast(adw::Toast::new(&format!("Storage setup failed: {error}")));
         }
@@ -143,6 +144,7 @@ pub fn build(app: &adw::Application) -> adw::ApplicationWindow {
 struct Backend {
     repository: ProviderRepository,
     conversation_repository: ConversationRepository,
+    download_job_repository: DownloadJobRepository,
     provider: RefCell<Provider>,
     runtime: tokio::runtime::Runtime,
     active_generation: RefCell<Option<tokio::task::JoinHandle<()>>>,
@@ -229,8 +231,10 @@ impl Backend {
         paths.create_all()?;
         let connection = Rc::new(open_database(paths.database_path())?);
         let repository = ProviderRepository::new(Rc::clone(&connection));
-        let conversation_repository = ConversationRepository::new(connection);
+        let conversation_repository = ConversationRepository::new(Rc::clone(&connection));
+        let download_job_repository = DownloadJobRepository::new(connection);
         let provider = repository.ensure_default_provider()?;
+        download_job_repository.fail_active_jobs("Download interrupted.")?;
         let runtime = tokio::runtime::Builder::new_multi_thread()
             .enable_all()
             .build()?;
@@ -238,6 +242,7 @@ impl Backend {
         Ok(Self {
             repository,
             conversation_repository,
+            download_job_repository,
             provider: RefCell::new(provider),
             runtime,
             active_generation: RefCell::new(None),
@@ -270,12 +275,12 @@ impl Backend {
         Ok(was_active)
     }
 
-    fn cancel_model_pull(&self) -> bool {
+    fn cancel_model_pull(&self) -> Option<String> {
         if let Some(active) = self.active_model_pull.borrow_mut().take() {
             active.handle.abort();
-            true
+            Some(active.id)
         } else {
-            false
+            None
         }
     }
 
@@ -392,12 +397,26 @@ fn bind_actions(
         show_pull_dialog(&parent, &target_ui, &target_backend);
     });
 
+    let parent = window.clone();
+    let target_ui = Rc::clone(ui);
+    let target_backend = Rc::clone(backend);
+    ui.model_manager
+        .download_jobs_button
+        .connect_clicked(move |_| {
+            show_download_jobs_dialog(&parent, &target_ui, &target_backend);
+        });
+
     let target_ui = Rc::clone(ui);
     let target_backend = Rc::clone(backend);
     ui.model_manager
         .pull_cancel_button
         .connect_clicked(move |_| {
-            if target_backend.cancel_model_pull() {
+            if let Some(job_id) = target_backend.cancel_model_pull() {
+                if let Err(error) = target_backend.download_job_repository.cancel(&job_id) {
+                    target_ui.toast_overlay.add_toast(adw::Toast::new(&format!(
+                        "Download job could not be saved: {error}"
+                    )));
+                }
                 target_ui.refresh_button.set_sensitive(true);
                 model_manager::set_pull_finished(
                     &target_ui.model_manager,
@@ -405,6 +424,7 @@ fn bind_actions(
                     "The model download was cancelled.",
                     0.0,
                 );
+                model_manager::clear_download_job(&target_ui.model_manager);
                 target_ui
                     .toast_overlay
                     .add_toast(adw::Toast::new("Model download cancelled"));
@@ -810,6 +830,7 @@ fn apply_active_provider(ui: &Rc<WindowUi>, backend: &Rc<Backend>, provider: Pro
     *backend.provider.borrow_mut() = provider.clone();
     reset_active_conversation(ui, backend);
     update_provider_summary(ui, &provider);
+    model_manager::clear_download_job(&ui.model_manager);
     refresh_models(ui, backend);
     conversation_list::refresh(ui, backend);
 }
@@ -1052,6 +1073,183 @@ fn confirm_remote_model_pull(
     dialog.present(Some(parent));
 }
 
+fn show_download_jobs_dialog(
+    parent: &adw::ApplicationWindow,
+    ui: &Rc<WindowUi>,
+    backend: &Rc<Backend>,
+) {
+    let provider = backend.provider.borrow().clone();
+    let jobs = match backend
+        .download_job_repository
+        .list_recent_for_provider(&provider.id, 50)
+    {
+        Ok(jobs) => jobs,
+        Err(error) => {
+            ui.toast_overlay.add_toast(adw::Toast::new(&format!(
+                "Download jobs could not be loaded: {error}"
+            )));
+            return;
+        }
+    };
+
+    let dialog = adw::Dialog::builder()
+        .title("Download Jobs")
+        .content_width(680)
+        .content_height(460)
+        .build();
+
+    let header_bar = adw::HeaderBar::builder()
+        .show_start_title_buttons(false)
+        .show_end_title_buttons(false)
+        .build();
+    let title = adw::WindowTitle::new("Download Jobs", &provider.name);
+    header_bar.set_title_widget(Some(&title));
+
+    let close_button = widgets::icon_button("window-close-symbolic", "Close");
+    let target_dialog = dialog.clone();
+    close_button.connect_clicked(move |_| {
+        target_dialog.close();
+    });
+    header_bar.pack_end(&close_button);
+
+    let content = if jobs.is_empty() {
+        let status_page = adw::StatusPage::builder()
+            .icon_name(APPLICATION_ID)
+            .title("No Download Jobs")
+            .description("Model downloads will appear here.")
+            .hexpand(true)
+            .vexpand(true)
+            .build();
+        status_page.upcast::<gtk::Widget>()
+    } else {
+        let list = gtk::ListBox::new();
+        list.set_selection_mode(gtk::SelectionMode::None);
+        list.add_css_class("moose-model-list");
+        for job in &jobs {
+            list.append(&download_job_row(job));
+        }
+
+        gtk::ScrolledWindow::builder()
+            .hscrollbar_policy(gtk::PolicyType::Never)
+            .vscrollbar_policy(gtk::PolicyType::Automatic)
+            .min_content_height(320)
+            .child(&list)
+            .build()
+            .upcast::<gtk::Widget>()
+    };
+
+    let toolbar_view = adw::ToolbarView::builder()
+        .top_bar_style(adw::ToolbarStyle::Flat)
+        .content(&content)
+        .build();
+    toolbar_view.add_top_bar(&header_bar);
+
+    dialog.set_child(Some(&toolbar_view));
+    dialog.present(Some(parent));
+}
+
+fn download_job_row(job: &DownloadJob) -> adw::ActionRow {
+    let row = adw::ActionRow::builder()
+        .title(&job.model_name)
+        .subtitle(&download_job_subtitle(job))
+        .subtitle_lines(3)
+        .build();
+    row.add_css_class("moose-model-row-item");
+    row.set_tooltip_text(Some(&job.model_name));
+    row.add_suffix(&download_job_status_label(&job.status));
+    row
+}
+
+fn download_job_status_label(status: &DownloadJobStatus) -> gtk::Label {
+    let label = gtk::Label::builder()
+        .label(download_job_status_text(status))
+        .halign(gtk::Align::Center)
+        .valign(gtk::Align::Center)
+        .build();
+    label.add_css_class("moose-model-pill");
+    label
+}
+
+fn download_job_subtitle(job: &DownloadJob) -> String {
+    let mut lines = Vec::new();
+    if let Some(progress) = download_job_progress_text(job) {
+        lines.push(progress);
+    }
+    lines.push(format!(
+        "Updated {}",
+        compact_download_timestamp(&job.updated_at)
+    ));
+    if matches!(&job.status, DownloadJobStatus::Failed)
+        && let Some(error_message) = job
+            .error_message
+            .as_deref()
+            .filter(|message| !message.is_empty())
+    {
+        lines.push(error_message.to_string());
+    }
+    lines.join("\n")
+}
+
+fn download_job_status_text(status: &DownloadJobStatus) -> &'static str {
+    match status {
+        DownloadJobStatus::Queued => "Queued",
+        DownloadJobStatus::Running => "Running",
+        DownloadJobStatus::Complete => "Complete",
+        DownloadJobStatus::Cancelled => "Cancelled",
+        DownloadJobStatus::Failed => "Failed",
+    }
+}
+
+fn download_job_progress_text(job: &DownloadJob) -> Option<String> {
+    match (
+        optional_i64_to_u64(job.completed_bytes),
+        optional_i64_to_u64(job.total_bytes),
+    ) {
+        (Some(completed), Some(total)) if total > 0 => Some(format!(
+            "{} of {}",
+            format_download_size(completed),
+            format_download_size(total)
+        )),
+        (Some(completed), _) if completed > 0 => {
+            Some(format!("{} downloaded", format_download_size(completed)))
+        }
+        (_, Some(total)) if total > 0 => Some(format!("{} total", format_download_size(total))),
+        _ => None,
+    }
+}
+
+fn optional_i64_to_u64(value: Option<i64>) -> Option<u64> {
+    value.and_then(|value| u64::try_from(value).ok())
+}
+
+fn compact_download_timestamp(value: &str) -> String {
+    value
+        .trim_end_matches('Z')
+        .split_once('.')
+        .map(|(value, _)| value)
+        .unwrap_or(value)
+        .replace('T', " ")
+}
+
+fn format_download_size(size_bytes: u64) -> String {
+    let units = ["B", "KB", "MB", "GB", "TB"];
+    let mut size = size_bytes as f64;
+    let mut unit_index = 0;
+
+    while size >= 1024.0 && unit_index + 1 < units.len() {
+        size /= 1024.0;
+        unit_index += 1;
+    }
+
+    if unit_index == 0 {
+        format!("{size_bytes} {}", units[unit_index])
+    } else if size >= 10.0 {
+        format!("{size:.0} {}", units[unit_index])
+    } else {
+        format!("{size:.1} {}", units[unit_index])
+    }
+}
+
 fn start_model_pull(ui: &Rc<WindowUi>, backend: &Rc<Backend>, model: String) {
     if backend.active_generation.borrow().is_some() {
         ui.toast_overlay
@@ -1085,9 +1283,31 @@ fn start_model_pull(ui: &Rc<WindowUi>, backend: &Rc<Backend>, model: String) {
     ui.refresh_button.set_sensitive(false);
     model_manager::set_pull_started(&ui.model_manager, &model);
 
+    let provider_id = backend.provider.borrow().id.clone();
+    let job = match backend.download_job_repository.create(NewDownloadJob {
+        provider_id,
+        model_name: model.clone(),
+    }) {
+        Ok(job) => job,
+        Err(error) => {
+            ui.refresh_button.set_sensitive(true);
+            model_manager::set_pull_finished(
+                &ui.model_manager,
+                "Download Failed",
+                &format!("Download job could not be saved: {error}"),
+                0.0,
+            );
+            model_manager::clear_download_job(&ui.model_manager);
+            ui.toast_overlay.add_toast(adw::Toast::new(&format!(
+                "Download job could not be saved: {error}"
+            )));
+            return;
+        }
+    };
+
     let (sender, receiver) = mpsc::channel();
     let target_model = model.clone();
-    let pull_id = new_id();
+    let pull_id = job.id.clone();
     let handle = backend.runtime.spawn(async move {
         let progress_sender = sender.clone();
         let result = client
@@ -1112,15 +1332,33 @@ fn start_model_pull(ui: &Rc<WindowUi>, backend: &Rc<Backend>, model: String) {
 
     let target_ui = Rc::clone(ui);
     let target_backend = Rc::clone(backend);
+    let mut tracking_failed = false;
     gtk::glib::timeout_add_local(Duration::from_millis(80), move || {
         loop {
             match receiver.try_recv() {
                 Ok(ModelPullUiEvent::Progress(progress)) => {
+                    if !tracking_failed
+                        && let Err(error) = target_backend.download_job_repository.update_progress(
+                            &pull_id,
+                            progress.total_bytes,
+                            progress.completed_bytes,
+                        )
+                    {
+                        tracking_failed = true;
+                        target_ui.toast_overlay.add_toast(adw::Toast::new(&format!(
+                            "Download progress could not be saved: {error}"
+                        )));
+                    }
                     model_manager::set_pull_progress(&target_ui.model_manager, &model, &progress);
                 }
                 Ok(ModelPullUiEvent::Done) => {
                     if !target_backend.finish_model_pull(&pull_id) {
                         return gtk::glib::ControlFlow::Break;
+                    }
+                    if let Err(error) = target_backend.download_job_repository.complete(&pull_id) {
+                        target_ui.toast_overlay.add_toast(adw::Toast::new(&format!(
+                            "Download job could not be saved: {error}"
+                        )));
                     }
                     target_ui.refresh_button.set_sensitive(true);
                     model_manager::set_pull_finished(
@@ -1129,6 +1367,7 @@ fn start_model_pull(ui: &Rc<WindowUi>, backend: &Rc<Backend>, model: String) {
                         &format!("{model} is ready to use."),
                         1.0,
                     );
+                    model_manager::clear_download_job(&target_ui.model_manager);
                     target_ui
                         .toast_overlay
                         .add_toast(adw::Toast::new("Model download complete"));
@@ -1139,6 +1378,14 @@ fn start_model_pull(ui: &Rc<WindowUi>, backend: &Rc<Backend>, model: String) {
                     if !target_backend.finish_model_pull(&pull_id) {
                         return gtk::glib::ControlFlow::Break;
                     }
+                    if let Err(save_error) = target_backend
+                        .download_job_repository
+                        .fail(&pull_id, &error)
+                    {
+                        target_ui.toast_overlay.add_toast(adw::Toast::new(&format!(
+                            "Download job could not be saved: {save_error}"
+                        )));
+                    }
                     target_ui.refresh_button.set_sensitive(true);
                     model_manager::set_pull_finished(
                         &target_ui.model_manager,
@@ -1146,6 +1393,7 @@ fn start_model_pull(ui: &Rc<WindowUi>, backend: &Rc<Backend>, model: String) {
                         &error,
                         0.0,
                     );
+                    model_manager::clear_download_job(&target_ui.model_manager);
                     target_ui
                         .toast_overlay
                         .add_toast(adw::Toast::new(&format!("Model download failed: {error}")));
@@ -1154,6 +1402,14 @@ fn start_model_pull(ui: &Rc<WindowUi>, backend: &Rc<Backend>, model: String) {
                 Err(mpsc::TryRecvError::Empty) => return gtk::glib::ControlFlow::Continue,
                 Err(mpsc::TryRecvError::Disconnected) => {
                     if target_backend.finish_model_pull(&pull_id) {
+                        if let Err(error) = target_backend
+                            .download_job_repository
+                            .fail(&pull_id, "Download stopped before completion.")
+                        {
+                            target_ui.toast_overlay.add_toast(adw::Toast::new(&format!(
+                                "Download job could not be saved: {error}"
+                            )));
+                        }
                         target_ui.refresh_button.set_sensitive(true);
                         model_manager::set_pull_finished(
                             &target_ui.model_manager,
@@ -1161,6 +1417,7 @@ fn start_model_pull(ui: &Rc<WindowUi>, backend: &Rc<Backend>, model: String) {
                             "The model download stopped before completion.",
                             0.0,
                         );
+                        model_manager::clear_download_job(&target_ui.model_manager);
                     }
                     return gtk::glib::ControlFlow::Break;
                 }
@@ -1291,6 +1548,7 @@ fn start_model_delete(ui: &Rc<WindowUi>, backend: &Rc<Backend>, model: String) {
                     &format!("{model} was removed from Ollama."),
                     1.0,
                 );
+                model_manager::clear_download_job(&target_ui.model_manager);
                 target_ui
                     .toast_overlay
                     .add_toast(adw::Toast::new("Model deleted"));
@@ -1306,6 +1564,7 @@ fn start_model_delete(ui: &Rc<WindowUi>, backend: &Rc<Backend>, model: String) {
                     &error,
                     0.0,
                 );
+                model_manager::clear_download_job(&target_ui.model_manager);
                 target_ui
                     .toast_overlay
                     .add_toast(adw::Toast::new(&format!("Model deletion failed: {error}")));
@@ -1321,6 +1580,7 @@ fn start_model_delete(ui: &Rc<WindowUi>, backend: &Rc<Backend>, model: String) {
                     "The model deletion stopped before completion.",
                     0.0,
                 );
+                model_manager::clear_download_job(&target_ui.model_manager);
                 gtk::glib::ControlFlow::Break
             }
         }

@@ -13,6 +13,7 @@ use super::widgets::{icon_button, section_label};
 pub(super) struct ModelManager {
     pub(super) root: gtk::Box,
     pub(super) pull_button: gtk::Button,
+    pub(super) download_jobs_button: gtk::Button,
     pub(super) refresh_button: gtk::Button,
     pub(super) search_entry: gtk::SearchEntry,
     pub(super) pull_cancel_button: gtk::Button,
@@ -1301,11 +1302,14 @@ pub(super) fn build() -> ModelManager {
     pull_button.add_css_class("suggested-action");
     pull_button.set_sensitive(false);
 
+    let download_jobs_button = icon_button("view-list-symbolic", "Download Jobs");
+
     let refresh_button = icon_button("view-refresh-symbolic", "Refresh Models");
     refresh_button.set_sensitive(false);
 
     title_row.append(&title);
     actions.append(&refresh_button);
+    actions.append(&download_jobs_button);
     actions.append(&pull_button);
 
     let search_entry = gtk::SearchEntry::builder()
@@ -1449,6 +1453,7 @@ pub(super) fn build() -> ModelManager {
     ModelManager {
         root,
         pull_button,
+        download_jobs_button,
         refresh_button,
         search_entry,
         pull_cancel_button,
@@ -1482,6 +1487,13 @@ pub(super) fn set_unavailable(manager: &ModelManager, title: &str, description: 
     manager.status_page.set_title(title);
     manager.status_page.set_description(Some(description));
     manager.stack.set_visible_child_name("empty");
+}
+
+pub(super) fn clear_download_job(manager: &ModelManager) {
+    manager.pull_panel.set_visible(false);
+    manager.pull_cancel_button.set_sensitive(false);
+    manager.pull_progress.set_fraction(0.0);
+    manager.pull_progress_label.set_label("");
 }
 
 pub(super) fn set_models(
