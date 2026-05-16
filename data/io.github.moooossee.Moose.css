@@ -206,16 +206,42 @@
 }
 
 .moose-model-dialog-content {
-  min-width: 460px;
-  padding: 6px 24px 24px 24px;
+  min-width: 520px;
+  padding: 8px 26px 26px 26px;
 }
 
 .moose-model-dialog-scroll {
   background-color: transparent;
 }
 
+.moose-model-tag-flow {
+  background-color: transparent;
+}
+
+.moose-model-tag-flow flowboxchild {
+  background-color: transparent;
+  padding: 0;
+}
+
+.moose-model-variant-list {
+  padding: 0 0 10px 0;
+}
+
 .moose-model-row-item {
   min-height: 58px;
+}
+
+.moose-model-variant-row {
+  min-height: 84px;
+}
+
+.moose-model-variant-title {
+  font-weight: 600;
+}
+
+.moose-model-variant-description {
+  font-size: 0.9em;
+  opacity: 0.72;
 }
 
 .moose-model-pill {

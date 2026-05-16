@@ -1742,7 +1742,7 @@ fn show_model_family_dialog(
 ) {
     let dialog = adw::Dialog::builder()
         .title(family.title)
-        .content_width(520)
+        .content_width(640)
         .build();
 
     let header_bar = adw::HeaderBar::builder()
@@ -1777,17 +1777,21 @@ fn show_model_family_dialog(
 
     let description = gtk::Label::builder()
         .label(family.description)
-        .halign(Align::Start)
-        .xalign(0.0)
+        .halign(Align::Center)
+        .xalign(0.5)
+        .justify(gtk::Justification::Center)
         .wrap(true)
         .build();
     description.add_css_class("dim-label");
 
-    let tag_row = gtk::Box::builder()
-        .orientation(Orientation::Horizontal)
-        .spacing(6)
+    let tag_row = gtk::FlowBox::builder()
+        .selection_mode(gtk::SelectionMode::None)
+        .column_spacing(6)
+        .row_spacing(6)
         .halign(Align::Start)
+        .hexpand(true)
         .build();
+    tag_row.add_css_class("moose-model-tag-flow");
     for tag in family.tags {
         tag_row.append(&pill_label(tag));
     }
@@ -1795,6 +1799,7 @@ fn show_model_family_dialog(
     let variant_list = gtk::ListBox::new();
     variant_list.set_selection_mode(gtk::SelectionMode::None);
     variant_list.add_css_class("moose-model-list");
+    variant_list.add_css_class("moose-model-variant-list");
     for variant in family.variants {
         variant_list.append(&model_variant_row(
             variant,
@@ -1832,21 +1837,76 @@ fn model_variant_row(
     variant: &ModelVariant,
     installed_names: &[&str],
     on_pull: Rc<dyn Fn(String)>,
-) -> adw::ActionRow {
-    let tags = variant.tags.join(", ");
-    let row = adw::ActionRow::builder()
-        .title(variant.name)
-        .subtitle(&format!(
-            "{} - {} - Tags: {}",
-            variant.title, variant.description, tags
-        ))
-        .subtitle_lines(3)
+) -> gtk::ListBoxRow {
+    let row = gtk::ListBoxRow::builder()
+        .activatable(false)
+        .selectable(false)
         .build();
-    row.add_css_class("moose-model-row-item");
+    row.add_css_class("moose-model-variant-row");
     row.set_tooltip_text(Some(variant.name));
 
+    let content = gtk::Box::builder()
+        .orientation(Orientation::Horizontal)
+        .spacing(12)
+        .margin_top(10)
+        .margin_bottom(10)
+        .margin_start(12)
+        .margin_end(12)
+        .hexpand(true)
+        .build();
+
+    let copy = gtk::Box::builder()
+        .orientation(Orientation::Vertical)
+        .spacing(6)
+        .hexpand(true)
+        .valign(Align::Center)
+        .build();
+
+    let title = gtk::Label::builder()
+        .label(variant.name)
+        .halign(Align::Start)
+        .xalign(0.0)
+        .hexpand(true)
+        .wrap(true)
+        .wrap_mode(gtk::pango::WrapMode::WordChar)
+        .build();
+    title.add_css_class("moose-model-variant-title");
+
+    let description = gtk::Label::builder()
+        .label(&format!("{} - {}", variant.title, variant.description))
+        .halign(Align::Start)
+        .xalign(0.0)
+        .hexpand(true)
+        .wrap(true)
+        .wrap_mode(gtk::pango::WrapMode::WordChar)
+        .build();
+    description.add_css_class("moose-model-variant-description");
+
+    let tag_row = gtk::FlowBox::builder()
+        .selection_mode(gtk::SelectionMode::None)
+        .column_spacing(6)
+        .row_spacing(6)
+        .halign(Align::Start)
+        .hexpand(true)
+        .build();
+    tag_row.add_css_class("moose-model-tag-flow");
+    for tag in variant.tags {
+        tag_row.append(&pill_label(tag));
+    }
+
+    copy.append(&title);
+    copy.append(&description);
+    copy.append(&tag_row);
+    content.append(&copy);
+
+    let action_box = gtk::Box::builder()
+        .orientation(Orientation::Horizontal)
+        .halign(Align::End)
+        .valign(Align::Center)
+        .build();
+
     if model_is_installed(variant.name, installed_names) {
-        row.add_suffix(&pill_label("Installed"));
+        action_box.append(&pill_label("Installed"));
     } else {
         let download_button = icon_button(
             "folder-download-symbolic",
@@ -1857,8 +1917,11 @@ fn model_variant_row(
         download_button.connect_clicked(move |_| {
             on_pull(model_name.clone());
         });
-        row.add_suffix(&download_button);
+        action_box.append(&download_button);
     }
+
+    content.append(&action_box);
+    row.set_child(Some(&content));
 
     row
 }
