@@ -1,3 +1,5 @@
+use std::{cell::Cell, rc::Rc, time::Duration};
+
 use adw::prelude::*;
 use gtk::{Align, Orientation};
 
@@ -17,6 +19,11 @@ pub(super) struct Chat {
     pub(super) model_picker: gtk::DropDown,
     pub(super) send_button: gtk::Button,
     pub(super) stop_button: gtk::Button,
+}
+
+pub(super) struct StreamingMessage {
+    content_label: gtk::Label,
+    thinking_indicator: gtk::Box,
 }
 
 pub(super) fn build() -> Chat {
@@ -250,9 +257,108 @@ pub(super) fn append_message(messages: &gtk::Box, role: &str, content: &str) -> 
     content_label
 }
 
+pub(super) fn append_streaming_message(messages: &gtk::Box, model: &str) -> StreamingMessage {
+    let row = gtk::Box::builder()
+        .orientation(Orientation::Vertical)
+        .spacing(6)
+        .halign(Align::Fill)
+        .hexpand(true)
+        .build();
+    let role_label = gtk::Label::builder()
+        .label(model)
+        .halign(Align::Fill)
+        .xalign(0.0)
+        .justify(gtk::Justification::Left)
+        .build();
+    let thinking_indicator = gtk::Box::builder()
+        .orientation(Orientation::Horizontal)
+        .spacing(8)
+        .halign(Align::Start)
+        .valign(Align::Center)
+        .build();
+    let spinner = gtk::Spinner::new();
+    spinner.set_size_request(16, 16);
+    spinner.start();
+    spinner.add_css_class("moose-thinking-spinner");
+
+    let thinking_label = gtk::Label::builder()
+        .label(thinking_status(model))
+        .halign(Align::Start)
+        .hexpand(true)
+        .max_width_chars(80)
+        .xalign(0.0)
+        .ellipsize(gtk::pango::EllipsizeMode::End)
+        .build();
+    thinking_label.add_css_class("moose-thinking-label");
+    start_thinking_text_cycle(&thinking_label, model);
+
+    let content_label = gtk::Label::builder()
+        .halign(Align::Fill)
+        .hexpand(true)
+        .xalign(0.0)
+        .justify(gtk::Justification::Left)
+        .wrap(true)
+        .wrap_mode(gtk::pango::WrapMode::Char)
+        .natural_wrap_mode(gtk::NaturalWrapMode::None)
+        .width_chars(120)
+        .selectable(true)
+        .visible(false)
+        .build();
+
+    row.add_css_class("moose-message");
+    role_label.add_css_class("caption-heading");
+    role_label.add_css_class("dim-label");
+    thinking_indicator.add_css_class("moose-thinking");
+    content_label.add_css_class("body");
+    content_label.add_css_class("moose-message-content");
+    thinking_indicator.append(&spinner);
+    thinking_indicator.append(&thinking_label);
+    row.append(&role_label);
+    row.append(&thinking_indicator);
+    row.append(&content_label);
+    messages.append(&row);
+
+    StreamingMessage {
+        content_label,
+        thinking_indicator,
+    }
+}
+
+pub(super) fn set_streaming_message_content(message: &StreamingMessage, content: &str) {
+    message.thinking_indicator.set_visible(false);
+    message.content_label.set_visible(true);
+    message.content_label.set_text(content);
+}
+
 pub(super) fn set_empty_state(status_page: &adw::StatusPage, title: &str, description: &str) {
     status_page.set_title(title);
     status_page.set_description(Some(description));
+}
+
+fn start_thinking_text_cycle(label: &gtk::Label, model: &str) {
+    let label = label.clone();
+    let model = model.to_string();
+    let index = Rc::new(Cell::new(0usize));
+    let target_index = Rc::clone(&index);
+
+    gtk::glib::timeout_add_local(Duration::from_millis(1400), move || {
+        if !label.is_visible() {
+            return gtk::glib::ControlFlow::Break;
+        }
+
+        let next_index = (target_index.get() + 1) % 3;
+        target_index.set(next_index);
+        label.set_label(&match next_index {
+            0 => thinking_status(&model),
+            1 => "Reading your message...".to_string(),
+            _ => "Drafting response...".to_string(),
+        });
+        gtk::glib::ControlFlow::Continue
+    });
+}
+
+fn thinking_status(model: &str) -> String {
+    format!("{model} is thinking...")
 }
 
 fn message_role_label(role: &MessageRole) -> &'static str {

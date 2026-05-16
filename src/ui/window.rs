@@ -1424,7 +1424,7 @@ fn send_message(ui: &Rc<WindowUi>, backend: &Rc<Backend>) {
     clear_prompt(&ui.entry);
     ui.message_stack.set_visible_child_name("messages");
     chat_view::append_message(&ui.messages, "You", &prompt);
-    let assistant_label = chat_view::append_message(&ui.messages, &model, "");
+    let assistant_message = chat_view::append_streaming_message(&ui.messages, &model);
     ui.send_button.set_sensitive(false);
     ui.stop_button.set_sensitive(true);
 
@@ -1455,9 +1455,22 @@ fn send_message(ui: &Rc<WindowUi>, backend: &Rc<Backend>) {
                 Ok(ChatUiEvent::Token(token)) => {
                     let mut content = target_backend.active_assistant_content.borrow_mut();
                     content.push_str(&token);
-                    assistant_label.set_text(&content);
+                    chat_view::set_streaming_message_content(&assistant_message, &content);
                 }
                 Ok(ChatUiEvent::Done) => {
+                    if target_backend
+                        .active_assistant_content
+                        .borrow()
+                        .trim()
+                        .is_empty()
+                    {
+                        *target_backend.active_assistant_content.borrow_mut() =
+                            "No response generated.".to_string();
+                        chat_view::set_streaming_message_content(
+                            &assistant_message,
+                            "No response generated.",
+                        );
+                    }
                     finish_generation(&target_ui);
                     target_backend.active_generation.borrow_mut().take();
                     if let Err(error) = persist_active_assistant_message(
@@ -1472,6 +1485,11 @@ fn send_message(ui: &Rc<WindowUi>, backend: &Rc<Backend>) {
                     return gtk::glib::ControlFlow::Break;
                 }
                 Ok(ChatUiEvent::Failed(error)) => {
+                    let display_content = {
+                        let content = target_backend.active_assistant_content.borrow();
+                        message_content_with_live_state(content.as_str(), "Response failed.")
+                    };
+                    chat_view::set_streaming_message_content(&assistant_message, &display_content);
                     finish_generation(&target_ui);
                     target_backend.active_generation.borrow_mut().take();
                     if let Err(save_error) = persist_active_assistant_message(
@@ -1490,6 +1508,11 @@ fn send_message(ui: &Rc<WindowUi>, backend: &Rc<Backend>) {
                 }
                 Err(mpsc::TryRecvError::Empty) => return gtk::glib::ControlFlow::Continue,
                 Err(mpsc::TryRecvError::Disconnected) => {
+                    let display_content = {
+                        let content = target_backend.active_assistant_content.borrow();
+                        message_content_with_live_state(content.as_str(), "Response cancelled.")
+                    };
+                    chat_view::set_streaming_message_content(&assistant_message, &display_content);
                     finish_generation(&target_ui);
                     target_backend.active_generation.borrow_mut().take();
                     if let Err(error) = persist_active_assistant_message(
@@ -1506,6 +1529,14 @@ fn send_message(ui: &Rc<WindowUi>, backend: &Rc<Backend>) {
             }
         }
     });
+}
+
+fn message_content_with_live_state(content: &str, state: &str) -> String {
+    if content.trim().is_empty() {
+        state.to_string()
+    } else {
+        format!("{content}\n\n{state}")
+    }
 }
 
 fn create_empty_conversation(backend: &Backend) -> Result<String> {
