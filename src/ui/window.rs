@@ -47,7 +47,6 @@ pub fn build(app: &adw::Application) -> adw::ApplicationWindow {
     let chat = chat_view::build();
     let model_manager = model_manager::build();
     let new_chat_button = sidebar.new_chat_button.clone();
-    let search_button = sidebar.search_button.clone();
     let model_manager_button = sidebar.model_manager_button.clone();
 
     let header_bar = adw::HeaderBar::new();
@@ -122,7 +121,6 @@ pub fn build(app: &adw::Application) -> adw::ApplicationWindow {
                 &ui,
                 &backend,
                 &new_chat_button,
-                &search_button,
                 &model_manager_button,
                 &preferences_button,
             );
@@ -349,7 +347,6 @@ fn bind_actions(
     ui: &Rc<WindowUi>,
     backend: &Rc<Backend>,
     new_chat_button: &gtk::Button,
-    search_button: &gtk::Button,
     model_manager_button: &gtk::Button,
     preferences_button: &gtk::Button,
 ) {
@@ -375,13 +372,6 @@ fn bind_actions(
                 )));
             }
         }
-    });
-
-    let target_ui = Rc::clone(ui);
-    search_button.connect_clicked(move |_| {
-        target_ui
-            .toast_overlay
-            .add_toast(adw::Toast::new("Conversation search is not ready yet"));
     });
 
     let target_ui = Rc::clone(ui);

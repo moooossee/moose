@@ -9,7 +9,6 @@ use super::widgets::{icon_button, section_label, status_label};
 pub(super) struct Sidebar {
     pub(super) root: gtk::Box,
     pub(super) new_chat_button: gtk::Button,
-    pub(super) search_button: gtk::Button,
     pub(super) model_manager_button: gtk::Button,
     pub(super) provider_row: adw::ActionRow,
     pub(super) provider_status: gtk::Label,
@@ -43,17 +42,14 @@ pub(super) fn build() -> Sidebar {
     title.add_css_class("moose-sidebar-title");
 
     let new_chat_button = icon_button("list-add-symbolic", "New Conversation");
-    let search_button = icon_button("system-search-symbolic", "Search Conversations");
     let model_manager_button = icon_button("view-list-symbolic", "Models");
 
     new_chat_button.add_css_class("moose-sidebar-button");
-    search_button.add_css_class("moose-sidebar-button");
     model_manager_button.add_css_class("moose-sidebar-button");
 
     top_bar.append(&title);
     top_bar.append(&model_manager_button);
     top_bar.append(&new_chat_button);
-    top_bar.append(&search_button);
 
     let provider_group = gtk::ListBox::new();
     provider_group.add_css_class("moose-provider-list");
@@ -104,7 +100,6 @@ pub(super) fn build() -> Sidebar {
     Sidebar {
         root,
         new_chat_button,
-        search_button,
         model_manager_button,
         provider_row,
         provider_status,
