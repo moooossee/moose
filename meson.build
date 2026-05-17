@@ -7,11 +7,14 @@ project(
 )
 
 python = find_program('python3')
+gnome = import('gnome')
 cargo_build = files('build-aux/cargo-build.py')
 datadir = get_option('datadir')
 styledir = join_paths(datadir, 'moose')
 service_config = configuration_data()
 service_config.set('bindir', join_paths(get_option('prefix'), get_option('bindir')))
+
+subdir('data')
 
 custom_target(
   'moose',
@@ -64,3 +67,5 @@ install_data(
   'data/io.github.moooossee.Moose.css',
   install_dir: styledir
 )
+
+gnome.post_install(glib_compile_schemas: true)

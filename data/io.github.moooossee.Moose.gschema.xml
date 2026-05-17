@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<schemalist>
+  <schema id="io.github.moooossee.Moose" path="/io/github/moooossee/Moose/">
+    <key name="selected-models" type="a{ss}">
+      <default>@a{ss} {}</default>
+      <summary>Selected models</summary>
+      <description>The last model selected by the user for each provider.</description>
+    </key>
+  </schema>
+</schemalist>

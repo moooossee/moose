@@ -1,6 +1,7 @@
-use std::{cell::RefCell, fs, rc::Rc, sync::mpsc, time::Duration};
+use std::{cell::RefCell, collections::HashMap, fs, rc::Rc, sync::mpsc, time::Duration};
 
 use adw::prelude::*;
+use gtk::gio::{self, prelude::*};
 use serde::Deserialize;
 
 use crate::{
@@ -30,6 +31,7 @@ mod widgets;
 const CHAT_CSS: &str = include_str!("../../data/io.github.moooossee.Moose.css");
 const TITLE_SYSTEM_PROMPT: &str = "You are an assistant that generates short chat titles based on the prompt. If you want to, you can add a single emoji. Format the response as a single JSON object.";
 const TITLE_MAX_CHARS: usize = 30;
+const SETTINGS_SELECTED_MODELS: &str = "selected-models";
 
 pub fn build(app: &adw::Application) -> adw::ApplicationWindow {
     install_chat_css();
@@ -105,6 +107,7 @@ pub fn build(app: &adw::Application) -> adw::ApplicationWindow {
         model_names,
         installed_models,
         conversation_ids,
+        restoring_model_selection: RefCell::new(false),
         restoring_conversation_selection: RefCell::new(false),
     });
 
@@ -146,6 +149,8 @@ struct Backend {
     conversation_repository: ConversationRepository,
     download_job_repository: DownloadJobRepository,
     provider: RefCell<Provider>,
+    settings: Option<gio::Settings>,
+    selected_models: RefCell<HashMap<String, String>>,
     runtime: tokio::runtime::Runtime,
     active_generation: RefCell<Option<tokio::task::JoinHandle<()>>>,
     active_model_pull: RefCell<Option<ActiveModelPull>>,
@@ -180,6 +185,7 @@ struct WindowUi {
     model_names: Rc<RefCell<Vec<String>>>,
     installed_models: Rc<RefCell<Vec<OllamaModel>>>,
     conversation_ids: Rc<RefCell<Vec<String>>>,
+    restoring_model_selection: RefCell<bool>,
     restoring_conversation_selection: RefCell<bool>,
 }
 
@@ -230,6 +236,12 @@ struct GeneratedTitle {
     title: String,
 }
 
+fn app_settings() -> Option<gio::Settings> {
+    gio::SettingsSchemaSource::default()
+        .and_then(|source| source.lookup(APPLICATION_ID, true))
+        .map(|schema| gio::Settings::new_full(&schema, gio::SettingsBackend::NONE, None))
+}
+
 impl Backend {
     fn new() -> Result<Self> {
         let paths = AppPaths::new("moose")?;
@@ -239,6 +251,11 @@ impl Backend {
         let conversation_repository = ConversationRepository::new(Rc::clone(&connection));
         let download_job_repository = DownloadJobRepository::new(connection);
         let provider = repository.ensure_default_provider()?;
+        let settings = app_settings();
+        let selected_models = settings
+            .as_ref()
+            .map(|settings| settings.get(SETTINGS_SELECTED_MODELS))
+            .unwrap_or_default();
         download_job_repository.fail_active_jobs("Download interrupted.")?;
         let runtime = tokio::runtime::Builder::new_multi_thread()
             .enable_all()
@@ -249,6 +266,8 @@ impl Backend {
             conversation_repository,
             download_job_repository,
             provider: RefCell::new(provider),
+            settings,
+            selected_models: RefCell::new(selected_models),
             runtime,
             active_generation: RefCell::new(None),
             active_model_pull: RefCell::new(None),
@@ -493,7 +512,16 @@ fn bind_actions(
         });
 
     let target_ui = Rc::clone(ui);
+    let target_backend = Rc::clone(backend);
     ui.model_picker.connect_selected_notify(move |_| {
+        if *target_ui.restoring_model_selection.borrow() {
+            return;
+        }
+
+        if let Some(model) = selected_model(&target_ui.model_picker, &target_ui.model_names) {
+            save_selected_model(&target_ui, &target_backend, model);
+        }
+
         update_send_button(&target_ui);
     });
 
@@ -868,7 +896,7 @@ fn refresh_models(ui: &Rc<WindowUi>, backend: &Rc<Backend>) {
             ui.toast_overlay.add_toast(adw::Toast::new(&format!(
                 "Provider URL is invalid: {error}"
             )));
-            set_model_picker(ui, Vec::new());
+            set_model_picker(ui, Vec::new(), None);
             set_installed_models(ui, backend, Vec::new());
             model_manager::set_unavailable(
                 &ui.model_manager,
@@ -882,7 +910,7 @@ fn refresh_models(ui: &Rc<WindowUi>, backend: &Rc<Backend>) {
     ui.provider_status.set_text("Checking");
     ui.refresh_button.set_sensitive(false);
     ui.model_manager.refresh_button.set_sensitive(false);
-    set_model_picker(ui, Vec::new());
+    set_model_picker(ui, Vec::new(), None);
     set_installed_models(ui, backend, Vec::new());
     model_manager::set_loading(&ui.model_manager);
 
@@ -932,7 +960,7 @@ fn refresh_models(ui: &Rc<WindowUi>, backend: &Rc<Backend>) {
                     target_ui
                         .toast_overlay
                         .add_toast(adw::Toast::new(&format!("Ollama unavailable: {status}")));
-                    set_model_picker(&target_ui, Vec::new());
+                    set_model_picker(&target_ui, Vec::new(), None);
                     set_installed_models(&target_ui, &target_backend, Vec::new());
                     model_manager::set_unavailable(
                         &target_ui.model_manager,
@@ -951,7 +979,7 @@ fn refresh_models(ui: &Rc<WindowUi>, backend: &Rc<Backend>) {
                 target_ui
                     .toast_overlay
                     .add_toast(adw::Toast::new(&format!("Model list failed: {error}")));
-                set_model_picker(&target_ui, Vec::new());
+                set_model_picker(&target_ui, Vec::new(), None);
                 set_installed_models(&target_ui, &target_backend, Vec::new());
                 model_manager::set_unavailable(
                     &target_ui.model_manager,
@@ -965,7 +993,7 @@ fn refresh_models(ui: &Rc<WindowUi>, backend: &Rc<Backend>) {
                 target_ui.refresh_button.set_sensitive(true);
                 target_ui.model_manager.refresh_button.set_sensitive(true);
                 target_ui.provider_status.set_text("Disconnected");
-                set_model_picker(&target_ui, Vec::new());
+                set_model_picker(&target_ui, Vec::new(), None);
                 set_installed_models(&target_ui, &target_backend, Vec::new());
                 model_manager::set_unavailable(
                     &target_ui.model_manager,
@@ -2183,13 +2211,36 @@ fn selected_model(
     model_names.borrow().get(selected).cloned()
 }
 
+fn save_selected_model(ui: &WindowUi, backend: &Backend, model: String) {
+    let provider_id = backend.provider.borrow().id.clone();
+    let selected_models = {
+        let mut selected_models = backend.selected_models.borrow_mut();
+        selected_models.insert(provider_id, model);
+        selected_models.clone()
+    };
+
+    let Some(settings) = backend.settings.as_ref() else {
+        return;
+    };
+
+    if settings
+        .set(SETTINGS_SELECTED_MODELS, selected_models)
+        .is_err()
+    {
+        ui.toast_overlay
+            .add_toast(adw::Toast::new("Selected model could not be saved"));
+    }
+}
+
 fn set_models(ui: &Rc<WindowUi>, backend: &Rc<Backend>, models: Vec<OllamaModel>) {
     let chat_models = models
         .iter()
         .filter(|model| model.supports_chat)
         .map(|model| model.name.clone())
         .collect();
-    set_model_picker(ui, chat_models);
+    let provider_id = backend.provider.borrow().id.clone();
+    let selected_model = backend.selected_models.borrow().get(&provider_id).cloned();
+    set_model_picker(ui, chat_models, selected_model.as_deref());
     set_installed_models(ui, backend, models);
 }
 
@@ -2223,25 +2274,35 @@ fn render_model_manager(ui: &Rc<WindowUi>, backend: &Rc<Backend>, query: &str) {
     );
 }
 
-fn set_model_picker(ui: &WindowUi, models: Vec<String>) {
+fn set_model_picker(ui: &WindowUi, models: Vec<String>, selected_model: Option<&str>) {
     let is_empty = models.is_empty();
     *ui.model_names.borrow_mut() = models;
+    *ui.restoring_model_selection.borrow_mut() = true;
 
     if is_empty {
         let list = gtk::StringList::new(&["No model selected"]);
         ui.model_picker.set_model(Some(&list));
         ui.model_picker.set_selected(0);
         ui.model_picker.set_sensitive(false);
+        *ui.restoring_model_selection.borrow_mut() = false;
         update_send_button(ui);
         return;
     }
 
-    let borrowed = ui.model_names.borrow();
-    let labels = borrowed.iter().map(String::as_str).collect::<Vec<_>>();
-    let list = gtk::StringList::new(&labels);
+    let (list, selected) = {
+        let borrowed = ui.model_names.borrow();
+        let labels = borrowed.iter().map(String::as_str).collect::<Vec<_>>();
+        let selected = selected_model
+            .and_then(|model| borrowed.iter().position(|candidate| candidate == model))
+            .unwrap_or(0);
+
+        (gtk::StringList::new(&labels), selected)
+    };
+
     ui.model_picker.set_model(Some(&list));
-    ui.model_picker.set_selected(0);
+    ui.model_picker.set_selected(selected as u32);
     ui.model_picker.set_sensitive(true);
+    *ui.restoring_model_selection.borrow_mut() = false;
     update_send_button(ui);
 }
 
