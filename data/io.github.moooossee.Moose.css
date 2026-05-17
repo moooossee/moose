@@ -94,12 +94,32 @@
   padding: 8px 2px 16px 2px;
 }
 
+.moose-message-outgoing {
+  padding-left: 54px;
+}
+
 .moose-message-user {
-  color: @accent_color;
+  color: @window_fg_color;
 }
 
 .moose-message-content {
   line-height: 1.45;
+}
+
+.moose-message-user-bubble {
+  background-color: @sidebar_bg_color;
+  border: 1px solid @borders;
+  border-radius: 16px 16px 4px 16px;
+  padding: 9px 13px 11px 13px;
+}
+
+.moose-message-user-meta {
+  font-size: 0.78em;
+  opacity: 0.68;
+}
+
+.moose-message-user-content {
+  color: @window_fg_color;
 }
 
 .moose-thinking {

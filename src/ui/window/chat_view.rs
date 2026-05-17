@@ -242,8 +242,8 @@ pub(super) fn append_message(
         .build();
     let content_label = gtk::Label::builder()
         .label(content)
-        .halign(Align::Fill)
-        .hexpand(true)
+        .halign(if is_user { Align::Start } else { Align::Fill })
+        .hexpand(!is_user)
         .xalign(text_alignment)
         .justify(justification)
         .wrap(true)
@@ -255,14 +255,36 @@ pub(super) fn append_message(
 
     row.add_css_class("moose-message");
     if is_user {
+        row.add_css_class("moose-message-outgoing");
         role_label.add_css_class("moose-message-user");
     }
     role_label.add_css_class("caption-heading");
     role_label.add_css_class("dim-label");
     content_label.add_css_class("body");
     content_label.add_css_class("moose-message-content");
-    row.append(&role_label);
-    row.append(&content_label);
+    if is_user {
+        role_label.set_xalign(1.0);
+        role_label.set_justify(gtk::Justification::Right);
+        content_label.set_width_chars(-1);
+        content_label.set_xalign(0.0);
+        content_label.set_justify(gtk::Justification::Left);
+        content_label.set_max_width_chars(72);
+
+        let bubble = gtk::Box::builder()
+            .orientation(Orientation::Vertical)
+            .spacing(5)
+            .halign(Align::End)
+            .build();
+        bubble.add_css_class("moose-message-user-bubble");
+        role_label.add_css_class("moose-message-user-meta");
+        content_label.add_css_class("moose-message-user-content");
+        bubble.append(&role_label);
+        bubble.append(&content_label);
+        row.append(&bubble);
+    } else {
+        row.append(&role_label);
+        row.append(&content_label);
+    }
     messages.append(&row);
     content_label
 }
