@@ -1,7 +1,7 @@
 use std::{cell::Cell, rc::Rc, time::Duration};
 
 use adw::prelude::*;
-use gtk::{Align, Orientation};
+use gtk::{Align, Orientation, glib::DateTime};
 
 use crate::{
     APPLICATION_ID,
@@ -207,10 +207,20 @@ pub(super) fn build() -> Chat {
 
 pub(super) fn append_stored_message(messages: &gtk::Box, message: &Message) {
     let content = stored_message_content(message);
-    append_message(messages, message_role_label(&message.role), &content);
+    append_message(
+        messages,
+        message_role_label(&message.role),
+        &content,
+        Some(&message.created_at),
+    );
 }
 
-pub(super) fn append_message(messages: &gtk::Box, role: &str, content: &str) -> gtk::Label {
+pub(super) fn append_message(
+    messages: &gtk::Box,
+    role: &str,
+    content: &str,
+    created_at: Option<&str>,
+) -> gtk::Label {
     let is_user = role == "You";
     let text_alignment = if is_user { 1.0 } else { 0.0 };
     let justification = if is_user {
@@ -225,7 +235,7 @@ pub(super) fn append_message(messages: &gtk::Box, role: &str, content: &str) -> 
         .hexpand(true)
         .build();
     let role_label = gtk::Label::builder()
-        .label(role)
+        .label(message_header_label(role, created_at))
         .halign(Align::Fill)
         .xalign(text_alignment)
         .justify(justification)
@@ -257,7 +267,11 @@ pub(super) fn append_message(messages: &gtk::Box, role: &str, content: &str) -> 
     content_label
 }
 
-pub(super) fn append_streaming_message(messages: &gtk::Box, model: &str) -> StreamingMessage {
+pub(super) fn append_streaming_message(
+    messages: &gtk::Box,
+    model: &str,
+    created_at: Option<&str>,
+) -> StreamingMessage {
     let row = gtk::Box::builder()
         .orientation(Orientation::Vertical)
         .spacing(6)
@@ -265,7 +279,7 @@ pub(super) fn append_streaming_message(messages: &gtk::Box, model: &str) -> Stre
         .hexpand(true)
         .build();
     let role_label = gtk::Label::builder()
-        .label(model)
+        .label(message_header_label(model, created_at))
         .halign(Align::Fill)
         .xalign(0.0)
         .justify(gtk::Justification::Left)
@@ -359,6 +373,55 @@ fn start_thinking_text_cycle(label: &gtk::Label, model: &str) {
 
 fn thinking_status(model: &str) -> String {
     format!("{model} is thinking...")
+}
+
+fn message_header_label(role: &str, created_at: Option<&str>) -> String {
+    created_at
+        .map(format_message_timestamp)
+        .filter(|timestamp| !timestamp.is_empty())
+        .map(|timestamp| format!("{role} - {timestamp}"))
+        .unwrap_or_else(|| role.to_string())
+}
+
+fn format_message_timestamp(value: &str) -> String {
+    DateTime::from_iso8601(value, None)
+        .and_then(|timestamp| timestamp.to_local())
+        .map(|timestamp| format_message_datetime(&timestamp))
+        .unwrap_or_else(|_| value.to_string())
+}
+
+fn format_message_datetime(timestamp: &DateTime) -> String {
+    let hour = timestamp.hour();
+    let display_hour = match hour % 12 {
+        0 => 12,
+        value => value,
+    };
+    let meridiem = if hour < 12 { "AM" } else { "PM" };
+    let minute = timestamp.minute();
+
+    format!(
+        "{} {}, {display_hour}:{minute:02} {meridiem}",
+        month_name(timestamp.month()),
+        timestamp.day_of_month()
+    )
+}
+
+fn month_name(month: i32) -> &'static str {
+    match month {
+        1 => "January",
+        2 => "February",
+        3 => "March",
+        4 => "April",
+        5 => "May",
+        6 => "June",
+        7 => "July",
+        8 => "August",
+        9 => "September",
+        10 => "October",
+        11 => "November",
+        12 => "December",
+        _ => "",
+    }
 }
 
 fn message_role_label(role: &MessageRole) -> &'static str {

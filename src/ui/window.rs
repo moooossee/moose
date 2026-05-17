@@ -7,8 +7,8 @@ use crate::{
     APPLICATION_ID, APPLICATION_NAME,
     chat::{ChatMessage, ChatRequest, ChatStreamEvent},
     conversations::{
-        ConversationTitleUpdate, DEFAULT_CONVERSATION_TITLE, MessageUpdate, NewConversation,
-        NewMessage,
+        ConversationTitleUpdate, DEFAULT_CONVERSATION_TITLE, Message, MessageUpdate,
+        NewConversation, NewMessage,
     },
     error::Result,
     models::{DownloadJob, DownloadJobStatus, NewDownloadJob},
@@ -218,6 +218,11 @@ enum AssistantMessageEnd {
     Complete,
     Cancelled,
     Failed,
+}
+
+struct PendingExchange {
+    user: Message,
+    assistant: Message,
 }
 
 #[derive(Deserialize)]
@@ -1726,8 +1731,8 @@ fn send_message(ui: &Rc<WindowUi>, backend: &Rc<Backend>) {
             return;
         }
     };
-    let assistant_message_id = match save_pending_exchange(backend, &conversation_id, &prompt) {
-        Ok(assistant_message_id) => assistant_message_id,
+    let pending_exchange = match save_pending_exchange(backend, &conversation_id, &prompt) {
+        Ok(pending_exchange) => pending_exchange,
         Err(error) => {
             ui.toast_overlay.add_toast(adw::Toast::new(&format!(
                 "Message could not be saved: {error}"
@@ -1748,12 +1753,22 @@ fn send_message(ui: &Rc<WindowUi>, backend: &Rc<Backend>) {
     }
 
     backend.abort_generation();
+    let assistant_message_id = pending_exchange.assistant.id.clone();
     *backend.active_assistant_message_id.borrow_mut() = Some(assistant_message_id);
     backend.active_assistant_content.borrow_mut().clear();
     clear_prompt(&ui.entry);
     ui.message_stack.set_visible_child_name("messages");
-    chat_view::append_message(&ui.messages, "You", &prompt);
-    let assistant_message = chat_view::append_streaming_message(&ui.messages, &model);
+    chat_view::append_message(
+        &ui.messages,
+        "You",
+        &prompt,
+        Some(&pending_exchange.user.created_at),
+    );
+    let assistant_message = chat_view::append_streaming_message(
+        &ui.messages,
+        &model,
+        Some(&pending_exchange.assistant.created_at),
+    );
     ui.send_button.set_sensitive(false);
     ui.stop_button.set_sensitive(true);
 
@@ -2100,14 +2115,21 @@ fn numbered_conversation_title(
     Ok(title.to_string())
 }
 
-fn save_pending_exchange(backend: &Backend, conversation_id: &str, prompt: &str) -> Result<String> {
-    backend
+fn save_pending_exchange(
+    backend: &Backend,
+    conversation_id: &str,
+    prompt: &str,
+) -> Result<PendingExchange> {
+    let user = backend
         .conversation_repository
         .create_message(NewMessage::user(conversation_id, prompt))?;
     let assistant_message = backend
         .conversation_repository
         .create_message(NewMessage::assistant_streaming(conversation_id))?;
-    Ok(assistant_message.id)
+    Ok(PendingExchange {
+        user,
+        assistant: assistant_message,
+    })
 }
 
 fn persist_active_assistant_message(backend: &Backend, end: AssistantMessageEnd) -> Result<()> {
