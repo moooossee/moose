@@ -164,6 +164,15 @@ impl DownloadJobRepository {
         Ok(())
     }
 
+    pub fn delete_for_provider(&self, provider_id: &str) -> Result<usize> {
+        self.connection
+            .execute(
+                "DELETE FROM download_jobs WHERE provider_id = ?1",
+                params![provider_id],
+            )
+            .map_err(Into::into)
+    }
+
     fn finish(
         &self,
         id: &str,

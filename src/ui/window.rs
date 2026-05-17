@@ -1105,6 +1105,27 @@ fn show_download_jobs_dialog(
     let title = adw::WindowTitle::new("Download Jobs", &provider.name);
     header_bar.set_title_widget(Some(&title));
 
+    if !jobs.is_empty() {
+        let clear_button = widgets::icon_button("user-trash-symbolic", "Clear Download History");
+        clear_button.add_css_class("destructive-action");
+        clear_button.set_sensitive(backend.active_model_pull.borrow().is_none());
+        let target_parent = parent.clone();
+        let target_ui = Rc::clone(ui);
+        let target_backend = Rc::clone(backend);
+        let target_dialog = dialog.clone();
+        let provider_id = provider.id.clone();
+        clear_button.connect_clicked(move |_| {
+            confirm_download_history_clear(
+                &target_parent,
+                &target_ui,
+                &target_backend,
+                &target_dialog,
+                &provider_id,
+            );
+        });
+        header_bar.pack_start(&clear_button);
+    }
+
     let close_button = widgets::icon_button("window-close-symbolic", "Close");
     let target_dialog = dialog.clone();
     close_button.connect_clicked(move |_| {
@@ -1146,6 +1167,54 @@ fn show_download_jobs_dialog(
 
     dialog.set_child(Some(&toolbar_view));
     dialog.present(Some(parent));
+}
+
+fn confirm_download_history_clear(
+    parent: &adw::ApplicationWindow,
+    ui: &Rc<WindowUi>,
+    backend: &Rc<Backend>,
+    dialog: &adw::Dialog,
+    provider_id: &str,
+) {
+    if backend.active_model_pull.borrow().is_some() {
+        ui.toast_overlay
+            .add_toast(adw::Toast::new("Finish the active model download first"));
+        return;
+    }
+
+    let alert = adw::AlertDialog::builder()
+        .heading("Clear Download History?")
+        .body("Remove all model download jobs for the active provider?")
+        .close_response("cancel")
+        .default_response("cancel")
+        .build();
+    alert.add_response("cancel", "Cancel");
+    alert.add_response("clear", "Clear");
+    alert.set_response_appearance("clear", adw::ResponseAppearance::Destructive);
+
+    let target_ui = Rc::clone(ui);
+    let target_backend = Rc::clone(backend);
+    let target_dialog = dialog.clone();
+    let provider_id = provider_id.to_string();
+    alert.connect_response(Some("clear"), move |_, _| {
+        match target_backend
+            .download_job_repository
+            .delete_for_provider(&provider_id)
+        {
+            Ok(_) => {
+                target_dialog.close();
+                target_ui
+                    .toast_overlay
+                    .add_toast(adw::Toast::new("Download history cleared"));
+            }
+            Err(error) => {
+                target_ui.toast_overlay.add_toast(adw::Toast::new(&format!(
+                    "Download history could not be cleared: {error}"
+                )));
+            }
+        }
+    });
+    alert.present(Some(parent));
 }
 
 fn download_job_row(job: &DownloadJob) -> adw::ActionRow {
