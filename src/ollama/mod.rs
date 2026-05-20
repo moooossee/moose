@@ -3,6 +3,8 @@ use std::time::Duration;
 use futures_util::StreamExt;
 use serde::{Deserialize, Serialize};
 
+pub mod manager;
+
 use crate::{
     chat::{ChatRequest, ChatStreamEvent},
     error::{MooseError, Result},

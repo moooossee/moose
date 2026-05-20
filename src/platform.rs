@@ -60,6 +60,26 @@ impl AppPaths {
     pub fn database_path(&self) -> &Path {
         &self.database_path
     }
+
+    pub fn ollama_installation_dir(&self) -> PathBuf {
+        self.data_dir.join("ollama_installation")
+    }
+
+    pub fn ollama_binary_path(&self) -> PathBuf {
+        self.ollama_installation_dir().join("bin").join("ollama")
+    }
+
+    pub fn ollama_models_dir(&self) -> PathBuf {
+        self.data_dir.join(".ollama").join("models")
+    }
+
+    pub fn ollama_log_path(&self) -> PathBuf {
+        self.cache_dir.join("ollama.log")
+    }
+
+    pub fn ollama_download_cache_dir(&self) -> PathBuf {
+        self.cache_dir.join("ollama-downloads")
+    }
 }
 
 fn xdg_path(variable: &str, home: &Path, fallback: &str) -> PathBuf {

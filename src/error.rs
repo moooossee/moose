@@ -1,4 +1,4 @@
-use std::{io, num::TryFromIntError, str::Utf8Error};
+use std::{io, num::TryFromIntError, path::PathBuf, str::Utf8Error};
 
 use thiserror::Error;
 
@@ -59,6 +59,18 @@ pub enum MooseError {
     DownloadJobNotFound,
     #[error("invalid Ollama response: {0}")]
     InvalidOllamaResponse(String),
+    #[error("managed Ollama does not support architecture {0}")]
+    ManagedOllamaUnsupportedArchitecture(String),
+    #[error("managed Ollama manifest is invalid: {0}")]
+    ManagedOllamaManifestInvalid(String),
+    #[error("managed Ollama download failed: {0}")]
+    ManagedOllamaDownloadFailed(String),
+    #[error("managed Ollama checksum mismatch: expected {expected}, got {actual}")]
+    ManagedOllamaChecksumMismatch { expected: String, actual: String },
+    #[error("managed Ollama extraction failed: {0}")]
+    ManagedOllamaExtractionFailed(String),
+    #[error("managed Ollama binary is missing at {}", .0.display())]
+    ManagedOllamaBinaryMissing(PathBuf),
     #[error("numeric conversion failed: {0}")]
     NumericConversion(#[from] TryFromIntError),
 }
