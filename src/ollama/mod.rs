@@ -4,6 +4,7 @@ use futures_util::StreamExt;
 use serde::{Deserialize, Serialize};
 
 pub mod manager;
+pub mod service;
 
 use crate::{
     chat::{ChatRequest, ChatStreamEvent},

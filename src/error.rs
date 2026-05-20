@@ -71,6 +71,16 @@ pub enum MooseError {
     ManagedOllamaExtractionFailed(String),
     #[error("managed Ollama binary is missing at {}", .0.display())]
     ManagedOllamaBinaryMissing(PathBuf),
+    #[error("managed Ollama is unavailable")]
+    ManagedOllamaUnavailable,
+    #[error("managed Ollama failed to start: {0}")]
+    ManagedOllamaStartFailed(String),
+    #[error("managed Ollama did not become ready in time")]
+    ManagedOllamaTimedOut,
+    #[error("managed Ollama port is unavailable: {0}")]
+    ManagedOllamaPortUnavailable(String),
+    #[error("managed Ollama port {0} is invalid; use 1024-65535 except 11434")]
+    ManagedOllamaInvalidPort(u16),
     #[error("numeric conversion failed: {0}")]
     NumericConversion(#[from] TryFromIntError),
 }

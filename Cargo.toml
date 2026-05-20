@@ -24,6 +24,7 @@ required-features = ["gui"]
 adw = { package = "libadwaita", version = "0.9.1", features = ["v1_9", "gtk_v4_22"], optional = true }
 futures-util = "0.3.32"
 gtk = { package = "gtk4", version = "0.11.3", features = ["gnome_50"], optional = true }
+libc = "0.2.186"
 reqwest = { version = "0.12.24", default-features = false, features = ["json", "rustls-tls", "stream"] }
 rusqlite = "0.37.0"
 serde = { version = "1.0.228", features = ["derive"] }
