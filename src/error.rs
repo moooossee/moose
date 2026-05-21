@@ -57,6 +57,8 @@ pub enum MooseError {
     GenerationSettingsNotFound,
     #[error("download job was not found")]
     DownloadJobNotFound,
+    #[error("no Ollama instance is configured")]
+    ProviderNotConfigured,
     #[error("invalid Ollama response: {0}")]
     InvalidOllamaResponse(String),
     #[error("managed Ollama does not support architecture {0}")]

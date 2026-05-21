@@ -1,4 +1,11 @@
-use std::{cell::RefCell, collections::HashMap, fs, rc::Rc, sync::mpsc, time::Duration};
+use std::{
+    cell::RefCell,
+    collections::HashMap,
+    fs,
+    rc::Rc,
+    sync::{Arc, mpsc},
+    time::Duration,
+};
 
 use adw::prelude::*;
 use gtk::gio::{self, prelude::*};
@@ -11,12 +18,13 @@ use crate::{
         ConversationTitleUpdate, DEFAULT_CONVERSATION_TITLE, Message, MessageUpdate,
         NewConversation, NewMessage,
     },
-    error::Result,
+    error::{MooseError, Result},
     models::{DownloadJob, DownloadJobStatus, NewDownloadJob},
-    ollama::{OllamaClient, OllamaModel, OllamaPullProgress},
+    ollama::{OllamaClient, OllamaModel, OllamaPullProgress, service::ManagedOllamaService},
     platform::AppPaths,
     providers::{
-        DEFAULT_OLLAMA_BASE_URL, NewProvider, Provider, ProviderKind, validate_model_name,
+        DEFAULT_OLLAMA_BASE_URL, MANAGED_OLLAMA_DEFAULT_PORT, NewProvider, Provider, ProviderKind,
+        managed_ollama_port_from_base_url, validate_model_name,
     },
     storage::{ConversationRepository, DownloadJobRepository, ProviderRepository, open_database},
 };
@@ -32,6 +40,9 @@ const CHAT_CSS: &str = include_str!("../../data/io.github.moooossee.Moose.css");
 const TITLE_SYSTEM_PROMPT: &str = "You are an assistant that generates short chat titles based on the prompt. If you want to, you can add a single emoji. Format the response as a single JSON object.";
 const TITLE_MAX_CHARS: usize = 30;
 const SETTINGS_SELECTED_MODELS: &str = "selected-models";
+const MANAGED_OLLAMA_READY_TIMEOUT: Duration = Duration::from_secs(20);
+
+type ManagedOllamaHandle = Arc<tokio::sync::Mutex<ManagedOllamaService>>;
 
 pub fn build(app: &adw::Application) -> adw::ApplicationWindow {
     install_chat_css();
@@ -115,7 +126,8 @@ pub fn build(app: &adw::Application) -> adw::ApplicationWindow {
     match Backend::new() {
         Ok(backend) => {
             let backend = Rc::new(backend);
-            update_provider_summary(&ui, &backend.provider.borrow());
+            let provider = active_provider(&backend);
+            apply_provider_state(&ui, &provider);
             bind_actions(
                 &window,
                 &ui,
@@ -124,7 +136,11 @@ pub fn build(app: &adw::Application) -> adw::ApplicationWindow {
                 &model_manager_button,
                 &preferences_button,
             );
-            refresh_models(&ui, &backend);
+            if provider.is_some() {
+                refresh_models(&ui, &backend);
+            } else {
+                show_first_run_placeholder(&ui);
+            }
             conversation_list::refresh(&ui, &backend);
         }
         Err(error) => {
@@ -143,10 +159,12 @@ pub fn build(app: &adw::Application) -> adw::ApplicationWindow {
 }
 
 struct Backend {
+    paths: AppPaths,
     repository: ProviderRepository,
     conversation_repository: ConversationRepository,
     download_job_repository: DownloadJobRepository,
-    provider: RefCell<Provider>,
+    provider: RefCell<Option<Provider>>,
+    managed_ollama: ManagedOllamaHandle,
     settings: Option<gio::Settings>,
     selected_models: RefCell<HashMap<String, String>>,
     runtime: tokio::runtime::Runtime,
@@ -249,6 +267,7 @@ impl Backend {
         let conversation_repository = ConversationRepository::new(Rc::clone(&connection));
         let download_job_repository = DownloadJobRepository::new(connection);
         let provider = repository.ensure_default_provider()?;
+        let managed_ollama = Arc::new(tokio::sync::Mutex::new(ManagedOllamaService::new(&paths)));
         let settings = app_settings();
         let selected_models = settings
             .as_ref()
@@ -260,10 +279,12 @@ impl Backend {
             .build()?;
 
         Ok(Self {
+            paths,
             repository,
             conversation_repository,
             download_job_repository,
             provider: RefCell::new(provider),
+            managed_ollama,
             settings,
             selected_models: RefCell::new(selected_models),
             runtime,
@@ -274,10 +295,6 @@ impl Backend {
             active_assistant_message_id: RefCell::new(None),
             active_assistant_content: RefCell::new(String::new()),
         })
-    }
-
-    fn client(&self) -> Result<OllamaClient> {
-        OllamaClient::new(&self.provider.borrow().base_url)
     }
 
     fn abort_generation(&self) {
@@ -320,6 +337,48 @@ impl Backend {
     fn finish_model_delete(&self) {
         self.active_model_delete.borrow_mut().take();
     }
+
+    fn stop_managed_ollama(&self) {
+        let managed_ollama = Arc::clone(&self.managed_ollama);
+        self.runtime.spawn(async move {
+            managed_ollama.lock().await.shutdown();
+        });
+    }
+}
+
+async fn prepared_ollama_client(
+    paths: AppPaths,
+    managed_ollama: ManagedOllamaHandle,
+    provider: Provider,
+) -> Result<OllamaClient> {
+    if !provider.is_managed {
+        return OllamaClient::new(&provider.base_url);
+    }
+
+    let port = managed_ollama_port_from_base_url(&provider.base_url)?;
+    let mut service = managed_ollama.lock().await;
+    if service.config().base_url != provider.base_url {
+        service.shutdown();
+        *service = ManagedOllamaService::new_with_port(&paths, port)?;
+    }
+    service.ensure_started()?;
+    service
+        .wait_until_ready(MANAGED_OLLAMA_READY_TIMEOUT)
+        .await?;
+    OllamaClient::new(&service.config().base_url)
+}
+
+fn active_provider(backend: &Backend) -> Option<Provider> {
+    backend.provider.borrow().clone()
+}
+
+fn require_active_provider(ui: &WindowUi, backend: &Backend) -> Option<Provider> {
+    let provider = active_provider(backend);
+    if provider.is_none() {
+        ui.toast_overlay
+            .add_toast(adw::Toast::new("Create or connect an instance first"));
+    }
+    provider
 }
 
 fn bind_sidebar_visibility(
@@ -581,9 +640,14 @@ fn show_provider_switcher(anchor: &gtk::Button, ui: &Rc<WindowUi>, backend: &Rc<
     list.set_selection_mode(gtk::SelectionMode::None);
     list.add_css_class("moose-provider-list");
 
-    let active_provider_id = backend.provider.borrow().id.clone();
+    let active_provider_id = active_provider(backend).map(|provider| provider.id);
     for provider in providers {
-        let row = provider_switch_row(&provider, provider.id == active_provider_id);
+        let row = provider_switch_row(
+            &provider,
+            active_provider_id
+                .as_deref()
+                .is_some_and(|id| id == provider.id.as_str()),
+        );
         let provider_id = provider.id.clone();
         let target_ui = Rc::clone(ui);
         let target_backend = Rc::clone(backend);
@@ -765,12 +829,15 @@ fn delete_provider_from_sidebar(ui: &Rc<WindowUi>, backend: &Rc<Backend>, provid
         return;
     }
 
-    let was_active = backend.provider.borrow().id.as_str() == provider_id;
+    let was_active = active_provider(backend)
+        .as_ref()
+        .is_some_and(|provider| provider.id.as_str() == provider_id);
     match backend.repository.delete(provider_id) {
         Ok(()) => {
             if was_active {
                 match backend.repository.ensure_default_provider() {
-                    Ok(provider) => apply_active_provider(ui, backend, provider),
+                    Ok(Some(provider)) => apply_active_provider(ui, backend, provider),
+                    Ok(None) => clear_active_provider(ui, backend),
                     Err(error) => {
                         show_error(&ui.window, "Provider could not be selected", &error);
                         return;
@@ -785,7 +852,10 @@ fn delete_provider_from_sidebar(ui: &Rc<WindowUi>, backend: &Rc<Backend>, provid
 }
 
 fn activate_provider(ui: &Rc<WindowUi>, backend: &Rc<Backend>, provider_id: &str) {
-    if backend.provider.borrow().id.as_str() == provider_id {
+    if active_provider(backend)
+        .as_ref()
+        .is_some_and(|provider| provider.id.as_str() == provider_id)
+    {
         return;
     }
 
@@ -850,12 +920,30 @@ fn provider_change_is_blocked(ui: &Rc<WindowUi>, backend: &Rc<Backend>) -> bool 
 }
 
 fn apply_active_provider(ui: &Rc<WindowUi>, backend: &Rc<Backend>, provider: Provider) {
-    *backend.provider.borrow_mut() = provider.clone();
+    *backend.provider.borrow_mut() = Some(provider.clone());
+    if !provider.is_managed {
+        backend.stop_managed_ollama();
+    }
     reset_active_conversation(ui, backend);
-    update_provider_summary(ui, &provider);
+    apply_provider_state(ui, &Some(provider.clone()));
     model_manager::clear_download_job(&ui.model_manager);
     refresh_models(ui, backend);
     conversation_list::refresh(ui, backend);
+}
+
+fn clear_active_provider(ui: &Rc<WindowUi>, backend: &Rc<Backend>) {
+    *backend.provider.borrow_mut() = None;
+    backend.stop_managed_ollama();
+    reset_active_conversation(ui, backend);
+    apply_provider_state(ui, &None);
+    set_model_picker(ui, Vec::new(), None);
+    set_installed_models(ui, backend, Vec::new());
+    model_manager::set_unavailable(
+        &ui.model_manager,
+        "No Instance",
+        "Create or connect an Ollama instance to manage models.",
+    );
+    show_first_run_placeholder(ui);
 }
 
 fn reset_active_conversation(ui: &WindowUi, backend: &Backend) {
@@ -879,25 +967,23 @@ fn refresh_models(ui: &Rc<WindowUi>, backend: &Rc<Backend>) {
         return;
     }
 
-    let client = match backend.client() {
-        Ok(client) => client,
-        Err(error) => {
-            ui.provider_status.set_text("Invalid URL");
-            ui.toast_overlay.add_toast(adw::Toast::new(&format!(
-                "Provider URL is invalid: {error}"
-            )));
-            set_model_picker(ui, Vec::new(), None);
-            set_installed_models(ui, backend, Vec::new());
-            model_manager::set_unavailable(
-                &ui.model_manager,
-                "Invalid Provider URL",
-                "The active provider URL could not be used.",
-            );
-            return;
-        }
+    let Some(provider) = active_provider(backend) else {
+        apply_provider_state(ui, &None);
+        set_model_picker(ui, Vec::new(), None);
+        set_installed_models(ui, backend, Vec::new());
+        model_manager::set_unavailable(
+            &ui.model_manager,
+            "No Instance",
+            "Create or connect an Ollama instance to refresh models.",
+        );
+        show_first_run_placeholder(ui);
+        return;
     };
-
-    ui.provider_status.set_text("Checking");
+    ui.provider_status.set_text(if provider.is_managed {
+        "Starting"
+    } else {
+        "Checking"
+    });
     ui.refresh_button.set_sensitive(false);
     ui.model_manager.refresh_button.set_sensitive(false);
     set_model_picker(ui, Vec::new(), None);
@@ -905,7 +991,16 @@ fn refresh_models(ui: &Rc<WindowUi>, backend: &Rc<Backend>) {
     model_manager::set_loading(&ui.model_manager);
 
     let (sender, receiver) = mpsc::channel();
+    let paths = backend.paths.clone();
+    let managed_ollama = Arc::clone(&backend.managed_ollama);
     backend.runtime.spawn(async move {
+        let client = match prepared_ollama_client(paths, managed_ollama, provider).await {
+            Ok(client) => client,
+            Err(error) => {
+                let _ = sender.send(ModelLoadEvent::Failed(error.to_string()));
+                return;
+            }
+        };
         let health = client.health().await;
         if !health.available {
             let _ = sender.send(ModelLoadEvent::Loaded {
@@ -1060,7 +1155,11 @@ fn request_model_pull(
         }
     };
 
-    if provider_is_local(&backend.provider.borrow()) {
+    let Some(provider) = require_active_provider(ui, backend) else {
+        return;
+    };
+
+    if provider_is_local(&provider) {
         start_model_pull(ui, backend, model);
     } else {
         confirm_remote_model_pull(parent, ui, backend, model);
@@ -1073,7 +1172,10 @@ fn confirm_remote_model_pull(
     backend: &Rc<Backend>,
     model: String,
 ) {
-    let provider = backend.provider.borrow().clone();
+    let Some(provider) = require_active_provider(ui, backend) else {
+        return;
+    };
+
     let dialog = adw::AlertDialog::builder()
         .heading("Download on Remote Provider?")
         .body(format!(
@@ -1101,7 +1203,10 @@ fn show_download_jobs_dialog(
     ui: &Rc<WindowUi>,
     backend: &Rc<Backend>,
 ) {
-    let provider = backend.provider.borrow().clone();
+    let Some(provider) = require_active_provider(ui, backend) else {
+        return;
+    };
+
     let jobs = match backend
         .download_job_repository
         .list_recent_for_provider(&provider.id, 50)
@@ -1361,21 +1466,21 @@ fn start_model_pull(ui: &Rc<WindowUi>, backend: &Rc<Backend>, model: String) {
         return;
     }
 
-    let client = match backend.client() {
-        Ok(client) => client,
-        Err(error) => {
-            ui.toast_overlay.add_toast(adw::Toast::new(&format!(
-                "Provider URL is invalid: {error}"
-            )));
-            return;
-        }
-    };
-
     show_model_manager(ui);
     ui.refresh_button.set_sensitive(false);
     model_manager::set_pull_started(&ui.model_manager, &model);
 
-    let provider_id = backend.provider.borrow().id.clone();
+    let Some(provider) = require_active_provider(ui, backend) else {
+        ui.refresh_button.set_sensitive(true);
+        model_manager::set_pull_finished(
+            &ui.model_manager,
+            "Download Failed",
+            "Create or connect an Ollama instance first.",
+            0.0,
+        );
+        return;
+    };
+    let provider_id = provider.id.clone();
     let job = match backend.download_job_repository.create(NewDownloadJob {
         provider_id,
         model_name: model.clone(),
@@ -1400,7 +1505,16 @@ fn start_model_pull(ui: &Rc<WindowUi>, backend: &Rc<Backend>, model: String) {
     let (sender, receiver) = mpsc::channel();
     let target_model = model.clone();
     let pull_id = job.id.clone();
+    let paths = backend.paths.clone();
+    let managed_ollama = Arc::clone(&backend.managed_ollama);
     let handle = backend.runtime.spawn(async move {
+        let client = match prepared_ollama_client(paths, managed_ollama, provider).await {
+            Ok(client) => client,
+            Err(error) => {
+                let _ = sender.send(ModelPullUiEvent::Failed(error.to_string()));
+                return;
+            }
+        };
         let progress_sender = sender.clone();
         let result = client
             .pull_model(&target_model, |progress| {
@@ -1551,7 +1665,10 @@ fn confirm_model_delete(
         return;
     }
 
-    let provider = backend.provider.borrow().clone();
+    let Some(provider) = require_active_provider(ui, backend) else {
+        return;
+    };
+
     let body = if provider_is_local(&provider) {
         format!("Delete \"{model}\" from Ollama? You can download it again later.")
     } else {
@@ -1599,23 +1716,32 @@ fn start_model_delete(ui: &Rc<WindowUi>, backend: &Rc<Backend>, model: String) {
         return;
     }
 
-    let client = match backend.client() {
-        Ok(client) => client,
-        Err(error) => {
-            ui.toast_overlay.add_toast(adw::Toast::new(&format!(
-                "Provider URL is invalid: {error}"
-            )));
-            return;
-        }
-    };
-
     show_model_manager(ui);
     ui.refresh_button.set_sensitive(false);
     model_manager::set_delete_started(&ui.model_manager, &model);
 
     let (sender, receiver) = mpsc::channel();
     let target_model = model.clone();
+    let Some(provider) = require_active_provider(ui, backend) else {
+        ui.refresh_button.set_sensitive(true);
+        model_manager::set_delete_finished(
+            &ui.model_manager,
+            "Delete Failed",
+            "Create or connect an Ollama instance first.",
+            0.0,
+        );
+        return;
+    };
+    let paths = backend.paths.clone();
+    let managed_ollama = Arc::clone(&backend.managed_ollama);
     let handle = backend.runtime.spawn(async move {
+        let client = match prepared_ollama_client(paths, managed_ollama, provider).await {
+            Ok(client) => client,
+            Err(error) => {
+                let _ = sender.send(ModelDeleteUiEvent::Failed(error.to_string()));
+                return;
+            }
+        };
         match client.delete_model(&target_model).await {
             Ok(()) => {
                 let _ = sender.send(ModelDeleteUiEvent::Done);
@@ -1680,6 +1806,10 @@ fn start_model_delete(ui: &Rc<WindowUi>, backend: &Rc<Backend>, model: String) {
 }
 
 fn provider_is_local(provider: &Provider) -> bool {
+    if provider.is_managed {
+        return true;
+    }
+
     reqwest::Url::parse(&provider.base_url)
         .ok()
         .and_then(|url| url.host_str().map(str::to_string))
@@ -1720,14 +1850,8 @@ fn send_message(ui: &Rc<WindowUi>, backend: &Rc<Backend>) {
         return;
     };
 
-    let client = match backend.client() {
-        Ok(client) => client,
-        Err(error) => {
-            ui.toast_overlay.add_toast(adw::Toast::new(&format!(
-                "Provider URL is invalid: {error}"
-            )));
-            return;
-        }
+    let Some(provider) = require_active_provider(ui, backend) else {
+        return;
     };
 
     let request =
@@ -1763,7 +1887,6 @@ fn send_message(ui: &Rc<WindowUi>, backend: &Rc<Backend>) {
         generate_conversation_title(
             ui,
             backend,
-            client.clone(),
             conversation_id.clone(),
             prompt.clone(),
             model.clone(),
@@ -1791,7 +1914,16 @@ fn send_message(ui: &Rc<WindowUi>, backend: &Rc<Backend>) {
     ui.stop_button.set_sensitive(true);
 
     let (sender, receiver) = mpsc::channel();
+    let paths = backend.paths.clone();
+    let managed_ollama = Arc::clone(&backend.managed_ollama);
     let handle = backend.runtime.spawn(async move {
+        let client = match prepared_ollama_client(paths, managed_ollama, provider).await {
+            Ok(client) => client,
+            Err(error) => {
+                let _ = sender.send(ChatUiEvent::Failed(error.to_string()));
+                return;
+            }
+        };
         let result = client
             .stream_chat(request, |event| match event {
                 ChatStreamEvent::Token(token) => {
@@ -1902,7 +2034,7 @@ fn message_content_with_live_state(content: &str, state: &str) -> String {
 }
 
 fn create_empty_conversation(backend: &Backend) -> Result<String> {
-    let provider = backend.provider.borrow().clone();
+    let provider = active_provider(backend).ok_or(MooseError::ProviderNotConfigured)?;
     let conversation = backend.conversation_repository.create(NewConversation {
         provider_id: provider.id,
         model_id: None,
@@ -1945,7 +2077,7 @@ fn ensure_active_conversation(backend: &Backend) -> Result<(String, bool)> {
         return Ok((conversation_id, should_generate_title));
     }
 
-    let provider = backend.provider.borrow().clone();
+    let provider = active_provider(backend).ok_or(MooseError::ProviderNotConfigured)?;
     let conversation = backend.conversation_repository.create(NewConversation {
         provider_id: provider.id,
         model_id: None,
@@ -1974,15 +2106,22 @@ fn should_generate_conversation_title(backend: &Backend, conversation_id: &str) 
 fn generate_conversation_title(
     ui: &Rc<WindowUi>,
     backend: &Rc<Backend>,
-    client: OllamaClient,
     conversation_id: String,
     prompt: String,
     fallback_model: String,
 ) {
     let (sender, receiver) = mpsc::channel();
+    let Some(provider) = active_provider(backend) else {
+        return;
+    };
+    let paths = backend.paths.clone();
+    let managed_ollama = Arc::clone(&backend.managed_ollama);
     backend.runtime.spawn(async move {
-        let event = match generate_model_title(client, &fallback_model, &prompt).await {
-            Ok(title) => TitleUiEvent::Generated(title),
+        let event = match prepared_ollama_client(paths, managed_ollama, provider).await {
+            Ok(client) => match generate_model_title(client, &fallback_model, &prompt).await {
+                Ok(title) => TitleUiEvent::Generated(title),
+                Err(_) => TitleUiEvent::Failed,
+            },
             Err(_) => TitleUiEvent::Failed,
         };
         let _ = sender.send(event);
@@ -2202,7 +2341,10 @@ fn selected_model(
 }
 
 fn save_selected_model(ui: &WindowUi, backend: &Backend, model: String) {
-    let provider_id = backend.provider.borrow().id.clone();
+    let Some(provider_id) = active_provider(backend).map(|provider| provider.id) else {
+        return;
+    };
+
     let selected_models = {
         let mut selected_models = backend.selected_models.borrow_mut();
         selected_models.insert(provider_id, model);
@@ -2228,8 +2370,8 @@ fn set_models(ui: &Rc<WindowUi>, backend: &Rc<Backend>, models: Vec<OllamaModel>
         .filter(|model| model.supports_chat)
         .map(|model| model.name.clone())
         .collect();
-    let provider_id = backend.provider.borrow().id.clone();
-    let selected_model = backend.selected_models.borrow().get(&provider_id).cloned();
+    let selected_model = active_provider(backend)
+        .and_then(|provider| backend.selected_models.borrow().get(&provider.id).cloned());
     set_model_picker(ui, chat_models, selected_model.as_deref());
     set_installed_models(ui, backend, models);
 }
@@ -2323,9 +2465,53 @@ fn clear_messages(ui: &WindowUi) {
     ui.message_stack.set_visible_child_name("empty");
 }
 
+fn show_first_run_placeholder(ui: &WindowUi) {
+    set_chat_empty_state(
+        ui,
+        "Welcome to Moose",
+        "Start the guide to create or connect an Ollama instance.",
+    );
+    ui.message_stack.set_visible_child_name("empty");
+    show_chat(ui);
+}
+
+fn apply_provider_state(ui: &WindowUi, provider: &Option<Provider>) {
+    match provider {
+        Some(provider) => {
+            update_provider_summary(ui, provider);
+            ui.refresh_button.set_sensitive(true);
+            ui.model_manager.refresh_button.set_sensitive(true);
+            ui.model_manager.pull_button.set_sensitive(true);
+            ui.model_manager.download_jobs_button.set_sensitive(true);
+            update_send_button(ui);
+        }
+        None => {
+            ui.provider_row.set_title("No Instance");
+            ui.provider_row.set_subtitle("First-run guide required");
+            ui.provider_row.set_tooltip_text(None);
+            ui.provider_status.set_text("Not Set");
+            ui.refresh_button.set_sensitive(false);
+            ui.model_manager.refresh_button.set_sensitive(false);
+            ui.model_manager.pull_button.set_sensitive(false);
+            ui.model_manager.download_jobs_button.set_sensitive(false);
+            ui.send_button.set_sensitive(false);
+            ui.stop_button.set_sensitive(false);
+        }
+    }
+}
+
 fn update_provider_summary(ui: &WindowUi, provider: &Provider) {
     ui.provider_row.set_title(&provider.name);
-    ui.provider_row.set_subtitle("");
+    let subtitle = if provider.is_managed {
+        match managed_ollama_port_from_base_url(&provider.base_url) {
+            Ok(MANAGED_OLLAMA_DEFAULT_PORT) => "Managed by Moose".to_string(),
+            Ok(port) => format!("Managed on 127.0.0.1:{port}"),
+            Err(_) => "Managed by Moose".to_string(),
+        }
+    } else {
+        String::new()
+    };
+    ui.provider_row.set_subtitle(&subtitle);
     ui.provider_row.set_tooltip_text(Some(&provider.base_url));
 }
 

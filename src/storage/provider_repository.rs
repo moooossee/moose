@@ -60,19 +60,44 @@ impl ProviderRepository {
             .map_err(Into::into)
     }
 
-    pub fn ensure_default_provider(&self) -> Result<Provider> {
-        if let Some(provider) = self.default_provider()? {
+    pub fn managed_provider(&self) -> Result<Option<Provider>> {
+        self.connection
+            .query_row(
+                "SELECT id, kind, name, base_url, is_managed, is_default, created_at, updated_at
+                 FROM providers
+                 WHERE is_managed = 1
+                 ORDER BY is_default DESC, updated_at DESC
+                 LIMIT 1",
+                [],
+                provider_from_row,
+            )
+            .optional()
+            .map_err(Into::into)
+    }
+
+    pub fn ensure_managed_provider(&self) -> Result<Provider> {
+        if let Some(provider) = self.managed_provider()? {
             return Ok(provider);
+        }
+
+        self.create(NewProvider::managed_ollama(
+            self.default_provider()?.is_none(),
+        ))
+    }
+
+    pub fn ensure_default_provider(&self) -> Result<Option<Provider>> {
+        if let Some(provider) = self.default_provider()? {
+            return Ok(Some(provider));
         }
 
         if let Some(provider) = self.list()?.into_iter().next() {
             self.set_default(&provider.id)?;
             return self.get(&provider.id).map(|provider| {
-                provider.expect("provider exists immediately after setting default")
+                Some(provider.expect("provider exists immediately after setting default"))
             });
         }
 
-        self.create(NewProvider::local_ollama(true))
+        Ok(None)
     }
 
     pub fn create(&self, new_provider: NewProvider) -> Result<Provider> {
@@ -106,7 +131,12 @@ impl ProviderRepository {
 
     pub fn update(&self, update: ProviderUpdate) -> Result<Provider> {
         let name = validate_provider_name(&update.name)?;
-        let base_url = validate_base_url(&update.base_url)?;
+        let current = self.get(&update.id)?;
+        let base_url = if current.as_ref().is_some_and(|provider| provider.is_managed) {
+            crate::providers::validate_managed_provider_base_url(&update.base_url)?
+        } else {
+            validate_base_url(&update.base_url)?
+        };
         let timestamp = utc_now();
 
         if update.is_default {
@@ -183,22 +213,21 @@ mod tests {
     };
 
     #[test]
-    fn provider_repository_creates_default_provider() {
+    fn provider_repository_keeps_clean_database_without_default_provider() {
         let connection = Rc::new(open_in_memory_database().unwrap());
         let repository = ProviderRepository::new(connection);
 
         let provider = repository.ensure_default_provider().unwrap();
 
-        assert_eq!(provider.name, "Local Ollama");
-        assert!(provider.is_default);
-        assert_eq!(repository.list().unwrap().len(), 1);
+        assert!(provider.is_none());
+        assert!(repository.list().unwrap().is_empty());
     }
 
     #[test]
     fn provider_repository_updates_default_provider() {
         let connection = Rc::new(open_in_memory_database().unwrap());
         let repository = ProviderRepository::new(connection);
-        let first = repository.ensure_default_provider().unwrap();
+        let first = repository.create(NewProvider::local_ollama(true)).unwrap();
         let second = repository
             .create(NewProvider {
                 kind: ProviderKind::Ollama,
@@ -228,7 +257,7 @@ mod tests {
     fn provider_repository_deletes_provider() {
         let connection = Rc::new(open_in_memory_database().unwrap());
         let repository = ProviderRepository::new(connection);
-        let provider = repository.ensure_default_provider().unwrap();
+        let provider = repository.create(NewProvider::local_ollama(true)).unwrap();
 
         repository.delete(&provider.id).unwrap();
 

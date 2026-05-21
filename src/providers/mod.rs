@@ -7,6 +7,12 @@ use crate::{
     error::{MooseError, Result},
 };
 
+pub use crate::ollama::service::{
+    MANAGED_OLLAMA_BASE_URL, MANAGED_OLLAMA_BIND_ADDRESS, MANAGED_OLLAMA_DEFAULT_PORT,
+    MANAGED_OLLAMA_HOST, MANAGED_OLLAMA_MIN_PORT, MANAGED_OLLAMA_RESERVED_PORT,
+    managed_ollama_base_url, managed_ollama_host, validate_managed_ollama_port,
+};
+
 pub const DEFAULT_OLLAMA_BASE_URL: &str = "http://127.0.0.1:11434/api";
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
@@ -75,6 +81,26 @@ pub struct ProviderUpdate {
 }
 
 impl NewProvider {
+    pub fn managed_ollama(is_default: bool) -> Self {
+        Self {
+            kind: ProviderKind::Ollama,
+            name: "Managed Ollama".to_string(),
+            base_url: MANAGED_OLLAMA_BASE_URL.to_string(),
+            is_managed: true,
+            is_default,
+        }
+    }
+
+    pub fn managed_ollama_with_port(port: u16, is_default: bool) -> Result<Self> {
+        Ok(Self {
+            kind: ProviderKind::Ollama,
+            name: "Managed Ollama".to_string(),
+            base_url: managed_ollama_base_url(port)?,
+            is_managed: true,
+            is_default,
+        })
+    }
+
     pub fn local_ollama(is_default: bool) -> Self {
         Self {
             kind: ProviderKind::Ollama,
@@ -87,11 +113,17 @@ impl NewProvider {
 
     pub fn into_provider(self) -> Result<Provider> {
         let timestamp = utc_now();
+        let base_url = if self.is_managed {
+            validate_managed_provider_base_url(&self.base_url)?
+        } else {
+            validate_base_url(&self.base_url)?
+        };
+
         Ok(Provider {
             id: new_id(),
             kind: self.kind,
             name: validate_provider_name(&self.name)?,
-            base_url: validate_base_url(&self.base_url)?,
+            base_url,
             is_managed: self.is_managed,
             is_default: self.is_default,
             created_at: timestamp.clone(),
@@ -122,6 +154,25 @@ pub fn validate_base_url(value: &str) -> Result<String> {
         return Err(MooseError::InvalidProviderUrl);
     }
     Ok(trimmed.to_string())
+}
+
+pub fn managed_ollama_port_from_base_url(value: &str) -> Result<u16> {
+    let normalized = validate_base_url(value)?;
+    let url = reqwest::Url::parse(&normalized)?;
+    let port = url.port().ok_or(MooseError::InvalidProviderUrl)?;
+
+    if url.scheme() != "http"
+        || url.host_str() != Some(MANAGED_OLLAMA_BIND_ADDRESS)
+        || url.path() != "/api"
+    {
+        return Err(MooseError::InvalidProviderUrl);
+    }
+
+    validate_managed_ollama_port(port)
+}
+
+pub fn validate_managed_provider_base_url(value: &str) -> Result<String> {
+    managed_ollama_port_from_base_url(value).and_then(managed_ollama_base_url)
 }
 
 pub fn validate_model_name(value: &str) -> Result<String> {

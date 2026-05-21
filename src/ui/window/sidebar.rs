@@ -2,7 +2,7 @@ use adw::prelude::*;
 use gtk::{Align, Orientation, PolicyType};
 
 use crate::APPLICATION_NAME;
-use crate::providers::DEFAULT_OLLAMA_BASE_URL;
+use crate::providers::MANAGED_OLLAMA_BASE_URL;
 
 use super::widgets::{icon_button, section_label, status_label};
 
@@ -61,8 +61,8 @@ pub(super) fn build() -> Sidebar {
     provider_switch_button.add_css_class("moose-provider-button");
     let refresh_button = icon_button("view-refresh-symbolic", "Refresh Models");
     refresh_button.add_css_class("moose-provider-button");
-    let provider_row = adw::ActionRow::builder().title("Local Ollama").build();
-    provider_row.set_tooltip_text(Some(DEFAULT_OLLAMA_BASE_URL));
+    let provider_row = adw::ActionRow::builder().title("Managed Ollama").build();
+    provider_row.set_tooltip_text(Some(MANAGED_OLLAMA_BASE_URL));
     provider_row.add_css_class("moose-provider-row");
     provider_row.add_suffix(&provider_status);
     provider_row.add_suffix(&provider_switch_button);

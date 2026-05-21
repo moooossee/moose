@@ -6,8 +6,8 @@ use gtk::{Align, Orientation};
 use crate::providers::{DEFAULT_OLLAMA_BASE_URL, NewProvider, ProviderKind, ProviderUpdate};
 
 use super::{
-    Backend, WindowUi, apply_active_provider, provider_change_is_blocked, refresh_models,
-    show_error, update_provider_summary, widgets,
+    Backend, WindowUi, active_provider, apply_active_provider, clear_active_provider,
+    provider_change_is_blocked, refresh_models, show_error, update_provider_summary, widgets,
 };
 
 pub(super) fn dialog(
@@ -20,7 +20,18 @@ pub(super) fn dialog(
         .search_enabled(false)
         .build();
 
-    let provider = backend.provider.borrow().clone();
+    let provider = active_provider(backend);
+    let provider_name = provider
+        .as_ref()
+        .map(|provider| provider.name.as_str())
+        .unwrap_or("");
+    let provider_url = provider
+        .as_ref()
+        .map(|provider| provider.base_url.as_str())
+        .unwrap_or("");
+    let provider_is_managed = provider
+        .as_ref()
+        .is_some_and(|provider| provider.is_managed);
     let provider_page = adw::PreferencesPage::builder()
         .title("Provider")
         .icon_name("network-server-symbolic")
@@ -30,12 +41,15 @@ pub(super) fn dialog(
         .build();
     let name_row = adw::EntryRow::builder()
         .title("Name")
-        .text(&provider.name)
+        .text(provider_name)
         .build();
     let url_row = adw::EntryRow::builder()
         .title("Base URL")
-        .text(&provider.base_url)
+        .text(provider_url)
         .build();
+    if provider_is_managed {
+        url_row.set_editable(false);
+    }
     let action_box = gtk::Box::builder()
         .orientation(Orientation::Horizontal)
         .spacing(6)
@@ -49,9 +63,19 @@ pub(super) fn dialog(
 
     save_button.add_css_class("suggested-action");
     delete_button.add_css_class("destructive-action");
+    save_button.set_sensitive(provider.is_some());
+    delete_button.set_sensitive(provider.is_some());
     action_box.append(&add_button);
     action_box.append(&delete_button);
     action_box.append(&save_button);
+    if provider_is_managed {
+        provider_group.add(
+            &adw::ActionRow::builder()
+                .title("Managed by Moose")
+                .subtitle("Local sandbox service")
+                .build(),
+        );
+    }
     provider_group.add(&name_row);
     provider_group.add(&url_row);
     provider_group.add(&action_box);
@@ -89,7 +113,12 @@ pub(super) fn dialog(
             return;
         }
 
-        let current = target_backend.provider.borrow().clone();
+        let Some(current) = active_provider(&target_backend) else {
+            target_ui
+                .toast_overlay
+                .add_toast(adw::Toast::new("Create or connect an instance first"));
+            return;
+        };
         match target_backend.repository.update(ProviderUpdate {
             id: current.id,
             name: target_name_row.text().to_string(),
@@ -97,7 +126,7 @@ pub(super) fn dialog(
             is_default: true,
         }) {
             Ok(provider) => {
-                *target_backend.provider.borrow_mut() = provider.clone();
+                *target_backend.provider.borrow_mut() = Some(provider.clone());
                 update_provider_summary(&target_ui, &provider);
                 refresh_models(&target_ui, &target_backend);
                 target_ui
@@ -135,6 +164,7 @@ pub(super) fn dialog(
             Ok(provider) => {
                 target_name_row.set_text(&provider.name);
                 target_url_row.set_text(&provider.base_url);
+                target_url_row.set_editable(true);
                 apply_active_provider(&target_ui, &target_backend, provider);
                 target_ui
                     .toast_overlay
@@ -154,16 +184,31 @@ pub(super) fn dialog(
             return;
         }
 
-        let current = target_backend.provider.borrow().clone();
+        let Some(current) = active_provider(&target_backend) else {
+            target_ui
+                .toast_overlay
+                .add_toast(adw::Toast::new("Create or connect an instance first"));
+            return;
+        };
         match target_backend
             .repository
             .delete(&current.id)
             .and_then(|_| target_backend.repository.ensure_default_provider())
         {
-            Ok(provider) => {
+            Ok(Some(provider)) => {
                 target_name_row.set_text(&provider.name);
                 target_url_row.set_text(&provider.base_url);
+                target_url_row.set_editable(!provider.is_managed);
                 apply_active_provider(&target_ui, &target_backend, provider);
+                target_ui
+                    .toast_overlay
+                    .add_toast(adw::Toast::new("Provider removed"));
+            }
+            Ok(None) => {
+                target_name_row.set_text("");
+                target_url_row.set_text("");
+                target_url_row.set_editable(true);
+                clear_active_provider(&target_ui, &target_backend);
                 target_ui
                     .toast_overlay
                     .add_toast(adw::Toast::new("Provider removed"));
