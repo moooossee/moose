@@ -10,7 +10,8 @@ use crate::{
 pub use crate::ollama::service::{
     MANAGED_OLLAMA_BASE_URL, MANAGED_OLLAMA_BIND_ADDRESS, MANAGED_OLLAMA_DEFAULT_PORT,
     MANAGED_OLLAMA_HOST, MANAGED_OLLAMA_MIN_PORT, MANAGED_OLLAMA_RESERVED_PORT,
-    managed_ollama_base_url, managed_ollama_host, validate_managed_ollama_port,
+    managed_ollama_base_url, managed_ollama_host, managed_ollama_port_is_available,
+    validate_managed_ollama_port,
 };
 
 pub const DEFAULT_OLLAMA_BASE_URL: &str = "http://127.0.0.1:11434/api";

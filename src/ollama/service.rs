@@ -3,7 +3,7 @@ use std::{
     fs::{self, OpenOptions},
     io,
     net::TcpListener,
-    path::PathBuf,
+    path::{Path, PathBuf},
     process::{Child, Command, Stdio},
     thread,
     time::{Duration, Instant},
@@ -30,6 +30,7 @@ pub const MANAGED_OLLAMA_BASE_URL: &str = "http://127.0.0.1:11435/api";
 const READY_INITIAL_BACKOFF: Duration = Duration::from_millis(100);
 const READY_MAX_BACKOFF: Duration = Duration::from_secs(1);
 const READY_REQUEST_TIMEOUT: Duration = Duration::from_millis(500);
+const EXISTING_LISTENER_READY_TIMEOUT: Duration = Duration::from_secs(2);
 const SHUTDOWN_TIMEOUT: Duration = Duration::from_secs(2);
 const SHUTDOWN_POLL_INTERVAL: Duration = Duration::from_millis(50);
 
@@ -40,6 +41,8 @@ pub struct ManagedOllamaConfig {
     pub base_url: String,
     pub models_dir: PathBuf,
     pub home_dir: PathBuf,
+    pub cache_dir: PathBuf,
+    pub config_dir: PathBuf,
     pub log_path: PathBuf,
 }
 
@@ -76,16 +79,27 @@ impl ManagedOllamaConfig {
             base_url: managed_ollama_base_url_for_port(port),
             models_dir: paths.ollama_models_dir(),
             home_dir: paths.data_dir().to_path_buf(),
+            cache_dir: paths.cache_dir().to_path_buf(),
+            config_dir: paths.config_dir().to_path_buf(),
             log_path: paths.ollama_log_path(),
         }
     }
 
-    fn environment(&self) -> [(&'static str, OsString); 4] {
+    fn environment(&self) -> [(&'static str, OsString); 7] {
         [
             ("HOME", self.home_dir.as_os_str().to_os_string()),
+            ("XDG_DATA_HOME", self.home_dir.as_os_str().to_os_string()),
+            ("XDG_CACHE_HOME", self.cache_dir.as_os_str().to_os_string()),
+            (
+                "XDG_CONFIG_HOME",
+                self.config_dir.as_os_str().to_os_string(),
+            ),
             ("OLLAMA_HOST", OsString::from(&self.host)),
             ("OLLAMA_MODELS", self.models_dir.as_os_str().to_os_string()),
-            ("OLLAMA_ORIGINS", OsString::from(&self.host)),
+            (
+                "OLLAMA_ORIGINS",
+                OsString::from(managed_ollama_origin(&self.host)),
+            ),
         ]
     }
 }
@@ -170,7 +184,9 @@ impl ManagedOllamaService {
 
         loop {
             if self.child_exited()? {
-                let error = MooseError::ManagedOllamaUnavailable;
+                let error = MooseError::ManagedOllamaStartFailed(startup_exit_message(
+                    &self.config.log_path,
+                ));
                 self.fail_from_error(&error);
                 return Err(error);
             }
@@ -190,6 +206,33 @@ impl ManagedOllamaService {
             sleep(backoff.min(deadline.saturating_duration_since(now))).await;
             backoff = (backoff * 2).min(READY_MAX_BACKOFF);
         }
+    }
+
+    pub async fn ensure_ready(&mut self, timeout: Duration) -> Result<()> {
+        match self.ensure_started() {
+            Ok(()) => self.wait_until_ready(timeout).await,
+            Err(MooseError::ManagedOllamaPortUnavailable(host)) => {
+                if self.existing_listener_is_usable().await {
+                    self.state = ManagedOllamaServiceState::Running;
+                    return Ok(());
+                }
+
+                let error = MooseError::ManagedOllamaPortUnavailable(host);
+                self.fail_from_error(&error);
+                Err(error)
+            }
+            Err(error) => Err(error),
+        }
+    }
+
+    async fn existing_listener_is_usable(&self) -> bool {
+        let Ok(client) =
+            OllamaClient::with_timeout(&self.config.base_url, EXISTING_LISTENER_READY_TIMEOUT)
+        else {
+            return false;
+        };
+
+        client.version().await.is_ok() && client.list_models().await.is_ok()
     }
 
     pub fn shutdown(&mut self) {
@@ -218,6 +261,8 @@ impl ManagedOllamaService {
 
     fn prepare_runtime_paths(&self) -> Result<()> {
         fs::create_dir_all(&self.config.home_dir)?;
+        fs::create_dir_all(&self.config.cache_dir)?;
+        fs::create_dir_all(&self.config.config_dir)?;
         fs::create_dir_all(&self.config.models_dir)?;
         if let Some(parent) = self.config.log_path.parent() {
             fs::create_dir_all(parent)?;
@@ -288,12 +333,24 @@ pub fn managed_ollama_base_url(port: u16) -> Result<String> {
     ))
 }
 
+pub fn managed_ollama_port_is_available(port: u16) -> Result<bool> {
+    match ensure_port_available(&managed_ollama_host(port)?) {
+        Ok(()) => Ok(true),
+        Err(MooseError::ManagedOllamaPortUnavailable(_)) => Ok(false),
+        Err(error) => Err(error),
+    }
+}
+
 fn managed_ollama_host_for_port(port: u16) -> String {
     format!("{MANAGED_OLLAMA_BIND_ADDRESS}:{port}")
 }
 
 fn managed_ollama_base_url_for_port(port: u16) -> String {
     format!("http://{}/api", managed_ollama_host_for_port(port))
+}
+
+fn managed_ollama_origin(host: &str) -> String {
+    format!("http://{host}")
 }
 
 fn ensure_port_available(host: &str) -> Result<()> {
@@ -311,6 +368,34 @@ fn ensure_port_available(host: &str) -> Result<()> {
     }
 }
 
+fn startup_exit_message(log_path: &Path) -> String {
+    let mut message = "process exited before Ollama became ready".to_string();
+    if let Some(log_excerpt) = recent_log_excerpt(log_path, 8) {
+        message.push_str(": ");
+        message.push_str(&log_excerpt);
+    }
+    message
+}
+
+fn recent_log_excerpt(path: &Path, line_count: usize) -> Option<String> {
+    let content = fs::read_to_string(path).ok()?;
+    let lines = content
+        .lines()
+        .rev()
+        .filter_map(|line| {
+            let line = line.trim();
+            (!line.is_empty()).then_some(line)
+        })
+        .take(line_count)
+        .collect::<Vec<_>>();
+
+    if lines.is_empty() {
+        return None;
+    }
+
+    Some(lines.into_iter().rev().collect::<Vec<_>>().join(" | "))
+}
+
 #[cfg(unix)]
 fn terminate_child(child: &mut Child) {
     let pid = child.id();
@@ -324,4 +409,68 @@ fn terminate_child(child: &mut Child) {
 #[cfg(not(unix))]
 fn terminate_child(child: &mut Child) {
     let _ = child.kill();
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{ManagedOllamaConfig, managed_ollama_origin};
+    use crate::platform::AppPaths;
+    use std::{ffi::OsString, path::PathBuf};
+
+    #[test]
+    fn managed_ollama_origin_includes_http_scheme() {
+        assert_eq!(
+            managed_ollama_origin("127.0.0.1:11435"),
+            "http://127.0.0.1:11435"
+        );
+    }
+
+    #[test]
+    fn managed_ollama_environment_uses_valid_origin() {
+        let paths = AppPaths::from_base_dirs(
+            PathBuf::from("/tmp/moose-data"),
+            PathBuf::from("/tmp/moose-cache"),
+            PathBuf::from("/tmp/moose-config"),
+        );
+        let config = ManagedOllamaConfig::from_paths(&paths);
+        let environment = config.environment();
+        let origins = environment
+            .iter()
+            .find_map(|(key, value)| (*key == "OLLAMA_ORIGINS").then_some(value));
+
+        assert_eq!(origins, Some(&OsString::from("http://127.0.0.1:11435")));
+    }
+
+    #[test]
+    fn managed_ollama_environment_overrides_xdg_paths() {
+        let paths = AppPaths::from_base_dirs(
+            PathBuf::from("/tmp/moose-data"),
+            PathBuf::from("/tmp/moose-cache"),
+            PathBuf::from("/tmp/moose-config"),
+        );
+        let config = ManagedOllamaConfig::from_paths(&paths);
+        let environment = config.environment();
+
+        assert_eq!(
+            environment_value(&environment, "XDG_DATA_HOME"),
+            Some(&OsString::from("/tmp/moose-data"))
+        );
+        assert_eq!(
+            environment_value(&environment, "XDG_CACHE_HOME"),
+            Some(&OsString::from("/tmp/moose-cache"))
+        );
+        assert_eq!(
+            environment_value(&environment, "XDG_CONFIG_HOME"),
+            Some(&OsString::from("/tmp/moose-config"))
+        );
+    }
+
+    fn environment_value<'a>(
+        environment: &'a [(&'static str, OsString)],
+        key: &str,
+    ) -> Option<&'a OsString> {
+        environment
+            .iter()
+            .find_map(|(name, value)| (*name == key).then_some(value))
+    }
 }
