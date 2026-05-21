@@ -194,6 +194,44 @@
   background-color: @window_bg_color;
 }
 
+.moose-first-run {
+  background-color: @window_bg_color;
+}
+
+.moose-guide-content {
+  padding: 26px 18px;
+}
+
+.moose-guide-action {
+  min-height: 38px;
+  min-width: 180px;
+}
+
+.moose-guide-start {
+  min-height: 32px;
+  min-width: 96px;
+  padding: 4px 12px;
+}
+
+.moose-guide-choice {
+  min-height: 44px;
+}
+
+.moose-empty-action {
+  min-height: 38px;
+  min-width: 178px;
+}
+
+.moose-install-content {
+  padding: 8px 22px 22px 22px;
+}
+
+.moose-install-progress {
+  background-color: @view_bg_color;
+  border-radius: 8px;
+  padding: 12px;
+}
+
 .moose-model-manager-content {
   padding: 30px 22px 24px 22px;
 }
