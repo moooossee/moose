@@ -10,7 +10,8 @@
   <project_license>GPL-3.0-or-later</project_license>
   <description>
     <p>Moose is a simple desktop app for chatting with local AI models through Ollama, without getting in your way.</p>
-    <p>It keeps your conversations, providers and model choices on your computer, and lets you connect to an Ollama service you already run.</p>
+    <p>Moose can manage its own Ollama inside the Flatpak. Fresh installs can set up Ollama, download a model and start chatting from the app.</p>
+    <p>Advanced users can still connect local or remote Ollama providers.</p>
   </description>
   <launchable type="desktop-id">io.github.moooossee.Moose.desktop</launchable>
   <url type="homepage">https://github.com/moooossee/moose</url>
@@ -22,16 +23,26 @@
   </branding>
   <screenshots>
     <screenshot type="default">
-      <image type="source" width="2560" height="1568">https://raw.githubusercontent.com/moooossee/moose/v0.1.0/data/screenshots/main.png</image>
-      <caption>Chatting with a local Ollama model</caption>
+      <image type="source" width="1000" height="700">https://raw.githubusercontent.com/moooossee/moose/v0.2.0/data/screenshots/main.png</image>
+      <caption>Chatting with Managed Ollama</caption>
     </screenshot>
     <screenshot>
-      <image type="source" width="2560" height="1568">https://raw.githubusercontent.com/moooossee/moose/v0.1.0/data/screenshots/model-manager.png</image>
-      <caption>Managing local models</caption>
+      <image type="source" width="1000" height="700">https://raw.githubusercontent.com/moooossee/moose/v0.2.0/data/screenshots/instances.png</image>
+      <caption>Creating or connecting an Ollama instance</caption>
+    </screenshot>
+    <screenshot>
+      <image type="source" width="1000" height="700">https://raw.githubusercontent.com/moooossee/moose/v0.2.0/data/screenshots/model-manager.png</image>
+      <caption>Finding a starter model</caption>
     </screenshot>
   </screenshots>
   <content_rating type="oars-1.1" />
   <releases>
+    <release version="0.2.0" date="2026-05-22">
+      <description>
+        <p>Adds Moose-managed Ollama so the Flatpak works without a host Ollama installation.</p>
+        <p>Fresh installs can create an instance, download a model and chat. Nice.</p>
+      </description>
+    </release>
     <release version="0.1.0" date="2026-05-17">
       <description>
         <p>First version of Moose, with local Ollama chat, saved conversations, provider settings and basic model management.</p>

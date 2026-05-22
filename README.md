@@ -1,14 +1,18 @@
 # Moose
 
 Moose is a small desktop app for chatting with local AI models through Ollama.
-It is meant to feel quiet, simple and local: your conversations, providers and
-model choices stay on your computer.
+It feels quiet, simple and local: your conversations, providers and model picks
+stay on your computer.
+
+On Flatpak, Moose can set up its own Ollama in app data. No host Ollama dance.
 
 ## Features
 
+- Install and run a Moose-managed Ollama
+- Download models from the app
 - Chat with local Ollama models
 - Keep conversations saved locally
-- Manage providers and models from the app
+- Connect external Ollama providers when you want
 
 ## Build
 
@@ -22,6 +26,8 @@ meson compile -C builddir
 ## Flatpak
 
 The Flathub manifest is `io.github.moooossee.Moose.yml`.
+The Flatpak keeps managed Ollama files and downloaded models inside app data.
+Remote and manual providers still work from Preferences.
 
 ```sh
 flatpak run org.flatpak.Builder --force-clean builddir io.github.moooossee.Moose.yml
