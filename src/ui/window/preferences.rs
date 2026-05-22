@@ -3,7 +3,10 @@ use std::rc::Rc;
 use adw::prelude::*;
 use gtk::{Align, Orientation};
 
-use crate::providers::{DEFAULT_OLLAMA_BASE_URL, NewProvider, ProviderKind, ProviderUpdate};
+use crate::providers::{
+    MANAGED_OLLAMA_DEFAULT_PORT, ProviderUpdate, managed_ollama_base_url,
+    managed_ollama_port_from_base_url, validate_managed_ollama_port,
+};
 
 use super::{
     Backend, WindowUi, active_provider, apply_active_provider, clear_active_provider,
@@ -29,6 +32,11 @@ pub(super) fn dialog(
         .as_ref()
         .map(|provider| provider.base_url.as_str())
         .unwrap_or("");
+    let managed_port = provider
+        .as_ref()
+        .filter(|provider| provider.is_managed)
+        .and_then(|provider| managed_ollama_port_from_base_url(&provider.base_url).ok())
+        .unwrap_or(MANAGED_OLLAMA_DEFAULT_PORT);
     let provider_is_managed = provider
         .as_ref()
         .is_some_and(|provider| provider.is_managed);
@@ -50,6 +58,12 @@ pub(super) fn dialog(
     if provider_is_managed {
         url_row.set_editable(false);
     }
+    let port_row = provider_is_managed.then(|| {
+        adw::EntryRow::builder()
+            .title("Managed Port")
+            .text(&managed_port.to_string())
+            .build()
+    });
     let action_box = gtk::Box::builder()
         .orientation(Orientation::Horizontal)
         .spacing(6)
@@ -77,6 +91,9 @@ pub(super) fn dialog(
         );
     }
     provider_group.add(&name_row);
+    if let Some(port_row) = port_row.as_ref() {
+        provider_group.add(port_row);
+    }
     provider_group.add(&url_row);
     provider_group.add(&action_box);
     provider_page.add(&provider_group);
@@ -103,11 +120,23 @@ pub(super) fn dialog(
     dialog.add(&provider_page);
     dialog.add(&privacy_page);
 
+    if let Some(port_row) = port_row.as_ref() {
+        let target_url_row = url_row.clone();
+        port_row.connect_text_notify(move |row| {
+            if let Ok(port) = managed_port_from_row(row)
+                && let Ok(base_url) = managed_ollama_base_url(port)
+            {
+                target_url_row.set_text(&base_url);
+            }
+        });
+    }
+
     let target_ui = Rc::clone(ui);
     let target_backend = Rc::clone(backend);
     let target_parent = parent.clone();
     let target_name_row = name_row.clone();
     let target_url_row = url_row.clone();
+    let target_port_row = port_row.clone();
     save_button.connect_clicked(move |_| {
         if provider_change_is_blocked(&target_ui, &target_backend) {
             return;
@@ -119,14 +148,37 @@ pub(super) fn dialog(
                 .add_toast(adw::Toast::new("Create or connect an instance first"));
             return;
         };
+        let base_url = if current.is_managed {
+            let Some(port_row) = target_port_row.as_ref() else {
+                target_ui
+                    .toast_overlay
+                    .add_toast(adw::Toast::new("Managed port is unavailable"));
+                return;
+            };
+            match managed_port_from_row(port_row).and_then(managed_ollama_base_url) {
+                Ok(base_url) => base_url,
+                Err(error) => {
+                    show_error(&target_parent, "Managed port is invalid", &error);
+                    return;
+                }
+            }
+        } else {
+            target_url_row.text().to_string()
+        };
         match target_backend.repository.update(ProviderUpdate {
             id: current.id,
             name: target_name_row.text().to_string(),
-            base_url: target_url_row.text().to_string(),
+            base_url,
             is_default: true,
         }) {
             Ok(provider) => {
                 *target_backend.provider.borrow_mut() = Some(provider.clone());
+                target_url_row.set_text(&provider.base_url);
+                if let Some(port_row) = target_port_row.as_ref()
+                    && let Ok(port) = managed_ollama_port_from_base_url(&provider.base_url)
+                {
+                    port_row.set_text(&port.to_string());
+                }
                 update_provider_summary(&target_ui, &provider);
                 refresh_models(&target_ui, &target_backend);
                 target_ui
@@ -139,39 +191,12 @@ pub(super) fn dialog(
 
     let target_ui = Rc::clone(ui);
     let target_backend = Rc::clone(backend);
-    let target_parent = parent.clone();
-    let target_name_row = name_row.clone();
-    let target_url_row = url_row.clone();
     add_button.connect_clicked(move |_| {
         if provider_change_is_blocked(&target_ui, &target_backend) {
             return;
         }
 
-        let count = target_backend
-            .repository
-            .list()
-            .map(|items| items.len() + 1);
-        let name = count
-            .map(|count| format!("Ollama Provider {count}"))
-            .unwrap_or_else(|_| "Ollama Provider".to_string());
-        match target_backend.repository.create(NewProvider {
-            kind: ProviderKind::Ollama,
-            name,
-            base_url: DEFAULT_OLLAMA_BASE_URL.to_string(),
-            is_managed: false,
-            is_default: true,
-        }) {
-            Ok(provider) => {
-                target_name_row.set_text(&provider.name);
-                target_url_row.set_text(&provider.base_url);
-                target_url_row.set_editable(true);
-                apply_active_provider(&target_ui, &target_backend, provider);
-                target_ui
-                    .toast_overlay
-                    .add_toast(adw::Toast::new("Provider added"));
-            }
-            Err(error) => show_error(&target_parent, "Provider could not be added", &error),
-        }
+        super::show_connect_external_dialog(&target_ui, &target_backend);
     });
 
     let target_ui = Rc::clone(ui);
@@ -218,4 +243,13 @@ pub(super) fn dialog(
     });
 
     dialog
+}
+
+fn managed_port_from_row(row: &adw::EntryRow) -> crate::error::Result<u16> {
+    let port = row
+        .text()
+        .trim()
+        .parse::<u16>()
+        .map_err(|_| crate::error::MooseError::ManagedOllamaInvalidPort(0))?;
+    validate_managed_ollama_port(port)
 }
