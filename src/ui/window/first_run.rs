@@ -22,7 +22,7 @@ pub(super) fn build() -> FirstRunGuide {
     stack.set_transition_type(gtk::StackTransitionType::SlideLeftRight);
 
     let start_button = gtk::Button::builder()
-        .label("Start")
+        .label("Start Guide")
         .halign(gtk::Align::Center)
         .valign(gtk::Align::Center)
         .build();
@@ -32,13 +32,13 @@ pub(super) fn build() -> FirstRunGuide {
     let welcome_page = adw::StatusPage::builder()
         .icon_name(APPLICATION_ID)
         .title("Welcome to Moose")
-        .description("Create or connect an Ollama instance to use models and chat.")
+        .description("Set up an Ollama instance and get cozy with local chat.")
         .hexpand(true)
         .vexpand(true)
         .child(&start_button)
         .build();
 
-    let create_button = gtk::Button::with_label("Create Managed Instance");
+    let create_button = gtk::Button::with_label("Create Ollama Instance");
     let connect_button = gtk::Button::with_label("Connect External Instance");
     create_button.add_css_class("suggested-action");
     create_button.add_css_class("moose-guide-choice");

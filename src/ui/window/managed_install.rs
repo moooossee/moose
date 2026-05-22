@@ -117,17 +117,17 @@ fn show_install_dialog(ui: &Rc<WindowUi>, backend: &Rc<Backend>, manager: Manage
     overview_group.add(&install_detail_row(
         "software-update-available-symbolic",
         "Official Release",
-        "Downloaded from the bundled managed Ollama manifest",
+        "Downloaded from Ollama releases",
     ));
     overview_group.add(&install_detail_row(
         "folder-symbolic",
         "Private App Data",
-        "Models and runtime files stay inside Moose data directories",
+        "Models and runtime files stay with Moose",
     ));
     overview_group.add(&install_detail_row(
         "network-server-symbolic",
-        "Port Setup Comes Next",
-        "After installation, choose the managed host and port",
+        "Port Setup Next",
+        "After installation, choose the managed port",
     ));
 
     let progress = gtk::ProgressBar::builder()
