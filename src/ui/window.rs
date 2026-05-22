@@ -8,7 +8,7 @@ use std::{
 };
 
 use adw::prelude::*;
-use gtk::gio::{self, prelude::*};
+use gtk::gio;
 use serde::Deserialize;
 
 use crate::{
@@ -19,28 +19,31 @@ use crate::{
         NewConversation, NewMessage,
     },
     error::{MooseError, Result},
-    models::{DownloadJob, DownloadJobStatus, NewDownloadJob},
-    ollama::{OllamaClient, OllamaModel, OllamaPullProgress, service::ManagedOllamaService},
+    ollama::{OllamaClient, OllamaModel, service::ManagedOllamaService},
     platform::AppPaths,
-    providers::{
-        DEFAULT_OLLAMA_BASE_URL, MANAGED_OLLAMA_DEFAULT_PORT, NewProvider, Provider, ProviderKind,
-        managed_ollama_port_from_base_url, validate_model_name,
-    },
+    providers::{MANAGED_OLLAMA_DEFAULT_PORT, Provider, managed_ollama_port_from_base_url},
     storage::{ConversationRepository, DownloadJobRepository, ProviderRepository, open_database},
 };
 
 mod chat_view;
 mod conversation_list;
+mod first_run;
+mod managed_install;
+mod model_actions;
 mod model_manager;
 mod preferences;
+mod provider_controls;
 mod sidebar;
 mod widgets;
+
+use provider_controls::show_connect_external_dialog;
 
 const CHAT_CSS: &str = include_str!("../../data/io.github.moooossee.Moose.css");
 const TITLE_SYSTEM_PROMPT: &str = "You are an assistant that generates short chat titles based on the prompt. If you want to, you can add a single emoji. Format the response as a single JSON object.";
 const TITLE_MAX_CHARS: usize = 30;
 const SETTINGS_SELECTED_MODELS: &str = "selected-models";
 const MANAGED_OLLAMA_READY_TIMEOUT: Duration = Duration::from_secs(20);
+const STARTER_MODEL: &str = "llama3.2:1b";
 
 type ManagedOllamaHandle = Arc<tokio::sync::Mutex<ManagedOllamaService>>;
 
@@ -57,6 +60,7 @@ pub fn build(app: &adw::Application) -> adw::ApplicationWindow {
     let sidebar = sidebar::build();
     let chat = chat_view::build();
     let model_manager = model_manager::build();
+    let first_run_guide = first_run::build();
     let new_chat_button = sidebar.new_chat_button.clone();
     let model_manager_button = sidebar.model_manager_button.clone();
 
@@ -91,7 +95,13 @@ pub fn build(app: &adw::Application) -> adw::ApplicationWindow {
         .content(&content_toolbar)
         .build();
 
-    window.set_content(Some(&split_view));
+    let root_stack = gtk::Stack::builder().hexpand(true).vexpand(true).build();
+    root_stack.set_transition_type(gtk::StackTransitionType::Crossfade);
+    root_stack.add_named(&first_run_guide.root, Some("guide"));
+    root_stack.add_named(&split_view, Some("app"));
+    root_stack.set_visible_child_name("app");
+
+    window.set_content(Some(&root_stack));
     window.set_size_request(768, 520);
 
     let model_names = Rc::new(RefCell::new(Vec::new()));
@@ -99,6 +109,7 @@ pub fn build(app: &adw::Application) -> adw::ApplicationWindow {
     let conversation_ids = Rc::new(RefCell::new(Vec::new()));
     let ui = Rc::new(WindowUi {
         window: window.clone(),
+        root_stack,
         toast_overlay,
         content_stack,
         model_manager,
@@ -117,6 +128,7 @@ pub fn build(app: &adw::Application) -> adw::ApplicationWindow {
         model_names,
         installed_models,
         conversation_ids,
+        first_run_guide,
         restoring_model_selection: RefCell::new(false),
         restoring_conversation_selection: RefCell::new(false),
     });
@@ -139,7 +151,7 @@ pub fn build(app: &adw::Application) -> adw::ApplicationWindow {
             if provider.is_some() {
                 refresh_models(&ui, &backend);
             } else {
-                show_first_run_placeholder(&ui);
+                show_first_run_guide(&ui);
             }
             conversation_list::refresh(&ui, &backend);
         }
@@ -183,6 +195,7 @@ struct ActiveModelPull {
 
 struct WindowUi {
     window: adw::ApplicationWindow,
+    root_stack: gtk::Stack,
     toast_overlay: adw::ToastOverlay,
     content_stack: gtk::Stack,
     model_manager: model_manager::ModelManager,
@@ -201,6 +214,7 @@ struct WindowUi {
     model_names: Rc<RefCell<Vec<String>>>,
     installed_models: Rc<RefCell<Vec<OllamaModel>>>,
     conversation_ids: Rc<RefCell<Vec<String>>>,
+    first_run_guide: first_run::FirstRunGuide,
     restoring_model_selection: RefCell<bool>,
     restoring_conversation_selection: RefCell<bool>,
 }
@@ -216,17 +230,6 @@ enum ModelLoadEvent {
 
 enum ChatUiEvent {
     Token(String),
-    Done,
-    Failed(String),
-}
-
-enum ModelPullUiEvent {
-    Progress(OllamaPullProgress),
-    Done,
-    Failed(String),
-}
-
-enum ModelDeleteUiEvent {
     Done,
     Failed(String),
 }
@@ -361,10 +364,7 @@ async fn prepared_ollama_client(
         service.shutdown();
         *service = ManagedOllamaService::new_with_port(&paths, port)?;
     }
-    service.ensure_started()?;
-    service
-        .wait_until_ready(MANAGED_OLLAMA_READY_TIMEOUT)
-        .await?;
+    service.ensure_ready(MANAGED_OLLAMA_READY_TIMEOUT).await?;
     OllamaClient::new(&service.config().base_url)
 }
 
@@ -454,7 +454,7 @@ fn bind_actions(
     let target_ui = Rc::clone(ui);
     let target_backend = Rc::clone(backend);
     ui.provider_switch_button.connect_clicked(move |button| {
-        show_provider_switcher(button, &target_ui, &target_backend);
+        provider_controls::show_switcher(button, &target_ui, &target_backend);
     });
 
     let target_ui = Rc::clone(ui);
@@ -467,7 +467,7 @@ fn bind_actions(
     let target_ui = Rc::clone(ui);
     let target_backend = Rc::clone(backend);
     ui.model_manager.pull_button.connect_clicked(move |_| {
-        show_pull_dialog(&parent, &target_ui, &target_backend);
+        model_actions::show_pull_dialog(&parent, &target_ui, &target_backend);
     });
 
     let parent = window.clone();
@@ -476,7 +476,7 @@ fn bind_actions(
     ui.model_manager
         .download_jobs_button
         .connect_clicked(move |_| {
-            show_download_jobs_dialog(&parent, &target_ui, &target_backend);
+            model_actions::show_download_jobs_dialog(&parent, &target_ui, &target_backend);
         });
 
     let target_ui = Rc::clone(ui);
@@ -607,294 +607,23 @@ fn bind_actions(
     preferences_button.connect_clicked(move |_| {
         preferences::dialog(&parent, &target_ui, &target_backend).present(Some(&parent));
     });
-}
 
-fn show_provider_switcher(anchor: &gtk::Button, ui: &Rc<WindowUi>, backend: &Rc<Backend>) {
-    let providers = match backend.repository.list() {
-        Ok(providers) => providers,
-        Err(error) => {
-            ui.toast_overlay.add_toast(adw::Toast::new(&format!(
-                "Providers could not be loaded: {error}"
-            )));
-            return;
-        }
-    };
-
-    let popover = gtk::Popover::builder()
-        .autohide(true)
-        .has_arrow(false)
-        .build();
-    popover.set_parent(anchor);
-
-    let content = gtk::Box::builder()
-        .orientation(gtk::Orientation::Vertical)
-        .spacing(8)
-        .margin_top(8)
-        .margin_bottom(8)
-        .margin_start(8)
-        .margin_end(8)
-        .build();
-    content.set_size_request(320, -1);
-
-    let list = gtk::ListBox::new();
-    list.set_selection_mode(gtk::SelectionMode::None);
-    list.add_css_class("moose-provider-list");
-
-    let active_provider_id = active_provider(backend).map(|provider| provider.id);
-    for provider in providers {
-        let row = provider_switch_row(
-            &provider,
-            active_provider_id
-                .as_deref()
-                .is_some_and(|id| id == provider.id.as_str()),
-        );
-        let provider_id = provider.id.clone();
-        let target_ui = Rc::clone(ui);
-        let target_backend = Rc::clone(backend);
-        let target_popover = popover.clone();
-        let click = gtk::GestureClick::builder().button(1).build();
-        click.connect_released(move |_, _, _, _| {
-            target_popover.popdown();
-            activate_provider(&target_ui, &target_backend, &provider_id);
-        });
-        row.add_controller(click);
-
-        let delete_button =
-            widgets::icon_button("user-trash-symbolic", &format!("Delete {}", provider.name));
-        delete_button.add_css_class("destructive-action");
-        let provider_id = provider.id.clone();
-        let target_ui = Rc::clone(ui);
-        let target_backend = Rc::clone(backend);
-        let target_popover = popover.clone();
-        delete_button.connect_clicked(move |_| {
-            target_popover.popdown();
-            confirm_provider_delete(&target_ui, &target_backend, &provider_id);
-        });
-        row.add_suffix(&delete_button);
-        list.append(&row);
-    }
-
-    let add_button = widgets::icon_button("list-add-symbolic", "Add Provider");
-    add_button.set_halign(gtk::Align::Center);
-    add_button.add_css_class("suggested-action");
-    add_button.add_css_class("moose-provider-add-button");
-    let target_ui = Rc::clone(ui);
-    let target_backend = Rc::clone(backend);
-    let target_popover = popover.clone();
-    add_button.connect_clicked(move |_| {
-        target_popover.popdown();
-        show_add_provider_dialog(&target_ui, &target_backend);
+    let target_stack = ui.first_run_guide.stack.clone();
+    ui.first_run_guide.start_button.connect_clicked(move |_| {
+        target_stack.set_visible_child_name("instances");
     });
-
-    content.append(&list);
-    content.append(&add_button);
-    popover.set_child(Some(&content));
-    popover.popup();
-}
-
-fn provider_switch_row(provider: &Provider, is_active: bool) -> adw::ActionRow {
-    let row = adw::ActionRow::builder()
-        .title(&provider.name)
-        .subtitle(&provider.base_url)
-        .subtitle_lines(2)
-        .build();
-    row.add_css_class("moose-provider-row");
-    row.set_tooltip_text(Some(&provider.base_url));
-    if is_active {
-        let active_icon = gtk::Image::from_icon_name("object-select-symbolic");
-        active_icon.set_tooltip_text(Some("Active Provider"));
-        active_icon.add_css_class("moose-provider-active-icon");
-        row.add_suffix(&active_icon);
-    }
-    row
-}
-
-fn show_add_provider_dialog(ui: &Rc<WindowUi>, backend: &Rc<Backend>) {
-    let name_row = adw::EntryRow::builder()
-        .title("Name")
-        .text(&next_provider_name(backend))
-        .build();
-    let url_row = adw::EntryRow::builder()
-        .title("Base URL")
-        .text(DEFAULT_OLLAMA_BASE_URL)
-        .build();
-    let group = adw::PreferencesGroup::new();
-    group.add(&name_row);
-    group.add(&url_row);
-
-    let dialog = adw::AlertDialog::builder()
-        .heading("Add Provider")
-        .body("Configure an Ollama provider.")
-        .extra_child(&group)
-        .close_response("cancel")
-        .default_response("add")
-        .build();
-    dialog.add_response("cancel", "Cancel");
-    dialog.add_response("add", "Add");
-    dialog.set_response_appearance("add", adw::ResponseAppearance::Suggested);
 
     let target_ui = Rc::clone(ui);
     let target_backend = Rc::clone(backend);
-    dialog.connect_response(Some("add"), move |_, _| {
-        add_provider_from_sidebar(
-            &target_ui,
-            &target_backend,
-            name_row.text().to_string(),
-            url_row.text().to_string(),
-        );
+    ui.first_run_guide.create_button.connect_clicked(move |_| {
+        managed_install::show_dialog(&target_ui, &target_backend);
     });
-
-    dialog.present(Some(&ui.window));
-}
-
-fn confirm_provider_delete(ui: &Rc<WindowUi>, backend: &Rc<Backend>, provider_id: &str) {
-    if provider_change_is_blocked(ui, backend) {
-        return;
-    }
-
-    let provider = match backend.repository.get(provider_id) {
-        Ok(Some(provider)) => provider,
-        Ok(None) => {
-            ui.toast_overlay
-                .add_toast(adw::Toast::new("Provider was not found"));
-            return;
-        }
-        Err(error) => {
-            ui.toast_overlay.add_toast(adw::Toast::new(&format!(
-                "Provider could not be loaded: {error}"
-            )));
-            return;
-        }
-    };
-
-    let provider_id = provider.id.clone();
-    let dialog = adw::AlertDialog::builder()
-        .heading("Delete Provider?")
-        .body(format!(
-            "Delete \"{}\" at {}?",
-            provider.name.as_str(),
-            provider.base_url.as_str()
-        ))
-        .close_response("cancel")
-        .default_response("cancel")
-        .build();
-    dialog.add_response("cancel", "Cancel");
-    dialog.add_response("delete", "Delete");
-    dialog.set_response_appearance("delete", adw::ResponseAppearance::Destructive);
 
     let target_ui = Rc::clone(ui);
     let target_backend = Rc::clone(backend);
-    dialog.connect_response(Some("delete"), move |_, _| {
-        delete_provider_from_sidebar(&target_ui, &target_backend, &provider_id);
+    ui.first_run_guide.connect_button.connect_clicked(move |_| {
+        show_connect_external_dialog(&target_ui, &target_backend);
     });
-    dialog.present(Some(&ui.window));
-}
-
-fn next_provider_name(backend: &Backend) -> String {
-    backend
-        .repository
-        .list()
-        .map(|providers| format!("Ollama Provider {}", providers.len() + 1))
-        .unwrap_or_else(|_| "Ollama Provider".to_string())
-}
-
-fn add_provider_from_sidebar(
-    ui: &Rc<WindowUi>,
-    backend: &Rc<Backend>,
-    name: String,
-    base_url: String,
-) {
-    if provider_change_is_blocked(ui, backend) {
-        return;
-    }
-
-    match backend.repository.create(NewProvider {
-        kind: ProviderKind::Ollama,
-        name,
-        base_url,
-        is_managed: false,
-        is_default: true,
-    }) {
-        Ok(provider) => {
-            apply_active_provider(ui, backend, provider);
-            ui.toast_overlay
-                .add_toast(adw::Toast::new("Provider added"));
-        }
-        Err(error) => show_error(&ui.window, "Provider could not be added", &error),
-    }
-}
-
-fn delete_provider_from_sidebar(ui: &Rc<WindowUi>, backend: &Rc<Backend>, provider_id: &str) {
-    if provider_change_is_blocked(ui, backend) {
-        return;
-    }
-
-    let was_active = active_provider(backend)
-        .as_ref()
-        .is_some_and(|provider| provider.id.as_str() == provider_id);
-    match backend.repository.delete(provider_id) {
-        Ok(()) => {
-            if was_active {
-                match backend.repository.ensure_default_provider() {
-                    Ok(Some(provider)) => apply_active_provider(ui, backend, provider),
-                    Ok(None) => clear_active_provider(ui, backend),
-                    Err(error) => {
-                        show_error(&ui.window, "Provider could not be selected", &error);
-                        return;
-                    }
-                }
-            }
-            ui.toast_overlay
-                .add_toast(adw::Toast::new("Provider deleted"));
-        }
-        Err(error) => show_error(&ui.window, "Provider could not be deleted", &error),
-    }
-}
-
-fn activate_provider(ui: &Rc<WindowUi>, backend: &Rc<Backend>, provider_id: &str) {
-    if active_provider(backend)
-        .as_ref()
-        .is_some_and(|provider| provider.id.as_str() == provider_id)
-    {
-        return;
-    }
-
-    if provider_change_is_blocked(ui, backend) {
-        return;
-    }
-
-    let provider = match backend.repository.get(provider_id) {
-        Ok(Some(provider)) => provider,
-        Ok(None) => {
-            ui.toast_overlay
-                .add_toast(adw::Toast::new("Provider was not found"));
-            return;
-        }
-        Err(error) => {
-            ui.toast_overlay.add_toast(adw::Toast::new(&format!(
-                "Provider could not be loaded: {error}"
-            )));
-            return;
-        }
-    };
-
-    match backend
-        .repository
-        .set_default(provider_id)
-        .and_then(|_| backend.repository.get(provider_id))
-    {
-        Ok(Some(provider)) => {
-            apply_active_provider(ui, backend, provider);
-            ui.toast_overlay
-                .add_toast(adw::Toast::new("Provider switched"));
-        }
-        Ok(None) => {
-            apply_active_provider(ui, backend, provider);
-            ui.toast_overlay
-                .add_toast(adw::Toast::new("Provider switched"));
-        }
-        Err(error) => show_error(&ui.window, "Provider could not be switched", &error),
-    }
 }
 
 fn provider_change_is_blocked(ui: &Rc<WindowUi>, backend: &Rc<Backend>) -> bool {
@@ -943,7 +672,9 @@ fn clear_active_provider(ui: &Rc<WindowUi>, backend: &Rc<Backend>) {
         "No Instance",
         "Create or connect an Ollama instance to manage models.",
     );
-    show_first_run_placeholder(ui);
+    ui.model_manager.refresh_button.set_sensitive(false);
+    ui.model_manager.pull_button.set_sensitive(false);
+    show_first_run_guide(ui);
 }
 
 fn reset_active_conversation(ui: &WindowUi, backend: &Backend) {
@@ -976,9 +707,12 @@ fn refresh_models(ui: &Rc<WindowUi>, backend: &Rc<Backend>) {
             "No Instance",
             "Create or connect an Ollama instance to refresh models.",
         );
-        show_first_run_placeholder(ui);
+        ui.model_manager.refresh_button.set_sensitive(false);
+        ui.model_manager.pull_button.set_sensitive(false);
+        show_first_run_guide(ui);
         return;
     };
+    let provider_is_managed = provider.is_managed;
     ui.provider_status.set_text(if provider.is_managed {
         "Starting"
     } else {
@@ -1037,14 +771,20 @@ fn refresh_models(ui: &Rc<WindowUi>, backend: &Rc<Backend>) {
                 target_ui.refresh_button.set_sensitive(true);
                 target_ui.model_manager.refresh_button.set_sensitive(true);
                 target_ui.provider_status.set_text(if available {
-                    "Connected"
+                    if provider_is_managed {
+                        "Ready"
+                    } else {
+                        "Connected"
+                    }
                 } else {
                     "Disconnected"
                 });
                 if !available {
-                    target_ui
-                        .toast_overlay
-                        .add_toast(adw::Toast::new(&format!("Ollama unavailable: {status}")));
+                    if !provider_is_managed {
+                        target_ui
+                            .toast_overlay
+                            .add_toast(adw::Toast::new(&format!("Ollama unavailable: {status}")));
+                    }
                     set_model_picker(&target_ui, Vec::new(), None);
                     set_installed_models(&target_ui, &target_backend, Vec::new());
                     model_manager::set_unavailable(
@@ -1089,735 +829,6 @@ fn refresh_models(ui: &Rc<WindowUi>, backend: &Rc<Backend>) {
             }
         }
     });
-}
-
-fn show_pull_dialog(parent: &adw::ApplicationWindow, ui: &Rc<WindowUi>, backend: &Rc<Backend>) {
-    if backend.active_generation.borrow().is_some() {
-        ui.toast_overlay
-            .add_toast(adw::Toast::new("Finish the active generation first"));
-        return;
-    }
-
-    if backend.active_model_pull.borrow().is_some() {
-        ui.toast_overlay
-            .add_toast(adw::Toast::new("A model download is already running"));
-        return;
-    }
-
-    let model_row = adw::EntryRow::builder().title("Model Name").build();
-    let group = adw::PreferencesGroup::new();
-    group.add(&model_row);
-
-    let dialog = adw::AlertDialog::builder()
-        .heading("Pull Model")
-        .body("Enter an Ollama model name, such as llama3.2:latest.")
-        .extra_child(&group)
-        .close_response("cancel")
-        .default_response("pull")
-        .build();
-    dialog.add_response("cancel", "Cancel");
-    dialog.add_response("pull", "Download");
-    dialog.set_response_appearance("pull", adw::ResponseAppearance::Suggested);
-
-    let target_parent = parent.clone();
-    let target_ui = Rc::clone(ui);
-    let target_backend = Rc::clone(backend);
-    dialog.connect_response(Some("pull"), move |_, _| {
-        let model_text = model_row.text().to_string();
-        let model = match validate_model_name(&model_text) {
-            Ok(model) => model,
-            Err(_) => {
-                target_ui
-                    .toast_overlay
-                    .add_toast(adw::Toast::new("Model name is invalid"));
-                return;
-            }
-        };
-
-        request_model_pull(&target_parent, &target_ui, &target_backend, model);
-    });
-
-    dialog.present(Some(parent));
-}
-
-fn request_model_pull(
-    parent: &adw::ApplicationWindow,
-    ui: &Rc<WindowUi>,
-    backend: &Rc<Backend>,
-    model: String,
-) {
-    let model = match validate_model_name(&model) {
-        Ok(model) => model,
-        Err(_) => {
-            ui.toast_overlay
-                .add_toast(adw::Toast::new("Model name is invalid"));
-            return;
-        }
-    };
-
-    let Some(provider) = require_active_provider(ui, backend) else {
-        return;
-    };
-
-    if provider_is_local(&provider) {
-        start_model_pull(ui, backend, model);
-    } else {
-        confirm_remote_model_pull(parent, ui, backend, model);
-    }
-}
-
-fn confirm_remote_model_pull(
-    parent: &adw::ApplicationWindow,
-    ui: &Rc<WindowUi>,
-    backend: &Rc<Backend>,
-    model: String,
-) {
-    let Some(provider) = require_active_provider(ui, backend) else {
-        return;
-    };
-
-    let dialog = adw::AlertDialog::builder()
-        .heading("Download on Remote Provider?")
-        .body(format!(
-            "The model will be downloaded by {} at {}.",
-            provider.name, provider.base_url
-        ))
-        .close_response("cancel")
-        .default_response("download")
-        .build();
-    dialog.add_response("cancel", "Cancel");
-    dialog.add_response("download", "Download");
-    dialog.set_response_appearance("download", adw::ResponseAppearance::Suggested);
-
-    let target_ui = Rc::clone(ui);
-    let target_backend = Rc::clone(backend);
-    dialog.connect_response(Some("download"), move |_, _| {
-        start_model_pull(&target_ui, &target_backend, model.clone());
-    });
-
-    dialog.present(Some(parent));
-}
-
-fn show_download_jobs_dialog(
-    parent: &adw::ApplicationWindow,
-    ui: &Rc<WindowUi>,
-    backend: &Rc<Backend>,
-) {
-    let Some(provider) = require_active_provider(ui, backend) else {
-        return;
-    };
-
-    let jobs = match backend
-        .download_job_repository
-        .list_recent_for_provider(&provider.id, 50)
-    {
-        Ok(jobs) => jobs,
-        Err(error) => {
-            ui.toast_overlay.add_toast(adw::Toast::new(&format!(
-                "Download jobs could not be loaded: {error}"
-            )));
-            return;
-        }
-    };
-
-    let dialog = adw::Dialog::builder()
-        .title("Download Jobs")
-        .content_width(680)
-        .content_height(460)
-        .build();
-
-    let header_bar = adw::HeaderBar::builder()
-        .show_start_title_buttons(false)
-        .show_end_title_buttons(false)
-        .build();
-    let title = adw::WindowTitle::new("Download Jobs", &provider.name);
-    header_bar.set_title_widget(Some(&title));
-
-    if !jobs.is_empty() {
-        let clear_button = widgets::icon_button("user-trash-symbolic", "Clear Download History");
-        clear_button.add_css_class("destructive-action");
-        clear_button.set_sensitive(backend.active_model_pull.borrow().is_none());
-        let target_parent = parent.clone();
-        let target_ui = Rc::clone(ui);
-        let target_backend = Rc::clone(backend);
-        let target_dialog = dialog.clone();
-        let provider_id = provider.id.clone();
-        clear_button.connect_clicked(move |_| {
-            confirm_download_history_clear(
-                &target_parent,
-                &target_ui,
-                &target_backend,
-                &target_dialog,
-                &provider_id,
-            );
-        });
-        header_bar.pack_start(&clear_button);
-    }
-
-    let close_button = widgets::icon_button("window-close-symbolic", "Close");
-    let target_dialog = dialog.clone();
-    close_button.connect_clicked(move |_| {
-        target_dialog.close();
-    });
-    header_bar.pack_end(&close_button);
-
-    let content = if jobs.is_empty() {
-        let status_page = adw::StatusPage::builder()
-            .icon_name(APPLICATION_ID)
-            .title("No Download Jobs")
-            .description("Model downloads will appear here.")
-            .hexpand(true)
-            .vexpand(true)
-            .build();
-        status_page.upcast::<gtk::Widget>()
-    } else {
-        let list = gtk::ListBox::new();
-        list.set_selection_mode(gtk::SelectionMode::None);
-        list.add_css_class("moose-model-list");
-        for job in &jobs {
-            list.append(&download_job_row(job));
-        }
-
-        gtk::ScrolledWindow::builder()
-            .hscrollbar_policy(gtk::PolicyType::Never)
-            .vscrollbar_policy(gtk::PolicyType::Automatic)
-            .min_content_height(320)
-            .child(&list)
-            .build()
-            .upcast::<gtk::Widget>()
-    };
-
-    let toolbar_view = adw::ToolbarView::builder()
-        .top_bar_style(adw::ToolbarStyle::Flat)
-        .content(&content)
-        .build();
-    toolbar_view.add_top_bar(&header_bar);
-
-    dialog.set_child(Some(&toolbar_view));
-    dialog.present(Some(parent));
-}
-
-fn confirm_download_history_clear(
-    parent: &adw::ApplicationWindow,
-    ui: &Rc<WindowUi>,
-    backend: &Rc<Backend>,
-    dialog: &adw::Dialog,
-    provider_id: &str,
-) {
-    if backend.active_model_pull.borrow().is_some() {
-        ui.toast_overlay
-            .add_toast(adw::Toast::new("Finish the active model download first"));
-        return;
-    }
-
-    let alert = adw::AlertDialog::builder()
-        .heading("Clear Download History?")
-        .body("Remove all model download jobs for the active provider?")
-        .close_response("cancel")
-        .default_response("cancel")
-        .build();
-    alert.add_response("cancel", "Cancel");
-    alert.add_response("clear", "Clear");
-    alert.set_response_appearance("clear", adw::ResponseAppearance::Destructive);
-
-    let target_ui = Rc::clone(ui);
-    let target_backend = Rc::clone(backend);
-    let target_dialog = dialog.clone();
-    let provider_id = provider_id.to_string();
-    alert.connect_response(Some("clear"), move |_, _| {
-        match target_backend
-            .download_job_repository
-            .delete_for_provider(&provider_id)
-        {
-            Ok(_) => {
-                target_dialog.close();
-                target_ui
-                    .toast_overlay
-                    .add_toast(adw::Toast::new("Download history cleared"));
-            }
-            Err(error) => {
-                target_ui.toast_overlay.add_toast(adw::Toast::new(&format!(
-                    "Download history could not be cleared: {error}"
-                )));
-            }
-        }
-    });
-    alert.present(Some(parent));
-}
-
-fn download_job_row(job: &DownloadJob) -> adw::ActionRow {
-    let row = adw::ActionRow::builder()
-        .title(&job.model_name)
-        .subtitle(&download_job_subtitle(job))
-        .subtitle_lines(3)
-        .build();
-    row.add_css_class("moose-model-row-item");
-    row.set_tooltip_text(Some(&job.model_name));
-    row.add_suffix(&download_job_status_label(&job.status));
-    row
-}
-
-fn download_job_status_label(status: &DownloadJobStatus) -> gtk::Label {
-    let label = gtk::Label::builder()
-        .label(download_job_status_text(status))
-        .halign(gtk::Align::Center)
-        .valign(gtk::Align::Center)
-        .build();
-    label.add_css_class("moose-model-pill");
-    label
-}
-
-fn download_job_subtitle(job: &DownloadJob) -> String {
-    let mut lines = Vec::new();
-    if let Some(progress) = download_job_progress_text(job) {
-        lines.push(progress);
-    }
-    lines.push(format!(
-        "Updated {}",
-        compact_download_timestamp(&job.updated_at)
-    ));
-    if matches!(&job.status, DownloadJobStatus::Failed)
-        && let Some(error_message) = job
-            .error_message
-            .as_deref()
-            .filter(|message| !message.is_empty())
-    {
-        lines.push(error_message.to_string());
-    }
-    lines.join("\n")
-}
-
-fn download_job_status_text(status: &DownloadJobStatus) -> &'static str {
-    match status {
-        DownloadJobStatus::Queued => "Queued",
-        DownloadJobStatus::Running => "Running",
-        DownloadJobStatus::Complete => "Complete",
-        DownloadJobStatus::Cancelled => "Cancelled",
-        DownloadJobStatus::Failed => "Failed",
-    }
-}
-
-fn download_job_progress_text(job: &DownloadJob) -> Option<String> {
-    match (
-        optional_i64_to_u64(job.completed_bytes),
-        optional_i64_to_u64(job.total_bytes),
-    ) {
-        (Some(completed), Some(total)) if total > 0 => Some(format!(
-            "{} of {}",
-            format_download_size(completed),
-            format_download_size(total)
-        )),
-        (Some(completed), _) if completed > 0 => {
-            Some(format!("{} downloaded", format_download_size(completed)))
-        }
-        (_, Some(total)) if total > 0 => Some(format!("{} total", format_download_size(total))),
-        _ => None,
-    }
-}
-
-fn optional_i64_to_u64(value: Option<i64>) -> Option<u64> {
-    value.and_then(|value| u64::try_from(value).ok())
-}
-
-fn compact_download_timestamp(value: &str) -> String {
-    value
-        .trim_end_matches('Z')
-        .split_once('.')
-        .map(|(value, _)| value)
-        .unwrap_or(value)
-        .replace('T', " ")
-}
-
-fn format_download_size(size_bytes: u64) -> String {
-    let units = ["B", "KB", "MB", "GB", "TB"];
-    let mut size = size_bytes as f64;
-    let mut unit_index = 0;
-
-    while size >= 1024.0 && unit_index + 1 < units.len() {
-        size /= 1024.0;
-        unit_index += 1;
-    }
-
-    if unit_index == 0 {
-        format!("{size_bytes} {}", units[unit_index])
-    } else if size >= 10.0 {
-        format!("{size:.0} {}", units[unit_index])
-    } else {
-        format!("{size:.1} {}", units[unit_index])
-    }
-}
-
-fn start_model_pull(ui: &Rc<WindowUi>, backend: &Rc<Backend>, model: String) {
-    if backend.active_generation.borrow().is_some() {
-        ui.toast_overlay
-            .add_toast(adw::Toast::new("Finish the active generation first"));
-        return;
-    }
-
-    if backend.active_model_pull.borrow().is_some() {
-        ui.toast_overlay
-            .add_toast(adw::Toast::new("A model download is already running"));
-        return;
-    }
-
-    if backend.active_model_delete.borrow().is_some() {
-        ui.toast_overlay
-            .add_toast(adw::Toast::new("Finish the active model deletion first"));
-        return;
-    }
-
-    show_model_manager(ui);
-    ui.refresh_button.set_sensitive(false);
-    model_manager::set_pull_started(&ui.model_manager, &model);
-
-    let Some(provider) = require_active_provider(ui, backend) else {
-        ui.refresh_button.set_sensitive(true);
-        model_manager::set_pull_finished(
-            &ui.model_manager,
-            "Download Failed",
-            "Create or connect an Ollama instance first.",
-            0.0,
-        );
-        return;
-    };
-    let provider_id = provider.id.clone();
-    let job = match backend.download_job_repository.create(NewDownloadJob {
-        provider_id,
-        model_name: model.clone(),
-    }) {
-        Ok(job) => job,
-        Err(error) => {
-            ui.refresh_button.set_sensitive(true);
-            model_manager::set_pull_finished(
-                &ui.model_manager,
-                "Download Failed",
-                &format!("Download job could not be saved: {error}"),
-                0.0,
-            );
-            model_manager::clear_download_job(&ui.model_manager);
-            ui.toast_overlay.add_toast(adw::Toast::new(&format!(
-                "Download job could not be saved: {error}"
-            )));
-            return;
-        }
-    };
-
-    let (sender, receiver) = mpsc::channel();
-    let target_model = model.clone();
-    let pull_id = job.id.clone();
-    let paths = backend.paths.clone();
-    let managed_ollama = Arc::clone(&backend.managed_ollama);
-    let handle = backend.runtime.spawn(async move {
-        let client = match prepared_ollama_client(paths, managed_ollama, provider).await {
-            Ok(client) => client,
-            Err(error) => {
-                let _ = sender.send(ModelPullUiEvent::Failed(error.to_string()));
-                return;
-            }
-        };
-        let progress_sender = sender.clone();
-        let result = client
-            .pull_model(&target_model, |progress| {
-                let _ = progress_sender.send(ModelPullUiEvent::Progress(progress));
-            })
-            .await;
-
-        match result {
-            Ok(()) => {
-                let _ = sender.send(ModelPullUiEvent::Done);
-            }
-            Err(error) => {
-                let _ = sender.send(ModelPullUiEvent::Failed(error.to_string()));
-            }
-        }
-    });
-    *backend.active_model_pull.borrow_mut() = Some(ActiveModelPull {
-        id: pull_id.clone(),
-        handle,
-    });
-
-    let target_ui = Rc::clone(ui);
-    let target_backend = Rc::clone(backend);
-    let mut tracking_failed = false;
-    gtk::glib::timeout_add_local(Duration::from_millis(80), move || {
-        loop {
-            match receiver.try_recv() {
-                Ok(ModelPullUiEvent::Progress(progress)) => {
-                    if !tracking_failed
-                        && let Err(error) = target_backend.download_job_repository.update_progress(
-                            &pull_id,
-                            progress.total_bytes,
-                            progress.completed_bytes,
-                        )
-                    {
-                        tracking_failed = true;
-                        target_ui.toast_overlay.add_toast(adw::Toast::new(&format!(
-                            "Download progress could not be saved: {error}"
-                        )));
-                    }
-                    model_manager::set_pull_progress(&target_ui.model_manager, &model, &progress);
-                }
-                Ok(ModelPullUiEvent::Done) => {
-                    if !target_backend.finish_model_pull(&pull_id) {
-                        return gtk::glib::ControlFlow::Break;
-                    }
-                    if let Err(error) = target_backend.download_job_repository.complete(&pull_id) {
-                        target_ui.toast_overlay.add_toast(adw::Toast::new(&format!(
-                            "Download job could not be saved: {error}"
-                        )));
-                    }
-                    target_ui.refresh_button.set_sensitive(true);
-                    model_manager::set_pull_finished(
-                        &target_ui.model_manager,
-                        "Download Complete",
-                        &format!("{model} is ready to use."),
-                        1.0,
-                    );
-                    model_manager::clear_download_job(&target_ui.model_manager);
-                    target_ui
-                        .toast_overlay
-                        .add_toast(adw::Toast::new("Model download complete"));
-                    refresh_models(&target_ui, &target_backend);
-                    return gtk::glib::ControlFlow::Break;
-                }
-                Ok(ModelPullUiEvent::Failed(error)) => {
-                    if !target_backend.finish_model_pull(&pull_id) {
-                        return gtk::glib::ControlFlow::Break;
-                    }
-                    if let Err(save_error) = target_backend
-                        .download_job_repository
-                        .fail(&pull_id, &error)
-                    {
-                        target_ui.toast_overlay.add_toast(adw::Toast::new(&format!(
-                            "Download job could not be saved: {save_error}"
-                        )));
-                    }
-                    target_ui.refresh_button.set_sensitive(true);
-                    model_manager::set_pull_finished(
-                        &target_ui.model_manager,
-                        "Download Failed",
-                        &error,
-                        0.0,
-                    );
-                    model_manager::clear_download_job(&target_ui.model_manager);
-                    target_ui
-                        .toast_overlay
-                        .add_toast(adw::Toast::new(&format!("Model download failed: {error}")));
-                    return gtk::glib::ControlFlow::Break;
-                }
-                Err(mpsc::TryRecvError::Empty) => return gtk::glib::ControlFlow::Continue,
-                Err(mpsc::TryRecvError::Disconnected) => {
-                    if target_backend.finish_model_pull(&pull_id) {
-                        if let Err(error) = target_backend
-                            .download_job_repository
-                            .fail(&pull_id, "Download stopped before completion.")
-                        {
-                            target_ui.toast_overlay.add_toast(adw::Toast::new(&format!(
-                                "Download job could not be saved: {error}"
-                            )));
-                        }
-                        target_ui.refresh_button.set_sensitive(true);
-                        model_manager::set_pull_finished(
-                            &target_ui.model_manager,
-                            "Download Stopped",
-                            "The model download stopped before completion.",
-                            0.0,
-                        );
-                        model_manager::clear_download_job(&target_ui.model_manager);
-                    }
-                    return gtk::glib::ControlFlow::Break;
-                }
-            }
-        }
-    });
-}
-
-fn confirm_model_delete(
-    parent: &adw::ApplicationWindow,
-    ui: &Rc<WindowUi>,
-    backend: &Rc<Backend>,
-    model: String,
-) {
-    let model = match validate_model_name(&model) {
-        Ok(model) => model,
-        Err(_) => {
-            ui.toast_overlay
-                .add_toast(adw::Toast::new("Model name is invalid"));
-            return;
-        }
-    };
-
-    if backend.active_generation.borrow().is_some() {
-        ui.toast_overlay
-            .add_toast(adw::Toast::new("Finish the active generation first"));
-        return;
-    }
-
-    if backend.active_model_pull.borrow().is_some() {
-        ui.toast_overlay
-            .add_toast(adw::Toast::new("Finish the active model download first"));
-        return;
-    }
-
-    if backend.active_model_delete.borrow().is_some() {
-        ui.toast_overlay
-            .add_toast(adw::Toast::new("A model deletion is already running"));
-        return;
-    }
-
-    let Some(provider) = require_active_provider(ui, backend) else {
-        return;
-    };
-
-    let body = if provider_is_local(&provider) {
-        format!("Delete \"{model}\" from Ollama? You can download it again later.")
-    } else {
-        format!(
-            "Delete \"{model}\" from {} at {}? This changes the remote provider.",
-            provider.name, provider.base_url
-        )
-    };
-
-    let dialog = adw::AlertDialog::builder()
-        .heading("Delete Model?")
-        .body(body)
-        .close_response("cancel")
-        .default_response("cancel")
-        .build();
-    dialog.add_response("cancel", "Cancel");
-    dialog.add_response("delete", "Delete");
-    dialog.set_response_appearance("delete", adw::ResponseAppearance::Destructive);
-
-    let target_ui = Rc::clone(ui);
-    let target_backend = Rc::clone(backend);
-    dialog.connect_response(Some("delete"), move |_, _| {
-        start_model_delete(&target_ui, &target_backend, model.clone());
-    });
-
-    dialog.present(Some(parent));
-}
-
-fn start_model_delete(ui: &Rc<WindowUi>, backend: &Rc<Backend>, model: String) {
-    if backend.active_generation.borrow().is_some() {
-        ui.toast_overlay
-            .add_toast(adw::Toast::new("Finish the active generation first"));
-        return;
-    }
-
-    if backend.active_model_pull.borrow().is_some() {
-        ui.toast_overlay
-            .add_toast(adw::Toast::new("Finish the active model download first"));
-        return;
-    }
-
-    if backend.active_model_delete.borrow().is_some() {
-        ui.toast_overlay
-            .add_toast(adw::Toast::new("A model deletion is already running"));
-        return;
-    }
-
-    show_model_manager(ui);
-    ui.refresh_button.set_sensitive(false);
-    model_manager::set_delete_started(&ui.model_manager, &model);
-
-    let (sender, receiver) = mpsc::channel();
-    let target_model = model.clone();
-    let Some(provider) = require_active_provider(ui, backend) else {
-        ui.refresh_button.set_sensitive(true);
-        model_manager::set_delete_finished(
-            &ui.model_manager,
-            "Delete Failed",
-            "Create or connect an Ollama instance first.",
-            0.0,
-        );
-        return;
-    };
-    let paths = backend.paths.clone();
-    let managed_ollama = Arc::clone(&backend.managed_ollama);
-    let handle = backend.runtime.spawn(async move {
-        let client = match prepared_ollama_client(paths, managed_ollama, provider).await {
-            Ok(client) => client,
-            Err(error) => {
-                let _ = sender.send(ModelDeleteUiEvent::Failed(error.to_string()));
-                return;
-            }
-        };
-        match client.delete_model(&target_model).await {
-            Ok(()) => {
-                let _ = sender.send(ModelDeleteUiEvent::Done);
-            }
-            Err(error) => {
-                let _ = sender.send(ModelDeleteUiEvent::Failed(error.to_string()));
-            }
-        }
-    });
-    *backend.active_model_delete.borrow_mut() = Some(handle);
-
-    let target_ui = Rc::clone(ui);
-    let target_backend = Rc::clone(backend);
-    gtk::glib::timeout_add_local(Duration::from_millis(80), move || {
-        match receiver.try_recv() {
-            Ok(ModelDeleteUiEvent::Done) => {
-                target_backend.finish_model_delete();
-                target_ui.refresh_button.set_sensitive(true);
-                model_manager::set_delete_finished(
-                    &target_ui.model_manager,
-                    "Model Deleted",
-                    &format!("{model} was removed from Ollama."),
-                    1.0,
-                );
-                model_manager::clear_download_job(&target_ui.model_manager);
-                target_ui
-                    .toast_overlay
-                    .add_toast(adw::Toast::new("Model deleted"));
-                refresh_models(&target_ui, &target_backend);
-                gtk::glib::ControlFlow::Break
-            }
-            Ok(ModelDeleteUiEvent::Failed(error)) => {
-                target_backend.finish_model_delete();
-                target_ui.refresh_button.set_sensitive(true);
-                model_manager::set_delete_finished(
-                    &target_ui.model_manager,
-                    "Delete Failed",
-                    &error,
-                    0.0,
-                );
-                model_manager::clear_download_job(&target_ui.model_manager);
-                target_ui
-                    .toast_overlay
-                    .add_toast(adw::Toast::new(&format!("Model deletion failed: {error}")));
-                gtk::glib::ControlFlow::Break
-            }
-            Err(mpsc::TryRecvError::Empty) => gtk::glib::ControlFlow::Continue,
-            Err(mpsc::TryRecvError::Disconnected) => {
-                target_backend.finish_model_delete();
-                target_ui.refresh_button.set_sensitive(true);
-                model_manager::set_delete_finished(
-                    &target_ui.model_manager,
-                    "Delete Stopped",
-                    "The model deletion stopped before completion.",
-                    0.0,
-                );
-                model_manager::clear_download_job(&target_ui.model_manager);
-                gtk::glib::ControlFlow::Break
-            }
-        }
-    });
-}
-
-fn provider_is_local(provider: &Provider) -> bool {
-    if provider.is_managed {
-        return true;
-    }
-
-    reqwest::Url::parse(&provider.base_url)
-        .ok()
-        .and_then(|url| url.host_str().map(str::to_string))
-        .map(|host| {
-            let host = host.trim_matches(['[', ']']);
-            matches!(host, "localhost" | "127.0.0.1" | "::1")
-        })
-        .unwrap_or(false)
 }
 
 fn send_message(ui: &Rc<WindowUi>, backend: &Rc<Backend>) {
@@ -2365,6 +1376,7 @@ fn save_selected_model(ui: &WindowUi, backend: &Backend, model: String) {
 }
 
 fn set_models(ui: &Rc<WindowUi>, backend: &Rc<Backend>, models: Vec<OllamaModel>) {
+    let is_empty = models.is_empty();
     let chat_models = models
         .iter()
         .filter(|model| model.supports_chat)
@@ -2374,6 +1386,15 @@ fn set_models(ui: &Rc<WindowUi>, backend: &Rc<Backend>, models: Vec<OllamaModel>
         .and_then(|provider| backend.selected_models.borrow().get(&provider.id).cloned());
     set_model_picker(ui, chat_models, selected_model.as_deref());
     set_installed_models(ui, backend, models);
+    if is_empty {
+        show_no_models_state(ui, backend);
+    } else if ui.message_stack.visible_child_name().as_deref() == Some("empty") {
+        set_chat_empty_state(
+            ui,
+            "No Conversation Selected",
+            "Choose a model and start a conversation.",
+        );
+    }
 }
 
 fn set_installed_models(ui: &Rc<WindowUi>, backend: &Rc<Backend>, models: Vec<OllamaModel>) {
@@ -2388,13 +1409,13 @@ fn render_model_manager(ui: &Rc<WindowUi>, backend: &Rc<Backend>, query: &str) {
     let target_ui = Rc::clone(ui);
     let target_backend = Rc::clone(backend);
     let on_pull = Rc::new(move |model: String| {
-        request_model_pull(&target_parent, &target_ui, &target_backend, model);
+        model_actions::request_model_pull(&target_parent, &target_ui, &target_backend, model);
     });
     let target_parent = ui.window.clone();
     let target_ui = Rc::clone(ui);
     let target_backend = Rc::clone(backend);
     let on_delete = Rc::new(move |model: String| {
-        confirm_model_delete(&target_parent, &target_ui, &target_backend, model);
+        model_actions::confirm_model_delete(&target_parent, &target_ui, &target_backend, model);
     });
     model_manager::set_models(
         &ui.model_manager,
@@ -2440,13 +1461,60 @@ fn set_model_picker(ui: &WindowUi, models: Vec<String>, selected_model: Option<&
 
 fn set_chat_empty_state(ui: &WindowUi, title: &str, description: &str) {
     chat_view::set_empty_state(&ui.chat_status_page, title, description);
+    ui.chat_status_page.set_child(None::<&gtk::Widget>);
+}
+
+fn show_no_models_state(ui: &Rc<WindowUi>, backend: &Rc<Backend>) {
+    chat_view::set_empty_state(
+        &ui.chat_status_page,
+        "No Models Installed",
+        "Download Llama 3.2 1B to start, or browse the model library.",
+    );
+
+    let download_button = gtk::Button::with_label("Download Llama 3.2 1B");
+    download_button.add_css_class("suggested-action");
+    download_button.add_css_class("moose-empty-action");
+    let browse_button = gtk::Button::with_label("Browse Models");
+    browse_button.add_css_class("flat");
+    browse_button.add_css_class("moose-empty-action");
+
+    let actions = gtk::Box::builder()
+        .orientation(gtk::Orientation::Vertical)
+        .spacing(6)
+        .halign(gtk::Align::Center)
+        .build();
+    actions.append(&download_button);
+    actions.append(&browse_button);
+
+    let target_parent = ui.window.clone();
+    let target_ui = Rc::clone(ui);
+    let target_backend = Rc::clone(backend);
+    download_button.connect_clicked(move |_| {
+        model_actions::request_model_pull(
+            &target_parent,
+            &target_ui,
+            &target_backend,
+            STARTER_MODEL.to_string(),
+        );
+    });
+
+    let target_ui = Rc::clone(ui);
+    browse_button.connect_clicked(move |_| {
+        show_model_manager(&target_ui);
+    });
+
+    ui.chat_status_page.set_child(Some(&actions));
+    ui.message_stack.set_visible_child_name("empty");
+    show_chat(ui);
 }
 
 fn show_chat(ui: &WindowUi) {
+    ui.root_stack.set_visible_child_name("app");
     ui.content_stack.set_visible_child_name("chat");
 }
 
 fn show_model_manager(ui: &WindowUi) {
+    ui.root_stack.set_visible_child_name("app");
     ui.content_stack.set_visible_child_name("models");
 }
 
@@ -2465,14 +1533,9 @@ fn clear_messages(ui: &WindowUi) {
     ui.message_stack.set_visible_child_name("empty");
 }
 
-fn show_first_run_placeholder(ui: &WindowUi) {
-    set_chat_empty_state(
-        ui,
-        "Welcome to Moose",
-        "Start the guide to create or connect an Ollama instance.",
-    );
-    ui.message_stack.set_visible_child_name("empty");
-    show_chat(ui);
+fn show_first_run_guide(ui: &WindowUi) {
+    first_run::reset(&ui.first_run_guide);
+    ui.root_stack.set_visible_child_name("guide");
 }
 
 fn apply_provider_state(ui: &WindowUi, provider: &Option<Provider>) {
