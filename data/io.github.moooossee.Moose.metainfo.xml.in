@@ -37,6 +37,11 @@
   </screenshots>
   <content_rating type="oars-1.1" />
   <releases>
+    <release version="0.2.1" date="2026-05-27">
+      <description>
+        <p>Moose now opens just once when launched from Flathub.</p>
+      </description>
+    </release>
     <release version="0.2.0" date="2026-05-22">
       <description>
         <p>Adds Moose-managed Ollama so the Flatpak works without a host Ollama installation.</p>
