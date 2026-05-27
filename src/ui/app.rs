@@ -10,6 +10,11 @@ pub fn run() -> gtk::glib::ExitCode {
         .build();
 
     app.connect_activate(|app| {
+        if let Some(window) = app.active_window() {
+            window.present();
+            return;
+        }
+
         let window = window::build(app);
         window.present();
     });
