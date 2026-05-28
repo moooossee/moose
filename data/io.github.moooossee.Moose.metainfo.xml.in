@@ -23,20 +23,27 @@
   </branding>
   <screenshots>
     <screenshot type="default">
-      <image type="source" width="1000" height="700">https://raw.githubusercontent.com/moooossee/moose/v0.2.0/data/screenshots/main.png</image>
-      <caption>Chatting with Managed Ollama</caption>
+      <image type="source" width="1430" height="995">https://raw.githubusercontent.com/moooossee/moose/v0.3.0/data/screenshots/main.png</image>
+      <caption>Reading Markdown responses with highlighted code blocks</caption>
     </screenshot>
     <screenshot>
-      <image type="source" width="1000" height="700">https://raw.githubusercontent.com/moooossee/moose/v0.2.0/data/screenshots/instances.png</image>
-      <caption>Creating or connecting an Ollama instance</caption>
+      <image type="source" width="1430" height="995">https://raw.githubusercontent.com/moooossee/moose/v0.3.0/data/screenshots/instances.png</image>
+      <caption>Choosing a managed or external Ollama instance</caption>
     </screenshot>
     <screenshot>
-      <image type="source" width="1000" height="700">https://raw.githubusercontent.com/moooossee/moose/v0.2.0/data/screenshots/model-manager.png</image>
-      <caption>Finding a starter model</caption>
+      <image type="source" width="1430" height="995">https://raw.githubusercontent.com/moooossee/moose/v0.3.0/data/screenshots/model-manager.png</image>
+      <caption>Browsing installed and recommended models</caption>
     </screenshot>
   </screenshots>
   <content_rating type="oars-1.1" />
   <releases>
+    <release version="0.3.0" date="2026-05-28">
+      <url type="details">https://github.com/moooossee/moose/releases/tag/v0.3.0</url>
+      <description>
+        <p>Moose now renders chat messages with Markdown formatting for clearer model responses.</p>
+        <p>Code blocks include syntax highlighting, line numbers and a copy action so generated code is easier to read and reuse.</p>
+      </description>
+    </release>
     <release version="0.2.1" date="2026-05-27">
       <description>
         <p>Moose now opens just once when launched from Flathub.</p>
