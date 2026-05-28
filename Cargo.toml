@@ -9,7 +9,7 @@ license = "GPL-3.0-or-later"
 
 [features]
 default = []
-gui = ["dep:adw", "dep:gtk"]
+gui = ["dep:adw", "dep:comrak", "dep:gtk", "dep:sourceview5"]
 
 [[bin]]
 name = "moose"
@@ -22,6 +22,7 @@ required-features = ["gui"]
 
 [dependencies]
 adw = { package = "libadwaita", version = "0.9.1", features = ["v1_9", "gtk_v4_22"], optional = true }
+comrak = { version = "0.52.0", default-features = false, optional = true }
 futures-util = "0.3.32"
 gtk = { package = "gtk4", version = "0.11.3", features = ["gnome_50"], optional = true }
 libc = "0.2.186"
@@ -30,6 +31,7 @@ rusqlite = "0.37.0"
 serde = { version = "1.0.228", features = ["derive"] }
 serde_json = "1.0.145"
 sha2 = "0.11.0"
+sourceview5 = { version = "0.11.0", optional = true }
 tar = { version = "0.4.46", default-features = false }
 thiserror = "2.0.17"
 time = { version = "0.3.44", features = ["formatting"] }

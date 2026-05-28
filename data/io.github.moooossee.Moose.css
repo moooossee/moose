@@ -106,6 +106,117 @@
   line-height: 1.45;
 }
 
+.moose-markdown-content {
+  min-width: 0;
+}
+
+.moose-markdown-label {
+  line-height: 1.45;
+}
+
+.moose-markdown-paragraph {
+  margin: 0;
+}
+
+.moose-markdown-heading {
+  margin-top: 4px;
+}
+
+.moose-markdown-heading-1 {
+  font-size: 1.22em;
+}
+
+.moose-markdown-heading-2 {
+  font-size: 1.14em;
+}
+
+.moose-markdown-heading-3 {
+  font-size: 1.06em;
+}
+
+.moose-markdown-list {
+  margin: 2px 0 2px 0;
+}
+
+.moose-markdown-list-marker {
+  opacity: 0.7;
+}
+
+.moose-markdown-task {
+  margin-top: -5px;
+  min-height: 20px;
+  min-width: 20px;
+}
+
+.moose-markdown-quote {
+  border-left: 3px solid alpha(@accent_color, 0.45);
+  margin: 2px 0;
+  padding: 2px 0 2px 10px;
+}
+
+.moose-markdown-separator {
+  margin: 6px 0;
+}
+
+.moose-markdown-table-scroll {
+  background-color: transparent;
+  margin: 4px 0;
+}
+
+.moose-markdown-table {
+  border: 1px solid @borders;
+  border-radius: 8px;
+}
+
+.moose-markdown-table-cell {
+  border-right: 1px solid alpha(@borders, 0.75);
+  border-bottom: 1px solid alpha(@borders, 0.75);
+  min-width: 64px;
+  padding: 6px 8px;
+}
+
+.moose-markdown-table-header {
+  background-color: alpha(@window_fg_color, 0.045);
+  font-weight: 700;
+}
+
+.moose-code-block {
+  background-color: @card_bg_color;
+  border: 1px solid @borders;
+  border-radius: 8px;
+  margin: 4px 0;
+}
+
+.moose-code-header {
+  background-color: alpha(@window_fg_color, 0.035);
+  border-bottom: 1px solid alpha(@borders, 0.75);
+  min-height: 34px;
+  padding: 3px 5px 3px 10px;
+}
+
+.moose-code-language {
+  font-size: 0.78em;
+}
+
+.moose-code-copy {
+  border-radius: 6px;
+  min-height: 28px;
+  min-width: 28px;
+  padding: 0;
+}
+
+.moose-code-scroll {
+  background-color: transparent;
+}
+
+.moose-code-scroll viewport {
+  background-color: transparent;
+}
+
+.moose-code-view {
+  font-size: 0.92em;
+}
+
 .moose-message-user-bubble {
   background-color: @sidebar_bg_color;
   border: 1px solid @borders;
