@@ -26,9 +26,12 @@ use crate::{
 };
 
 mod chat_view;
+mod code_view;
 mod conversation_list;
 mod first_run;
 mod managed_install;
+mod markdown_live;
+mod markdown_view;
 mod model_actions;
 mod model_manager;
 mod preferences;
@@ -120,6 +123,7 @@ pub fn build(app: &adw::Application) -> adw::ApplicationWindow {
         model_picker: chat.model_picker,
         conversation_list: sidebar.conversation_list,
         messages: chat.messages,
+        messages_scrolled: chat.messages_scrolled,
         chat_status_page: chat.status_page,
         message_stack: chat.message_stack,
         entry: chat.entry,
@@ -206,6 +210,7 @@ struct WindowUi {
     model_picker: gtk::DropDown,
     conversation_list: gtk::ListBox,
     messages: gtk::Box,
+    messages_scrolled: gtk::ScrolledWindow,
     chat_status_page: adw::StatusPage,
     message_stack: gtk::Stack,
     entry: gtk::TextView,
@@ -921,6 +926,7 @@ fn send_message(ui: &Rc<WindowUi>, backend: &Rc<Backend>) {
         &model,
         Some(&pending_exchange.assistant.created_at),
     );
+    scroll_chat_to_bottom(ui);
     ui.send_button.set_sensitive(false);
     ui.stop_button.set_sensitive(true);
 
@@ -954,13 +960,15 @@ fn send_message(ui: &Rc<WindowUi>, backend: &Rc<Backend>) {
 
     let target_ui = Rc::clone(ui);
     let target_backend = Rc::clone(backend);
-    gtk::glib::timeout_add_local(Duration::from_millis(30), move || {
+    gtk::glib::timeout_add_local(Duration::from_millis(80), move || {
+        let mut content_changed = false;
+
         loop {
             match receiver.try_recv() {
                 Ok(ChatUiEvent::Token(token)) => {
                     let mut content = target_backend.active_assistant_content.borrow_mut();
                     content.push_str(&token);
-                    chat_view::set_streaming_message_content(&assistant_message, &content);
+                    content_changed = true;
                 }
                 Ok(ChatUiEvent::Done) => {
                     if target_backend
@@ -971,11 +979,10 @@ fn send_message(ui: &Rc<WindowUi>, backend: &Rc<Backend>) {
                     {
                         *target_backend.active_assistant_content.borrow_mut() =
                             "No response generated.".to_string();
-                        chat_view::set_streaming_message_content(
-                            &assistant_message,
-                            "No response generated.",
-                        );
                     }
+                    let display_content = target_backend.active_assistant_content.borrow().clone();
+                    chat_view::set_streaming_message_content(&assistant_message, &display_content);
+                    scroll_chat_to_bottom(&target_ui);
                     finish_generation(&target_ui);
                     target_backend.active_generation.borrow_mut().take();
                     if let Err(error) = persist_active_assistant_message(
@@ -995,6 +1002,7 @@ fn send_message(ui: &Rc<WindowUi>, backend: &Rc<Backend>) {
                         message_content_with_live_state(content.as_str(), "Response failed.")
                     };
                     chat_view::set_streaming_message_content(&assistant_message, &display_content);
+                    scroll_chat_to_bottom(&target_ui);
                     finish_generation(&target_ui);
                     target_backend.active_generation.borrow_mut().take();
                     if let Err(save_error) = persist_active_assistant_message(
@@ -1011,13 +1019,28 @@ fn send_message(ui: &Rc<WindowUi>, backend: &Rc<Backend>) {
                         .add_toast(adw::Toast::new(&format!("Generation failed: {error}")));
                     return gtk::glib::ControlFlow::Break;
                 }
-                Err(mpsc::TryRecvError::Empty) => return gtk::glib::ControlFlow::Continue,
+                Err(mpsc::TryRecvError::Empty) => {
+                    if content_changed {
+                        let should_scroll =
+                            chat_view::should_stick_to_bottom(&target_ui.messages_scrolled);
+                        let content = target_backend.active_assistant_content.borrow();
+                        chat_view::update_streaming_message_content(
+                            &assistant_message,
+                            content.as_str(),
+                        );
+                        if should_scroll {
+                            scroll_chat_to_bottom(&target_ui);
+                        }
+                    }
+                    return gtk::glib::ControlFlow::Continue;
+                }
                 Err(mpsc::TryRecvError::Disconnected) => {
                     let display_content = {
                         let content = target_backend.active_assistant_content.borrow();
                         message_content_with_live_state(content.as_str(), "Response cancelled.")
                     };
                     chat_view::set_streaming_message_content(&assistant_message, &display_content);
+                    scroll_chat_to_bottom(&target_ui);
                     finish_generation(&target_ui);
                     target_backend.active_generation.borrow_mut().take();
                     if let Err(error) = persist_active_assistant_message(
@@ -1077,6 +1100,7 @@ fn load_conversation(ui: &WindowUi, backend: &Backend, conversation_id: &str) ->
         ui.message_stack.set_visible_child_name("empty");
     } else {
         ui.message_stack.set_visible_child_name("messages");
+        scroll_chat_to_bottom(ui);
     }
 
     Ok(())
@@ -1320,6 +1344,10 @@ fn persist_active_assistant_message(backend: &Backend, end: AssistantMessageEnd)
 fn finish_generation(ui: &WindowUi) {
     ui.stop_button.set_sensitive(false);
     update_send_button(ui);
+}
+
+fn scroll_chat_to_bottom(ui: &WindowUi) {
+    chat_view::scroll_to_bottom(&ui.messages_scrolled);
 }
 
 fn prompt_text(entry: &gtk::TextView) -> String {

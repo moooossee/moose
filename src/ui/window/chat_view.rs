@@ -8,11 +8,12 @@ use crate::{
     conversations::{Message, MessageRole, MessageStatus},
 };
 
-use super::widgets::composer_button;
+use super::{markdown_live::LiveMarkdown, markdown_view, widgets::composer_button};
 
 pub(super) struct Chat {
     pub(super) root: gtk::Box,
     pub(super) messages: gtk::Box,
+    pub(super) messages_scrolled: gtk::ScrolledWindow,
     pub(super) status_page: adw::StatusPage,
     pub(super) message_stack: gtk::Stack,
     pub(super) entry: gtk::TextView,
@@ -22,7 +23,7 @@ pub(super) struct Chat {
 }
 
 pub(super) struct StreamingMessage {
-    content_label: gtk::Label,
+    content: LiveMarkdown,
     thinking_indicator: gtk::Box,
 }
 
@@ -196,6 +197,7 @@ pub(super) fn build() -> Chat {
     Chat {
         root,
         messages,
+        messages_scrolled: scrolled,
         status_page,
         message_stack,
         entry,
@@ -220,7 +222,7 @@ pub(super) fn append_message(
     role: &str,
     content: &str,
     created_at: Option<&str>,
-) -> gtk::Label {
+) {
     let is_user = role == "You";
     let text_alignment = if is_user { 1.0 } else { 0.0 };
     let justification = if is_user {
@@ -240,18 +242,9 @@ pub(super) fn append_message(
         .xalign(text_alignment)
         .justify(justification)
         .build();
-    let content_label = gtk::Label::builder()
-        .label(content)
-        .halign(if is_user { Align::Start } else { Align::Fill })
-        .hexpand(!is_user)
-        .xalign(text_alignment)
-        .justify(justification)
-        .wrap(true)
-        .wrap_mode(gtk::pango::WrapMode::Char)
-        .natural_wrap_mode(gtk::NaturalWrapMode::None)
-        .width_chars(120)
-        .selectable(true)
-        .build();
+    let content_view = markdown_view::render(content);
+    content_view.set_halign(if is_user { Align::Start } else { Align::Fill });
+    content_view.set_hexpand(!is_user);
 
     row.add_css_class("moose-message");
     if is_user {
@@ -260,15 +253,10 @@ pub(super) fn append_message(
     }
     role_label.add_css_class("caption-heading");
     role_label.add_css_class("dim-label");
-    content_label.add_css_class("body");
-    content_label.add_css_class("moose-message-content");
     if is_user {
         role_label.set_xalign(1.0);
         role_label.set_justify(gtk::Justification::Right);
-        content_label.set_width_chars(-1);
-        content_label.set_xalign(0.0);
-        content_label.set_justify(gtk::Justification::Left);
-        content_label.set_max_width_chars(72);
+        markdown_view::constrain_labels(&content_view, 72);
 
         let bubble = gtk::Box::builder()
             .orientation(Orientation::Vertical)
@@ -277,16 +265,15 @@ pub(super) fn append_message(
             .build();
         bubble.add_css_class("moose-message-user-bubble");
         role_label.add_css_class("moose-message-user-meta");
-        content_label.add_css_class("moose-message-user-content");
+        content_view.add_css_class("moose-message-user-content");
         bubble.append(&role_label);
-        bubble.append(&content_label);
+        bubble.append(&content_view);
         row.append(&bubble);
     } else {
         row.append(&role_label);
-        row.append(&content_label);
+        row.append(&content_view);
     }
     messages.append(&row);
-    content_label
 }
 
 pub(super) fn append_streaming_message(
@@ -328,42 +315,65 @@ pub(super) fn append_streaming_message(
     thinking_label.add_css_class("moose-thinking-label");
     start_thinking_text_cycle(&thinking_label, model);
 
-    let content_label = gtk::Label::builder()
-        .halign(Align::Fill)
-        .hexpand(true)
-        .xalign(0.0)
-        .justify(gtk::Justification::Left)
-        .wrap(true)
-        .wrap_mode(gtk::pango::WrapMode::Char)
-        .natural_wrap_mode(gtk::NaturalWrapMode::None)
-        .width_chars(120)
-        .selectable(true)
-        .visible(false)
-        .build();
+    let content = LiveMarkdown::new();
+    content.widget().set_visible(false);
 
     row.add_css_class("moose-message");
     role_label.add_css_class("caption-heading");
     role_label.add_css_class("dim-label");
     thinking_indicator.add_css_class("moose-thinking");
-    content_label.add_css_class("body");
-    content_label.add_css_class("moose-message-content");
     thinking_indicator.append(&spinner);
     thinking_indicator.append(&thinking_label);
     row.append(&role_label);
     row.append(&thinking_indicator);
-    row.append(&content_label);
+    row.append(content.widget());
     messages.append(&row);
 
     StreamingMessage {
-        content_label,
+        content,
         thinking_indicator,
     }
 }
 
 pub(super) fn set_streaming_message_content(message: &StreamingMessage, content: &str) {
     message.thinking_indicator.set_visible(false);
-    message.content_label.set_visible(true);
-    message.content_label.set_text(content);
+    message.content.widget().set_visible(true);
+    message.content.finish(content);
+}
+
+pub(super) fn update_streaming_message_content(message: &StreamingMessage, content: &str) {
+    message.thinking_indicator.set_visible(false);
+    message.content.widget().set_visible(true);
+    message.content.update(content);
+}
+
+pub(super) fn scroll_to_bottom(scrolled: &gtk::ScrolledWindow) {
+    let adjustment = scrolled.vadjustment();
+    gtk::glib::idle_add_local_once(move || {
+        set_adjustment_to_bottom(&adjustment);
+        schedule_bottom_adjustment(&adjustment, 16);
+    });
+}
+
+pub(super) fn should_stick_to_bottom(scrolled: &gtk::ScrolledWindow) -> bool {
+    is_near_bottom(&scrolled.vadjustment())
+}
+
+fn schedule_bottom_adjustment(adjustment: &gtk::Adjustment, delay_ms: u64) {
+    let adjustment = adjustment.clone();
+    gtk::glib::timeout_add_local_once(Duration::from_millis(delay_ms), move || {
+        set_adjustment_to_bottom(&adjustment);
+    });
+}
+
+fn set_adjustment_to_bottom(adjustment: &gtk::Adjustment) {
+    let value = (adjustment.upper() - adjustment.page_size()).max(adjustment.lower());
+    adjustment.set_value(value);
+}
+
+fn is_near_bottom(adjustment: &gtk::Adjustment) -> bool {
+    let bottom = (adjustment.upper() - adjustment.page_size()).max(adjustment.lower());
+    bottom - adjustment.value() <= 240.0
 }
 
 pub(super) fn set_empty_state(status_page: &adw::StatusPage, title: &str, description: &str) {
