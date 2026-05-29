@@ -22,8 +22,6 @@ modules:
       - -Dcargo_profile=release
       - --buildtype=release
     sources:
-      - type: git
-        url: https://github.com/moooossee/moose.git
-        tag: v0.2.0
-        commit: e896d7b7d292f8847d9b8ec702bddd8946038f77
+      - type: dir
+        path: .
       - cargo-sources.json

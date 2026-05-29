@@ -1924,7 +1924,7 @@ fn model_variant_row(
             "folder-download-symbolic",
             &format!("Download {}", variant.name),
         );
-        download_button.add_css_class("suggested-action");
+        download_button.add_css_class("moose-model-download-button");
         let model_name = variant.name.to_string();
         download_button.connect_clicked(move |_| {
             on_pull(model_name.clone());

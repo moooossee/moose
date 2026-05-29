@@ -1,39 +1,56 @@
 .moose-sidebar {
   background-color: @sidebar_bg_color;
-  border-right: 1px solid @borders;
+  border-right: 1px solid alpha(@borders, 0.55);
 }
 
-.moose-sidebar-topbar {
-  padding: 6px 7px 5px 9px;
+.moose-sidebar,
+.moose-sidebar-header,
+.moose-sidebar-content,
+.moose-sidebar-footer,
+.moose-sidebar-scroll,
+.moose-conversation-list,
+.moose-provider-list {
+  background-color: @sidebar_bg_color;
 }
 
 .moose-sidebar-title {
-  font-size: 0.98em;
   font-weight: 600;
 }
 
-.moose-sidebar-button,
+.moose-sidebar-header {
+  padding: 6px 7px 5px 9px;
+}
+
 .moose-header-button,
 .moose-provider-button {
-  border-radius: 7px;
+  border-radius: 6px;
   min-height: 30px;
   min-width: 30px;
   padding: 0;
 }
 
+.moose-sidebar-button {
+  border-radius: 6px;
+  color: @window_fg_color;
+  min-height: 30px;
+  min-width: 30px;
+  padding: 0;
+}
+
+.moose-sidebar-button-active,
+.moose-sidebar-button-active:hover {
+  background-color: alpha(@window_fg_color, 0.075);
+}
+
 .moose-sidebar-section {
-  font-size: 0.82em;
-  margin: 4px 9px 5px 9px;
+  font-size: 0.74em;
+  font-weight: 600;
+  margin: 6px 10px 4px 10px;
   opacity: 0.58;
 }
 
-.moose-sidebar-scroll {
-  background-color: transparent;
-}
-
 .moose-conversation-list {
-  background-color: transparent;
-  padding: 0 5px 6px 5px;
+  padding: 0 4px 6px 4px;
 }
 
 .moose-conversation-list row {
@@ -46,21 +63,57 @@
 }
 
 .moose-conversation-list row:selected {
-  background-color: alpha(@accent_color, 0.11);
+  background-color: alpha(@window_fg_color, 0.07);
+  color: @window_fg_color;
 }
 
 .moose-conversation-row {
-  min-height: 36px;
+  min-height: 45px;
+  padding: 0;
+}
+
+.moose-conversation-title {
+  font-size: 1em;
+  font-weight: 400;
+  letter-spacing: 0;
+  padding: 0 8px;
 }
 
 .moose-sidebar-footer {
-  border-top: 1px solid alpha(@borders, 0.65);
-  padding: 4px 6px 6px 6px;
+  padding: 4px 6px 5px 6px;
 }
 
 .moose-provider-list {
-  background-color: transparent;
   padding: 0;
+}
+
+.moose-provider-popover {
+  background-color: transparent;
+}
+
+popover.moose-provider-popover > contents {
+  background-color: @window_bg_color;
+  border-radius: 12px;
+  padding: 0;
+}
+
+.moose-provider-popover-content {
+  background-color: transparent;
+}
+
+.moose-provider-switch-list {
+  background-color: @window_bg_color;
+  border-radius: 12px;
+  padding: 6px;
+}
+
+.moose-provider-switch-list row {
+  background-color: transparent;
+  border-radius: 6px;
+}
+
+.moose-provider-switch-list row:hover {
+  background-color: alpha(@window_fg_color, 0.045);
 }
 
 .moose-provider-list row {
@@ -68,22 +121,75 @@
   border-radius: 7px;
 }
 
+.moose-provider-list row:hover {
+  background-color: alpha(@window_fg_color, 0.045);
+}
+
 .moose-provider-row {
-  min-height: 34px;
+  min-height: 38px;
+  padding: 0 4px;
+}
+
+.moose-provider-switch-row {
+  background-color: transparent;
+  min-height: 48px;
+  padding: 0;
+}
+
+.moose-provider-add-row {
+  background-color: transparent;
+  min-height: 42px;
+  padding: 0;
+}
+
+.moose-provider-switch-title {
+  font-size: 0.98em;
+  font-weight: 400;
+  letter-spacing: 0;
+}
+
+.moose-provider-switch-subtitle {
+  font-size: 0.82em;
+}
+
+.moose-provider-icon {
+  -gtk-icon-size: 16px;
+  opacity: 0.62;
 }
 
 .moose-provider-status {
-  font-size: 0.82em;
-  opacity: 0.72;
+  font-size: 0.74em;
+  margin: 0 4px;
+  opacity: 0.62;
+  padding: 0;
 }
 
 .moose-provider-active-icon {
-  color: @accent_color;
+  color: @window_fg_color;
+  opacity: 0.6;
 }
 
-.moose-provider-add-button {
-  min-height: 32px;
-  min-width: 32px;
+.moose-provider-add-icon {
+  -gtk-icon-size: 16px;
+  opacity: 0.72;
+}
+
+.moose-provider-add-label {
+  color: @window_fg_color;
+  font-size: 0.94em;
+  font-weight: 500;
+  letter-spacing: 0;
+}
+
+.moose-provider-delete-button {
+  min-height: 30px;
+  min-width: 30px;
+  opacity: 0.72;
+  padding: 0;
+}
+
+.moose-provider-delete-button:hover {
+  opacity: 1;
 }
 
 .moose-chat-column {
@@ -415,6 +521,19 @@
 
 .moose-model-variant-row {
   min-height: 84px;
+}
+
+.moose-model-download-button {
+  color: @window_fg_color;
+  min-height: 34px;
+  min-width: 34px;
+  opacity: 0.78;
+  padding: 0;
+}
+
+.moose-model-download-button:hover {
+  background-color: alpha(@window_fg_color, 0.07);
+  opacity: 1;
 }
 
 .moose-model-variant-title {

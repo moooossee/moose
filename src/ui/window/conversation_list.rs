@@ -1,7 +1,7 @@
 use std::rc::Rc;
 
 use adw::prelude::*;
-use gtk::Orientation;
+use gtk::{Align, Orientation, pango};
 
 use crate::{conversations::ConversationSummary, error::Result};
 
@@ -62,11 +62,11 @@ fn set(ui: &Rc<WindowUi>, backend: &Rc<Backend>, summaries: Vec<ConversationSumm
         .collect();
 
     if summaries.is_empty() {
-        let row = adw::ActionRow::builder()
-            .title("No conversations yet")
-            .subtitle("Start a conversation")
-            .sensitive(false)
-            .build();
+        let row = gtk::ListBoxRow::new();
+        row.set_child(Some(&conversation_row_content("No conversations yet")));
+        row.set_height_request(45);
+        row.set_selectable(false);
+        row.set_sensitive(false);
         row.add_css_class("moose-conversation-row");
         ui.conversation_list.append(&row);
         ui.conversation_list.unselect_all();
@@ -87,10 +87,10 @@ fn set(ui: &Rc<WindowUi>, backend: &Rc<Backend>, summaries: Vec<ConversationSumm
     *ui.restoring_conversation_selection.borrow_mut() = false;
 }
 
-fn row(summary: &ConversationSummary, ui: &Rc<WindowUi>, backend: &Rc<Backend>) -> adw::ActionRow {
-    let row = adw::ActionRow::builder()
-        .title(&summary.conversation.title)
-        .build();
+fn row(summary: &ConversationSummary, ui: &Rc<WindowUi>, backend: &Rc<Backend>) -> gtk::ListBoxRow {
+    let row = gtk::ListBoxRow::new();
+    row.set_child(Some(&conversation_row_content(&summary.conversation.title)));
+    row.set_height_request(45);
     row.set_tooltip_text(Some(&summary.conversation.title));
     row.add_css_class("moose-conversation-row");
 
@@ -114,8 +114,30 @@ fn row(summary: &ConversationSummary, ui: &Rc<WindowUi>, backend: &Rc<Backend>) 
     row
 }
 
+fn conversation_row_content(title: &str) -> gtk::Box {
+    let content = gtk::Box::builder()
+        .orientation(Orientation::Horizontal)
+        .spacing(5)
+        .valign(Align::Center)
+        .build();
+
+    let title_label = gtk::Label::builder()
+        .label(title)
+        .halign(Align::Start)
+        .hexpand(true)
+        .xalign(0.0)
+        .build();
+    title_label.set_wrap(true);
+    title_label.set_wrap_mode(pango::WrapMode::WordChar);
+    title_label.set_ellipsize(pango::EllipsizeMode::End);
+    title_label.add_css_class("moose-conversation-title");
+    content.append(&title_label);
+
+    content
+}
+
 fn show_menu(
-    row: &adw::ActionRow,
+    row: &gtk::ListBoxRow,
     ui: &Rc<WindowUi>,
     backend: &Rc<Backend>,
     conversation_id: &str,

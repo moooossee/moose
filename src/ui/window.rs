@@ -21,7 +21,7 @@ use crate::{
     error::{MooseError, Result},
     ollama::{OllamaClient, OllamaModel, service::ManagedOllamaService},
     platform::AppPaths,
-    providers::{MANAGED_OLLAMA_DEFAULT_PORT, Provider, managed_ollama_port_from_base_url},
+    providers::{Provider, managed_ollama_port_from_base_url},
     storage::{ConversationRepository, DownloadJobRepository, ProviderRepository, open_database},
 };
 
@@ -87,9 +87,9 @@ pub fn build(app: &adw::Application) -> adw::ApplicationWindow {
     content_toolbar.set_content(Some(&toast_overlay));
 
     let split_view = adw::OverlaySplitView::builder()
-        .min_sidebar_width(232.0)
-        .max_sidebar_width(292.0)
-        .sidebar_width_fraction(0.21)
+        .min_sidebar_width(220.0)
+        .max_sidebar_width(286.0)
+        .sidebar_width_fraction(0.24)
         .pin_sidebar(true)
         .show_sidebar(true)
         .enable_hide_gesture(true)
@@ -116,6 +116,7 @@ pub fn build(app: &adw::Application) -> adw::ApplicationWindow {
         toast_overlay,
         content_stack,
         model_manager,
+        model_manager_button: sidebar.model_manager_button,
         provider_row: sidebar.provider_row,
         provider_status: sidebar.provider_status,
         provider_switch_button: sidebar.provider_switch_button,
@@ -203,6 +204,7 @@ struct WindowUi {
     toast_overlay: adw::ToastOverlay,
     content_stack: gtk::Stack,
     model_manager: model_manager::ModelManager,
+    model_manager_button: gtk::Button,
     provider_row: adw::ActionRow,
     provider_status: gtk::Label,
     provider_switch_button: gtk::Button,
@@ -1538,11 +1540,16 @@ fn show_no_models_state(ui: &Rc<WindowUi>, backend: &Rc<Backend>) {
 
 fn show_chat(ui: &WindowUi) {
     ui.root_stack.set_visible_child_name("app");
+    ui.model_manager_button
+        .remove_css_class("moose-sidebar-button-active");
     ui.content_stack.set_visible_child_name("chat");
 }
 
 fn show_model_manager(ui: &WindowUi) {
     ui.root_stack.set_visible_child_name("app");
+    ui.conversation_list.unselect_all();
+    ui.model_manager_button
+        .add_css_class("moose-sidebar-button-active");
     ui.content_stack.set_visible_child_name("models");
 }
 
@@ -1578,7 +1585,7 @@ fn apply_provider_state(ui: &WindowUi, provider: &Option<Provider>) {
         }
         None => {
             ui.provider_row.set_title("No Instance");
-            ui.provider_row.set_subtitle("First-run guide required");
+            ui.provider_row.set_subtitle("");
             ui.provider_row.set_tooltip_text(None);
             ui.provider_status.set_text("Not Set");
             ui.refresh_button.set_sensitive(false);
@@ -1593,17 +1600,8 @@ fn apply_provider_state(ui: &WindowUi, provider: &Option<Provider>) {
 
 fn update_provider_summary(ui: &WindowUi, provider: &Provider) {
     ui.provider_row.set_title(&provider.name);
-    let subtitle = if provider.is_managed {
-        match managed_ollama_port_from_base_url(&provider.base_url) {
-            Ok(MANAGED_OLLAMA_DEFAULT_PORT) => "Managed by Moose".to_string(),
-            Ok(port) => format!("Managed on 127.0.0.1:{port}"),
-            Err(_) => "Managed by Moose".to_string(),
-        }
-    } else {
-        String::new()
-    };
-    ui.provider_row.set_subtitle(&subtitle);
     ui.provider_row.set_tooltip_text(Some(&provider.base_url));
+    ui.provider_row.set_subtitle("");
 }
 
 fn show_error(parent: &adw::ApplicationWindow, heading: &str, error: &dyn std::error::Error) {
