@@ -158,7 +158,7 @@ fn live_segments(content: &str) -> Vec<LiveSegment> {
         push_live_text_segment(&mut segments, &mut text);
 
         let mut code = String::new();
-        while let Some(code_line) = lines.next() {
+        for code_line in lines.by_ref() {
             if is_closing_fence(code_line, fence.marker, fence.length) {
                 break;
             }

@@ -224,7 +224,7 @@ fn show_add_provider_dialog(ui: &Rc<WindowUi>, backend: &Rc<Backend>) {
 
     let external_name_row = adw::EntryRow::builder()
         .title("Name")
-        .text(&next_provider_name(backend))
+        .text(next_provider_name(backend))
         .build();
     let external_url_row = adw::EntryRow::builder()
         .title("Base URL")
@@ -313,7 +313,7 @@ fn show_add_provider_dialog(ui: &Rc<WindowUi>, backend: &Rc<Backend>) {
 pub(super) fn show_connect_external_dialog(ui: &Rc<WindowUi>, backend: &Rc<Backend>) {
     let name_row = adw::EntryRow::builder()
         .title("Name")
-        .text(&next_provider_name(backend))
+        .text(next_provider_name(backend))
         .build();
     let url_row = adw::EntryRow::builder()
         .title("Base URL")

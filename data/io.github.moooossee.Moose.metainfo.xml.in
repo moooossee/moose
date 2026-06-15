@@ -11,6 +11,7 @@
   <description>
     <p>Moose is a simple desktop app for chatting with local AI models through Ollama, without getting in your way.</p>
     <p>Moose can manage its own Ollama inside the Flatpak. Fresh installs can set up Ollama, download a model and start chatting from the app.</p>
+    <p>Conversations keep recent context, support per-chat settings and can use built-in or custom profiles.</p>
     <p>Advanced users can still connect local or remote Ollama providers.</p>
   </description>
   <launchable type="desktop-id">io.github.moooossee.Moose.desktop</launchable>
@@ -37,6 +38,13 @@
   </screenshots>
   <content_rating type="oars-1.1" />
   <releases>
+    <release version="0.4.0" date="2026-06-15">
+      <description>
+        <p>Conversations now include recent message history so models can follow the thread.</p>
+        <p>Adds per-chat settings for system prompts, preferred models, context limits and Ollama generation options.</p>
+        <p>Introduces built-in chat profiles and reusable custom profiles that stay on your device.</p>
+      </description>
+    </release>
     <release version="0.3.1" date="2026-05-29">
       <description>
         <p>Improves the sidebar and provider switcher with a cleaner layout.</p>

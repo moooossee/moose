@@ -5,10 +5,14 @@ use serde::{Deserialize, Serialize};
 use crate::{
     core::{new_id, utc_now},
     error::{MooseError, Result},
+    profiles::validate_system_prompt,
     providers::validate_model_name,
 };
 
 pub const DEFAULT_CONVERSATION_TITLE: &str = "New Conversation";
+pub const DEFAULT_TEMPERATURE: f64 = 0.7;
+pub const DEFAULT_CONTEXT_MESSAGE_LIMIT: i64 = 20;
+pub const MAX_CONTEXT_MESSAGE_LIMIT: i64 = 200;
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct Conversation {
@@ -92,12 +96,14 @@ pub struct MessageUpdate {
 pub struct GenerationSettings {
     pub id: String,
     pub conversation_id: Option<String>,
+    pub profile_id: Option<String>,
     pub model: Option<String>,
     pub temperature: Option<f64>,
     pub top_p: Option<f64>,
     pub top_k: Option<i64>,
     pub seed: Option<i64>,
     pub num_ctx: Option<i64>,
+    pub context_messages: Option<i64>,
     pub system_prompt: Option<String>,
     pub created_at: String,
 }
@@ -105,12 +111,14 @@ pub struct GenerationSettings {
 #[derive(Clone, Debug, PartialEq)]
 pub struct NewGenerationSettings {
     pub conversation_id: Option<String>,
+    pub profile_id: Option<String>,
     pub model: Option<String>,
     pub temperature: Option<f64>,
     pub top_p: Option<f64>,
     pub top_k: Option<i64>,
     pub seed: Option<i64>,
     pub num_ctx: Option<i64>,
+    pub context_messages: Option<i64>,
     pub system_prompt: Option<String>,
 }
 
@@ -294,13 +302,21 @@ impl NewGenerationSettings {
                 .conversation_id
                 .map(|id| validate_required_id(&id))
                 .transpose()?,
+            profile_id: self
+                .profile_id
+                .map(|id| validate_required_id(&id))
+                .transpose()?,
             model,
-            temperature: validate_probability_like(self.temperature)?,
-            top_p: validate_probability_like(self.top_p)?,
+            temperature: validate_temperature(self.temperature)?,
+            top_p: validate_probability(self.top_p)?,
             top_k: validate_non_negative(self.top_k)?,
             seed: self.seed,
             num_ctx: validate_non_negative(self.num_ctx)?,
-            system_prompt: self.system_prompt,
+            context_messages: validate_context_messages(self.context_messages)?,
+            system_prompt: self
+                .system_prompt
+                .map(|prompt| validate_system_prompt(&prompt))
+                .transpose()?,
             created_at: utc_now(),
         })
     }
@@ -334,8 +350,15 @@ fn validate_required_id(value: &str) -> Result<String> {
     Ok(trimmed.to_string())
 }
 
-fn validate_probability_like(value: Option<f64>) -> Result<Option<f64>> {
-    if value.is_some_and(|value| !value.is_finite() || value < 0.0) {
+fn validate_temperature(value: Option<f64>) -> Result<Option<f64>> {
+    if value.is_some_and(|value| !value.is_finite() || !(0.0..=2.0).contains(&value)) {
+        return Err(MooseError::InvalidGenerationSettings);
+    }
+    Ok(value)
+}
+
+fn validate_probability(value: Option<f64>) -> Result<Option<f64>> {
+    if value.is_some_and(|value| !value.is_finite() || !(0.0..=1.0).contains(&value)) {
         return Err(MooseError::InvalidGenerationSettings);
     }
     Ok(value)
@@ -343,6 +366,13 @@ fn validate_probability_like(value: Option<f64>) -> Result<Option<f64>> {
 
 fn validate_non_negative(value: Option<i64>) -> Result<Option<i64>> {
     if value.is_some_and(|value| value < 0) {
+        return Err(MooseError::InvalidGenerationSettings);
+    }
+    Ok(value)
+}
+
+fn validate_context_messages(value: Option<i64>) -> Result<Option<i64>> {
+    if value.is_some_and(|value| !(1..=MAX_CONTEXT_MESSAGE_LIMIT).contains(&value)) {
         return Err(MooseError::InvalidGenerationSettings);
     }
     Ok(value)
@@ -377,8 +407,8 @@ fn compact_preview(content: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::{
-        ConversationSummary, MessageRole, MessageStatus, NewConversation, NewGenerationSettings,
-        NewMessage, validate_conversation_title,
+        ConversationSummary, DEFAULT_CONTEXT_MESSAGE_LIMIT, MessageRole, MessageStatus,
+        NewConversation, NewGenerationSettings, NewMessage, validate_conversation_title,
     };
 
     #[test]
@@ -449,18 +479,25 @@ mod tests {
     fn generation_settings_validate_model_name() {
         let settings = NewGenerationSettings {
             conversation_id: Some("conversation-id".to_string()),
+            profile_id: Some("builtin-code".to_string()),
             model: Some("llama3.2:latest".to_string()),
             temperature: Some(0.7),
             top_p: Some(0.9),
             top_k: Some(40),
             seed: Some(42),
             num_ctx: Some(4096),
+            context_messages: Some(DEFAULT_CONTEXT_MESSAGE_LIMIT),
             system_prompt: None,
         }
         .into_generation_settings()
         .unwrap();
 
         assert_eq!(settings.model.as_deref(), Some("llama3.2:latest"));
+        assert_eq!(settings.profile_id.as_deref(), Some("builtin-code"));
+        assert_eq!(
+            settings.context_messages,
+            Some(DEFAULT_CONTEXT_MESSAGE_LIMIT)
+        );
     }
 
     #[test]

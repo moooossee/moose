@@ -407,6 +407,91 @@ popover.moose-provider-popover > contents {
   min-width: 260px;
 }
 
+.moose-chat-settings-button {
+  border-radius: 6px;
+  min-height: 30px;
+  min-width: 30px;
+  padding: 0;
+}
+
+.moose-profile-badge {
+  background-color: alpha(@accent_bg_color, 0.12);
+  border: 1px solid alpha(@accent_color, 0.28);
+  border-radius: 999px;
+  color: @accent_color;
+  font-size: 0.86em;
+  padding: 2px 8px;
+}
+
+.moose-settings-text {
+  background-color: @card_bg_color;
+  border: 1px solid @borders;
+  border-radius: 12px;
+  transition: border-color 150ms ease;
+}
+
+.moose-settings-text:focus-within {
+  border-color: alpha(@accent_color, 0.62);
+}
+
+.moose-settings-text viewport,
+.moose-settings-text-view,
+.moose-settings-text-view text {
+  background-color: transparent;
+}
+
+.moose-settings-text-view {
+  caret-color: @window_fg_color;
+}
+
+.moose-settings-row-icon {
+  -gtk-icon-size: 18px;
+  opacity: 0.68;
+}
+
+.moose-settings-inline-actions {
+  padding: 6px 0 2px 0;
+}
+
+.moose-settings-inline-delete {
+  min-height: 34px;
+  min-width: 34px;
+}
+
+.moose-settings-secondary-action {
+  min-height: 34px;
+  padding: 4px 12px;
+}
+
+.moose-settings-prompt-footer {
+  font-size: 0.82em;
+  padding: 7px 3px 0 3px;
+}
+
+.moose-settings-actions {
+  border-top: 1px solid alpha(@borders, 0.7);
+  margin-top: 4px;
+  padding: 14px 0 4px 0;
+}
+
+.moose-settings-actions button {
+  min-height: 38px;
+  padding: 4px 13px;
+}
+
+.moose-settings-primary-action {
+  min-width: 132px;
+}
+
+.moose-settings-guide-content {
+  padding: 18px 18px 24px 18px;
+}
+
+.moose-settings-guide-icon {
+  -gtk-icon-size: 18px;
+  opacity: 0.72;
+}
+
 .moose-model-manager {
   background-color: @window_bg_color;
 }

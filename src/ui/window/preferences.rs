@@ -61,7 +61,7 @@ pub(super) fn dialog(
     let port_row = provider_is_managed.then(|| {
         adw::EntryRow::builder()
             .title("Managed Port")
-            .text(&managed_port.to_string())
+            .text(managed_port.to_string())
             .build()
     });
     let action_box = gtk::Box::builder()

@@ -5,7 +5,10 @@ use gtk::{Align, Orientation, pango};
 
 use crate::{conversations::ConversationSummary, error::Result};
 
-use super::{Backend, WindowUi, clear_messages, load_conversation};
+use super::{
+    Backend, WindowUi, clear_messages, load_conversation, restore_selected_provider_model,
+    update_profile_indicator,
+};
 
 pub(super) fn refresh(ui: &Rc<WindowUi>, backend: &Rc<Backend>) {
     match backend.conversation_repository.list_recent_summaries(30) {
@@ -184,7 +187,7 @@ fn confirm_delete(ui: &Rc<WindowUi>, backend: &Rc<Backend>, conversation_id: &st
         return;
     }
 
-    let title = match backend.conversation_repository.get(&conversation_id) {
+    let title = match backend.conversation_repository.get(conversation_id) {
         Ok(Some(conversation)) => conversation.title,
         Ok(None) => {
             refresh(ui, backend);
@@ -202,7 +205,7 @@ fn confirm_delete(ui: &Rc<WindowUi>, backend: &Rc<Backend>, conversation_id: &st
 
     let dialog = adw::AlertDialog::builder()
         .heading("Delete Conversation?")
-        .body(&format!("Delete \"{title}\" and all of its messages?"))
+        .body(format!("Delete \"{title}\" and all of its messages?"))
         .close_response("cancel")
         .default_response("cancel")
         .build();
@@ -228,6 +231,8 @@ fn delete(ui: &Rc<WindowUi>, backend: &Rc<Backend>, conversation_id: &str) {
                 backend.active_assistant_content.borrow_mut().clear();
                 ui.conversation_list.unselect_all();
                 clear_messages(ui);
+                restore_selected_provider_model(ui, backend);
+                update_profile_indicator(ui, backend, None).ok();
             }
             refresh(ui, backend);
             ui.toast_overlay

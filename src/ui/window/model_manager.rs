@@ -1662,7 +1662,7 @@ fn empty_row(title: &str) -> adw::ActionRow {
 fn model_row(model: &OllamaModel, on_delete: Rc<dyn Fn(String)>) -> adw::ActionRow {
     let row = adw::ActionRow::builder()
         .title(&model.name)
-        .subtitle(&model_subtitle(model))
+        .subtitle(model_subtitle(model))
         .subtitle_lines(2)
         .build();
     row.add_css_class("moose-model-row-item");
@@ -1703,7 +1703,7 @@ fn model_family_row(
         .count();
     let row = adw::ActionRow::builder()
         .title(family.title)
-        .subtitle(&format!(
+        .subtitle(format!(
             "{} - {} variations",
             family.subtitle,
             family.variants.len()
@@ -1885,7 +1885,7 @@ fn model_variant_row(
     title.add_css_class("moose-model-variant-title");
 
     let description = gtk::Label::builder()
-        .label(&format!("{} - {}", variant.title, variant.description))
+        .label(format!("{} - {}", variant.title, variant.description))
         .halign(Align::Start)
         .xalign(0.0)
         .hexpand(true)
@@ -1939,7 +1939,7 @@ fn model_variant_row(
 }
 
 fn model_is_installed(model_name: &str, installed_names: &[&str]) -> bool {
-    installed_names.iter().any(|name| *name == model_name)
+    installed_names.contains(&model_name)
 }
 
 fn pill_label(text: &str) -> gtk::Label {

@@ -13,18 +13,23 @@ use serde::Deserialize;
 
 use crate::{
     APPLICATION_ID, APPLICATION_NAME,
-    chat::{ChatMessage, ChatRequest, ChatStreamEvent},
+    chat::{ChatMessage, ChatOptions, ChatRequest, ChatStreamEvent, build_conversation_context},
     conversations::{
-        ConversationTitleUpdate, DEFAULT_CONVERSATION_TITLE, Message, MessageUpdate,
-        NewConversation, NewMessage,
+        ConversationTitleUpdate, DEFAULT_CONTEXT_MESSAGE_LIMIT, DEFAULT_CONVERSATION_TITLE,
+        DEFAULT_TEMPERATURE, GenerationSettings, MAX_CONTEXT_MESSAGE_LIMIT, Message, MessageUpdate,
+        NewConversation, NewGenerationSettings, NewMessage,
     },
     error::{MooseError, Result},
     ollama::{OllamaClient, OllamaModel, service::ManagedOllamaService},
     platform::AppPaths,
     providers::{Provider, managed_ollama_port_from_base_url},
-    storage::{ConversationRepository, DownloadJobRepository, ProviderRepository, open_database},
+    storage::{
+        ConversationRepository, DownloadJobRepository, ProfileRepository, ProviderRepository,
+        open_database,
+    },
 };
 
+mod chat_settings;
 mod chat_view;
 mod code_view;
 mod conversation_list;
@@ -122,6 +127,8 @@ pub fn build(app: &adw::Application) -> adw::ApplicationWindow {
         provider_switch_button: sidebar.provider_switch_button,
         refresh_button: sidebar.refresh_button,
         model_picker: chat.model_picker,
+        profile_label: chat.profile_label,
+        chat_settings_button: chat.chat_settings_button,
         conversation_list: sidebar.conversation_list,
         messages: chat.messages,
         messages_scrolled: chat.messages_scrolled,
@@ -179,6 +186,7 @@ struct Backend {
     paths: AppPaths,
     repository: ProviderRepository,
     conversation_repository: ConversationRepository,
+    profile_repository: ProfileRepository,
     download_job_repository: DownloadJobRepository,
     provider: RefCell<Option<Provider>>,
     managed_ollama: ManagedOllamaHandle,
@@ -210,6 +218,8 @@ struct WindowUi {
     provider_switch_button: gtk::Button,
     refresh_button: gtk::Button,
     model_picker: gtk::DropDown,
+    profile_label: gtk::Label,
+    chat_settings_button: gtk::Button,
     conversation_list: gtk::ListBox,
     messages: gtk::Box,
     messages_scrolled: gtk::ScrolledWindow,
@@ -257,6 +267,19 @@ struct PendingExchange {
     assistant: Message,
 }
 
+#[derive(Clone, Debug, PartialEq)]
+struct ChatSettingsValues {
+    profile_id: Option<String>,
+    preferred_model: Option<String>,
+    temperature: f64,
+    top_p: Option<f64>,
+    top_k: Option<i64>,
+    seed: Option<i64>,
+    num_ctx: Option<i64>,
+    context_messages: i64,
+    system_prompt: String,
+}
+
 #[derive(Deserialize)]
 struct GeneratedTitle {
     title: String,
@@ -275,6 +298,7 @@ impl Backend {
         let connection = Rc::new(open_database(paths.database_path())?);
         let repository = ProviderRepository::new(Rc::clone(&connection));
         let conversation_repository = ConversationRepository::new(Rc::clone(&connection));
+        let profile_repository = ProfileRepository::new(Rc::clone(&connection));
         let download_job_repository = DownloadJobRepository::new(connection);
         let provider = repository.ensure_default_provider()?;
         let managed_ollama = Arc::new(tokio::sync::Mutex::new(ManagedOllamaService::new(&paths)));
@@ -292,6 +316,7 @@ impl Backend {
             paths,
             repository,
             conversation_repository,
+            profile_repository,
             download_job_repository,
             provider: RefCell::new(provider),
             managed_ollama,
@@ -428,6 +453,8 @@ fn bind_actions(
         match create_empty_conversation(&target_backend) {
             Ok(conversation_id) => {
                 clear_messages(&target_ui);
+                restore_selected_provider_model(&target_ui, &target_backend);
+                update_profile_indicator(&target_ui, &target_backend, None).ok();
                 set_chat_empty_state(&target_ui, "Empty Conversation", "Send a message to begin.");
                 conversation_list::refresh(&target_ui, &target_backend);
                 conversation_list::select(&target_ui, &conversation_id);
@@ -519,6 +546,12 @@ fn bind_actions(
             let query = entry.text().to_string();
             render_model_manager(&target_ui, &target_backend, &query);
         });
+
+    let target_ui = Rc::clone(ui);
+    let target_backend = Rc::clone(backend);
+    ui.chat_settings_button.connect_clicked(move |_| {
+        show_chat_settings(&target_ui, &target_backend);
+    });
 
     let target_ui = Rc::clone(ui);
     let target_backend = Rc::clone(backend);
@@ -862,31 +895,65 @@ fn send_message(ui: &Rc<WindowUi>, backend: &Rc<Backend>) {
         return;
     }
 
-    let Some(model) = selected_model(&ui.model_picker, &ui.model_names) else {
-        ui.toast_overlay
-            .add_toast(adw::Toast::new("Select an installed model first"));
-        return;
-    };
-
     let Some(provider) = require_active_provider(ui, backend) else {
         return;
     };
 
-    let request =
-        match ChatRequest::streaming(model.clone(), vec![ChatMessage::user(prompt.clone())]) {
-            Ok(request) => request,
-            Err(error) => {
-                ui.toast_overlay.add_toast(adw::Toast::new(&format!(
-                    "Message could not be sent: {error}"
-                )));
-                return;
-            }
-        };
     let (conversation_id, should_generate_title) = match ensure_active_conversation(backend) {
         Ok(result) => result,
         Err(error) => {
             ui.toast_overlay.add_toast(adw::Toast::new(&format!(
                 "Conversation could not be saved: {error}"
+            )));
+            return;
+        }
+    };
+    let settings = match load_chat_settings(backend, &conversation_id) {
+        Ok(settings) => settings,
+        Err(error) => {
+            ui.toast_overlay.add_toast(adw::Toast::new(&format!(
+                "Chat settings could not be loaded: {error}"
+            )));
+            return;
+        }
+    };
+    let model = match request_model(ui, &settings) {
+        Ok(model) => model,
+        Err(message) => {
+            ui.toast_overlay.add_toast(adw::Toast::new(&message));
+            return;
+        }
+    };
+    let context_limit = usize::try_from(settings.context_messages)
+        .unwrap_or(DEFAULT_CONTEXT_MESSAGE_LIMIT as usize);
+    let history_limit = context_limit.saturating_sub(1);
+    let history = match backend
+        .conversation_repository
+        .list_recent_context_messages(&conversation_id, history_limit)
+    {
+        Ok(messages) => messages,
+        Err(error) => {
+            ui.toast_overlay.add_toast(adw::Toast::new(&format!(
+                "Conversation context could not be loaded: {error}"
+            )));
+            return;
+        }
+    };
+    let request_messages = build_conversation_context(
+        &history,
+        &prompt,
+        context_limit,
+        Some(&settings.system_prompt),
+    );
+    let request = match ChatRequest::streaming_with_options(
+        model.clone(),
+        request_messages,
+        chat_options(&settings),
+    ) {
+        Ok(request) => request,
+        Err(error) => {
+            ui.toast_overlay.add_toast(adw::Toast::new(&format!(
+                "Message could not be sent: {error}"
             )));
             return;
         }
@@ -1069,6 +1136,74 @@ fn message_content_with_live_state(content: &str, state: &str) -> String {
     }
 }
 
+fn request_model(
+    ui: &WindowUi,
+    settings: &ChatSettingsValues,
+) -> std::result::Result<String, String> {
+    if let Some(model) = settings.preferred_model.as_ref() {
+        if ui
+            .model_names
+            .borrow()
+            .iter()
+            .any(|candidate| candidate == model)
+        {
+            return Ok(model.clone());
+        }
+
+        return Err(format!("Preferred model \"{model}\" is not installed"));
+    }
+
+    selected_model(&ui.model_picker, &ui.model_names)
+        .ok_or_else(|| "Select an installed model first".to_string())
+}
+
+fn chat_options(settings: &ChatSettingsValues) -> ChatOptions {
+    ChatOptions {
+        temperature: Some(settings.temperature),
+        top_p: settings.top_p,
+        top_k: settings.top_k,
+        seed: settings.seed,
+        num_ctx: settings.num_ctx,
+    }
+}
+
+fn show_chat_settings(ui: &Rc<WindowUi>, backend: &Rc<Backend>) {
+    if backend.active_generation.borrow().is_some() {
+        ui.toast_overlay
+            .add_toast(adw::Toast::new("Finish the active generation first"));
+        return;
+    }
+
+    if require_active_provider(ui, backend).is_none() {
+        return;
+    }
+
+    let active_conversation_id = backend.active_conversation_id.borrow().clone();
+    let conversation_id = match active_conversation_id {
+        Some(conversation_id) => conversation_id,
+        None => match create_empty_conversation(backend) {
+            Ok(conversation_id) => {
+                conversation_list::refresh(ui, backend);
+                conversation_list::select(ui, &conversation_id);
+                conversation_id
+            }
+            Err(error) => {
+                ui.toast_overlay.add_toast(adw::Toast::new(&format!(
+                    "Conversation could not be created: {error}"
+                )));
+                return;
+            }
+        },
+    };
+
+    match chat_settings::dialog(ui, backend, &conversation_id) {
+        Ok(dialog) => dialog.present(Some(&ui.window)),
+        Err(error) => ui.toast_overlay.add_toast(adw::Toast::new(&format!(
+            "Chat settings could not be loaded: {error}"
+        ))),
+    }
+}
+
 fn create_empty_conversation(backend: &Backend) -> Result<String> {
     let provider = active_provider(backend).ok_or(MooseError::ProviderNotConfigured)?;
     let conversation = backend.conversation_repository.create(NewConversation {
@@ -1081,6 +1216,75 @@ fn create_empty_conversation(backend: &Backend) -> Result<String> {
     backend.active_assistant_message_id.borrow_mut().take();
     backend.active_assistant_content.borrow_mut().clear();
     Ok(conversation_id)
+}
+
+fn load_chat_settings(backend: &Backend, conversation_id: &str) -> Result<ChatSettingsValues> {
+    backend
+        .conversation_repository
+        .latest_generation_settings(conversation_id)
+        .map(ChatSettingsValues::from)
+}
+
+fn save_chat_settings(
+    backend: &Backend,
+    conversation_id: &str,
+    values: ChatSettingsValues,
+) -> Result<()> {
+    backend
+        .conversation_repository
+        .create_generation_settings(NewGenerationSettings {
+            conversation_id: Some(conversation_id.to_string()),
+            profile_id: values.profile_id,
+            model: values.preferred_model,
+            temperature: Some(values.temperature),
+            top_p: values.top_p,
+            top_k: values.top_k,
+            seed: values.seed,
+            num_ctx: values.num_ctx,
+            context_messages: Some(values.context_messages),
+            system_prompt: non_empty_string(values.system_prompt),
+        })?;
+    Ok(())
+}
+
+fn non_empty_string(value: String) -> Option<String> {
+    let value = value.trim().to_string();
+    (!value.is_empty()).then_some(value)
+}
+
+impl From<Option<GenerationSettings>> for ChatSettingsValues {
+    fn from(settings: Option<GenerationSettings>) -> Self {
+        settings.map_or_else(Self::default, |settings| Self {
+            profile_id: settings.profile_id,
+            preferred_model: settings.model,
+            temperature: settings.temperature.unwrap_or(DEFAULT_TEMPERATURE),
+            top_p: settings.top_p,
+            top_k: settings.top_k,
+            seed: settings.seed,
+            num_ctx: settings.num_ctx,
+            context_messages: settings
+                .context_messages
+                .unwrap_or(DEFAULT_CONTEXT_MESSAGE_LIMIT)
+                .clamp(1, MAX_CONTEXT_MESSAGE_LIMIT),
+            system_prompt: settings.system_prompt.unwrap_or_default(),
+        })
+    }
+}
+
+impl Default for ChatSettingsValues {
+    fn default() -> Self {
+        Self {
+            profile_id: None,
+            preferred_model: None,
+            temperature: DEFAULT_TEMPERATURE,
+            top_p: None,
+            top_k: None,
+            seed: None,
+            num_ctx: None,
+            context_messages: DEFAULT_CONTEXT_MESSAGE_LIMIT,
+            system_prompt: String::new(),
+        }
+    }
 }
 
 fn load_conversation(ui: &WindowUi, backend: &Backend, conversation_id: &str) -> Result<()> {
@@ -1105,7 +1309,58 @@ fn load_conversation(ui: &WindowUi, backend: &Backend, conversation_id: &str) ->
         scroll_chat_to_bottom(ui);
     }
 
+    apply_preferred_model_selection(ui, backend, conversation_id)?;
+    let settings = load_chat_settings(backend, conversation_id)?;
+    update_profile_indicator(ui, backend, settings.profile_id.as_deref())?;
+
     Ok(())
+}
+
+fn update_profile_indicator(
+    ui: &WindowUi,
+    backend: &Backend,
+    profile_id: Option<&str>,
+) -> Result<()> {
+    let profile = profile_id
+        .map(|profile_id| backend.profile_repository.get(profile_id))
+        .transpose()?
+        .flatten();
+    if let Some(profile) = profile {
+        ui.profile_label.set_label(&profile.name);
+        ui.profile_label.set_tooltip_text(Some(&format!(
+            "{} profile: {}",
+            profile.name, profile.description
+        )));
+        ui.profile_label.set_visible(true);
+    } else {
+        ui.profile_label.set_visible(false);
+        ui.profile_label.set_label("");
+        ui.profile_label.set_tooltip_text(None);
+    }
+    Ok(())
+}
+
+fn apply_preferred_model_selection(
+    ui: &WindowUi,
+    backend: &Backend,
+    conversation_id: &str,
+) -> Result<()> {
+    let settings = load_chat_settings(backend, conversation_id)?;
+    if let Some(model) = settings.preferred_model.as_deref() {
+        select_model_by_name(ui, model);
+    } else {
+        restore_selected_provider_model(ui, backend);
+    }
+    Ok(())
+}
+
+fn restore_selected_provider_model(ui: &WindowUi, backend: &Backend) {
+    let model = active_provider(backend)
+        .and_then(|provider| backend.selected_models.borrow().get(&provider.id).cloned())
+        .or_else(|| ui.model_names.borrow().first().cloned());
+    if let Some(model) = model {
+        select_model_by_name(ui, &model);
+    }
 }
 
 fn ensure_active_conversation(backend: &Backend) -> Result<(String, bool)> {
@@ -1381,6 +1636,23 @@ fn selected_model(
     model_names.borrow().get(selected).cloned()
 }
 
+fn select_model_by_name(ui: &WindowUi, model: &str) -> bool {
+    let Some(index) = ui
+        .model_names
+        .borrow()
+        .iter()
+        .position(|candidate| candidate == model)
+    else {
+        return false;
+    };
+
+    *ui.restoring_model_selection.borrow_mut() = true;
+    ui.model_picker.set_selected(index as u32);
+    *ui.restoring_model_selection.borrow_mut() = false;
+    update_send_button(ui);
+    true
+}
+
 fn save_selected_model(ui: &WindowUi, backend: &Backend, model: String) {
     let Some(provider_id) = active_provider(backend).map(|provider| provider.id) else {
         return;
@@ -1415,6 +1687,13 @@ fn set_models(ui: &Rc<WindowUi>, backend: &Rc<Backend>, models: Vec<OllamaModel>
     let selected_model = active_provider(backend)
         .and_then(|provider| backend.selected_models.borrow().get(&provider.id).cloned());
     set_model_picker(ui, chat_models, selected_model.as_deref());
+    if let Some(conversation_id) = backend.active_conversation_id.borrow().clone()
+        && let Err(error) = apply_preferred_model_selection(ui, backend, &conversation_id)
+    {
+        ui.toast_overlay.add_toast(adw::Toast::new(&format!(
+            "Chat settings could not be loaded: {error}"
+        )));
+    }
     set_installed_models(ui, backend, models);
     if is_empty {
         show_no_models_state(ui, backend);

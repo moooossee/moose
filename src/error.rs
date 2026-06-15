@@ -45,6 +45,12 @@ pub enum MooseError {
     InvalidIdentifier,
     #[error("invalid generation settings")]
     InvalidGenerationSettings,
+    #[error("invalid profile name")]
+    InvalidProfileName,
+    #[error("invalid profile description")]
+    InvalidProfileDescription,
+    #[error("invalid system prompt")]
+    InvalidSystemPrompt,
     #[error("invalid download job status")]
     InvalidDownloadJobStatus,
     #[error("invalid download job progress")]
@@ -55,6 +61,12 @@ pub enum MooseError {
     MessageNotFound,
     #[error("generation settings were not found")]
     GenerationSettingsNotFound,
+    #[error("profile was not found")]
+    ProfileNotFound,
+    #[error("a profile with that name already exists")]
+    ProfileNameAlreadyExists,
+    #[error("built-in profiles cannot be deleted")]
+    BuiltinProfileCannotBeDeleted,
     #[error("download job was not found")]
     DownloadJobNotFound,
     #[error("no Ollama instance is configured")]

@@ -11,6 +11,8 @@ On Flatpak, Moose can set up its own Ollama in app data. No host Ollama dance.
 - Install and run a Moose-managed Ollama
 - Download models from the app
 - Chat with local Ollama models
+- Keep conversation context and configure each chat
+- Use built-in profiles or create reusable custom profiles
 - Keep conversations saved locally
 - Connect external Ollama providers when you want
 

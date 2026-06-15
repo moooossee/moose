@@ -290,7 +290,7 @@ fn confirm_download_history_clear(
 fn download_job_row(job: &DownloadJob) -> adw::ActionRow {
     let row = adw::ActionRow::builder()
         .title(&job.model_name)
-        .subtitle(&download_job_subtitle(job))
+        .subtitle(download_job_subtitle(job))
         .subtitle_lines(3)
         .build();
     row.add_css_class("moose-model-row-item");

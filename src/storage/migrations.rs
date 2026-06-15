@@ -2,7 +2,14 @@ use rusqlite::{Connection, OptionalExtension, params};
 
 use crate::{core::utc_now, error::Result};
 
-const MIGRATIONS: &[(i64, &str)] = &[(1, include_str!("../../migrations/0001_initial.sql"))];
+const MIGRATIONS: &[(i64, &str)] = &[
+    (1, include_str!("../../migrations/0001_initial.sql")),
+    (
+        2,
+        include_str!("../../migrations/0002_generation_context_messages.sql"),
+    ),
+    (3, include_str!("../../migrations/0003_chat_profiles.sql")),
+];
 
 pub fn run_migrations(connection: &mut Connection) -> Result<()> {
     connection.execute_batch(
@@ -71,6 +78,8 @@ mod tests {
         run_migrations(&mut connection).unwrap();
         run_migrations(&mut connection).unwrap();
         require_migration(&connection, 1).unwrap();
+        require_migration(&connection, 2).unwrap();
+        require_migration(&connection, 3).unwrap();
 
         let provider_table_count: i64 = connection
             .query_row(
@@ -86,6 +95,6 @@ mod tests {
             .unwrap();
 
         assert_eq!(provider_table_count, 1);
-        assert_eq!(migration_count, 1);
+        assert_eq!(migration_count, 3);
     }
 }

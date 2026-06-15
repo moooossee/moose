@@ -8,7 +8,11 @@ use crate::{
     conversations::{Message, MessageRole, MessageStatus},
 };
 
-use super::{markdown_live::LiveMarkdown, markdown_view, widgets::composer_button};
+use super::{
+    markdown_live::LiveMarkdown,
+    markdown_view,
+    widgets::{composer_button, icon_button},
+};
 
 pub(super) struct Chat {
     pub(super) root: gtk::Box,
@@ -18,6 +22,8 @@ pub(super) struct Chat {
     pub(super) message_stack: gtk::Stack,
     pub(super) entry: gtk::TextView,
     pub(super) model_picker: gtk::DropDown,
+    pub(super) profile_label: gtk::Label,
+    pub(super) chat_settings_button: gtk::Button,
     pub(super) send_button: gtk::Button,
     pub(super) stop_button: gtk::Button,
 }
@@ -163,6 +169,13 @@ pub(super) fn build() -> Chat {
     model_picker.add_css_class("flat");
     model_picker.add_css_class("moose-model-picker");
 
+    let chat_settings_button = icon_button("preferences-system-symbolic", "Chat Settings");
+    chat_settings_button.add_css_class("moose-chat-settings-button");
+
+    let profile_label = gtk::Label::new(None);
+    profile_label.add_css_class("moose-profile-badge");
+    profile_label.set_visible(false);
+
     let model_icon = gtk::Image::from_icon_name("computer-symbolic");
     model_icon.add_css_class("dim-label");
     model_icon.add_css_class("moose-model-icon");
@@ -175,6 +188,8 @@ pub(super) fn build() -> Chat {
     model_row.add_css_class("moose-model-row");
     model_row.append(&model_icon);
     model_row.append(&model_picker);
+    model_row.append(&profile_label);
+    model_row.append(&chat_settings_button);
 
     composer.append(&input_row);
     composer_area.append(&composer);
@@ -202,6 +217,8 @@ pub(super) fn build() -> Chat {
         message_stack,
         entry,
         model_picker,
+        profile_label,
+        chat_settings_button,
         send_button,
         stop_button,
     }

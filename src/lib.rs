@@ -5,6 +5,7 @@ pub mod error;
 pub mod models;
 pub mod ollama;
 pub mod platform;
+pub mod profiles;
 pub mod providers;
 pub mod runtime;
 pub mod storage;

@@ -385,7 +385,7 @@ fn show_configuration_dialog(ui: &Rc<WindowUi>, backend: &Rc<Backend>) {
 
     let name_row = adw::EntryRow::builder()
         .title("Name")
-        .text(&provider_controls::next_managed_provider_name(backend))
+        .text(provider_controls::next_managed_provider_name(backend))
         .build();
     let host_row = adw::EntryRow::builder()
         .title("Host")
@@ -394,7 +394,7 @@ fn show_configuration_dialog(ui: &Rc<WindowUi>, backend: &Rc<Backend>) {
         .build();
     let port_row = adw::EntryRow::builder()
         .title("Managed Port")
-        .text(&provider_controls::next_managed_port(backend).to_string())
+        .text(provider_controls::next_managed_port(backend).to_string())
         .build();
     let settings_group = adw::PreferencesGroup::builder()
         .title("Instance Settings")

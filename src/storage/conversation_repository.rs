@@ -178,6 +178,32 @@ impl ConversationRepository {
         Ok(messages)
     }
 
+    pub fn list_recent_context_messages(
+        &self,
+        conversation_id: &str,
+        limit: usize,
+    ) -> Result<Vec<Message>> {
+        let limit = i64::try_from(limit)?;
+        let mut statement = self.connection.prepare(
+            "SELECT id, conversation_id, role, content, status, token_count, created_at, completed_at
+             FROM (
+                 SELECT id, conversation_id, role, content, status, token_count, created_at, completed_at
+                 FROM messages
+                 WHERE conversation_id = ?1
+                   AND role IN ('user', 'assistant')
+                   AND status IN ('complete', 'cancelled', 'failed')
+                   AND trim(content, char(9) || char(10) || char(13) || ' ') <> ''
+                 ORDER BY created_at DESC, id DESC
+                 LIMIT ?2
+             )
+             ORDER BY created_at ASC, id ASC",
+        )?;
+        let messages = statement
+            .query_map(params![conversation_id, limit], message_from_row)?
+            .collect::<std::result::Result<Vec<_>, _>>()?;
+        Ok(messages)
+    }
+
     pub fn get_message(&self, id: &str) -> Result<Option<Message>> {
         self.connection
             .query_row(
@@ -224,18 +250,20 @@ impl ConversationRepository {
 
         self.connection.execute(
             "INSERT INTO generation_settings (
-                id, conversation_id, model, temperature, top_p, top_k, seed, num_ctx, system_prompt, created_at
+                id, conversation_id, profile_id, model, temperature, top_p, top_k, seed, num_ctx, context_messages, system_prompt, created_at
              )
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)",
             params![
                 settings.id,
                 settings.conversation_id,
+                settings.profile_id,
                 settings.model,
                 settings.temperature,
                 settings.top_p,
                 settings.top_k,
                 settings.seed,
                 settings.num_ctx,
+                settings.context_messages,
                 settings.system_prompt,
                 settings.created_at,
             ],
@@ -253,7 +281,7 @@ impl ConversationRepository {
         conversation_id: &str,
     ) -> Result<Vec<GenerationSettings>> {
         let mut statement = self.connection.prepare(
-            "SELECT id, conversation_id, model, temperature, top_p, top_k, seed, num_ctx, system_prompt, created_at
+            "SELECT id, conversation_id, profile_id, model, temperature, top_p, top_k, seed, num_ctx, context_messages, system_prompt, created_at
              FROM generation_settings
              WHERE conversation_id = ?1
              ORDER BY created_at DESC, id DESC",
@@ -270,7 +298,7 @@ impl ConversationRepository {
     ) -> Result<Option<GenerationSettings>> {
         self.connection
             .query_row(
-                "SELECT id, conversation_id, model, temperature, top_p, top_k, seed, num_ctx, system_prompt, created_at
+                "SELECT id, conversation_id, profile_id, model, temperature, top_p, top_k, seed, num_ctx, context_messages, system_prompt, created_at
                  FROM generation_settings
                  WHERE conversation_id = ?1
                  ORDER BY created_at DESC, id DESC
@@ -293,7 +321,7 @@ impl ConversationRepository {
     fn get_generation_settings_required(&self, id: &str) -> Result<GenerationSettings> {
         self.connection
             .query_row(
-                "SELECT id, conversation_id, model, temperature, top_p, top_k, seed, num_ctx, system_prompt, created_at
+                "SELECT id, conversation_id, profile_id, model, temperature, top_p, top_k, seed, num_ctx, context_messages, system_prompt, created_at
                  FROM generation_settings
                  WHERE id = ?1",
                 params![id],
@@ -407,14 +435,16 @@ fn generation_settings_from_row(row: &Row<'_>) -> rusqlite::Result<GenerationSet
     Ok(GenerationSettings {
         id: row.get(0)?,
         conversation_id: row.get(1)?,
-        model: row.get(2)?,
-        temperature: row.get(3)?,
-        top_p: row.get(4)?,
-        top_k: row.get(5)?,
-        seed: row.get(6)?,
-        num_ctx: row.get(7)?,
-        system_prompt: row.get(8)?,
-        created_at: row.get(9)?,
+        profile_id: row.get(2)?,
+        model: row.get(3)?,
+        temperature: row.get(4)?,
+        top_p: row.get(5)?,
+        top_k: row.get(6)?,
+        seed: row.get(7)?,
+        num_ctx: row.get(8)?,
+        context_messages: row.get(9)?,
+        system_prompt: row.get(10)?,
+        created_at: row.get(11)?,
     })
 }
 
