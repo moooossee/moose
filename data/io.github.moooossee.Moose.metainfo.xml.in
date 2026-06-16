@@ -24,20 +24,27 @@
   </branding>
   <screenshots>
     <screenshot type="default">
-      <image type="source" width="1430" height="995">https://raw.githubusercontent.com/moooossee/moose/v0.3.1/data/screenshots/main.png</image>
+      <image type="source" width="1430" height="995">https://raw.githubusercontent.com/moooossee/moose/v0.4.1/data/screenshots/main.png</image>
       <caption>Reading Markdown responses with highlighted code blocks</caption>
     </screenshot>
     <screenshot>
-      <image type="source" width="1430" height="995">https://raw.githubusercontent.com/moooossee/moose/v0.3.1/data/screenshots/instances.png</image>
+      <image type="source" width="1430" height="995">https://raw.githubusercontent.com/moooossee/moose/v0.4.1/data/screenshots/instances.png</image>
       <caption>Choosing a managed or external Ollama instance</caption>
     </screenshot>
     <screenshot>
-      <image type="source" width="1430" height="995">https://raw.githubusercontent.com/moooossee/moose/v0.3.1/data/screenshots/model-manager.png</image>
+      <image type="source" width="1430" height="995">https://raw.githubusercontent.com/moooossee/moose/v0.4.1/data/screenshots/model-manager.png</image>
       <caption>Browsing installed and recommended models</caption>
     </screenshot>
   </screenshots>
   <content_rating type="oars-1.1" />
   <releases>
+    <release version="0.4.1" date="2026-06-15">
+      <url type="details">https://github.com/moooossee/moose/releases/tag/v0.4.1</url>
+      <description>
+        <p>Adds tools to organize conversation history so older chats are easier to review and manage.</p>
+        <p>Adds conversation export support for saving chats outside Moose.</p>
+      </description>
+    </release>
     <release version="0.4.0" date="2026-06-15">
       <description>
         <p>Conversations now include recent message history so models can follow the thread.</p>

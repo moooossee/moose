@@ -1,8 +1,8 @@
 # Moose
 
 Moose is a small desktop app for chatting with local AI models through Ollama.
-It feels quiet, simple and local: your conversations, providers and model picks
-stay on your computer.
+It feels quiet, simple and local: your conversations, providers, profiles and
+model picks stay on your computer.
 
 On Flatpak, Moose can set up its own Ollama in app data. No host Ollama dance.
 
@@ -14,6 +14,8 @@ On Flatpak, Moose can set up its own Ollama in app data. No host Ollama dance.
 - Keep conversation context and configure each chat
 - Use built-in profiles or create reusable custom profiles
 - Keep conversations saved locally
+- Organize older conversations from the history view
+- Export conversations when you want a copy outside Moose
 - Connect external Ollama providers when you want
 
 ## Build
