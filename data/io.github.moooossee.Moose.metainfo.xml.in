@@ -24,20 +24,28 @@
   </branding>
   <screenshots>
     <screenshot type="default">
-      <image type="source" width="1430" height="995">https://raw.githubusercontent.com/moooossee/moose/v0.4.1/data/screenshots/main.png</image>
+      <image type="source" width="1430" height="995">https://raw.githubusercontent.com/moooossee/moose/v0.4.2/data/screenshots/main.png</image>
       <caption>Reading Markdown responses with highlighted code blocks</caption>
     </screenshot>
     <screenshot>
-      <image type="source" width="1430" height="995">https://raw.githubusercontent.com/moooossee/moose/v0.4.1/data/screenshots/instances.png</image>
+      <image type="source" width="1430" height="995">https://raw.githubusercontent.com/moooossee/moose/v0.4.2/data/screenshots/instances.png</image>
       <caption>Choosing a managed or external Ollama instance</caption>
     </screenshot>
     <screenshot>
-      <image type="source" width="1430" height="995">https://raw.githubusercontent.com/moooossee/moose/v0.4.1/data/screenshots/model-manager.png</image>
+      <image type="source" width="1430" height="995">https://raw.githubusercontent.com/moooossee/moose/v0.4.2/data/screenshots/model-manager.png</image>
       <caption>Browsing installed and recommended models</caption>
     </screenshot>
   </screenshots>
   <content_rating type="oars-1.1" />
   <releases>
+    <release version="0.4.2" date="2026-06-16">
+      <url type="details">https://github.com/moooossee/moose/releases/tag/v0.4.2</url>
+      <description>
+        <p>Adds configurable keyboard shortcuts for common chat, model and navigation actions.</p>
+        <p>Adds a shortcuts page to preferences so shortcuts can be changed, cleared or reset.</p>
+        <p>Shows when the active conversation is generating a response in the conversation list.</p>
+      </description>
+    </release>
     <release version="0.4.1" date="2026-06-15">
       <url type="details">https://github.com/moooossee/moose/releases/tag/v0.4.1</url>
       <description>

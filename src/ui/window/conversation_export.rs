@@ -1,7 +1,7 @@
 use std::rc::Rc;
 
 use adw::prelude::*;
-use gtk::gio::{self, prelude::*};
+use gtk::gio;
 use serde::Serialize;
 
 use crate::{

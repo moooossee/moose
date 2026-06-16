@@ -104,6 +104,11 @@
   opacity: 0.54;
 }
 
+.moose-conversation-spinner {
+  margin-right: 8px;
+  opacity: 0.68;
+}
+
 .moose-sidebar-footer {
   padding: 4px 6px 5px 6px;
 }

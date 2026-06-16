@@ -6,5 +6,10 @@
       <summary>Selected models</summary>
       <description>The last model selected by the user for each provider.</description>
     </key>
+    <key name="shortcuts" type="a{ss}">
+      <default>@a{ss} {}</default>
+      <summary>Keyboard shortcuts</summary>
+      <description>User-defined global keyboard shortcuts.</description>
+    </key>
   </schema>
 </schemalist>

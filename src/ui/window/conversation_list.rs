@@ -74,7 +74,7 @@ fn set(ui: &Rc<WindowUi>, backend: &Rc<Backend>, summaries: Vec<ConversationSumm
         } else {
             "No matching conversations"
         };
-        row.set_child(Some(&conversation_row_content(text, false, false)));
+        row.set_child(Some(&conversation_row_content(text, false, false, false)));
         row.set_height_request(45);
         row.set_selectable(false);
         row.set_sensitive(false);
@@ -123,10 +123,14 @@ fn set(ui: &Rc<WindowUi>, backend: &Rc<Backend>, summaries: Vec<ConversationSumm
 
 fn row(summary: &ConversationSummary, ui: &Rc<WindowUi>, backend: &Rc<Backend>) -> gtk::ListBoxRow {
     let row = gtk::ListBoxRow::new();
+    let is_generating = backend.active_generation.borrow().is_some()
+        && backend.active_conversation_id.borrow().as_deref()
+            == Some(summary.conversation.id.as_str());
     row.set_child(Some(&conversation_row_content(
         &summary.conversation.title,
         summary.conversation.pinned_at.is_some(),
         summary.conversation.archived_at.is_some(),
+        is_generating,
     )));
     row.set_height_request(45);
     row.set_tooltip_text(Some(&summary.conversation.title));
@@ -168,7 +172,12 @@ fn append_heading(ui: &Rc<WindowUi>, ids: &mut Vec<Option<String>>, title: &str)
     ids.push(None);
 }
 
-fn conversation_row_content(title: &str, pinned: bool, archived: bool) -> gtk::Box {
+fn conversation_row_content(
+    title: &str,
+    pinned: bool,
+    archived: bool,
+    generating: bool,
+) -> gtk::Box {
     let content = gtk::Box::builder()
         .orientation(Orientation::Horizontal)
         .spacing(5)
@@ -197,6 +206,15 @@ fn conversation_row_content(title: &str, pinned: bool, archived: bool) -> gtk::B
         let icon = gtk::Image::from_icon_name("folder-symbolic");
         icon.add_css_class("moose-conversation-state-icon");
         content.append(&icon);
+    }
+
+    if generating {
+        let spinner = gtk::Spinner::new();
+        spinner.set_size_request(14, 14);
+        spinner.set_tooltip_text(Some("Generating Response"));
+        spinner.add_css_class("moose-conversation-spinner");
+        spinner.start();
+        content.append(&spinner);
     }
 
     content

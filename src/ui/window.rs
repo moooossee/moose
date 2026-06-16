@@ -43,6 +43,7 @@ mod model_manager;
 mod preferences;
 mod provider_controls;
 mod sidebar;
+mod shortcuts;
 mod widgets;
 
 use provider_controls::show_connect_external_dialog;
@@ -119,6 +120,7 @@ pub fn build(app: &adw::Application) -> adw::ApplicationWindow {
     let ui = Rc::new(WindowUi {
         window: window.clone(),
         root_stack,
+        split_view: split_view.clone(),
         toast_overlay,
         content_stack,
         model_manager,
@@ -163,6 +165,7 @@ pub fn build(app: &adw::Application) -> adw::ApplicationWindow {
                 &model_manager_button,
                 &preferences_button,
             );
+            bind_global_shortcuts(&ui, &backend);
             if provider.is_some() {
                 refresh_models(&ui, &backend);
             } else {
@@ -195,6 +198,8 @@ struct Backend {
     managed_ollama: ManagedOllamaHandle,
     settings: Option<gio::Settings>,
     selected_models: RefCell<HashMap<String, String>>,
+    shortcuts: RefCell<HashMap<String, String>>,
+    capturing_shortcut: RefCell<bool>,
     runtime: tokio::runtime::Runtime,
     active_generation: RefCell<Option<tokio::task::JoinHandle<()>>>,
     active_model_pull: RefCell<Option<ActiveModelPull>>,
@@ -212,6 +217,7 @@ struct ActiveModelPull {
 struct WindowUi {
     window: adw::ApplicationWindow,
     root_stack: gtk::Stack,
+    split_view: adw::OverlaySplitView,
     toast_overlay: adw::ToastOverlay,
     content_stack: gtk::Stack,
     model_manager: model_manager::ModelManager,
@@ -312,6 +318,11 @@ impl Backend {
             .as_ref()
             .map(|settings| settings.get(SETTINGS_SELECTED_MODELS))
             .unwrap_or_default();
+        let shortcuts = settings
+            .as_ref()
+            .map(|settings| settings.get(shortcuts::SETTINGS_SHORTCUTS))
+            .unwrap_or_default();
+        let shortcuts = shortcuts::merged_values(shortcuts);
         download_job_repository.fail_active_jobs("Download interrupted.")?;
         let runtime = tokio::runtime::Builder::new_multi_thread()
             .enable_all()
@@ -327,6 +338,8 @@ impl Backend {
             managed_ollama,
             settings,
             selected_models: RefCell::new(selected_models),
+            shortcuts: RefCell::new(shortcuts),
+            capturing_shortcut: RefCell::new(false),
             runtime,
             active_generation: RefCell::new(None),
             active_model_pull: RefCell::new(None),
@@ -449,39 +462,13 @@ fn bind_actions(
     let target_ui = Rc::clone(ui);
     let target_backend = Rc::clone(backend);
     new_chat_button.connect_clicked(move |_| {
-        show_chat(&target_ui);
-        if let Err(error) = target_backend.cancel_generation() {
-            target_ui.toast_overlay.add_toast(adw::Toast::new(&format!(
-                "Conversation could not be saved: {error}"
-            )));
-        }
-        match create_empty_conversation(&target_backend) {
-            Ok(conversation_id) => {
-                clear_messages(&target_ui);
-                restore_selected_provider_model(&target_ui, &target_backend);
-                update_profile_indicator(&target_ui, &target_backend, None).ok();
-                set_chat_empty_state(&target_ui, "Empty Conversation", "Send a message to begin.");
-                conversation_list::refresh(&target_ui, &target_backend);
-                conversation_list::select(&target_ui, &conversation_id);
-            }
-            Err(error) => {
-                target_ui.toast_overlay.add_toast(adw::Toast::new(&format!(
-                    "Conversation could not be created: {error}"
-                )));
-            }
-        }
+        new_conversation_action(&target_ui, &target_backend);
     });
 
     let target_ui = Rc::clone(ui);
     let target_backend = Rc::clone(backend);
     model_manager_button.connect_clicked(move |_| {
-        if target_backend.active_generation.borrow().is_some() {
-            target_ui
-                .toast_overlay
-                .add_toast(adw::Toast::new("Finish the active generation first"));
-            return;
-        }
-        show_model_manager(&target_ui);
+        show_model_manager_action(&target_ui, &target_backend);
     });
 
     let target_ui = Rc::clone(ui);
@@ -605,21 +592,8 @@ fn bind_actions(
     let target_ui = Rc::clone(ui);
     let target_backend = Rc::clone(backend);
     ui.stop_button
-        .connect_clicked(move |_| match target_backend.cancel_generation() {
-            Ok(true) => {
-                finish_generation(&target_ui);
-                conversation_list::refresh(&target_ui, &target_backend);
-                target_ui
-                    .toast_overlay
-                    .add_toast(adw::Toast::new("Generation cancelled"));
-            }
-            Ok(false) => {}
-            Err(error) => {
-                finish_generation(&target_ui);
-                target_ui.toast_overlay.add_toast(adw::Toast::new(&format!(
-                    "Conversation could not be saved: {error}"
-                )));
-            }
+        .connect_clicked(move |_| {
+            stop_generation_action(&target_ui, &target_backend, true);
         });
 
     let target_ui = Rc::clone(ui);
@@ -667,7 +641,7 @@ fn bind_actions(
     let target_ui = Rc::clone(ui);
     let target_backend = Rc::clone(backend);
     preferences_button.connect_clicked(move |_| {
-        preferences::dialog(&parent, &target_ui, &target_backend).present(Some(&parent));
+        show_preferences_action(&parent, &target_ui, &target_backend);
     });
 
     let target_stack = ui.first_run_guide.stack.clone();
@@ -686,6 +660,184 @@ fn bind_actions(
     ui.first_run_guide.connect_button.connect_clicked(move |_| {
         show_connect_external_dialog(&target_ui, &target_backend);
     });
+}
+
+fn bind_global_shortcuts(ui: &Rc<WindowUi>, backend: &Rc<Backend>) {
+    let target_ui = Rc::clone(ui);
+    let target_backend = Rc::clone(backend);
+    let key_controller = gtk::EventControllerKey::new();
+    key_controller.set_propagation_phase(gtk::PropagationPhase::Capture);
+    key_controller.connect_key_pressed(move |_, key, _, state| {
+        if *target_backend.capturing_shortcut.borrow() {
+            return gtk::glib::Propagation::Proceed;
+        }
+
+        let Some(action) = shortcut_action_for_event(&target_backend, key, state) else {
+            return gtk::glib::Propagation::Proceed;
+        };
+
+        if run_shortcut_action(action, &target_ui, &target_backend) {
+            gtk::glib::Propagation::Stop
+        } else {
+            gtk::glib::Propagation::Proceed
+        }
+    });
+    ui.window.add_controller(key_controller);
+}
+
+fn shortcut_action_for_event(
+    backend: &Backend,
+    key: gtk::gdk::Key,
+    state: gtk::gdk::ModifierType,
+) -> Option<&'static str> {
+    let event_chord = shortcuts::event_chord(key, state)?;
+    let values = backend.shortcuts.borrow();
+    shortcuts::DEFINITIONS.iter().find_map(|definition| {
+        let value = values.get(definition.id)?;
+        let shortcut = shortcuts::parse(value).ok().flatten()?;
+        (shortcut == event_chord).then_some(definition.id)
+    })
+}
+
+fn run_shortcut_action(action: &str, ui: &Rc<WindowUi>, backend: &Rc<Backend>) -> bool {
+    match action {
+        "new-conversation" => new_conversation_action(ui, backend),
+        "focus-message" => focus_message_action(ui),
+        "search-chats" => focus_chat_search_action(ui),
+        "show-models" => show_model_manager_action(ui, backend),
+        "refresh-models" => refresh_models(ui, backend),
+        "preferences" => show_preferences_action(&ui.window, ui, backend),
+        "toggle-sidebar" => toggle_sidebar_action(ui),
+        "stop-generation" => return stop_generation_action(ui, backend, false),
+        _ => return false,
+    }
+    true
+}
+
+fn new_conversation_action(ui: &Rc<WindowUi>, backend: &Rc<Backend>) {
+    show_chat(ui);
+    match backend.cancel_generation() {
+        Ok(true) => finish_generation(ui),
+        Ok(false) => {}
+        Err(error) => {
+            finish_generation(ui);
+            ui.toast_overlay.add_toast(adw::Toast::new(&format!(
+                "Conversation could not be saved: {error}"
+            )));
+        }
+    }
+    match create_empty_conversation(backend) {
+        Ok(conversation_id) => {
+            clear_messages(ui);
+            restore_selected_provider_model(ui, backend);
+            update_profile_indicator(ui, backend, None).ok();
+            set_chat_empty_state(ui, "Empty Conversation", "Send a message to begin.");
+            conversation_list::refresh(ui, backend);
+            conversation_list::select(ui, &conversation_id);
+            ui.entry.grab_focus();
+        }
+        Err(error) => {
+            ui.toast_overlay.add_toast(adw::Toast::new(&format!(
+                "Conversation could not be created: {error}"
+            )));
+        }
+    }
+}
+
+fn show_model_manager_action(ui: &Rc<WindowUi>, backend: &Rc<Backend>) {
+    if backend.active_generation.borrow().is_some() {
+        ui.toast_overlay
+            .add_toast(adw::Toast::new("Finish the active generation first"));
+        return;
+    }
+    show_model_manager(ui);
+}
+
+fn show_preferences_action(
+    parent: &adw::ApplicationWindow,
+    ui: &Rc<WindowUi>,
+    backend: &Rc<Backend>,
+) {
+    preferences::dialog(parent, ui, backend).present(Some(parent));
+}
+
+fn stop_generation_action(
+    ui: &Rc<WindowUi>,
+    backend: &Rc<Backend>,
+    notify_inactive: bool,
+) -> bool {
+    match backend.cancel_generation() {
+        Ok(true) => {
+            finish_generation(ui);
+            conversation_list::refresh(ui, backend);
+            ui.toast_overlay
+                .add_toast(adw::Toast::new("Generation cancelled"));
+            true
+        }
+        Ok(false) if notify_inactive => {
+            ui.toast_overlay
+                .add_toast(adw::Toast::new("No generation is running"));
+            true
+        }
+        Ok(false) => false,
+        Err(error) => {
+            finish_generation(ui);
+            ui.toast_overlay.add_toast(adw::Toast::new(&format!(
+                "Conversation could not be saved: {error}"
+            )));
+            true
+        }
+    }
+}
+
+fn focus_message_action(ui: &Rc<WindowUi>) {
+    show_chat(ui);
+    ui.entry.grab_focus();
+}
+
+fn focus_chat_search_action(ui: &Rc<WindowUi>) {
+    ui.split_view.set_show_sidebar(true);
+    show_chat(ui);
+    ui.conversation_search_entry.grab_focus();
+}
+
+fn toggle_sidebar_action(ui: &Rc<WindowUi>) {
+    ui.split_view.set_show_sidebar(!ui.split_view.shows_sidebar());
+}
+
+fn shortcut_values(backend: &Backend) -> HashMap<String, String> {
+    backend.shortcuts.borrow().clone()
+}
+
+fn set_shortcut_capture_active(backend: &Backend, active: bool) {
+    *backend.capturing_shortcut.borrow_mut() = active;
+}
+
+fn save_shortcut_values(
+    ui: &WindowUi,
+    backend: &Backend,
+    values: HashMap<String, String>,
+) -> std::result::Result<(), String> {
+    let values = shortcuts::normalize_values(values)?;
+    let Some(settings) = backend.settings.as_ref() else {
+        return Err("Application settings are unavailable".to_string());
+    };
+    settings
+        .set(shortcuts::SETTINGS_SHORTCUTS, values.clone())
+        .map_err(|_| "Shortcuts could not be saved".to_string())?;
+    *backend.shortcuts.borrow_mut() = values;
+    ui.toast_overlay
+        .add_toast(adw::Toast::new("Shortcuts saved"));
+    Ok(())
+}
+
+fn reset_shortcut_values(
+    ui: &WindowUi,
+    backend: &Backend,
+) -> std::result::Result<HashMap<String, String>, String> {
+    let values = shortcuts::defaults();
+    save_shortcut_values(ui, backend, values.clone())?;
+    Ok(values)
 }
 
 fn provider_change_is_blocked(ui: &Rc<WindowUi>, backend: &Rc<Backend>) -> bool {
@@ -1048,6 +1200,7 @@ fn send_message(ui: &Rc<WindowUi>, backend: &Rc<Backend>) {
         }
     });
     *backend.active_generation.borrow_mut() = Some(handle);
+    conversation_list::refresh(ui, backend);
 
     let target_ui = Rc::clone(ui);
     let target_backend = Rc::clone(backend);
