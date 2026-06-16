@@ -9,6 +9,10 @@ const MIGRATIONS: &[(i64, &str)] = &[
         include_str!("../../migrations/0002_generation_context_messages.sql"),
     ),
     (3, include_str!("../../migrations/0003_chat_profiles.sql")),
+    (
+        4,
+        include_str!("../../migrations/0004_history_organization.sql"),
+    ),
 ];
 
 pub fn run_migrations(connection: &mut Connection) -> Result<()> {
@@ -80,6 +84,7 @@ mod tests {
         require_migration(&connection, 1).unwrap();
         require_migration(&connection, 2).unwrap();
         require_migration(&connection, 3).unwrap();
+        require_migration(&connection, 4).unwrap();
 
         let provider_table_count: i64 = connection
             .query_row(
@@ -95,6 +100,6 @@ mod tests {
             .unwrap();
 
         assert_eq!(provider_table_count, 1);
-        assert_eq!(migration_count, 3);
+        assert_eq!(migration_count, 4);
     }
 }

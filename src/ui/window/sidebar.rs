@@ -14,6 +14,8 @@ pub(super) struct Sidebar {
     pub(super) provider_status: gtk::Label,
     pub(super) provider_switch_button: gtk::Button,
     pub(super) refresh_button: gtk::Button,
+    pub(super) search_entry: gtk::SearchEntry,
+    pub(super) archived_button: gtk::ToggleButton,
     pub(super) conversation_list: gtk::ListBox,
 }
 
@@ -74,6 +76,27 @@ pub(super) fn build() -> Sidebar {
     provider_row.add_suffix(&refresh_button);
     provider_group.append(&provider_row);
 
+    let search_entry = gtk::SearchEntry::builder()
+        .placeholder_text("Search chats")
+        .hexpand(true)
+        .build();
+    search_entry.add_css_class("moose-chat-search");
+
+    let archived_button = gtk::ToggleButton::builder()
+        .icon_name("folder-symbolic")
+        .tooltip_text("Show Archived Chats")
+        .build();
+    archived_button.add_css_class("flat");
+    archived_button.add_css_class("moose-sidebar-button");
+
+    let search_box = gtk::Box::builder()
+        .orientation(Orientation::Horizontal)
+        .spacing(6)
+        .build();
+    search_box.add_css_class("moose-sidebar-search");
+    search_box.append(&search_entry);
+    search_box.append(&archived_button);
+
     let conversation_list = gtk::ListBox::new();
     conversation_list.add_css_class("navigation-sidebar");
     conversation_list.add_css_class("moose-conversation-list");
@@ -101,6 +124,7 @@ pub(super) fn build() -> Sidebar {
         .vexpand(true)
         .build();
     content.add_css_class("moose-sidebar-content");
+    content.append(&search_box);
     content.append(&chats_label);
     content.append(&scrolled);
 
@@ -123,6 +147,8 @@ pub(super) fn build() -> Sidebar {
         provider_status,
         provider_switch_button,
         refresh_button,
+        search_entry,
+        archived_button,
         conversation_list,
     }
 }

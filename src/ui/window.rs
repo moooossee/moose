@@ -32,6 +32,7 @@ use crate::{
 mod chat_settings;
 mod chat_view;
 mod code_view;
+mod conversation_export;
 mod conversation_list;
 mod first_run;
 mod managed_install;
@@ -126,6 +127,8 @@ pub fn build(app: &adw::Application) -> adw::ApplicationWindow {
         provider_status: sidebar.provider_status,
         provider_switch_button: sidebar.provider_switch_button,
         refresh_button: sidebar.refresh_button,
+        conversation_search_entry: sidebar.search_entry,
+        archived_conversations_button: sidebar.archived_button,
         model_picker: chat.model_picker,
         profile_label: chat.profile_label,
         chat_settings_button: chat.chat_settings_button,
@@ -217,6 +220,8 @@ struct WindowUi {
     provider_status: gtk::Label,
     provider_switch_button: gtk::Button,
     refresh_button: gtk::Button,
+    conversation_search_entry: gtk::SearchEntry,
+    archived_conversations_button: gtk::ToggleButton,
     model_picker: gtk::DropDown,
     profile_label: gtk::Label,
     chat_settings_button: gtk::Button,
@@ -230,7 +235,7 @@ struct WindowUi {
     stop_button: gtk::Button,
     model_names: Rc<RefCell<Vec<String>>>,
     installed_models: Rc<RefCell<Vec<OllamaModel>>>,
-    conversation_ids: Rc<RefCell<Vec<String>>>,
+    conversation_ids: Rc<RefCell<Vec<Option<String>>>>,
     first_run_guide: first_run::FirstRunGuide,
     restoring_model_selection: RefCell<bool>,
     restoring_conversation_selection: RefCell<bool>,
@@ -484,6 +489,23 @@ fn bind_actions(
     ui.refresh_button.connect_clicked(move |_| {
         refresh_models(&target_ui, &target_backend);
     });
+
+    let target_ui = Rc::clone(ui);
+    let target_backend = Rc::clone(backend);
+    ui.conversation_search_entry
+        .connect_search_changed(move |_| conversation_list::refresh(&target_ui, &target_backend));
+
+    let target_ui = Rc::clone(ui);
+    let target_backend = Rc::clone(backend);
+    ui.archived_conversations_button
+        .connect_toggled(move |button| {
+            button.set_tooltip_text(Some(if button.is_active() {
+                "Hide Archived Chats"
+            } else {
+                "Show Archived Chats"
+            }));
+            conversation_list::refresh(&target_ui, &target_backend);
+        });
 
     let target_ui = Rc::clone(ui);
     let target_backend = Rc::clone(backend);

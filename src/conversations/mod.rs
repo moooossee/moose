@@ -23,6 +23,7 @@ pub struct Conversation {
     pub created_at: String,
     pub updated_at: String,
     pub archived_at: Option<String>,
+    pub pinned_at: Option<String>,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -136,6 +137,7 @@ impl NewConversation {
             created_at: timestamp.clone(),
             updated_at: timestamp,
             archived_at: None,
+            pinned_at: None,
         })
     }
 }

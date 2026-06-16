@@ -27,9 +27,9 @@ impl ConversationRepository {
 
         self.connection.execute(
             "INSERT INTO conversations (
-                id, provider_id, model_id, title, created_at, updated_at, archived_at
+                id, provider_id, model_id, title, created_at, updated_at, archived_at, pinned_at
              )
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
             params![
                 conversation.id,
                 conversation.provider_id,
@@ -38,6 +38,7 @@ impl ConversationRepository {
                 conversation.created_at,
                 conversation.updated_at,
                 conversation.archived_at,
+                conversation.pinned_at,
             ],
         )?;
 
@@ -47,10 +48,10 @@ impl ConversationRepository {
     pub fn list_recent(&self, limit: usize) -> Result<Vec<Conversation>> {
         let limit = i64::try_from(limit)?;
         let mut statement = self.connection.prepare(
-            "SELECT id, provider_id, model_id, title, created_at, updated_at, archived_at
+            "SELECT id, provider_id, model_id, title, created_at, updated_at, archived_at, pinned_at
              FROM conversations
              WHERE archived_at IS NULL
-             ORDER BY updated_at DESC, created_at DESC
+             ORDER BY pinned_at IS NULL ASC, pinned_at DESC, updated_at DESC, created_at DESC
              LIMIT ?1",
         )?;
         let conversations = statement
@@ -63,7 +64,7 @@ impl ConversationRepository {
         let limit = i64::try_from(limit)?;
         let mut statement = self.connection.prepare(
             "SELECT
-                c.id, c.provider_id, c.model_id, c.title, c.created_at, c.updated_at, c.archived_at,
+                c.id, c.provider_id, c.model_id, c.title, c.created_at, c.updated_at, c.archived_at, c.pinned_at,
                 m.id, m.conversation_id, m.role, m.content, m.status, m.token_count, m.created_at, m.completed_at
              FROM conversations c
              LEFT JOIN messages m ON m.id = (
@@ -74,7 +75,7 @@ impl ConversationRepository {
                 LIMIT 1
              )
              WHERE c.archived_at IS NULL
-             ORDER BY c.updated_at DESC, c.created_at DESC
+             ORDER BY c.pinned_at IS NULL ASC, c.pinned_at DESC, c.updated_at DESC, c.created_at DESC
              LIMIT ?1",
         )?;
         let summaries = statement
@@ -86,7 +87,7 @@ impl ConversationRepository {
     pub fn get(&self, id: &str) -> Result<Option<Conversation>> {
         self.connection
             .query_row(
-                "SELECT id, provider_id, model_id, title, created_at, updated_at, archived_at
+                "SELECT id, provider_id, model_id, title, created_at, updated_at, archived_at, pinned_at
                  FROM conversations
                  WHERE id = ?1",
                 params![id],
@@ -113,13 +114,91 @@ impl ConversationRepository {
         self.get_required(&update.id)
     }
 
+    pub fn search_summaries(
+        &self,
+        query: &str,
+        include_archived: bool,
+        limit: usize,
+    ) -> Result<Vec<ConversationSummary>> {
+        let limit = i64::try_from(limit)?;
+        let query = query.trim();
+        let pattern = like_pattern(query);
+        let archived = if include_archived { 1_i64 } else { 0_i64 };
+        let mut statement = self.connection.prepare(
+            "SELECT
+                c.id, c.provider_id, c.model_id, c.title, c.created_at, c.updated_at, c.archived_at, c.pinned_at,
+                m.id, m.conversation_id, m.role, m.content, m.status, m.token_count, m.created_at, m.completed_at
+             FROM conversations c
+             LEFT JOIN messages m ON m.id = (
+                SELECT id
+                FROM messages
+                WHERE conversation_id = c.id
+                ORDER BY created_at DESC, id DESC
+                LIMIT 1
+             )
+             WHERE (?1 = 1 OR c.archived_at IS NULL)
+               AND (
+                    ?2 = ''
+                    OR c.title LIKE ?3 ESCAPE '\\'
+                    OR EXISTS (
+                        SELECT 1
+                        FROM messages sm
+                        WHERE sm.conversation_id = c.id
+                          AND sm.content LIKE ?3 ESCAPE '\\'
+                    )
+               )
+             ORDER BY c.pinned_at IS NULL ASC, c.pinned_at DESC, c.updated_at DESC, c.created_at DESC
+             LIMIT ?4",
+        )?;
+        let summaries = statement
+            .query_map(
+                params![archived, query, pattern, limit],
+                conversation_summary_from_row,
+            )?
+            .collect::<std::result::Result<Vec<_>, _>>()?;
+        Ok(summaries)
+    }
+
     pub fn archive(&self, id: &str) -> Result<Conversation> {
         let timestamp = utc_now();
         let changed = self.connection.execute(
             "UPDATE conversations
-             SET archived_at = ?1, updated_at = ?1
+             SET archived_at = ?1, pinned_at = NULL, updated_at = ?1
              WHERE id = ?2",
             params![timestamp, id],
+        )?;
+
+        if changed == 0 {
+            return Err(MooseError::ConversationNotFound);
+        }
+
+        self.get_required(id)
+    }
+
+    pub fn unarchive(&self, id: &str) -> Result<Conversation> {
+        let timestamp = utc_now();
+        let changed = self.connection.execute(
+            "UPDATE conversations
+             SET archived_at = NULL, updated_at = ?1
+             WHERE id = ?2",
+            params![timestamp, id],
+        )?;
+
+        if changed == 0 {
+            return Err(MooseError::ConversationNotFound);
+        }
+
+        self.get_required(id)
+    }
+
+    pub fn set_pinned(&self, id: &str, pinned: bool) -> Result<Conversation> {
+        let timestamp = utc_now();
+        let pinned_at = pinned.then(|| timestamp.clone());
+        let changed = self.connection.execute(
+            "UPDATE conversations
+             SET pinned_at = ?1, updated_at = ?2
+             WHERE id = ?3",
+            params![pinned_at, timestamp, id],
         )?;
 
         if changed == 0 {
@@ -354,6 +433,7 @@ fn conversation_from_row(row: &Row<'_>) -> rusqlite::Result<Conversation> {
         created_at: row.get(4)?,
         updated_at: row.get(5)?,
         archived_at: row.get(6)?,
+        pinned_at: row.get(7)?,
     })
 }
 
@@ -366,34 +446,35 @@ fn conversation_summary_from_row(row: &Row<'_>) -> rusqlite::Result<Conversation
         created_at: row.get(4)?,
         updated_at: row.get(5)?,
         archived_at: row.get(6)?,
+        pinned_at: row.get(7)?,
     };
-    let message_id: Option<String> = row.get(7)?;
+    let message_id: Option<String> = row.get(8)?;
     let message = message_id
         .map(|id| {
-            let role: String = row.get(9)?;
-            let status: String = row.get(11)?;
+            let role: String = row.get(10)?;
+            let status: String = row.get(12)?;
 
             Ok::<Message, rusqlite::Error>(Message {
                 id,
-                conversation_id: row.get(8)?,
+                conversation_id: row.get(9)?,
                 role: role.parse::<MessageRole>().map_err(|error| {
                     rusqlite::Error::FromSqlConversionFailure(
-                        9,
+                        10,
                         rusqlite::types::Type::Text,
                         Box::new(error),
                     )
                 })?,
-                content: row.get(10)?,
+                content: row.get(11)?,
                 status: status.parse::<MessageStatus>().map_err(|error| {
                     rusqlite::Error::FromSqlConversionFailure(
-                        11,
+                        12,
                         rusqlite::types::Type::Text,
                         Box::new(error),
                     )
                 })?,
-                token_count: row.get(12)?,
-                created_at: row.get(13)?,
-                completed_at: row.get(14)?,
+                token_count: row.get(13)?,
+                created_at: row.get(14)?,
+                completed_at: row.get(15)?,
             })
         })
         .transpose()?;
@@ -401,6 +482,22 @@ fn conversation_summary_from_row(row: &Row<'_>) -> rusqlite::Result<Conversation
         conversation,
         message,
     ))
+}
+
+fn like_pattern(value: &str) -> String {
+    let mut pattern = String::with_capacity(value.len() + 2);
+    pattern.push('%');
+    for character in value.chars() {
+        match character {
+            '%' | '_' | '\\' => {
+                pattern.push('\\');
+                pattern.push(character);
+            }
+            _ => pattern.push(character),
+        }
+    }
+    pattern.push('%');
+    pattern
 }
 
 fn message_from_row(row: &Row<'_>) -> rusqlite::Result<Message> {
