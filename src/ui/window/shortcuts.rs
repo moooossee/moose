@@ -75,12 +75,7 @@ pub(super) const DEFINITIONS: &[ShortcutDefinition] = &[
 pub(super) fn defaults() -> HashMap<String, String> {
     DEFINITIONS
         .iter()
-        .map(|definition| {
-            (
-                definition.id.to_string(),
-                definition.default.to_string(),
-            )
-        })
+        .map(|definition| (definition.id.to_string(), definition.default.to_string()))
         .collect()
 }
 
@@ -169,10 +164,7 @@ pub(super) fn parse(value: &str) -> Result<Option<ShortcutChord>, String> {
     }))
 }
 
-pub(super) fn event_chord(
-    key: gdk::Key,
-    state: gdk::ModifierType,
-) -> Option<ShortcutChord> {
+pub(super) fn event_chord(key: gdk::Key, state: gdk::ModifierType) -> Option<ShortcutChord> {
     let key = event_key_name(key)?;
     Some(ShortcutChord {
         ctrl: state.contains(gdk::ModifierType::CONTROL_MASK),

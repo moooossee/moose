@@ -10,9 +10,9 @@ use crate::providers::{
 
 use super::{
     Backend, WindowUi, active_provider, apply_active_provider, clear_active_provider,
-    provider_change_is_blocked, refresh_models, show_error, update_provider_summary, widgets,
-    reset_shortcut_values, save_shortcut_values, set_shortcut_capture_active, shortcut_values,
-    shortcuts,
+    provider_change_is_blocked, refresh_models, reset_shortcut_values, save_shortcut_values,
+    set_shortcut_capture_active, shortcut_values, shortcuts, show_error, update_provider_summary,
+    widgets,
 };
 
 pub(super) fn dialog(

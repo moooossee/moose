@@ -42,8 +42,8 @@ mod model_actions;
 mod model_manager;
 mod preferences;
 mod provider_controls;
-mod sidebar;
 mod shortcuts;
+mod sidebar;
 mod widgets;
 
 use provider_controls::show_connect_external_dialog;
@@ -591,10 +591,9 @@ fn bind_actions(
 
     let target_ui = Rc::clone(ui);
     let target_backend = Rc::clone(backend);
-    ui.stop_button
-        .connect_clicked(move |_| {
-            stop_generation_action(&target_ui, &target_backend, true);
-        });
+    ui.stop_button.connect_clicked(move |_| {
+        stop_generation_action(&target_ui, &target_backend, true);
+    });
 
     let target_ui = Rc::clone(ui);
     let target_backend = Rc::clone(backend);
@@ -761,11 +760,7 @@ fn show_preferences_action(
     preferences::dialog(parent, ui, backend).present(Some(parent));
 }
 
-fn stop_generation_action(
-    ui: &Rc<WindowUi>,
-    backend: &Rc<Backend>,
-    notify_inactive: bool,
-) -> bool {
+fn stop_generation_action(ui: &Rc<WindowUi>, backend: &Rc<Backend>, notify_inactive: bool) -> bool {
     match backend.cancel_generation() {
         Ok(true) => {
             finish_generation(ui);
@@ -802,7 +797,8 @@ fn focus_chat_search_action(ui: &Rc<WindowUi>) {
 }
 
 fn toggle_sidebar_action(ui: &Rc<WindowUi>) {
-    ui.split_view.set_show_sidebar(!ui.split_view.shows_sidebar());
+    ui.split_view
+        .set_show_sidebar(!ui.split_view.shows_sidebar());
 }
 
 fn shortcut_values(backend: &Backend) -> HashMap<String, String> {
