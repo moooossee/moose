@@ -38,6 +38,14 @@
   </screenshots>
   <content_rating type="oars-1.1" />
   <releases>
+    <release version="0.4.3" date="2026-06-17">
+      <url type="details">https://github.com/moooossee/moose/releases/tag/v0.4.3</url>
+      <description>
+        <p>Adds GPU acceleration support for managed Ollama through Vulkan when available.</p>
+        <p>Adds a managed hardware preference so GPU acceleration can be enabled or disabled.</p>
+        <p>Shows the active managed Ollama acceleration backend in the provider status.</p>
+      </description>
+    </release>
     <release version="0.4.2" date="2026-06-16">
       <url type="details">https://github.com/moooossee/moose/releases/tag/v0.4.2</url>
       <description>

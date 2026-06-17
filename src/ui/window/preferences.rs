@@ -10,7 +10,8 @@ use crate::providers::{
 
 use super::{
     Backend, WindowUi, active_provider, apply_active_provider, clear_active_provider,
-    provider_change_is_blocked, refresh_models, reset_shortcut_values, save_shortcut_values,
+    managed_acceleration_label, managed_gpu_enabled, provider_change_is_blocked, refresh_models,
+    reset_shortcut_values, save_managed_gpu_acceleration, save_shortcut_values,
     set_shortcut_capture_active, shortcut_values, shortcuts, show_error, update_provider_summary,
     widgets,
 };
@@ -99,6 +100,33 @@ pub(super) fn dialog(
     provider_group.add(&url_row);
     provider_group.add(&action_box);
     provider_page.add(&provider_group);
+
+    let managed_gpu_switch = provider_is_managed.then(|| {
+        let managed_group = adw::PreferencesGroup::builder()
+            .title("Managed Hardware")
+            .description("Moose asks managed Ollama to use local GPU acceleration when available.")
+            .build();
+        let gpu_row = adw::ActionRow::builder()
+            .title("GPU Acceleration")
+            .subtitle("Attempts GPU acceleration when supported.")
+            .subtitle_lines(2)
+            .build();
+        let gpu_switch = gtk::Switch::builder()
+            .active(managed_gpu_enabled(backend))
+            .valign(Align::Center)
+            .build();
+        gpu_row.add_suffix(&gpu_switch);
+        gpu_row.set_activatable_widget(Some(&gpu_switch));
+        managed_group.add(&gpu_row);
+        managed_group.add(
+            &adw::ActionRow::builder()
+                .title("Current Acceleration")
+                .subtitle(managed_acceleration_label(backend))
+                .build(),
+        );
+        provider_page.add(&managed_group);
+        gpu_switch
+    });
 
     let privacy_page = adw::PreferencesPage::builder()
         .title("Privacy")
@@ -196,6 +224,33 @@ pub(super) fn dialog(
                 && let Ok(base_url) = managed_ollama_base_url(port)
             {
                 target_url_row.set_text(&base_url);
+            }
+        });
+    }
+
+    if let Some(gpu_switch) = managed_gpu_switch {
+        let target_dialog = dialog.clone();
+        let target_ui = Rc::clone(ui);
+        let target_backend = Rc::clone(backend);
+        gpu_switch.connect_active_notify(move |switch| {
+            if provider_change_is_blocked(&target_ui, &target_backend) {
+                switch.set_active(managed_gpu_enabled(&target_backend));
+                return;
+            }
+
+            match save_managed_gpu_acceleration(&target_backend, switch.is_active()) {
+                Ok(changed) => {
+                    target_ui
+                        .toast_overlay
+                        .add_toast(adw::Toast::new("Managed hardware setting saved"));
+                    if changed {
+                        refresh_models(&target_ui, &target_backend);
+                    }
+                }
+                Err(message) => {
+                    target_dialog.add_toast(adw::Toast::new(&message));
+                    switch.set_active(managed_gpu_enabled(&target_backend));
+                }
             }
         });
     }

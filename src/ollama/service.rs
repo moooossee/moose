@@ -44,6 +44,21 @@ pub struct ManagedOllamaConfig {
     pub cache_dir: PathBuf,
     pub config_dir: PathBuf,
     pub log_path: PathBuf,
+    pub gpu: ManagedOllamaGpuConfig,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct ManagedOllamaGpuConfig {
+    pub vulkan: bool,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum ManagedOllamaAcceleration {
+    Unknown,
+    Cpu,
+    Vulkan,
+    Rocm,
+    Cuda,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -62,17 +77,38 @@ pub struct ManagedOllamaService {
 
 impl ManagedOllamaConfig {
     pub fn from_paths(paths: &AppPaths) -> Self {
-        Self::from_paths_for_port(paths, MANAGED_OLLAMA_DEFAULT_PORT)
+        Self::from_paths_for_port(
+            paths,
+            MANAGED_OLLAMA_DEFAULT_PORT,
+            ManagedOllamaGpuConfig::default(),
+        )
     }
 
     pub fn from_paths_with_port(paths: &AppPaths, port: u16) -> Result<Self> {
         Ok(Self::from_paths_for_port(
             paths,
             validate_managed_ollama_port(port)?,
+            ManagedOllamaGpuConfig::default(),
         ))
     }
 
-    fn from_paths_for_port(paths: &AppPaths, port: u16) -> Self {
+    pub fn from_paths_with_gpu(paths: &AppPaths, gpu: ManagedOllamaGpuConfig) -> Self {
+        Self::from_paths_for_port(paths, MANAGED_OLLAMA_DEFAULT_PORT, gpu)
+    }
+
+    pub fn from_paths_with_port_and_gpu(
+        paths: &AppPaths,
+        port: u16,
+        gpu: ManagedOllamaGpuConfig,
+    ) -> Result<Self> {
+        Ok(Self::from_paths_for_port(
+            paths,
+            validate_managed_ollama_port(port)?,
+            gpu,
+        ))
+    }
+
+    fn from_paths_for_port(paths: &AppPaths, port: u16, gpu: ManagedOllamaGpuConfig) -> Self {
         Self {
             binary_path: paths.ollama_binary_path(),
             host: managed_ollama_host_for_port(port),
@@ -82,11 +118,12 @@ impl ManagedOllamaConfig {
             cache_dir: paths.cache_dir().to_path_buf(),
             config_dir: paths.config_dir().to_path_buf(),
             log_path: paths.ollama_log_path(),
+            gpu,
         }
     }
 
-    fn environment(&self) -> [(&'static str, OsString); 7] {
-        [
+    fn environment(&self) -> Vec<(&'static str, OsString)> {
+        let mut environment = vec![
             ("HOME", self.home_dir.as_os_str().to_os_string()),
             ("XDG_DATA_HOME", self.home_dir.as_os_str().to_os_string()),
             ("XDG_CACHE_HOME", self.cache_dir.as_os_str().to_os_string()),
@@ -100,7 +137,30 @@ impl ManagedOllamaConfig {
                 "OLLAMA_ORIGINS",
                 OsString::from(managed_ollama_origin(&self.host)),
             ),
-        ]
+        ];
+        environment.push((
+            "OLLAMA_VULKAN",
+            OsString::from(if self.gpu.vulkan { "1" } else { "0" }),
+        ));
+        environment
+    }
+}
+
+impl Default for ManagedOllamaGpuConfig {
+    fn default() -> Self {
+        Self { vulkan: true }
+    }
+}
+
+impl ManagedOllamaAcceleration {
+    pub const fn label(self) -> &'static str {
+        match self {
+            Self::Unknown => "Unknown",
+            Self::Cpu => "CPU",
+            Self::Vulkan => "Vulkan",
+            Self::Rocm => "ROCm",
+            Self::Cuda => "CUDA",
+        }
     }
 }
 
@@ -109,9 +169,23 @@ impl ManagedOllamaService {
         Self::with_config(ManagedOllamaConfig::from_paths(paths))
     }
 
+    pub fn new_with_gpu(paths: &AppPaths, gpu: ManagedOllamaGpuConfig) -> Self {
+        Self::with_config(ManagedOllamaConfig::from_paths_with_gpu(paths, gpu))
+    }
+
     pub fn new_with_port(paths: &AppPaths, port: u16) -> Result<Self> {
         Ok(Self::with_config(
             ManagedOllamaConfig::from_paths_with_port(paths, port)?,
+        ))
+    }
+
+    pub fn new_with_port_and_gpu(
+        paths: &AppPaths,
+        port: u16,
+        gpu: ManagedOllamaGpuConfig,
+    ) -> Result<Self> {
+        Ok(Self::with_config(
+            ManagedOllamaConfig::from_paths_with_port_and_gpu(paths, port, gpu)?,
         ))
     }
 
@@ -129,6 +203,10 @@ impl ManagedOllamaService {
 
     pub fn state(&self) -> &ManagedOllamaServiceState {
         &self.state
+    }
+
+    pub fn acceleration(&self) -> ManagedOllamaAcceleration {
+        detect_managed_ollama_acceleration(&self.config.log_path)
     }
 
     pub fn ensure_started(&mut self) -> Result<()> {
@@ -307,6 +385,29 @@ impl ManagedOllamaService {
     }
 }
 
+pub fn detect_managed_ollama_acceleration(log_path: &Path) -> ManagedOllamaAcceleration {
+    let Ok(content) = fs::read_to_string(log_path) else {
+        return ManagedOllamaAcceleration::Unknown;
+    };
+
+    for line in content.lines().rev().map(str::to_ascii_lowercase) {
+        if line.contains("library=cuda") {
+            return ManagedOllamaAcceleration::Cuda;
+        }
+        if line.contains("library=rocm") {
+            return ManagedOllamaAcceleration::Rocm;
+        }
+        if line.contains("library=vulkan") {
+            return ManagedOllamaAcceleration::Vulkan;
+        }
+        if line.contains("library=cpu") {
+            return ManagedOllamaAcceleration::Cpu;
+        }
+    }
+
+    ManagedOllamaAcceleration::Unknown
+}
+
 impl Drop for ManagedOllamaService {
     fn drop(&mut self) {
         self.shutdown();
@@ -413,7 +514,7 @@ fn terminate_child(child: &mut Child) {
 
 #[cfg(test)]
 mod tests {
-    use super::{ManagedOllamaConfig, managed_ollama_origin};
+    use super::{ManagedOllamaAcceleration, ManagedOllamaConfig, managed_ollama_origin};
     use crate::platform::AppPaths;
     use std::{ffi::OsString, path::PathBuf};
 
@@ -439,6 +540,40 @@ mod tests {
             .find_map(|(key, value)| (*key == "OLLAMA_ORIGINS").then_some(value));
 
         assert_eq!(origins, Some(&OsString::from("http://127.0.0.1:11435")));
+    }
+
+    #[test]
+    fn managed_ollama_environment_enables_vulkan_by_default() {
+        let paths = AppPaths::from_base_dirs(
+            PathBuf::from("/tmp/moose-data"),
+            PathBuf::from("/tmp/moose-cache"),
+            PathBuf::from("/tmp/moose-config"),
+        );
+        let config = ManagedOllamaConfig::from_paths(&paths);
+        let environment = config.environment();
+
+        assert_eq!(
+            environment_value(&environment, "OLLAMA_VULKAN"),
+            Some(&OsString::from("1"))
+        );
+    }
+
+    #[test]
+    fn managed_ollama_acceleration_detects_latest_backend_line() {
+        let path =
+            std::env::temp_dir().join(format!("moose-ollama-log-{}.txt", std::process::id()));
+        std::fs::write(
+            &path,
+            "msg=\"loaded runner\" library=cpu\nmsg=\"loaded runner\" library=Vulkan\n",
+        )
+        .unwrap();
+
+        assert_eq!(
+            super::detect_managed_ollama_acceleration(&path),
+            ManagedOllamaAcceleration::Vulkan
+        );
+
+        let _ = std::fs::remove_file(path);
     }
 
     #[test]

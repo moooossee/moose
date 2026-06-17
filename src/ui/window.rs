@@ -20,7 +20,10 @@ use crate::{
         NewConversation, NewGenerationSettings, NewMessage,
     },
     error::{MooseError, Result},
-    ollama::{OllamaClient, OllamaModel, service::ManagedOllamaService},
+    ollama::{
+        OllamaClient, OllamaModel,
+        service::{ManagedOllamaAcceleration, ManagedOllamaGpuConfig, ManagedOllamaService},
+    },
     platform::AppPaths,
     providers::{Provider, managed_ollama_port_from_base_url},
     storage::{
@@ -52,6 +55,7 @@ const CHAT_CSS: &str = include_str!("../../data/io.github.moooossee.Moose.css");
 const TITLE_SYSTEM_PROMPT: &str = "You are an assistant that generates short chat titles based on the prompt. If you want to, you can add a single emoji. Format the response as a single JSON object.";
 const TITLE_MAX_CHARS: usize = 30;
 const SETTINGS_SELECTED_MODELS: &str = "selected-models";
+const SETTINGS_MANAGED_GPU_ACCELERATION: &str = "managed-gpu-acceleration";
 const MANAGED_OLLAMA_READY_TIMEOUT: Duration = Duration::from_secs(20);
 const STARTER_MODEL: &str = "llama3.2:1b";
 
@@ -196,6 +200,7 @@ struct Backend {
     download_job_repository: DownloadJobRepository,
     provider: RefCell<Option<Provider>>,
     managed_ollama: ManagedOllamaHandle,
+    managed_gpu: RefCell<ManagedOllamaGpuConfig>,
     settings: Option<gio::Settings>,
     selected_models: RefCell<HashMap<String, String>>,
     shortcuts: RefCell<HashMap<String, String>>,
@@ -252,6 +257,7 @@ enum ModelLoadEvent {
         available: bool,
         status: String,
         models: Vec<OllamaModel>,
+        acceleration: Option<ManagedOllamaAcceleration>,
     },
     Failed(String),
 }
@@ -302,6 +308,14 @@ fn app_settings() -> Option<gio::Settings> {
         .map(|schema| gio::Settings::new_full(&schema, gio::SettingsBackend::NONE, None))
 }
 
+fn managed_gpu_config(settings: Option<&gio::Settings>) -> ManagedOllamaGpuConfig {
+    ManagedOllamaGpuConfig {
+        vulkan: settings
+            .map(|settings| settings.get(SETTINGS_MANAGED_GPU_ACCELERATION))
+            .unwrap_or(true),
+    }
+}
+
 impl Backend {
     fn new() -> Result<Self> {
         let paths = AppPaths::new("moose")?;
@@ -312,8 +326,12 @@ impl Backend {
         let profile_repository = ProfileRepository::new(Rc::clone(&connection));
         let download_job_repository = DownloadJobRepository::new(connection);
         let provider = repository.ensure_default_provider()?;
-        let managed_ollama = Arc::new(tokio::sync::Mutex::new(ManagedOllamaService::new(&paths)));
         let settings = app_settings();
+        let managed_gpu = managed_gpu_config(settings.as_ref());
+        let managed_ollama = Arc::new(tokio::sync::Mutex::new(ManagedOllamaService::new_with_gpu(
+            &paths,
+            managed_gpu.clone(),
+        )));
         let selected_models = settings
             .as_ref()
             .map(|settings| settings.get(SETTINGS_SELECTED_MODELS))
@@ -336,6 +354,7 @@ impl Backend {
             download_job_repository,
             provider: RefCell::new(provider),
             managed_ollama,
+            managed_gpu: RefCell::new(managed_gpu),
             settings,
             selected_models: RefCell::new(selected_models),
             shortcuts: RefCell::new(shortcuts),
@@ -402,6 +421,7 @@ impl Backend {
 async fn prepared_ollama_client(
     paths: AppPaths,
     managed_ollama: ManagedOllamaHandle,
+    managed_gpu: ManagedOllamaGpuConfig,
     provider: Provider,
 ) -> Result<OllamaClient> {
     if !provider.is_managed {
@@ -410,9 +430,9 @@ async fn prepared_ollama_client(
 
     let port = managed_ollama_port_from_base_url(&provider.base_url)?;
     let mut service = managed_ollama.lock().await;
-    if service.config().base_url != provider.base_url {
+    if service.config().base_url != provider.base_url || service.config().gpu != managed_gpu {
         service.shutdown();
-        *service = ManagedOllamaService::new_with_port(&paths, port)?;
+        *service = ManagedOllamaService::new_with_port_and_gpu(&paths, port, managed_gpu)?;
     }
     service.ensure_ready(MANAGED_OLLAMA_READY_TIMEOUT).await?;
     OllamaClient::new(&service.config().base_url)
@@ -836,6 +856,38 @@ fn reset_shortcut_values(
     Ok(values)
 }
 
+fn managed_gpu_enabled(backend: &Backend) -> bool {
+    backend.managed_gpu.borrow().vulkan
+}
+
+fn managed_acceleration_label(backend: &Backend) -> &'static str {
+    crate::ollama::service::detect_managed_ollama_acceleration(&backend.paths.ollama_log_path())
+        .label()
+}
+
+fn save_managed_gpu_acceleration(
+    backend: &Backend,
+    enabled: bool,
+) -> std::result::Result<bool, String> {
+    let Some(settings) = backend.settings.as_ref() else {
+        return Err("Application settings are unavailable".to_string());
+    };
+    settings
+        .set(SETTINGS_MANAGED_GPU_ACCELERATION, enabled)
+        .map_err(|_| "GPU acceleration setting could not be saved".to_string())?;
+
+    let mut config = backend.managed_gpu.borrow_mut();
+    let changed = config.vulkan != enabled;
+    config.vulkan = enabled;
+    drop(config);
+
+    if changed {
+        backend.stop_managed_ollama();
+    }
+
+    Ok(changed)
+}
+
 fn provider_change_is_blocked(ui: &Rc<WindowUi>, backend: &Rc<Backend>) -> bool {
     if backend.active_generation.borrow().is_some() {
         ui.toast_overlay
@@ -937,30 +989,41 @@ fn refresh_models(ui: &Rc<WindowUi>, backend: &Rc<Backend>) {
     let (sender, receiver) = mpsc::channel();
     let paths = backend.paths.clone();
     let managed_ollama = Arc::clone(&backend.managed_ollama);
+    let managed_gpu = backend.managed_gpu.borrow().clone();
     backend.runtime.spawn(async move {
-        let client = match prepared_ollama_client(paths, managed_ollama, provider).await {
-            Ok(client) => client,
-            Err(error) => {
-                let _ = sender.send(ModelLoadEvent::Failed(error.to_string()));
-                return;
-            }
-        };
+        let client =
+            match prepared_ollama_client(paths, Arc::clone(&managed_ollama), managed_gpu, provider)
+                .await
+            {
+                Ok(client) => client,
+                Err(error) => {
+                    let _ = sender.send(ModelLoadEvent::Failed(error.to_string()));
+                    return;
+                }
+            };
         let health = client.health().await;
         if !health.available {
             let _ = sender.send(ModelLoadEvent::Loaded {
                 available: false,
                 status: health.message,
                 models: Vec::new(),
+                acceleration: None,
             });
             return;
         }
 
         match client.list_models().await {
             Ok(models) => {
+                let acceleration = if provider_is_managed {
+                    Some(managed_ollama.lock().await.acceleration())
+                } else {
+                    None
+                };
                 let _ = sender.send(ModelLoadEvent::Loaded {
                     available: true,
                     status: health.message,
                     models,
+                    acceleration,
                 });
             }
             Err(error) => {
@@ -977,18 +1040,20 @@ fn refresh_models(ui: &Rc<WindowUi>, backend: &Rc<Backend>) {
                 available,
                 status,
                 models,
+                acceleration,
             }) => {
                 target_ui.refresh_button.set_sensitive(true);
                 target_ui.model_manager.refresh_button.set_sensitive(true);
-                target_ui.provider_status.set_text(if available {
+                let provider_status = if available {
                     if provider_is_managed {
-                        "Ready"
+                        managed_ready_status(acceleration)
                     } else {
-                        "Connected"
+                        "Connected".to_string()
                     }
                 } else {
-                    "Disconnected"
-                });
+                    "Disconnected".to_string()
+                };
+                target_ui.provider_status.set_text(&provider_status);
                 if !available {
                     if !provider_is_managed {
                         target_ui
@@ -1039,6 +1104,16 @@ fn refresh_models(ui: &Rc<WindowUi>, backend: &Rc<Backend>) {
             }
         }
     });
+}
+
+fn managed_ready_status(acceleration: Option<ManagedOllamaAcceleration>) -> String {
+    match acceleration {
+        Some(ManagedOllamaAcceleration::Cpu) => "Ready (CPU)".to_string(),
+        Some(ManagedOllamaAcceleration::Vulkan) => "Ready (Vulkan)".to_string(),
+        Some(ManagedOllamaAcceleration::Rocm) => "Ready (ROCm)".to_string(),
+        Some(ManagedOllamaAcceleration::Cuda) => "Ready (CUDA)".to_string(),
+        Some(ManagedOllamaAcceleration::Unknown) | None => "Ready".to_string(),
+    }
 }
 
 fn send_message(ui: &Rc<WindowUi>, backend: &Rc<Backend>) {
@@ -1172,14 +1247,16 @@ fn send_message(ui: &Rc<WindowUi>, backend: &Rc<Backend>) {
     let (sender, receiver) = mpsc::channel();
     let paths = backend.paths.clone();
     let managed_ollama = Arc::clone(&backend.managed_ollama);
+    let managed_gpu = backend.managed_gpu.borrow().clone();
     let handle = backend.runtime.spawn(async move {
-        let client = match prepared_ollama_client(paths, managed_ollama, provider).await {
-            Ok(client) => client,
-            Err(error) => {
-                let _ = sender.send(ChatUiEvent::Failed(error.to_string()));
-                return;
-            }
-        };
+        let client =
+            match prepared_ollama_client(paths, managed_ollama, managed_gpu, provider).await {
+                Ok(client) => client,
+                Err(error) => {
+                    let _ = sender.send(ChatUiEvent::Failed(error.to_string()));
+                    return;
+                }
+            };
         let result = client
             .stream_chat(request, |event| match event {
                 ChatStreamEvent::Token(token) => {
@@ -1579,8 +1656,10 @@ fn generate_conversation_title(
     };
     let paths = backend.paths.clone();
     let managed_ollama = Arc::clone(&backend.managed_ollama);
+    let managed_gpu = backend.managed_gpu.borrow().clone();
     backend.runtime.spawn(async move {
-        let event = match prepared_ollama_client(paths, managed_ollama, provider).await {
+        let event = match prepared_ollama_client(paths, managed_ollama, managed_gpu, provider).await
+        {
             Ok(client) => match generate_model_title(client, &fallback_model, &prompt).await {
                 Ok(title) => TitleUiEvent::Generated(title),
                 Err(_) => TitleUiEvent::Failed,

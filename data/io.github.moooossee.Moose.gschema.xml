@@ -11,5 +11,10 @@
       <summary>Keyboard shortcuts</summary>
       <description>User-defined global keyboard shortcuts.</description>
     </key>
+    <key name="managed-gpu-acceleration" type="b">
+      <default>true</default>
+      <summary>Managed GPU acceleration</summary>
+      <description>Whether Moose should ask managed Ollama to use Vulkan acceleration when available.</description>
+    </key>
   </schema>
 </schemalist>

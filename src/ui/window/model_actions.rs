@@ -449,14 +449,16 @@ fn start_model_pull(ui: &Rc<WindowUi>, backend: &Rc<Backend>, model: String) {
     let pull_id = job.id.clone();
     let paths = backend.paths.clone();
     let managed_ollama = Arc::clone(&backend.managed_ollama);
+    let managed_gpu = backend.managed_gpu.borrow().clone();
     let handle = backend.runtime.spawn(async move {
-        let client = match prepared_ollama_client(paths, managed_ollama, provider).await {
-            Ok(client) => client,
-            Err(error) => {
-                let _ = sender.send(ModelPullUiEvent::Failed(error.to_string()));
-                return;
-            }
-        };
+        let client =
+            match prepared_ollama_client(paths, managed_ollama, managed_gpu, provider).await {
+                Ok(client) => client,
+                Err(error) => {
+                    let _ = sender.send(ModelPullUiEvent::Failed(error.to_string()));
+                    return;
+                }
+            };
         let progress_sender = sender.clone();
         let result = client
             .pull_model(&target_model, |progress| {
@@ -676,14 +678,16 @@ fn start_model_delete(ui: &Rc<WindowUi>, backend: &Rc<Backend>, model: String) {
     };
     let paths = backend.paths.clone();
     let managed_ollama = Arc::clone(&backend.managed_ollama);
+    let managed_gpu = backend.managed_gpu.borrow().clone();
     let handle = backend.runtime.spawn(async move {
-        let client = match prepared_ollama_client(paths, managed_ollama, provider).await {
-            Ok(client) => client,
-            Err(error) => {
-                let _ = sender.send(ModelDeleteUiEvent::Failed(error.to_string()));
-                return;
-            }
-        };
+        let client =
+            match prepared_ollama_client(paths, managed_ollama, managed_gpu, provider).await {
+                Ok(client) => client,
+                Err(error) => {
+                    let _ = sender.send(ModelDeleteUiEvent::Failed(error.to_string()));
+                    return;
+                }
+            };
         match client.delete_model(&target_model).await {
             Ok(()) => {
                 let _ = sender.send(ModelDeleteUiEvent::Done);

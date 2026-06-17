@@ -514,11 +514,15 @@ fn start_managed_ollama_after_configuration(
     let (sender, receiver) = mpsc::channel();
     let paths = backend.paths.clone();
     let managed_ollama = Arc::clone(&backend.managed_ollama);
+    let managed_gpu = backend.managed_gpu.borrow().clone();
     backend.runtime.spawn(async move {
-        let event = match start_managed_ollama_and_load_models(paths, managed_ollama, port).await {
-            Ok(models) => ManagedOllamaStartUiEvent::Ready(models),
-            Err(error) => ManagedOllamaStartUiEvent::Failed(error.to_string()),
-        };
+        let event =
+            match start_managed_ollama_and_load_models(paths, managed_ollama, managed_gpu, port)
+                .await
+            {
+                Ok(models) => ManagedOllamaStartUiEvent::Ready(models),
+                Err(error) => ManagedOllamaStartUiEvent::Failed(error.to_string()),
+            };
         let _ = sender.send(event);
     });
 
@@ -582,14 +586,15 @@ fn start_managed_ollama_after_configuration(
 async fn start_managed_ollama_and_load_models(
     paths: AppPaths,
     managed_ollama: ManagedOllamaHandle,
+    managed_gpu: crate::ollama::service::ManagedOllamaGpuConfig,
     port: u16,
 ) -> Result<Vec<OllamaModel>> {
     let base_url = {
         let expected_base_url = managed_ollama_base_url(port)?;
         let mut service = managed_ollama.lock().await;
-        if service.config().base_url != expected_base_url {
+        if service.config().base_url != expected_base_url || service.config().gpu != managed_gpu {
             service.shutdown();
-            *service = ManagedOllamaService::new_with_port(&paths, port)?;
+            *service = ManagedOllamaService::new_with_port_and_gpu(&paths, port, managed_gpu)?;
         }
         service.ensure_ready(MANAGED_OLLAMA_READY_TIMEOUT).await?;
         service.config().base_url.clone()

@@ -12,6 +12,7 @@ build-options:
 finish-args:
   - --share=network
   - --share=ipc
+  - --device=dri
   - --socket=fallback-x11
   - --socket=wayland
 modules:
