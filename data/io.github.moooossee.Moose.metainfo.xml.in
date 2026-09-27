@@ -37,15 +37,15 @@
   </branding>
   <screenshots>
     <screenshot type="default">
-      <image type="source" xml:lang="en">https://raw.githubusercontent.com/moooossee/moose/v0.5.0/data/screenshots/main.png</image>
+      <image type="source">https://raw.githubusercontent.com/moooossee/moose/v0.5.0/data/screenshots/main.png</image>
       <caption>Chat with local models and read formatted answers</caption>
     </screenshot>
     <screenshot>
-      <image type="source" xml:lang="en">https://raw.githubusercontent.com/moooossee/moose/v0.5.0/data/screenshots/instances.png</image>
+      <image type="source">https://raw.githubusercontent.com/moooossee/moose/v0.5.0/data/screenshots/instances.png</image>
       <caption>Set up Ollama or connect to an existing instance</caption>
     </screenshot>
     <screenshot>
-      <image type="source" xml:lang="en">https://raw.githubusercontent.com/moooossee/moose/v0.5.0/data/screenshots/model-manager.png</image>
+      <image type="source">https://raw.githubusercontent.com/moooossee/moose/v0.5.0/data/screenshots/model-manager.png</image>
       <caption>Browse and download models for your conversations</caption>
     </screenshot>
   </screenshots>
