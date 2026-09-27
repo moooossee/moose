@@ -97,17 +97,18 @@ pub fn search_expression(query: &str) -> String {
 
 pub fn decode_text(bytes: &[u8]) -> Result<String> {
     let text = if bytes.starts_with(&[0xff, 0xfe]) || bytes.starts_with(&[0xfe, 0xff]) {
-        if bytes.len() % 2 != 0 {
+        let (pairs, remainder) = bytes[2..].as_chunks::<2>();
+        if !remainder.is_empty() {
             return Err(error("This UTF-16 file is incomplete"));
         }
         let little = bytes[0] == 0xff;
-        let words = bytes[2..]
-            .chunks_exact(2)
+        let words = pairs
+            .iter()
             .map(|pair| {
                 if little {
-                    u16::from_le_bytes([pair[0], pair[1]])
+                    u16::from_le_bytes(*pair)
                 } else {
-                    u16::from_be_bytes([pair[0], pair[1]])
+                    u16::from_be_bytes(*pair)
                 }
             })
             .collect::<Vec<_>>();
