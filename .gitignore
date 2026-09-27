@@ -3,3 +3,7 @@
 /.flatpak-builder/
 /repo/
 /build/
+/build-dir/
+/builddir-native/
+/dist/
+*.flatpak

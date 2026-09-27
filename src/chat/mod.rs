@@ -3,7 +3,52 @@ use serde::{Deserialize, Serialize};
 use crate::conversations::{Message, MessageRole, MessageStatus};
 use crate::providers::validate_model_name;
 
-use crate::error::Result;
+use crate::error::{MooseError, Result};
+
+pub enum ChatSubmission {
+    New(String),
+    Edit { id: String, content: String },
+    Regenerate(String),
+}
+
+impl ChatSubmission {
+    pub fn prepare(&self, history: &[Message]) -> Result<(String, Vec<Message>)> {
+        let (content, end) = match self {
+            Self::New(content) => (content.as_str(), history.len()),
+            Self::Edit { id, content } => {
+                let index = history
+                    .iter()
+                    .position(|message| message.id == *id)
+                    .ok_or(MooseError::MessageNotFound)?;
+                if history[index].role != MessageRole::User {
+                    return Err(MooseError::InvalidMessageRole);
+                }
+                (content.as_str(), index)
+            }
+            Self::Regenerate(id) => {
+                let index = history
+                    .iter()
+                    .position(|message| message.id == *id)
+                    .ok_or(MooseError::MessageNotFound)?;
+                if history[index].role != MessageRole::Assistant
+                    || !history[index].status.is_finished()
+                {
+                    return Err(MooseError::InvalidMessageRole);
+                }
+                let user_index = index.checked_sub(1).ok_or(MooseError::MessageNotFound)?;
+                if history[user_index].role != MessageRole::User {
+                    return Err(MooseError::InvalidMessageRole);
+                }
+                (history[user_index].content.as_str(), user_index)
+            }
+        };
+        let content = crate::conversations::validate_message_content(
+            content.trim(),
+            &MessageStatus::Complete,
+        )?;
+        Ok((content, history[..end].to_vec()))
+    }
+}
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
@@ -16,12 +61,39 @@ pub enum ChatRole {
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct ChatMessage {
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub images: Vec<String>,
     pub role: ChatRole,
     pub content: String,
 }
 
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum ThinkingValue {
+    Enabled(bool),
+    Level(String),
+}
+
+impl ThinkingValue {
+    pub fn label(&self) -> String {
+        match self {
+            Self::Enabled(true) => "On".into(),
+            Self::Enabled(false) => "Off".into(),
+            Self::Level(level) => {
+                let mut chars = level.chars();
+                chars
+                    .next()
+                    .map(|first| first.to_uppercase().collect::<String>() + chars.as_str())
+                    .unwrap_or_default()
+            }
+        }
+    }
+}
+
 #[derive(Clone, Debug, PartialEq, Serialize)]
 pub struct ChatRequest {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub think: Option<ThinkingValue>,
     pub model: String,
     pub messages: Vec<ChatMessage>,
     pub stream: bool,
@@ -47,6 +119,7 @@ pub struct ChatOptions {
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum ChatStreamEvent {
+    Thinking(String),
     Token(String),
     Done,
 }
@@ -54,6 +127,7 @@ pub enum ChatStreamEvent {
 impl ChatMessage {
     pub fn system(content: impl Into<String>) -> Self {
         Self {
+            images: Vec::new(),
             role: ChatRole::System,
             content: content.into(),
         }
@@ -61,6 +135,7 @@ impl ChatMessage {
 
     pub fn user(content: impl Into<String>) -> Self {
         Self {
+            images: Vec::new(),
             role: ChatRole::User,
             content: content.into(),
         }
@@ -68,6 +143,7 @@ impl ChatMessage {
 
     pub fn assistant(content: impl Into<String>) -> Self {
         Self {
+            images: Vec::new(),
             role: ChatRole::Assistant,
             content: content.into(),
         }
@@ -77,6 +153,7 @@ impl ChatMessage {
 impl ChatRequest {
     pub fn streaming(model: impl AsRef<str>, messages: Vec<ChatMessage>) -> Result<Self> {
         Ok(Self {
+            think: None,
             model: validate_model_name(model.as_ref())?,
             messages,
             stream: true,

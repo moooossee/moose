@@ -26,6 +26,7 @@ struct ExportDocument<'a> {
     exported_at: &'a str,
     conversation: ExportConversation<'a>,
     messages: Vec<ExportMessage<'a>>,
+    assets: &'a std::collections::BTreeMap<String, ExportAsset>,
 }
 
 #[derive(Serialize)]
@@ -56,6 +57,16 @@ struct ExportMessage<'a> {
     status: &'a str,
     created_at: &'a str,
     completed_at: Option<&'a str>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    details: Option<&'a crate::storage::MessageDetails>,
+    attachments: &'a [crate::attachments::Asset],
+    sources: &'a [crate::attachments::Source],
+}
+
+#[derive(Serialize)]
+struct ExportAsset {
+    metadata: crate::attachments::Asset,
+    data_base64: String,
 }
 
 struct ExportData {
@@ -64,10 +75,16 @@ struct ExportData {
     model: Option<String>,
     exported_at: String,
     messages: Vec<Message>,
+    details: std::collections::HashMap<String, crate::storage::MessageDetails>,
+    attachments: std::collections::HashMap<String, Vec<crate::attachments::Asset>>,
+    sources: std::collections::HashMap<String, Vec<crate::attachments::Source>>,
+    assets: std::collections::BTreeMap<String, ExportAsset>,
 }
 
 pub(super) fn show_dialog(ui: &Rc<WindowUi>, backend: &Rc<Backend>, conversation_id: &str) {
-    if backend.active_generation.borrow().is_some() {
+    if backend.active_generation.borrow().is_some()
+        && backend.generation_context.borrow().conversation_id == conversation_id
+    {
         ui.toast_overlay
             .add_toast(adw::Toast::new("Finish the active generation first"));
         return;
@@ -75,7 +92,7 @@ pub(super) fn show_dialog(ui: &Rc<WindowUi>, backend: &Rc<Backend>, conversation
 
     let dialog = adw::AlertDialog::builder()
         .heading("Export Conversation")
-        .body("Choose a local file format.")
+        .body("JSON includes attachment copies. Markdown and plain text include attachment names. All formats include document source excerpts.")
         .close_response("cancel")
         .default_response("markdown")
         .build();
@@ -101,7 +118,7 @@ pub(super) fn show_dialog(ui: &Rc<WindowUi>, backend: &Rc<Backend>, conversation
 }
 
 fn export(ui: &Rc<WindowUi>, backend: &Rc<Backend>, conversation_id: &str, format: ExportFormat) {
-    let data = match load_export_data(ui, backend, conversation_id) {
+    let data = match load_export_data(ui, backend, conversation_id, format) {
         Ok(data) => data,
         Err(error) => {
             ui.toast_overlay.add_toast(adw::Toast::new(&format!(
@@ -129,7 +146,12 @@ fn export(ui: &Rc<WindowUi>, backend: &Rc<Backend>, conversation_id: &str, forma
     );
 }
 
-fn load_export_data(ui: &WindowUi, backend: &Backend, conversation_id: &str) -> Result<ExportData> {
+fn load_export_data(
+    ui: &WindowUi,
+    backend: &Backend,
+    conversation_id: &str,
+    format: ExportFormat,
+) -> Result<ExportData> {
     let conversation = backend
         .conversation_repository
         .get(conversation_id)?
@@ -149,12 +171,57 @@ fn load_export_data(ui: &WindowUi, backend: &Backend, conversation_id: &str) -> 
         .conversation_repository
         .list_messages(conversation_id)?;
 
+    let mut details = std::collections::HashMap::new();
+    for message in &messages {
+        if let Some(value) = backend
+            .conversation_repository
+            .message_details(&message.id)?
+        {
+            details.insert(message.id.clone(), value);
+        }
+    }
+    let mut attachments = std::collections::HashMap::new();
+    let mut sources = std::collections::HashMap::new();
+    let mut assets = std::collections::BTreeMap::new();
+    for message in &messages {
+        let files = backend
+            .conversation_repository
+            .message_assets(&message.id)?;
+        let references = backend
+            .conversation_repository
+            .response_sources(&message.id)?;
+        if format == ExportFormat::Json {
+            for id in files
+                .iter()
+                .map(|asset| &asset.id)
+                .chain(references.iter().map(|source| &source.asset_id))
+            {
+                if !assets.contains_key(id) {
+                    let metadata = backend.conversation_repository.asset(id)?;
+                    let bytes = backend.conversation_repository.asset_bytes(id)?;
+                    assets.insert(
+                        id.clone(),
+                        ExportAsset {
+                            metadata,
+                            data_base64: gtk::glib::base64_encode(&bytes).to_string(),
+                        },
+                    );
+                }
+            }
+        }
+        attachments.insert(message.id.clone(), files);
+        sources.insert(message.id.clone(), references);
+    }
     Ok(ExportData {
         conversation,
         provider,
         model,
         exported_at: utc_now(),
         messages,
+        details,
+        attachments,
+        sources,
+        assets,
     })
 }
 
@@ -200,6 +267,7 @@ fn markdown(data: &ExportData) -> String {
         output.push_str("\n\n");
         output.push_str(message.content.trim_end());
         output.push_str("\n\n");
+        append_references(&mut output, data, message);
     }
 
     output
@@ -224,14 +292,43 @@ fn text(data: &ExportData) -> String {
         output.push_str("\n\n");
         output.push_str(message.content.trim_end());
         output.push_str("\n\n");
+        append_references(&mut output, data, message);
     }
 
     output
 }
 
+fn append_references(output: &mut String, data: &ExportData, message: &Message) {
+    if let Some(assets) = data.attachments.get(&message.id) {
+        for asset in assets {
+            output.push_str(&format!(
+                "Attachment: {} ({})\n\n",
+                asset.name, asset.mime_type
+            ));
+        }
+    }
+    if let Some(sources) = data.sources.get(&message.id) {
+        for (index, source) in sources.iter().enumerate() {
+            output.push_str(&format!(
+                "Source [{}]: {} — page {}\n\n",
+                index + 1,
+                source.name,
+                source.page
+            ));
+            for line in source.content.lines() {
+                output.push_str("> ");
+                output.push_str(line);
+                output.push('\n');
+            }
+            output.push('\n');
+        }
+    }
+}
+
 fn json(data: &ExportData) -> Result<String> {
     let document = ExportDocument {
-        version: 1,
+        version: 3,
+        assets: &data.assets,
         exported_at: &data.exported_at,
         conversation: ExportConversation {
             id: &data.conversation.id,
@@ -258,6 +355,17 @@ fn json(data: &ExportData) -> Result<String> {
                 status: message.status.as_str(),
                 created_at: &message.created_at,
                 completed_at: message.completed_at.as_deref(),
+                details: data.details.get(&message.id),
+                attachments: data
+                    .attachments
+                    .get(&message.id)
+                    .map(Vec::as_slice)
+                    .unwrap_or_default(),
+                sources: data
+                    .sources
+                    .get(&message.id)
+                    .map(Vec::as_slice)
+                    .unwrap_or_default(),
             })
             .collect(),
     };

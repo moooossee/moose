@@ -1,6 +1,6 @@
 [package]
 name = "moose"
-version = "0.4.3"
+version = "0.5.0"
 edition = "2024"
 rust-version = "1.92"
 repository = "https://github.com/moooossee/moose"
@@ -9,7 +9,7 @@ license = "GPL-3.0-or-later"
 
 [features]
 default = []
-gui = ["dep:adw", "dep:comrak", "dep:gtk", "dep:sourceview5"]
+gui = ["dep:adw", "dep:comrak", "dep:gtk", "dep:sourceview5", "dep:latex-rust"]
 
 [[bin]]
 name = "moose"
@@ -25,6 +25,7 @@ adw = { package = "libadwaita", version = "0.9.1", features = ["v1_9", "gtk_v4_2
 comrak = { version = "0.52.0", default-features = false, optional = true }
 futures-util = "0.3.32"
 gtk = { package = "gtk4", version = "0.11.3", features = ["gnome_50"], optional = true }
+latex-rust = { version = "=1.0.4", optional = true }
 libc = "0.2.186"
 reqwest = { version = "0.12.24", default-features = false, features = ["json", "rustls-tls", "stream"] }
 rusqlite = "0.37.0"

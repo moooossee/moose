@@ -189,160 +189,171 @@ fn provider_add_row() -> gtk::ListBoxRow {
 }
 
 fn show_add_provider_dialog(ui: &Rc<WindowUi>, backend: &Rc<Backend>) {
+    show_provider_setup(ui, backend, false);
+}
+
+pub(super) fn show_connect_external_dialog(ui: &Rc<WindowUi>, backend: &Rc<Backend>) {
+    show_provider_setup(ui, backend, true);
+}
+
+fn show_provider_setup(ui: &Rc<WindowUi>, backend: &Rc<Backend>, external_only: bool) {
     if provider_change_is_blocked(ui, backend) {
         return;
     }
 
-    let type_toggle = adw::ToggleGroup::builder()
-        .active(0)
-        .homogeneous(true)
+    let dialog = adw::Dialog::builder()
+        .title(if external_only {
+            "Connect Ollama Instance"
+        } else {
+            "Add Ollama Instance"
+        })
+        .follows_content_size(true)
         .build();
+    let header_bar = adw::HeaderBar::builder()
+        .show_start_title_buttons(false)
+        .show_end_title_buttons(false)
+        .build();
+
+    let type_toggle = adw::ToggleGroup::builder().homogeneous(true).build();
     type_toggle.add(
         adw::Toggle::builder()
             .name("managed")
-            .label("Managed")
+            .label("Set Up for Me")
             .build(),
     );
     type_toggle.add(
         adw::Toggle::builder()
             .name("external")
-            .label("External")
+            .label("Connect Existing")
             .build(),
     );
+    type_toggle.set_active(u32::from(external_only));
+    type_toggle.set_visible(!external_only);
 
-    let connection_row = adw::ExpanderRow::builder()
-        .title("Connection Type")
-        .subtitle("Managed by Moose")
-        .expanded(true)
+    let description = gtk::Label::builder()
+        .label(if external_only {
+            "Connect to Ollama running on this device or another computer."
+        } else {
+            "Moose installs and runs Ollama on this device."
+        })
+        .wrap(true)
+        .wrap_mode(pango::WrapMode::WordChar)
+        .width_chars(1)
+        .max_width_chars(48)
+        .xalign(0.0)
         .build();
-    connection_row.add_suffix(&type_toggle);
+    description.add_css_class("dim-label");
 
-    let managed_row = adw::ActionRow::builder()
-        .title("Managed by Moose")
-        .subtitle("Moose installs Ollama if needed, then lets you choose the managed port.")
-        .build();
-
-    let external_name_row = adw::EntryRow::builder()
-        .title("Name")
+    let name_row = adw::EntryRow::builder()
+        .title("Instance Name")
         .text(next_provider_name(backend))
         .build();
-    let external_url_row = adw::EntryRow::builder()
-        .title("Base URL")
+    let url_row = adw::EntryRow::builder()
+        .title("Ollama URL")
         .text(DEFAULT_OLLAMA_BASE_URL)
         .build();
-
-    external_name_row.set_visible(false);
-    external_url_row.set_visible(false);
-    connection_row.add_row(&managed_row);
-    connection_row.add_row(&external_name_row);
-    connection_row.add_row(&external_url_row);
-
-    let connection_group = adw::PreferencesGroup::builder()
-        .description(
-            "Choose whether Moose should manage Ollama or connect to an existing endpoint.",
-        )
-        .build();
-    connection_group.add(&connection_row);
-
-    let primary_button = gtk::Button::with_label("Continue");
-    primary_button.add_css_class("suggested-action");
-    let actions = gtk::Box::builder()
-        .orientation(gtk::Orientation::Horizontal)
-        .spacing(8)
-        .halign(gtk::Align::End)
-        .build();
-    actions.append(&primary_button);
+    url_row.set_input_purpose(gtk::InputPurpose::Url);
+    let connection_group = adw::PreferencesGroup::new();
+    connection_group.add(&name_row);
+    connection_group.add(&url_row);
+    connection_group.set_visible(external_only);
 
     let content = gtk::Box::builder()
-        .orientation(gtk::Orientation::Vertical)
+        .orientation(Orientation::Vertical)
         .spacing(14)
         .build();
-    content.set_size_request(420, -1);
+    content.add_css_class("moose-instance-content");
+    content.append(&type_toggle);
+    content.append(&description);
     content.append(&connection_group);
-    content.append(&actions);
 
-    let dialog = adw::AlertDialog::builder()
-        .heading("Add Ollama Instance")
-        .extra_child(&content)
-        .close_response("cancel")
-        .default_response("cancel")
+    let scrolled = gtk::ScrolledWindow::builder()
+        .hscrollbar_policy(gtk::PolicyType::Never)
+        .propagate_natural_height(true)
+        .max_content_height(420)
+        .child(&content)
         .build();
-    dialog.add_response("cancel", "Cancel");
 
-    let target_connection_row = connection_row.clone();
-    let target_managed_row = managed_row.clone();
-    let target_name_row = external_name_row.clone();
-    let target_url_row = external_url_row.clone();
+    let cancel_button = gtk::Button::with_label("Cancel");
+    let primary_button =
+        gtk::Button::with_label(if external_only { "Connect" } else { "Continue" });
+    primary_button.add_css_class("suggested-action");
+    let actions = gtk::Box::builder()
+        .orientation(Orientation::Horizontal)
+        .spacing(10)
+        .homogeneous(true)
+        .build();
+    actions.add_css_class("moose-instance-actions");
+    actions.append(&cancel_button);
+    actions.append(&primary_button);
+
+    let toolbar_view = adw::ToolbarView::builder()
+        .width_request(440)
+        .top_bar_style(adw::ToolbarStyle::Flat)
+        .bottom_bar_style(adw::ToolbarStyle::Flat)
+        .content(&scrolled)
+        .build();
+    toolbar_view.add_top_bar(&header_bar);
+    toolbar_view.add_bottom_bar(&actions);
+    dialog.set_child(Some(&toolbar_view));
+    dialog.set_default_widget(Some(&primary_button));
+    if external_only {
+        dialog.set_focus(Some(&url_row));
+    } else {
+        dialog.set_focus(Some(&type_toggle));
+    }
+
+    let target_description = description.clone();
+    let target_group = connection_group.clone();
     let target_button = primary_button.clone();
+    let target_scroll = scrolled.downgrade();
     type_toggle.connect_active_notify(move |toggle| {
-        if toggle.active() == 0 {
-            target_connection_row.set_subtitle("Managed by Moose");
-            target_managed_row.set_visible(true);
-            target_name_row.set_visible(false);
-            target_url_row.set_visible(false);
-            target_button.set_label("Continue");
+        let external = toggle.active() == 1;
+        target_description.set_label(if external {
+            "Connect to Ollama running on this device or another computer."
         } else {
-            target_connection_row.set_subtitle("External Ollama");
-            target_managed_row.set_visible(false);
-            target_name_row.set_visible(true);
-            target_url_row.set_visible(true);
-            target_button.set_label("Connect URL");
+            "Moose installs and runs Ollama on this device."
+        });
+        target_group.set_visible(external);
+        target_button.set_label(if external { "Connect" } else { "Continue" });
+        if let Some(scrolled) = target_scroll.upgrade() {
+            let adjustment = scrolled.vadjustment();
+            adjustment.set_value(adjustment.lower());
         }
+    });
+
+    let target_url_row = url_row.clone();
+    name_row.connect_entry_activated(move |_| {
+        target_url_row.grab_focus();
+    });
+    let target_button = primary_button.clone();
+    url_row.connect_entry_activated(move |_| {
+        target_button.emit_clicked();
+    });
+
+    let target_dialog = dialog.clone();
+    cancel_button.connect_clicked(move |_| {
+        target_dialog.close();
     });
 
     let target_ui = Rc::clone(ui);
     let target_backend = Rc::clone(backend);
     let target_dialog = dialog.clone();
     primary_button.connect_clicked(move |_| {
+        if provider_change_is_blocked(&target_ui, &target_backend) {
+            return;
+        }
         if type_toggle.active() == 0 {
             target_dialog.close();
             managed_install::show_dialog(&target_ui, &target_backend);
         } else if add_provider_from_sidebar(
             &target_ui,
             &target_backend,
-            external_name_row.text().to_string(),
-            external_url_row.text().to_string(),
+            name_row.text().to_string(),
+            url_row.text().to_string(),
         ) {
             target_dialog.close();
         }
-    });
-
-    dialog.present(Some(&ui.window));
-}
-
-pub(super) fn show_connect_external_dialog(ui: &Rc<WindowUi>, backend: &Rc<Backend>) {
-    let name_row = adw::EntryRow::builder()
-        .title("Name")
-        .text(next_provider_name(backend))
-        .build();
-    let url_row = adw::EntryRow::builder()
-        .title("Base URL")
-        .text(DEFAULT_OLLAMA_BASE_URL)
-        .build();
-    let group = adw::PreferencesGroup::new();
-    group.add(&name_row);
-    group.add(&url_row);
-
-    let dialog = adw::AlertDialog::builder()
-        .heading("Connect External Instance")
-        .body("Enter the URL for an Ollama instance.")
-        .extra_child(&group)
-        .close_response("cancel")
-        .default_response("connect")
-        .build();
-    dialog.add_response("cancel", "Cancel");
-    dialog.add_response("connect", "Connect");
-    dialog.set_response_appearance("connect", adw::ResponseAppearance::Suggested);
-
-    let target_ui = Rc::clone(ui);
-    let target_backend = Rc::clone(backend);
-    dialog.connect_response(Some("connect"), move |_, _| {
-        let _ = add_provider_from_sidebar(
-            &target_ui,
-            &target_backend,
-            name_row.text().to_string(),
-            url_row.text().to_string(),
-        );
     });
 
     dialog.present(Some(&ui.window));

@@ -344,6 +344,7 @@ pub(super) fn dialog(
                 } else {
                     restore_selected_provider_model(&target_ui, &target_backend);
                 }
+                super::reasoning::refresh(&target_ui, &target_backend);
                 if let Err(error) = update_profile_indicator(
                     &target_ui,
                     &target_backend,

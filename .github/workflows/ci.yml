@@ -4,6 +4,8 @@ on:
   push:
     branches:
       - main
+    tags:
+      - 'v*'
   pull_request:
   workflow_dispatch:
 
@@ -32,7 +34,9 @@ jobs:
 
       - name: Validate app metadata
         run: |
-          appstreamcli validate data/io.github.moooossee.Moose.metainfo.xml.in
+          mkdir -p build/metadata
+          cp data/io.github.moooossee.Moose.metainfo.xml.in build/metadata/io.github.moooossee.Moose.metainfo.xml
+          appstreamcli validate --no-net build/metadata/io.github.moooossee.Moose.metainfo.xml
           desktop-file-validate data/io.github.moooossee.Moose.desktop
           glib-compile-schemas --strict --dry-run data
 
@@ -40,10 +44,10 @@ jobs:
         run: cargo fmt --check
 
       - name: Lint Rust
-        run: cargo clippy --all-targets -- -D warnings
+        run: cargo clippy --locked --all-targets -- -D warnings
 
       - name: Run tests
-        run: cargo test --all-targets
+        run: cargo test --locked --all-targets
 
   flatpak:
     name: Build Flatpak

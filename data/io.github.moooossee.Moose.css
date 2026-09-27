@@ -223,23 +223,29 @@ popover.moose-provider-popover > contents {
 }
 
 .moose-chat-column {
-  padding: 26px 18px 18px 18px;
+  padding: 24px 0 20px;
 }
 
 .moose-message {
-  padding: 8px 2px 16px 2px;
+  padding: 8px 19px 12px;
 }
 
 .moose-message-outgoing {
-  padding-left: 54px;
+  padding-left: 48px;
+  padding-right: 0;
 }
 
 .moose-message-user {
   color: @window_fg_color;
 }
 
+.moose-message-meta {
+  font-size: 0.8em;
+  font-weight: 500;
+}
+
 .moose-message-content {
-  line-height: 1.45;
+  line-height: 1.5;
 }
 
 .moose-markdown-content {
@@ -247,7 +253,7 @@ popover.moose-provider-popover > contents {
 }
 
 .moose-markdown-label {
-  line-height: 1.45;
+  line-height: 1.5;
 }
 
 .moose-markdown-paragraph {
@@ -353,11 +359,47 @@ popover.moose-provider-popover > contents {
   font-size: 0.92em;
 }
 
+.moose-math-paragraph,
+.moose-math-paragraph text {
+  background-color: transparent;
+  color: inherit;
+}
+
+.moose-math-inline {
+  min-width: 0;
+  min-height: 0;
+  padding: 0;
+  margin: 0;
+  border-radius: 4px;
+  color: inherit;
+}
+
+.moose-math-block {
+  border: 1px solid alpha(@borders, 0.7);
+  border-radius: 10px;
+  background-color: alpha(@window_fg_color, 0.025);
+  padding: 6px 10px 10px;
+  margin: 3px 0;
+}
+
+.moose-math-scroll,
+.moose-math-scroll viewport {
+  background-color: transparent;
+}
+
+.moose-math-details {
+  font-size: 0.85em;
+}
+
+.moose-math-source {
+  padding-top: 6px;
+}
+
 .moose-message-user-bubble {
-  background-color: @sidebar_bg_color;
-  border: 1px solid @borders;
-  border-radius: 16px 16px 4px 16px;
-  padding: 9px 13px 11px 13px;
+  background-color: alpha(@window_fg_color, 0.045);
+  border: 1px solid alpha(@borders, 0.65);
+  border-radius: 18px 18px 6px 18px;
+  padding: 10px 18px 12px;
 }
 
 .moose-message-user-meta {
@@ -370,8 +412,8 @@ popover.moose-provider-popover > contents {
 }
 
 .moose-thinking {
-  color: alpha(@window_fg_color, 0.78);
-  min-height: 24px;
+  color: alpha(@window_fg_color, 0.55);
+  min-height: 18px;
 }
 
 .moose-thinking-spinner {
@@ -379,19 +421,31 @@ popover.moose-provider-popover > contents {
 }
 
 .moose-thinking-label {
-  font-size: 0.95em;
+  font-size: 0.78em;
 }
 
 .moose-composer {
   background-color: @card_bg_color;
   border: 1px solid @borders;
-  border-radius: 16px;
-  padding: 8px;
+  border-radius: 20px;
+  padding: 0;
+  box-shadow: 0 3px 12px alpha(black, 0.055);
+  transition: border-color 150ms ease, box-shadow 150ms ease;
+}
+
+.moose-composer.has-text {
+  border-color: alpha(@window_fg_color, 0.18);
+}
+
+.moose-composer:focus-within {
+  border-color: alpha(@window_fg_color, 0.3);
+  box-shadow: 0 0 0 1px alpha(@window_fg_color, 0.04);
 }
 
 .moose-composer-entry {
   background-color: transparent;
   caret-color: @window_fg_color;
+  line-height: 1.5;
 }
 
 .moose-composer-entry text {
@@ -401,7 +455,7 @@ popover.moose-provider-popover > contents {
 .moose-composer-input {
   background-color: transparent;
   border-radius: 8px;
-  min-height: 44px;
+  min-height: 56px;
 }
 
 .moose-composer-input viewport {
@@ -409,32 +463,110 @@ popover.moose-provider-popover > contents {
 }
 
 .moose-composer-placeholder {
-  opacity: 0.72;
+  opacity: 0.6;
 }
 
-.moose-composer-button {
-  min-height: 44px;
-  min-width: 44px;
+.moose-composer-actions {
+  padding: 2px 10px 10px;
+}
+
+.moose-composer-footer {
+  min-height: 34px;
+  padding: 0 10px;
+}
+
+.moose-composer-hint {
+  color: alpha(@window_fg_color, 0.55);
+  font-size: 0.8em;
+}
+
+.moose-composer-actions spinner {
+  color: alpha(@window_fg_color, 0.65);
+}
+
+.moose-composer-actions .moose-composer-button {
+  min-height: 34px;
+  min-width: 34px;
+  padding: 2px;
+  border-radius: 50%;
+}
+
+.moose-attach-button > button {
+  min-height: 34px;
+  min-width: 34px;
+  padding: 2px;
+  border-radius: 50%;
+  color: alpha(@window_fg_color, 0.72);
+}
+
+.moose-attach-button > button:hover,
+.moose-attach-button > button:checked {
+  background-color: alpha(@window_fg_color, 0.06);
+  color: @window_fg_color;
+}
+
+.moose-send-button {
+  background-color: @window_fg_color;
+  color: @window_bg_color;
+  box-shadow: none;
+  transition: background-color 120ms ease, color 120ms ease;
+}
+
+.moose-send-button:hover {
+  background-color: alpha(@window_fg_color, 0.85);
+}
+
+.moose-send-button:disabled {
+  background-color: alpha(@window_fg_color, 0.06);
+  color: alpha(@window_fg_color, 0.28);
+}
+
+.moose-stop-button {
+  background-color: alpha(@window_fg_color, 0.08);
+  color: @window_fg_color;
+  box-shadow: none;
+}
+
+.moose-stop-button:hover {
+  background-color: alpha(@window_fg_color, 0.14);
+}
+
+.moose-attachment-menu button {
+  padding: 9px 12px;
+}
+
+.moose-attachment-menu separator {
+  margin: 4px 8px;
 }
 
 .moose-model-row {
-  background-color: alpha(@card_bg_color, 0.72);
-  border: 1px solid alpha(@borders, 0.72);
-  border-radius: 12px;
-  padding: 4px 8px 4px 10px;
-}
-
-.moose-model-icon {
-  margin-right: 2px;
-  opacity: 0.75;
+  background-color: transparent;
+  padding: 0;
 }
 
 .moose-model-picker {
   background-color: transparent;
   border-radius: 8px;
-  font-size: 0.9em;
-  min-height: 32px;
-  min-width: 260px;
+  font-size: 0.85em;
+  min-height: 28px;
+  min-width: 0;
+}
+
+.moose-model-picker > button {
+  min-width: 0;
+  min-height: 28px;
+  padding: 2px 8px;
+  border-radius: 8px;
+}
+
+.moose-reasoning-picker {
+  font-size: 0.82em;
+}
+
+.moose-reasoning-picker > button {
+  min-height: 24px;
+  padding: 2px 8px;
+  border-radius: 6px;
 }
 
 .moose-chat-settings-button {
@@ -445,11 +577,11 @@ popover.moose-provider-popover > contents {
 }
 
 .moose-profile-badge {
-  background-color: alpha(@accent_bg_color, 0.12);
-  border: 1px solid alpha(@accent_color, 0.28);
+  background-color: alpha(@window_fg_color, 0.045);
+  border: 1px solid alpha(@borders, 0.65);
   border-radius: 999px;
-  color: @accent_color;
-  font-size: 0.86em;
+  color: alpha(@window_fg_color, 0.72);
+  font-size: 0.8em;
   padding: 2px 8px;
 }
 
@@ -666,4 +798,204 @@ popover.moose-provider-popover > contents {
   font-size: 0.82em;
   min-width: 48px;
   padding: 3px 9px;
+}
+
+.moose-message-actions {
+  margin-top: 2px;
+  margin-bottom: 6px;
+}
+
+.moose-message-actions button {
+  min-width: 26px;
+  min-height: 26px;
+  padding: 3px 5px;
+  border-radius: 8px;
+}
+
+.moose-message-actions label {
+  margin-left: 3px;
+  margin-right: 3px;
+}
+
+.moose-inline-editor {
+  background-color: @card_bg_color;
+  border: 1px solid @borders;
+  border-radius: 16px;
+  padding: 14px 16px;
+  transition: border-color 150ms ease;
+}
+
+.moose-inline-editor:focus-within {
+  border-color: alpha(@accent_color, 0.55);
+}
+
+.moose-inline-editor-text,
+.moose-inline-editor-text text {
+  background-color: transparent;
+  color: @window_fg_color;
+  caret-color: @window_fg_color;
+}
+
+.moose-inline-editor button {
+  border-radius: 9px;
+  padding: 7px 14px;
+}
+
+.moose-reasoning {
+  margin-top: 4px;
+  margin-bottom: 6px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: alpha(@window_fg_color, 0.035);
+  border: 1px solid alpha(@window_fg_color, 0.08);
+}
+
+.moose-reasoning-text,
+.moose-reasoning-text text {
+  background: transparent;
+  color: alpha(@window_fg_color, 0.75);
+}
+
+.moose-instance-content {
+  padding: 8px 24px 20px;
+}
+
+.moose-instance-actions {
+  padding: 0 24px 20px;
+}
+
+.moose-instance-actions button {
+  min-height: 36px;
+}
+
+.moose-attachment-section {
+  padding: 14px 18px 0;
+}
+
+.moose-attachment-section > label {
+  margin-left: 0;
+}
+
+.moose-attachment-grid > flowboxchild {
+  padding: 0;
+  border-radius: 12px;
+  background: transparent;
+}
+
+.moose-attachment {
+  border: 1px solid alpha(@borders, 0.65);
+  border-radius: 10px;
+  background-color: transparent;
+}
+
+.moose-attachment:hover {
+  border-color: @borders;
+  background-color: alpha(@window_fg_color, 0.035);
+}
+
+.moose-attachment-preview {
+  padding: 8px 10px;
+  border-radius: 9px;
+  background-color: transparent;
+}
+
+.moose-attachment-preview:hover {
+  background-color: alpha(@window_fg_color, 0.025);
+}
+
+.moose-attachment-thumbnail {
+  border-radius: 6px;
+  background-color: transparent;
+}
+
+.moose-attachment-name {
+  font-size: 0.92em;
+  font-weight: 500;
+}
+
+.moose-attachment-remove {
+  min-height: 28px;
+  min-width: 28px;
+  padding: 0;
+  margin: 0 6px 0 0;
+  border-radius: 50%;
+  color: alpha(@window_fg_color, 0.6);
+}
+
+.moose-attachment-remove:hover {
+  background-color: alpha(@error_color, 0.1);
+  color: @error_color;
+}
+
+.moose-attachment-status {
+  margin: 0 8px;
+}
+
+.moose-sent-attachments {
+  margin: 2px 0;
+}
+
+.moose-sent-image {
+  padding: 0;
+  border: 1px solid alpha(@borders, 0.65);
+  border-radius: 10px;
+  background-color: alpha(@window_fg_color, 0.025);
+}
+
+.moose-sent-image:hover {
+  border-color: @borders;
+  background-color: alpha(@window_fg_color, 0.055);
+}
+
+.moose-sent-image-preview {
+  border-radius: 9px;
+}
+
+.moose-sent-document {
+  background-color: alpha(@window_fg_color, 0.025);
+}
+
+.moose-chat-welcome .title {
+  font-size: 1.6em;
+  font-weight: 600;
+}
+
+.moose-welcome-content {
+  margin-top: 8px;
+}
+
+.moose-welcome-suggestions > flowboxchild {
+  padding: 0;
+  background: transparent;
+}
+
+.moose-welcome-suggestion {
+  min-height: 38px;
+  padding: 4px 12px;
+  border: 1px solid alpha(@borders, 0.7);
+  border-radius: 12px;
+  background-color: transparent;
+  font-size: 0.9em;
+  transition: background-color 120ms ease, border-color 120ms ease;
+}
+
+.moose-welcome-suggestion:hover {
+  border-color: @borders;
+  background-color: alpha(@window_fg_color, 0.045);
+}
+
+.moose-welcome-suggestion:disabled {
+  border-color: alpha(@borders, 0.35);
+  color: alpha(@window_fg_color, 0.4);
+}
+
+.moose-welcome-files {
+  border-radius: 10px;
+  font-size: 0.9em;
+  color: alpha(@window_fg_color, 0.7);
+}
+
+.moose-welcome-files:hover {
+  background-color: alpha(@window_fg_color, 0.04);
+  color: @window_fg_color;
 }

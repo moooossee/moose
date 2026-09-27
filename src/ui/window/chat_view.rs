@@ -1,4 +1,4 @@
-use std::{cell::Cell, rc::Rc, time::Duration};
+use std::{cell::Cell, time::Duration};
 
 use adw::prelude::*;
 use gtk::{Align, Orientation, glib::DateTime};
@@ -11,7 +11,7 @@ use crate::{
 use super::{
     markdown_live::LiveMarkdown,
     markdown_view,
-    widgets::{composer_button, icon_button},
+    widgets::{composer_button, icon_button, string_list_factory},
 };
 
 pub(super) struct Chat {
@@ -19,6 +19,7 @@ pub(super) struct Chat {
     pub(super) messages: gtk::Box,
     pub(super) messages_scrolled: gtk::ScrolledWindow,
     pub(super) status_page: adw::StatusPage,
+    pub(super) welcome: adw::Clamp,
     pub(super) message_stack: gtk::Stack,
     pub(super) entry: gtk::TextView,
     pub(super) model_picker: gtk::DropDown,
@@ -26,11 +27,18 @@ pub(super) struct Chat {
     pub(super) chat_settings_button: gtk::Button,
     pub(super) send_button: gtk::Button,
     pub(super) stop_button: gtk::Button,
+    pub(super) draft_label: gtk::Label,
+    pub(super) thinking_picker: gtk::DropDown,
+    pub(super) attachments: super::attachments::Controls,
 }
 
 pub(super) struct StreamingMessage {
     content: LiveMarkdown,
-    thinking_indicator: gtk::Box,
+    status: gtk::Label,
+    reasoning: gtk::Expander,
+    reasoning_text: gtk::TextBuffer,
+    content_length: Cell<usize>,
+    reasoning_length: Cell<usize>,
 }
 
 pub(super) fn build() -> Chat {
@@ -57,23 +65,18 @@ pub(super) fn build() -> Chat {
 
     let messages = gtk::Box::builder()
         .orientation(Orientation::Vertical)
-        .spacing(8)
+        .spacing(12)
         .hexpand(true)
         .build();
     messages.add_css_class("moose-chat-column");
 
-    let messages_clamp = adw::Clamp::builder()
-        .maximum_size(980)
-        .tightening_threshold(560)
-        .hexpand(true)
-        .vexpand(true)
-        .child(&messages)
-        .build();
-
     let scrolled = gtk::ScrolledWindow::builder()
         .hexpand(true)
         .vexpand(true)
-        .child(&messages_clamp)
+        .hscrollbar_policy(gtk::PolicyType::Never)
+        .vscrollbar_policy(gtk::PolicyType::External)
+        .overlay_scrolling(true)
+        .child(&messages)
         .build();
 
     let message_stack = gtk::Stack::builder().hexpand(true).vexpand(true).build();
@@ -83,21 +86,17 @@ pub(super) fn build() -> Chat {
 
     let composer = gtk::Box::builder()
         .orientation(Orientation::Vertical)
-        .spacing(6)
+        .spacing(0)
         .hexpand(true)
         .build();
     composer.add_css_class("moose-composer");
 
     let composer_area = gtk::Box::builder()
         .orientation(Orientation::Vertical)
-        .spacing(6)
+        .spacing(4)
         .hexpand(true)
-        .build();
-
-    let input_row = gtk::Box::builder()
-        .orientation(Orientation::Horizontal)
-        .spacing(6)
-        .hexpand(true)
+        .margin_top(8)
+        .margin_bottom(12)
         .build();
 
     let entry_buffer = gtk::TextBuffer::new(None);
@@ -106,9 +105,9 @@ pub(super) fn build() -> Chat {
         .accepts_tab(false)
         .bottom_margin(10)
         .hexpand(true)
-        .left_margin(12)
-        .right_margin(12)
-        .top_margin(10)
+        .left_margin(18)
+        .right_margin(18)
+        .top_margin(16)
         .wrap_mode(gtk::WrapMode::WordChar)
         .build();
     entry.add_css_class("flat");
@@ -118,8 +117,8 @@ pub(super) fn build() -> Chat {
         .child(&entry)
         .hexpand(true)
         .hscrollbar_policy(gtk::PolicyType::Never)
-        .max_content_height(156)
-        .min_content_height(44)
+        .max_content_height(180)
+        .min_content_height(56)
         .propagate_natural_height(true)
         .vscrollbar_policy(gtk::PolicyType::Automatic)
         .build();
@@ -128,9 +127,9 @@ pub(super) fn build() -> Chat {
     let entry_placeholder = gtk::Label::builder()
         .can_target(false)
         .halign(Align::Start)
-        .label("Message")
-        .margin_start(14)
-        .margin_top(11)
+        .label("Ask anything…")
+        .margin_start(18)
+        .margin_top(16)
         .valign(Align::Start)
         .build();
     entry_placeholder.add_css_class("dim-label");
@@ -143,29 +142,145 @@ pub(super) fn build() -> Chat {
     entry_overlay.add_overlay(&entry_placeholder);
     entry_overlay.set_measure_overlay(&entry_placeholder, false);
 
-    entry_buffer.connect_changed(move |buffer| {
-        let (start, end) = buffer.bounds();
-        entry_placeholder.set_visible(buffer.text(&start, &end, true).is_empty());
-    });
-
-    let stop_button = composer_button("media-playback-stop-symbolic", "Cancel Generation");
-    let send_button = composer_button("mail-send-symbolic", "Send Message");
-
-    send_button.add_css_class("suggested-action");
-    stop_button.add_css_class("destructive-action");
+    let stop_button = composer_button("media-playback-stop-symbolic", "Stop Response");
+    let send_button = composer_button("go-up-symbolic", "Send Message (Enter)");
+    send_button.add_css_class("moose-send-button");
+    stop_button.add_css_class("moose-stop-button");
     send_button.set_sensitive(false);
     stop_button.set_sensitive(false);
-    send_button.set_valign(Align::End);
-    stop_button.set_valign(Align::End);
-    input_row.append(&entry_overlay);
-    input_row.append(&stop_button);
-    input_row.append(&send_button);
+    send_button.set_valign(Align::Center);
+    stop_button.set_valign(Align::Center);
+    let attachments = super::attachments::build();
+    let composer_actions = gtk::Box::new(Orientation::Horizontal, 10);
+    composer_actions.add_css_class("moose-composer-actions");
+    let action_stack = gtk::Stack::builder()
+        .transition_type(gtk::StackTransitionType::Crossfade)
+        .transition_duration(120)
+        .valign(Align::Center)
+        .build();
+    action_stack.add_named(&send_button, Some("send"));
+    action_stack.add_named(&stop_button, Some("stop"));
+    let activity = gtk::Spinner::builder()
+        .width_request(14)
+        .height_request(14)
+        .valign(Align::Center)
+        .visible(false)
+        .build();
+    let hint = gtk::Label::builder()
+        .label("Enter to send · Shift+Enter for a new line")
+        .xalign(0.0)
+        .width_chars(1)
+        .hexpand(true)
+        .ellipsize(gtk::pango::EllipsizeMode::End)
+        .build();
+    hint.add_css_class("moose-composer-hint");
+    let feedback = gtk::Box::new(Orientation::Horizontal, 6);
+    feedback.append(&activity);
+    feedback.append(&hint);
+    let feedback_revealer = gtk::Revealer::builder()
+        .child(&feedback)
+        .hexpand(true)
+        .valign(Align::Center)
+        .transition_type(gtk::RevealerTransitionType::Crossfade)
+        .transition_duration(120)
+        .build();
+    composer_actions.append(&attachments.button);
+    composer_actions.append(&feedback_revealer);
+    composer_actions.append(&action_stack);
+    let focus = gtk::EventControllerFocus::new();
+    composer.add_controller(focus.clone());
+    let weak_composer = composer.downgrade();
+    let weak_entry = entry.downgrade();
+    let weak_placeholder = entry_placeholder.downgrade();
+    let weak_stop = stop_button.downgrade();
+    let weak_previews = attachments.previews.downgrade();
+    let weak_stack = action_stack.downgrade();
+    let weak_activity = activity.downgrade();
+    let weak_hint = hint.downgrade();
+    let weak_revealer = feedback_revealer.downgrade();
+    let weak_focus = focus.downgrade();
+    let update_feedback = std::rc::Rc::new(move || {
+        let (
+            Some(composer),
+            Some(entry),
+            Some(placeholder),
+            Some(stop),
+            Some(previews),
+            Some(stack),
+            Some(activity),
+            Some(hint),
+            Some(revealer),
+            Some(focus),
+        ) = (
+            weak_composer.upgrade(),
+            weak_entry.upgrade(),
+            weak_placeholder.upgrade(),
+            weak_stop.upgrade(),
+            weak_previews.upgrade(),
+            weak_stack.upgrade(),
+            weak_activity.upgrade(),
+            weak_hint.upgrade(),
+            weak_revealer.upgrade(),
+            weak_focus.upgrade(),
+        )
+        else {
+            return;
+        };
+        let running = stop.is_sensitive();
+        let has_text = entry.buffer().char_count() > 0;
+        if has_text {
+            composer.add_css_class("has-text");
+        } else {
+            composer.remove_css_class("has-text");
+        }
+        placeholder.set_visible(!has_text);
+        placeholder.set_label(if previews.is_visible() {
+            "Ask about your files…"
+        } else if running {
+            "Write your next message…"
+        } else {
+            "Ask anything…"
+        });
+        if !running && stop.has_focus() {
+            entry.grab_focus();
+        }
+        stack.set_visible_child_name(if running { "stop" } else { "send" });
+        activity.set_visible(running);
+        if running {
+            activity.start();
+        } else {
+            activity.stop();
+        }
+        let text = if running {
+            "Responding… You can keep writing"
+        } else {
+            "Enter to send · Shift+Enter for a new line"
+        };
+        hint.set_label(text);
+        hint.set_tooltip_text(Some(text));
+        revealer.set_reveal_child(running || focus.contains_focus());
+    });
+    let update = update_feedback.clone();
+    entry_buffer.connect_changed(move |_| update());
+    let update = update_feedback.clone();
+    stop_button.connect_sensitive_notify(move |_| update());
+    let update = update_feedback.clone();
+    attachments
+        .previews
+        .connect_visible_notify(move |_| update());
+    let update = update_feedback.clone();
+    focus.connect_contains_focus_notify(move |_| update());
+    update_feedback();
 
     let model_picker = gtk::DropDown::from_strings(&["No model selected"]);
     model_picker.set_tooltip_text(Some("Active Model"));
     model_picker.set_sensitive(false);
     model_picker.set_halign(Align::Start);
-    model_picker.set_size_request(260, -1);
+    model_picker.set_valign(Align::Center);
+    model_picker.set_hexpand(false);
+    model_picker.set_enable_search(false);
+    model_picker.set_factory(Some(&string_list_factory(22, false)));
+    model_picker.set_list_factory(Some(&string_list_factory(44, true)));
     model_picker.add_css_class("flat");
     model_picker.add_css_class("moose-model-picker");
 
@@ -173,47 +288,110 @@ pub(super) fn build() -> Chat {
     chat_settings_button.add_css_class("moose-chat-settings-button");
 
     let profile_label = gtk::Label::new(None);
+    profile_label.set_width_chars(1);
+    profile_label.set_max_width_chars(14);
+    profile_label.set_ellipsize(gtk::pango::EllipsizeMode::End);
     profile_label.add_css_class("moose-profile-badge");
     profile_label.set_visible(false);
 
-    let model_icon = gtk::Image::from_icon_name("computer-symbolic");
-    model_icon.add_css_class("dim-label");
-    model_icon.add_css_class("moose-model-icon");
+    let thinking_picker = gtk::DropDown::from_strings(&["Reasoning: Auto"]);
+    thinking_picker.add_css_class("flat");
+    thinking_picker.add_css_class("moose-reasoning-picker");
+    thinking_picker.set_valign(Align::Center);
+    thinking_picker.set_tooltip_text(Some("Use the model’s default reasoning behavior"));
+    thinking_picker.set_sensitive(false);
+    thinking_picker.set_factory(Some(&string_list_factory(18, false)));
+    thinking_picker.set_list_factory(Some(&string_list_factory(24, true)));
 
     let model_row = gtk::Box::builder()
         .orientation(Orientation::Horizontal)
-        .spacing(6)
+        .spacing(4)
         .halign(Align::Start)
         .build();
     model_row.add_css_class("moose-model-row");
-    model_row.append(&model_icon);
     model_row.append(&model_picker);
+    model_row.append(&thinking_picker);
+    model_row.append(&attachments.capability);
     model_row.append(&profile_label);
     model_row.append(&chat_settings_button);
 
-    composer.append(&input_row);
+    let attachment_scroll = gtk::ScrolledWindow::builder()
+        .hscrollbar_policy(gtk::PolicyType::Never)
+        .vscrollbar_policy(gtk::PolicyType::Automatic)
+        .propagate_natural_height(true)
+        .max_content_height(168)
+        .child(&attachments.previews)
+        .build();
+    let attachment_section = gtk::Box::new(Orientation::Vertical, 8);
+    attachment_section.add_css_class("moose-attachment-section");
+    attachment_section.append(&attachments.summary);
+    attachment_section.append(&attachment_scroll);
+    attachments
+        .previews
+        .bind_property("visible", &attachment_section, "visible")
+        .sync_create()
+        .build();
+    composer.append(&attachment_section);
+    composer.append(&entry_overlay);
+    composer.append(&composer_actions);
+    let attachment_status = gtk::Box::new(Orientation::Horizontal, 8);
+    attachments.status.set_hexpand(true);
+    attachment_status.append(&attachments.status);
+    attachment_status.append(&attachments.cancel);
+    attachment_status.add_css_class("moose-attachment-status");
+    attachments
+        .status
+        .bind_property("visible", &attachment_status, "visible")
+        .sync_create()
+        .build();
     composer_area.append(&composer);
-    composer_area.append(&model_row);
-
-    let composer_clamp = adw::Clamp::builder()
-        .maximum_size(980)
-        .tightening_threshold(560)
-        .margin_top(10)
-        .margin_bottom(16)
-        .margin_start(12)
-        .margin_end(12)
+    composer_area.append(&attachment_status);
+    let draft_label = gtk::Label::builder()
+        .xalign(1.0)
         .hexpand(true)
-        .child(&composer_area)
+        .valign(Align::Center)
+        .width_chars(14)
+        .max_width_chars(14)
+        .single_line_mode(true)
+        .ellipsize(gtk::pango::EllipsizeMode::End)
+        .build();
+    draft_label.add_css_class("caption");
+    draft_label.add_css_class("dim-label");
+    let composer_footer = gtk::Box::new(Orientation::Horizontal, 8);
+    composer_footer.add_css_class("moose-composer-footer");
+    model_row.set_valign(Align::Center);
+    composer_footer.append(&model_row);
+    composer_footer.append(&draft_label);
+    composer_area.append(&composer_footer);
+
+    let column = gtk::Box::builder()
+        .orientation(Orientation::Vertical)
+        .hexpand(true)
+        .vexpand(true)
+        .build();
+    column.append(&message_stack);
+    column.append(&composer_area);
+
+    let column_clamp = adw::Clamp::builder()
+        .maximum_size(1080)
+        .tightening_threshold(800)
+        .margin_start(16)
+        .margin_end(16)
+        .hexpand(true)
+        .vexpand(true)
+        .child(&column)
         .build();
 
-    root.append(&message_stack);
-    root.append(&composer_clamp);
+    root.append(&column_clamp);
+    let welcome = super::chat_welcome::build(&entry, &attachments.previews, &attachments.button);
+    super::chat_welcome::show(&status_page, &welcome);
 
     Chat {
         root,
         messages,
         messages_scrolled: scrolled,
         status_page,
+        welcome,
         message_stack,
         entry,
         model_picker,
@@ -221,17 +399,20 @@ pub(super) fn build() -> Chat {
         chat_settings_button,
         send_button,
         stop_button,
+        draft_label,
+        thinking_picker,
+        attachments,
     }
 }
 
-pub(super) fn append_stored_message(messages: &gtk::Box, message: &Message) {
+pub(super) fn append_stored_message(messages: &gtk::Box, message: &Message) -> gtk::Box {
     let content = stored_message_content(message);
     append_message(
         messages,
         message_role_label(&message.role),
         &content,
         Some(&message.created_at),
-    );
+    )
 }
 
 pub(super) fn append_message(
@@ -239,7 +420,7 @@ pub(super) fn append_message(
     role: &str,
     content: &str,
     created_at: Option<&str>,
-) {
+) -> gtk::Box {
     let is_user = role == "You";
     let text_alignment = if is_user { 1.0 } else { 0.0 };
     let justification = if is_user {
@@ -255,7 +436,10 @@ pub(super) fn append_message(
         .build();
     let role_label = gtk::Label::builder()
         .label(message_header_label(role, created_at))
+        .height_request(24)
         .halign(Align::Fill)
+        .width_chars(1)
+        .ellipsize(gtk::pango::EllipsizeMode::End)
         .xalign(text_alignment)
         .justify(justification)
         .build();
@@ -270,6 +454,7 @@ pub(super) fn append_message(
     }
     role_label.add_css_class("caption-heading");
     role_label.add_css_class("dim-label");
+    role_label.add_css_class("moose-message-meta");
     if is_user {
         role_label.set_xalign(1.0);
         role_label.set_justify(gtk::Justification::Right);
@@ -291,6 +476,7 @@ pub(super) fn append_message(
         row.append(&content_view);
     }
     messages.append(&row);
+    row
 }
 
 pub(super) fn append_streaming_message(
@@ -307,30 +493,34 @@ pub(super) fn append_streaming_message(
     let role_label = gtk::Label::builder()
         .label(message_header_label(model, created_at))
         .halign(Align::Fill)
+        .hexpand(true)
+        .width_chars(1)
+        .ellipsize(gtk::pango::EllipsizeMode::End)
         .xalign(0.0)
         .justify(gtk::Justification::Left)
         .build();
     let thinking_indicator = gtk::Box::builder()
         .orientation(Orientation::Horizontal)
-        .spacing(8)
-        .halign(Align::Start)
+        .spacing(6)
+        .halign(Align::End)
         .valign(Align::Center)
         .build();
     let spinner = gtk::Spinner::new();
-    spinner.set_size_request(16, 16);
+    spinner.set_size_request(12, 12);
     spinner.start();
     spinner.add_css_class("moose-thinking-spinner");
 
     let thinking_label = gtk::Label::builder()
-        .label(thinking_status(model))
-        .halign(Align::Start)
-        .hexpand(true)
-        .max_width_chars(80)
+        .label("Waiting for response…")
+        .halign(Align::Fill)
+        .width_chars(1)
+        .max_width_chars(28)
         .xalign(0.0)
         .ellipsize(gtk::pango::EllipsizeMode::End)
         .build();
     thinking_label.add_css_class("moose-thinking-label");
-    start_thinking_text_cycle(&thinking_label, model);
+    let (reasoning, reasoning_text) = reasoning_section();
+    reasoning.set_visible(false);
 
     let content = LiveMarkdown::new();
     content.widget().set_visible(false);
@@ -338,30 +528,116 @@ pub(super) fn append_streaming_message(
     row.add_css_class("moose-message");
     role_label.add_css_class("caption-heading");
     role_label.add_css_class("dim-label");
+    role_label.add_css_class("moose-message-meta");
     thinking_indicator.add_css_class("moose-thinking");
     thinking_indicator.append(&spinner);
     thinking_indicator.append(&thinking_label);
-    row.append(&role_label);
-    row.append(&thinking_indicator);
+    let header = gtk::Box::builder()
+        .orientation(Orientation::Horizontal)
+        .spacing(12)
+        .height_request(24)
+        .build();
+    header.append(&role_label);
+    header.append(&thinking_indicator);
+    row.append(&header);
+    row.append(&reasoning);
     row.append(content.widget());
     messages.append(&row);
 
     StreamingMessage {
         content,
-        thinking_indicator,
+        status: thinking_label,
+        reasoning,
+        reasoning_text,
+        content_length: Cell::new(0),
+        reasoning_length: Cell::new(0),
     }
 }
 
-pub(super) fn set_streaming_message_content(message: &StreamingMessage, content: &str) {
-    message.thinking_indicator.set_visible(false);
-    message.content.widget().set_visible(true);
-    message.content.finish(content);
+pub(super) fn update_streaming_message(
+    message: &StreamingMessage,
+    content: &str,
+    reasoning: &str,
+    elapsed: u64,
+    reasoning_ms: i64,
+) {
+    let phase = if !content.is_empty() {
+        "Responding"
+    } else if !reasoning.is_empty() {
+        "Reasoning"
+    } else {
+        "Waiting for response"
+    };
+    message.status.set_label(&format!("{phase} · {elapsed}s"));
+    message.content.widget().set_visible(!content.is_empty());
+    if message.content_length.replace(content.len()) != content.len() {
+        message.content.update(content);
+    }
+    message.reasoning.set_visible(!reasoning.is_empty());
+    message
+        .reasoning
+        .set_label(Some(&format!("Reasoning · {}s", reasoning_ms / 1000)));
+    let previous_length = message.reasoning_length.replace(reasoning.len());
+    if previous_length < reasoning.len() {
+        message.reasoning_text.insert(
+            &mut message.reasoning_text.end_iter(),
+            &reasoning[previous_length..],
+        );
+    } else if previous_length > reasoning.len() {
+        message.reasoning_text.set_text(reasoning);
+    }
 }
 
-pub(super) fn update_streaming_message_content(message: &StreamingMessage, content: &str) {
-    message.thinking_indicator.set_visible(false);
-    message.content.widget().set_visible(true);
-    message.content.update(content);
+fn reasoning_section() -> (gtk::Expander, gtk::TextBuffer) {
+    let buffer = gtk::TextBuffer::new(None);
+    let view = gtk::TextView::builder()
+        .buffer(&buffer)
+        .editable(false)
+        .cursor_visible(false)
+        .wrap_mode(gtk::WrapMode::WordChar)
+        .left_margin(12)
+        .right_margin(12)
+        .top_margin(10)
+        .bottom_margin(10)
+        .build();
+    view.add_css_class("moose-reasoning-text");
+    let scroll = gtk::ScrolledWindow::builder()
+        .child(&view)
+        .hscrollbar_policy(gtk::PolicyType::Never)
+        .min_content_height(64)
+        .max_content_height(240)
+        .propagate_natural_height(true)
+        .build();
+    let expander = gtk::Expander::builder()
+        .label("Reasoning")
+        .child(&scroll)
+        .expanded(false)
+        .build();
+    expander.add_css_class("moose-reasoning");
+    (expander, buffer)
+}
+
+pub(super) fn append_details(row: &gtk::Box, details: &crate::storage::MessageDetails) {
+    if !details.reasoning.is_empty() {
+        let (expander, buffer) = reasoning_section();
+        buffer.set_text(&details.reasoning);
+        expander.set_label(Some(&format!(
+            "Reasoning · {}s",
+            details.reasoning_ms / 1000
+        )));
+        row.insert_child_after(&expander, row.first_child().as_ref());
+    }
+    let label = gtk::Label::builder()
+        .label(format!(
+            "{} · {}s",
+            details.model,
+            details.elapsed_ms / 1000
+        ))
+        .xalign(0.0)
+        .build();
+    label.add_css_class("caption");
+    label.add_css_class("dim-label");
+    row.append(&label);
 }
 
 pub(super) fn scroll_to_bottom(scrolled: &gtk::ScrolledWindow) {
@@ -394,34 +670,10 @@ fn is_near_bottom(adjustment: &gtk::Adjustment) -> bool {
 }
 
 pub(super) fn set_empty_state(status_page: &adw::StatusPage, title: &str, description: &str) {
+    status_page.remove_css_class("compact");
+    status_page.remove_css_class("moose-chat-welcome");
     status_page.set_title(title);
     status_page.set_description(Some(description));
-}
-
-fn start_thinking_text_cycle(label: &gtk::Label, model: &str) {
-    let label = label.clone();
-    let model = model.to_string();
-    let index = Rc::new(Cell::new(0usize));
-    let target_index = Rc::clone(&index);
-
-    gtk::glib::timeout_add_local(Duration::from_millis(1400), move || {
-        if !label.is_visible() {
-            return gtk::glib::ControlFlow::Break;
-        }
-
-        let next_index = (target_index.get() + 1) % 3;
-        target_index.set(next_index);
-        label.set_label(&match next_index {
-            0 => thinking_status(&model),
-            1 => "Reading your message...".to_string(),
-            _ => "Drafting response...".to_string(),
-        });
-        gtk::glib::ControlFlow::Continue
-    });
-}
-
-fn thinking_status(model: &str) -> String {
-    format!("{model} is thinking...")
 }
 
 fn message_header_label(role: &str, created_at: Option<&str>) -> String {

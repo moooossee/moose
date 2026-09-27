@@ -12,6 +12,15 @@ use crate::{
     error::{MooseError, Result},
 };
 
+#[path = "conversation_branches.rs"]
+mod branches;
+
+#[path = "attachment_repository.rs"]
+mod attachments;
+#[path = "conversation_workspace.rs"]
+mod workspace;
+pub use workspace::MessageDetails;
+
 #[derive(Clone)]
 pub struct ConversationRepository {
     connection: Rc<Connection>,
@@ -67,11 +76,11 @@ impl ConversationRepository {
                 c.id, c.provider_id, c.model_id, c.title, c.created_at, c.updated_at, c.archived_at, c.pinned_at,
                 m.id, m.conversation_id, m.role, m.content, m.status, m.token_count, m.created_at, m.completed_at
              FROM conversations c
-             LEFT JOIN messages m ON m.id = (
+             LEFT JOIN active_messages m ON m.id = (
                 SELECT id
-                FROM messages
+                FROM active_messages
                 WHERE conversation_id = c.id
-                ORDER BY created_at DESC, id DESC
+                ORDER BY depth DESC
                 LIMIT 1
              )
              WHERE c.archived_at IS NULL
@@ -129,11 +138,11 @@ impl ConversationRepository {
                 c.id, c.provider_id, c.model_id, c.title, c.created_at, c.updated_at, c.archived_at, c.pinned_at,
                 m.id, m.conversation_id, m.role, m.content, m.status, m.token_count, m.created_at, m.completed_at
              FROM conversations c
-             LEFT JOIN messages m ON m.id = (
+             LEFT JOIN active_messages m ON m.id = (
                 SELECT id
-                FROM messages
+                FROM active_messages
                 WHERE conversation_id = c.id
-                ORDER BY created_at DESC, id DESC
+                ORDER BY depth DESC
                 LIMIT 1
              )
              WHERE (?1 = 1 OR c.archived_at IS NULL)
@@ -142,7 +151,7 @@ impl ConversationRepository {
                     OR c.title LIKE ?3 ESCAPE '\\'
                     OR EXISTS (
                         SELECT 1
-                        FROM messages sm
+                        FROM active_messages sm
                         WHERE sm.conversation_id = c.id
                           AND sm.content LIKE ?3 ESCAPE '\\'
                     )
@@ -209,6 +218,7 @@ impl ConversationRepository {
     }
 
     pub fn delete(&self, id: &str) -> Result<()> {
+        let transaction = self.connection.unchecked_transaction()?;
         let changed = self
             .connection
             .execute("DELETE FROM conversations WHERE id = ?1", params![id])?;
@@ -217,39 +227,25 @@ impl ConversationRepository {
             return Err(MooseError::ConversationNotFound);
         }
 
+        self.collect_unused_assets()?;
+        transaction.commit()?;
         Ok(())
     }
 
     pub fn create_message(&self, new_message: NewMessage) -> Result<Message> {
-        let message = new_message.into_message()?;
-
-        self.connection.execute(
-            "INSERT INTO messages (
-                id, conversation_id, role, content, status, token_count, created_at, completed_at
-             )
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
-            params![
-                message.id,
-                message.conversation_id,
-                message.role.as_str(),
-                message.content,
-                message.status.as_str(),
-                message.token_count,
-                message.created_at,
-                message.completed_at,
-            ],
-        )?;
-
-        self.touch_conversation(&message.conversation_id)?;
-        self.get_message_required(&message.id)
+        let transaction = self.connection.unchecked_transaction()?;
+        let parent_id = self.active_leaf(&new_message.conversation_id)?;
+        let message = self.insert_message(new_message.into_message()?, parent_id.as_deref())?;
+        transaction.commit()?;
+        Ok(message)
     }
 
     pub fn list_messages(&self, conversation_id: &str) -> Result<Vec<Message>> {
         let mut statement = self.connection.prepare(
             "SELECT id, conversation_id, role, content, status, token_count, created_at, completed_at
-             FROM messages
+             FROM active_messages
              WHERE conversation_id = ?1
-             ORDER BY created_at ASC, id ASC",
+             ORDER BY depth ASC",
         )?;
         let messages = statement
             .query_map(params![conversation_id], message_from_row)?
@@ -266,16 +262,16 @@ impl ConversationRepository {
         let mut statement = self.connection.prepare(
             "SELECT id, conversation_id, role, content, status, token_count, created_at, completed_at
              FROM (
-                 SELECT id, conversation_id, role, content, status, token_count, created_at, completed_at
-                 FROM messages
+                 SELECT id, conversation_id, role, content, status, token_count, created_at, completed_at, depth
+                 FROM active_messages
                  WHERE conversation_id = ?1
                    AND role IN ('user', 'assistant')
                    AND status IN ('complete', 'cancelled', 'failed')
                    AND trim(content, char(9) || char(10) || char(13) || ' ') <> ''
-                 ORDER BY created_at DESC, id DESC
+                 ORDER BY depth DESC
                  LIMIT ?2
              )
-             ORDER BY created_at ASC, id ASC",
+             ORDER BY depth ASC",
         )?;
         let messages = statement
             .query_map(params![conversation_id, limit], message_from_row)?

@@ -925,6 +925,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "latex-rust"
+version = "1.0.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "aea2d0425d4ee210c55372493fbf35e61d59cf74cb241a7a1929e8de55763612"
+dependencies = [
+ "ttf-parser",
+]
+
+[[package]]
 name = "leb128fmt"
 version = "0.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1023,11 +1032,12 @@ dependencies = [
 
 [[package]]
 name = "moose"
-version = "0.4.3"
+version = "0.5.0"
 dependencies = [
  "comrak",
  "futures-util",
  "gtk4",
+ "latex-rust",
  "libadwaita",
  "libc",
  "reqwest",
@@ -1893,6 +1903,12 @@ name = "try-lock"
 version = "0.2.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e421abadd41a4225275504ea4d6566923418b7f05506fbc9c0fe86ba7396114b"
+
+[[package]]
+name = "ttf-parser"
+version = "0.25.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d2df906b07856748fa3f6e0ad0cbaa047052d4a7dd609e231c4f72cee8c36f31"
 
 [[package]]
 name = "typed-arena"

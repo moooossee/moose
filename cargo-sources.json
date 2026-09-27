@@ -3319,5 +3319,31 @@
         "contents": "{\"package\": \"91e19ebc2adc8f83e43039e79776e3fda8ca919132d68a1fed6a5faca2683748\", \"files\": {}}",
         "dest": "cargo/vendor/zstd-sys-2.0.16+zstd.1.5.7",
         "dest-filename": ".cargo-checksum.json"
+    },
+    {
+        "type": "archive",
+        "archive-type": "tar-gzip",
+        "url": "https://static.crates.io/crates/latex-rust/latex-rust-1.0.4.crate",
+        "sha256": "aea2d0425d4ee210c55372493fbf35e61d59cf74cb241a7a1929e8de55763612",
+        "dest": "cargo/vendor/latex-rust-1.0.4"
+    },
+    {
+        "type": "inline",
+        "contents": "{\"package\": \"aea2d0425d4ee210c55372493fbf35e61d59cf74cb241a7a1929e8de55763612\", \"files\": {}}",
+        "dest": "cargo/vendor/latex-rust-1.0.4",
+        "dest-filename": ".cargo-checksum.json"
+    },
+    {
+        "type": "archive",
+        "archive-type": "tar-gzip",
+        "url": "https://static.crates.io/crates/ttf-parser/ttf-parser-0.25.1.crate",
+        "sha256": "d2df906b07856748fa3f6e0ad0cbaa047052d4a7dd609e231c4f72cee8c36f31",
+        "dest": "cargo/vendor/ttf-parser-0.25.1"
+    },
+    {
+        "type": "inline",
+        "contents": "{\"package\": \"d2df906b07856748fa3f6e0ad0cbaa047052d4a7dd609e231c4f72cee8c36f31\", \"files\": {}}",
+        "dest": "cargo/vendor/ttf-parser-0.25.1",
+        "dest-filename": ".cargo-checksum.json"
     }
 ]

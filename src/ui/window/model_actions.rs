@@ -34,12 +34,6 @@ pub(super) fn show_pull_dialog(
     ui: &Rc<WindowUi>,
     backend: &Rc<Backend>,
 ) {
-    if backend.active_generation.borrow().is_some() {
-        ui.toast_overlay
-            .add_toast(adw::Toast::new("Finish the active generation first"));
-        return;
-    }
-
     if backend.active_model_pull.borrow().is_some() {
         ui.toast_overlay
             .add_toast(adw::Toast::new("A model download is already running"));
@@ -390,12 +384,6 @@ pub(super) fn format_download_size(size_bytes: u64) -> String {
 }
 
 fn start_model_pull(ui: &Rc<WindowUi>, backend: &Rc<Backend>, model: String) {
-    if backend.active_generation.borrow().is_some() {
-        ui.toast_overlay
-            .add_toast(adw::Toast::new("Finish the active generation first"));
-        return;
-    }
-
     if backend.active_model_pull.borrow().is_some() {
         ui.toast_overlay
             .add_toast(adw::Toast::new("A model download is already running"));
@@ -409,6 +397,7 @@ fn start_model_pull(ui: &Rc<WindowUi>, backend: &Rc<Backend>, model: String) {
     }
 
     show_model_manager(ui);
+    super::generation::sync_controls(ui, backend);
     ui.refresh_button.set_sensitive(false);
     model_manager::set_pull_started(&ui.model_manager, &model);
 
@@ -661,6 +650,7 @@ fn start_model_delete(ui: &Rc<WindowUi>, backend: &Rc<Backend>, model: String) {
     }
 
     show_model_manager(ui);
+    super::generation::sync_controls(ui, backend);
     ui.refresh_button.set_sensitive(false);
     model_manager::set_delete_started(&ui.model_manager, &model);
 

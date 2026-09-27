@@ -124,14 +124,18 @@ fn set(ui: &Rc<WindowUi>, backend: &Rc<Backend>, summaries: Vec<ConversationSumm
 fn row(summary: &ConversationSummary, ui: &Rc<WindowUi>, backend: &Rc<Backend>) -> gtk::ListBoxRow {
     let row = gtk::ListBoxRow::new();
     let is_generating = backend.active_generation.borrow().is_some()
-        && backend.active_conversation_id.borrow().as_deref()
-            == Some(summary.conversation.id.as_str());
+        && backend.generation_context.borrow().conversation_id == summary.conversation.id;
     row.set_child(Some(&conversation_row_content(
         &summary.conversation.title,
         summary.conversation.pinned_at.is_some(),
         summary.conversation.archived_at.is_some(),
         is_generating,
     )));
+    let draft = backend
+        .conversation_repository
+        .draft(&summary.conversation.id)
+        .unwrap_or_default();
+    set_draft_badge(&row, &draft);
     row.set_height_request(45);
     row.set_tooltip_text(Some(&summary.conversation.title));
     row.add_css_class("moose-conversation-row");
@@ -154,6 +158,41 @@ fn row(summary: &ConversationSummary, ui: &Rc<WindowUi>, backend: &Rc<Backend>) 
     });
     row.add_controller(click);
     row
+}
+
+pub(super) fn update_draft(ui: &WindowUi, conversation_id: &str, content: &str) {
+    let index = ui
+        .conversation_ids
+        .borrow()
+        .iter()
+        .position(|id| id.as_deref() == Some(conversation_id));
+    if let Some(row) = index.and_then(|index| ui.conversation_list.row_at_index(index as i32)) {
+        set_draft_badge(&row, content);
+    }
+}
+
+fn set_draft_badge(row: &gtk::ListBoxRow, draft: &str) {
+    let Some(content) = row
+        .child()
+        .and_then(|child| child.downcast::<gtk::Box>().ok())
+    else {
+        return;
+    };
+    let mut child = content.first_child();
+    while let Some(widget) = child {
+        child = widget.next_sibling();
+        if widget.widget_name() == "draft-badge" {
+            content.remove(&widget);
+        }
+    }
+    if !draft.is_empty() {
+        let label = gtk::Label::new(Some("Draft"));
+        label.set_widget_name("draft-badge");
+        label.add_css_class("caption");
+        label.add_css_class("dim-label");
+        label.set_tooltip_text(Some(&draft.chars().take(240).collect::<String>()));
+        content.append(&label);
+    }
 }
 
 fn append_heading(ui: &Rc<WindowUi>, ids: &mut Vec<Option<String>>, title: &str) {
@@ -440,6 +479,20 @@ fn set_pinned(ui: &Rc<WindowUi>, backend: &Rc<Backend>, conversation_id: &str, p
 }
 
 fn set_archived(ui: &Rc<WindowUi>, backend: &Rc<Backend>, conversation_id: &str, archived: bool) {
+    if backend.active_generation.borrow().is_some()
+        && backend.generation_context.borrow().conversation_id == conversation_id
+    {
+        ui.toast_overlay.add_toast(adw::Toast::new(
+            "Stop this response before archiving the chat",
+        ));
+        return;
+    }
+    if let Err(error) = super::workspace::save(ui, backend) {
+        ui.toast_overlay.add_toast(adw::Toast::new(&format!(
+            "Draft could not be saved: {error}"
+        )));
+        return;
+    }
     let result = if archived {
         backend.conversation_repository.archive(conversation_id)
     } else {
@@ -452,10 +505,11 @@ fn set_archived(ui: &Rc<WindowUi>, backend: &Rc<Backend>, conversation_id: &str,
                 && backend.active_conversation_id.borrow().as_deref() == Some(conversation_id)
             {
                 backend.active_conversation_id.borrow_mut().take();
-                backend.active_assistant_message_id.borrow_mut().take();
-                backend.active_assistant_content.borrow_mut().clear();
                 ui.conversation_list.unselect_all();
                 clear_messages(ui);
+                ui.draft_label.set_label("");
+                super::generation::sync_controls(ui, backend);
+                super::reasoning::refresh(ui, backend);
                 restore_selected_provider_model(ui, backend);
                 update_profile_indicator(ui, backend, None).ok();
             }
@@ -473,7 +527,9 @@ fn set_archived(ui: &Rc<WindowUi>, backend: &Rc<Backend>, conversation_id: &str,
 }
 
 fn confirm_delete(ui: &Rc<WindowUi>, backend: &Rc<Backend>, conversation_id: &str) {
-    if backend.active_generation.borrow().is_some() {
+    if backend.active_generation.borrow().is_some()
+        && backend.generation_context.borrow().conversation_id == conversation_id
+    {
         ui.toast_overlay
             .add_toast(adw::Toast::new("Finish the active generation first"));
         return;
@@ -515,14 +571,28 @@ fn confirm_delete(ui: &Rc<WindowUi>, backend: &Rc<Backend>, conversation_id: &st
 }
 
 fn delete(ui: &Rc<WindowUi>, backend: &Rc<Backend>, conversation_id: &str) {
+    if backend.active_generation.borrow().is_some()
+        && backend.generation_context.borrow().conversation_id == conversation_id
+    {
+        ui.toast_overlay.add_toast(adw::Toast::new(
+            "Stop this response before deleting the chat",
+        ));
+        return;
+    }
+    if backend.active_conversation_id.borrow().as_deref() == Some(conversation_id) {
+        if let Some(source) = ui.draft_source.borrow_mut().take() {
+            source.remove();
+        }
+    }
     match backend.conversation_repository.delete(conversation_id) {
         Ok(()) => {
             if backend.active_conversation_id.borrow().as_deref() == Some(conversation_id) {
                 backend.active_conversation_id.borrow_mut().take();
-                backend.active_assistant_message_id.borrow_mut().take();
-                backend.active_assistant_content.borrow_mut().clear();
                 ui.conversation_list.unselect_all();
                 clear_messages(ui);
+                ui.draft_label.set_label("");
+                super::generation::sync_controls(ui, backend);
+                super::reasoning::refresh(ui, backend);
                 restore_selected_provider_model(ui, backend);
                 update_profile_indicator(ui, backend, None).ok();
             }

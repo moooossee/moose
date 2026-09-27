@@ -6,6 +6,8 @@ pub type Result<T> = std::result::Result<T, MooseError>;
 
 #[derive(Debug, Error)]
 pub enum MooseError {
+    #[error("{0}")]
+    Attachment(String),
     #[error("I/O failed: {0}")]
     Io(#[from] io::Error),
     #[error("database operation failed: {0}")]

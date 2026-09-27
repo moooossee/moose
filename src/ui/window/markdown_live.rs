@@ -3,7 +3,7 @@ use std::cell::RefCell;
 use gtk::prelude::*;
 use gtk::{Align, Orientation};
 
-use super::{code_view, markdown_view};
+use super::{code_view, markdown_view, math_syntax, math_view};
 
 pub(super) struct LiveMarkdown {
     root: gtk::Box,
@@ -11,7 +11,8 @@ pub(super) struct LiveMarkdown {
 }
 
 enum LiveBlock {
-    Text { label: gtk::Label },
+    Text { root: gtk::Box, content: String },
+    Math { root: gtk::Box, content: String },
     Code(code_view::LiveCodeBlock),
 }
 
@@ -25,6 +26,7 @@ struct LiveSegment {
 enum LiveSegmentKind {
     Text,
     Code,
+    Math,
 }
 
 impl LiveMarkdown {
@@ -74,22 +76,28 @@ impl LiveMarkdown {
 
         remove_live_blocks(&self.root, &mut blocks, segments.len());
     }
-
-    pub(super) fn finish(&self, content: &str) {
-        {
-            let mut blocks = self.blocks.borrow_mut();
-            remove_live_blocks(&self.root, &mut blocks, 0);
-        }
-        markdown_view::update(&self.root, content);
-    }
 }
 
 impl LiveBlock {
     fn new(segment: &LiveSegment) -> Self {
         match segment.kind {
             LiveSegmentKind::Text => {
-                let label = plain_live_label(&segment.content);
-                Self::Text { label }
+                let root = gtk::Box::new(Orientation::Vertical, 8);
+                root.set_hexpand(true);
+                update_live_text(&root, &segment.content);
+                Self::Text {
+                    root,
+                    content: segment.content.clone(),
+                }
+            }
+            LiveSegmentKind::Math => {
+                let root = gtk::Box::new(Orientation::Vertical, 8);
+                root.set_hexpand(true);
+                root.append(&math_view::block(&segment.content));
+                Self::Math {
+                    root,
+                    content: segment.content.clone(),
+                }
             }
             LiveSegmentKind::Code => Self::Code(code_view::LiveCodeBlock::new(
                 &segment.content,
@@ -102,19 +110,34 @@ impl LiveBlock {
         match self {
             Self::Text { .. } => LiveSegmentKind::Text,
             Self::Code(_) => LiveSegmentKind::Code,
+            Self::Math { .. } => LiveSegmentKind::Math,
         }
     }
 
     fn widget(&self) -> gtk::Widget {
         match self {
-            Self::Text { label } => label.clone().upcast(),
+            Self::Text { root, .. } | Self::Math { root, .. } => root.clone().upcast(),
             Self::Code(block) => block.widget(),
         }
     }
 
     fn update(&mut self, segment: &LiveSegment) {
         match self {
-            Self::Text { label } => label.set_text(&segment.content),
+            Self::Text { root, content } => {
+                if *content != segment.content {
+                    update_live_text(root, &segment.content);
+                    content.clone_from(&segment.content);
+                }
+            }
+            Self::Math { root, content } => {
+                if *content != segment.content {
+                    while let Some(child) = root.first_child() {
+                        root.remove(&child);
+                    }
+                    root.append(&math_view::block(&segment.content));
+                    content.clone_from(&segment.content);
+                }
+            }
             Self::Code(block) => block.update(&segment.content, &segment.language),
         }
     }
@@ -126,6 +149,26 @@ fn remove_live_blocks(root: &gtk::Box, blocks: &mut Vec<LiveBlock>, start: usize
     }
 }
 
+fn update_live_text(root: &gtk::Box, content: &str) {
+    if !math_syntax::prepare(content).formulas.is_empty() {
+        markdown_view::update(root, content);
+        return;
+    }
+    if let Some(label) = root
+        .first_child()
+        .and_then(|widget| widget.downcast::<gtk::Label>().ok())
+    {
+        if label.next_sibling().is_none() {
+            label.set_text(content);
+            return;
+        }
+    }
+    while let Some(child) = root.first_child() {
+        root.remove(&child);
+    }
+    root.append(&plain_live_label(content));
+}
+
 fn plain_live_label(content: &str) -> gtk::Label {
     let label = gtk::Label::builder()
         .label(content)
@@ -135,7 +178,8 @@ fn plain_live_label(content: &str) -> gtk::Label {
         .wrap(true)
         .wrap_mode(gtk::pango::WrapMode::WordChar)
         .natural_wrap_mode(gtk::NaturalWrapMode::Word)
-        .width_chars(120)
+        .width_chars(1)
+        .max_width_chars(120)
         .xalign(0.0)
         .build();
     label.add_css_class("body");
@@ -158,8 +202,10 @@ fn live_segments(content: &str) -> Vec<LiveSegment> {
         push_live_text_segment(&mut segments, &mut text);
 
         let mut code = String::new();
+        let mut closed = false;
         for code_line in lines.by_ref() {
             if is_closing_fence(code_line, fence.marker, fence.length) {
+                closed = true;
                 break;
             }
             code.push_str(code_line);
@@ -167,7 +213,11 @@ fn live_segments(content: &str) -> Vec<LiveSegment> {
 
         let language = code_view::code_language(&fence.info, &code);
         segments.push(LiveSegment {
-            kind: LiveSegmentKind::Code,
+            kind: if closed && math_view::is_math_language(&fence.info) {
+                LiveSegmentKind::Math
+            } else {
+                LiveSegmentKind::Code
+            },
             content: code,
             language,
         });

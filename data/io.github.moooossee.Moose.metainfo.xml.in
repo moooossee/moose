@@ -9,11 +9,24 @@
   <metadata_license>CC0-1.0</metadata_license>
   <project_license>GPL-3.0-or-later</project_license>
   <description>
-    <p>Moose is a simple desktop app for chatting with local AI models through Ollama, without getting in your way.</p>
-    <p>Moose can manage its own Ollama inside the Flatpak. Fresh installs can set up Ollama, download a model and start chatting from the app.</p>
-    <p>Conversations keep recent context, support per-chat settings and can use built-in or custom profiles.</p>
-    <p>Advanced users can still connect local or remote Ollama providers.</p>
+    <p>Ask questions, write and work through code with AI models running on your computer. Moose helps you set up Ollama, download a model and start a conversation in one place.</p>
+    <p>Bring images, PDFs and text files into your chats. Keep a searchable document library and read the source excerpts alongside answers. Images need a model with vision support, and PDFs need selectable text.</p>
+    <p>Edit messages, explore different answers and return to earlier versions. Drafts save automatically, and responses can include formatted code, mathematical formulas and model reasoning.</p>
+    <p>Your conversations and document library stay on your device. You can also connect to an existing Ollama instance. When using a remote instance, messages and relevant file content are sent to that server.</p>
   </description>
+  <keywords>
+    <keyword>AI</keyword>
+    <keyword>Artificial intelligence</keyword>
+    <keyword>Local AI</keyword>
+    <keyword>Ollama</keyword>
+    <keyword>LLM</keyword>
+    <keyword>Chatbot</keyword>
+    <keyword>Models</keyword>
+    <keyword>PDF</keyword>
+    <keyword>Documents</keyword>
+    <keyword>Vision</keyword>
+    <keyword>Reasoning</keyword>
+  </keywords>
   <launchable type="desktop-id">io.github.moooossee.Moose.desktop</launchable>
   <url type="homepage">https://github.com/moooossee/moose</url>
   <url type="bugtracker">https://github.com/moooossee/moose/issues</url>
@@ -24,20 +37,34 @@
   </branding>
   <screenshots>
     <screenshot type="default">
-      <image type="source" width="1430" height="995">https://raw.githubusercontent.com/moooossee/moose/v0.4.2/data/screenshots/main.png</image>
-      <caption>Reading Markdown responses with highlighted code blocks</caption>
+      <image type="source" xml:lang="en">https://raw.githubusercontent.com/moooossee/moose/v0.5.0/data/screenshots/main.png</image>
+      <caption>Chat with local models and read formatted answers</caption>
     </screenshot>
     <screenshot>
-      <image type="source" width="1430" height="995">https://raw.githubusercontent.com/moooossee/moose/v0.4.2/data/screenshots/instances.png</image>
-      <caption>Choosing a managed or external Ollama instance</caption>
+      <image type="source" xml:lang="en">https://raw.githubusercontent.com/moooossee/moose/v0.5.0/data/screenshots/instances.png</image>
+      <caption>Set up Ollama or connect to an existing instance</caption>
     </screenshot>
     <screenshot>
-      <image type="source" width="1430" height="995">https://raw.githubusercontent.com/moooossee/moose/v0.4.2/data/screenshots/model-manager.png</image>
-      <caption>Browsing installed and recommended models</caption>
+      <image type="source" xml:lang="en">https://raw.githubusercontent.com/moooossee/moose/v0.5.0/data/screenshots/model-manager.png</image>
+      <caption>Browse and download models for your conversations</caption>
     </screenshot>
   </screenshots>
   <content_rating type="oars-1.1" />
   <releases>
+    <release version="0.5.0" date="2026-09-26" type="stable">
+      <url type="details">https://github.com/moooossee/moose/releases/tag/v0.5.0</url>
+      <description>
+        <p>Bring images and documents into your conversations. Attach photos, PDFs, text and code, or search your local document library with source excerpts and page references.</p>
+        <ul>
+          <li>Edit messages in place, regenerate answers and switch between saved versions or continue in a separate chat.</li>
+          <li>View model reasoning separately and choose the reasoning options supported by your model.</li>
+          <li>Keep drafts and attachments between sessions, move between chats during a response and receive a completion notification.</li>
+          <li>Review model download history, retry interrupted downloads and keep chatting while a model downloads.</li>
+          <li>Read mathematical formulas with local rendering, scrolling for long expressions and access to the original LaTeX.</li>
+          <li>Use a wider, aligned chat and composer, compact model controls, clearer attachment previews and helpful starting suggestions.</li>
+        </ul>
+      </description>
+    </release>
     <release version="0.4.3" date="2026-06-17">
       <url type="details">https://github.com/moooossee/moose/releases/tag/v0.4.3</url>
       <description>

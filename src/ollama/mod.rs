@@ -7,7 +7,7 @@ pub mod manager;
 pub mod service;
 
 use crate::{
-    chat::{ChatRequest, ChatStreamEvent},
+    chat::{ChatRequest, ChatStreamEvent, ThinkingValue},
     error::{MooseError, Result},
     providers::{validate_base_url, validate_model_name},
 };
@@ -100,11 +100,16 @@ struct ErrorResponse {
 #[derive(Debug, Deserialize)]
 struct ChatLine {
     message: Option<ChatLineMessage>,
+    #[serde(default)]
     done: bool,
+    error: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
 struct ChatLineMessage {
+    #[serde(default)]
+    thinking: String,
+    #[serde(default)]
     content: String,
 }
 
@@ -232,17 +237,66 @@ impl OllamaClient {
             return Err(response_error(response).await);
         }
 
+        let mut completed = false;
         self.stream_lines(response, |line| {
-            if let Some(event) = parse_chat_stream_line(line)? {
-                let done = matches!(event, ChatStreamEvent::Done);
+            for event in parse_chat_stream_events(line)? {
+                completed |= matches!(event, ChatStreamEvent::Done);
                 on_event(event);
-                if done {
-                    return Ok(true);
-                }
             }
-            Ok(false)
+            Ok(completed)
         })
-        .await
+        .await?;
+        if !completed {
+            return Err(MooseError::InvalidOllamaResponse(
+                "The response ended before completion".into(),
+            ));
+        }
+        Ok(())
+    }
+
+    pub async fn supports_vision(&self, model: &str) -> Result<bool> {
+        let response = self
+            .client
+            .post(self.endpoint("show")?)
+            .timeout(self.request_timeout)
+            .json(&serde_json::json!({"model": validate_model_name(model)?}))
+            .send()
+            .await?;
+        if !response.status().is_success() {
+            return Err(response_error(response).await);
+        }
+        let response: serde_json::Value = response.json().await?;
+        let capabilities = response
+            .get("capabilities")
+            .and_then(serde_json::Value::as_array)
+            .ok_or_else(|| {
+                MooseError::InvalidOllamaResponse(
+                    "Model capabilities are unavailable. Update Ollama to check image support."
+                        .into(),
+                )
+            })?;
+        Ok(capabilities
+            .iter()
+            .any(|value| value.as_str() == Some("vision")))
+    }
+
+    pub async fn thinking_values(&self, model: &str) -> Result<Vec<ThinkingValue>> {
+        let response = self
+            .client
+            .post(self.endpoint("show")?)
+            .timeout(self.request_timeout)
+            .json(&serde_json::json!({"model": validate_model_name(model)?}))
+            .send()
+            .await?;
+        if !response.status().is_success() {
+            return Err(response_error(response).await);
+        }
+        let response: serde_json::Value = response.json().await?;
+        let values = response
+            .pointer("/thinking/values")
+            .and_then(|values| serde_json::from_value::<Vec<ThinkingValue>>(values.clone()).ok())
+            .unwrap_or_default();
+        Ok(values)
     }
 
     async fn get_text(&self, endpoint: &str) -> Result<String> {
@@ -344,19 +398,30 @@ pub fn parse_models_response(input: &str) -> Result<Vec<OllamaModel>> {
 }
 
 pub fn parse_chat_stream_line(line: &str) -> Result<Option<ChatStreamEvent>> {
-    if line.is_empty() {
-        return Ok(None);
-    }
+    Ok(parse_chat_stream_events(line)?.into_iter().next())
+}
 
+pub fn parse_chat_stream_events(line: &str) -> Result<Vec<ChatStreamEvent>> {
+    if line.trim().is_empty() {
+        return Ok(Vec::new());
+    }
     let response: ChatLine = serde_json::from_str(line)?;
-
-    if response.done {
-        return Ok(Some(ChatStreamEvent::Done));
+    if let Some(error) = response.error {
+        return Err(MooseError::InvalidOllamaResponse(error));
     }
-
-    Ok(response
-        .message
-        .map(|message| ChatStreamEvent::Token(message.content)))
+    let mut events = Vec::new();
+    if let Some(message) = response.message {
+        if !message.thinking.is_empty() {
+            events.push(ChatStreamEvent::Thinking(message.thinking));
+        }
+        if !message.content.is_empty() {
+            events.push(ChatStreamEvent::Token(message.content));
+        }
+    }
+    if response.done {
+        events.push(ChatStreamEvent::Done);
+    }
+    Ok(events)
 }
 
 pub fn parse_pull_stream_line(line: &str) -> Result<Option<OllamaPullProgress>> {

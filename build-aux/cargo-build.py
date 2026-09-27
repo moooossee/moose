@@ -20,6 +20,7 @@ environment["MOOSE_STYLE_PATH"] = style_path
 command = [
     "cargo",
     "build",
+    "--locked",
     "--manifest-path",
     str(source_root / "Cargo.toml"),
     "--target-dir",

@@ -1,5 +1,5 @@
 use std::{
-    cell::RefCell,
+    cell::{Cell, RefCell},
     collections::HashMap,
     fs,
     rc::Rc,
@@ -16,8 +16,8 @@ use crate::{
     chat::{ChatMessage, ChatOptions, ChatRequest, ChatStreamEvent, build_conversation_context},
     conversations::{
         ConversationTitleUpdate, DEFAULT_CONTEXT_MESSAGE_LIMIT, DEFAULT_CONVERSATION_TITLE,
-        DEFAULT_TEMPERATURE, GenerationSettings, MAX_CONTEXT_MESSAGE_LIMIT, Message, MessageUpdate,
-        NewConversation, NewGenerationSettings, NewMessage,
+        DEFAULT_TEMPERATURE, GenerationSettings, MAX_CONTEXT_MESSAGE_LIMIT, NewConversation,
+        NewGenerationSettings,
     },
     error::{MooseError, Result},
     ollama::{
@@ -32,22 +32,30 @@ use crate::{
     },
 };
 
+mod attachments;
 mod chat_settings;
 mod chat_view;
+mod chat_welcome;
 mod code_view;
 mod conversation_export;
 mod conversation_list;
 mod first_run;
+mod generation;
 mod managed_install;
 mod markdown_live;
 mod markdown_view;
+mod math_syntax;
+mod math_view;
+mod message_actions;
 mod model_actions;
 mod model_manager;
 mod preferences;
 mod provider_controls;
+mod reasoning;
 mod shortcuts;
 mod sidebar;
 mod widgets;
+mod workspace;
 
 use provider_controls::show_connect_external_dialog;
 
@@ -61,7 +69,7 @@ const STARTER_MODEL: &str = "llama3.2:1b";
 
 type ManagedOllamaHandle = Arc<tokio::sync::Mutex<ManagedOllamaService>>;
 
-pub fn build(app: &adw::Application) -> adw::ApplicationWindow {
+fn build_ui(app: &adw::Application) -> Rc<WindowUi> {
     install_chat_css();
 
     let window = adw::ApplicationWindow::builder()
@@ -76,7 +84,6 @@ pub fn build(app: &adw::Application) -> adw::ApplicationWindow {
     let model_manager = model_manager::build();
     let first_run_guide = first_run::build();
     let new_chat_button = sidebar.new_chat_button.clone();
-    let model_manager_button = sidebar.model_manager_button.clone();
 
     let header_bar = adw::HeaderBar::new();
     let sidebar_toggle_button = widgets::icon_button("sidebar-show-symbolic", "Hide Sidebar");
@@ -95,6 +102,9 @@ pub fn build(app: &adw::Application) -> adw::ApplicationWindow {
     content_stack.set_visible_child_name("chat");
     toast_overlay.set_child(Some(&content_stack));
     content_toolbar.add_top_bar(&header_bar);
+    let generation_banner = adw::Banner::new("A response is being generated in another chat");
+    generation_banner.set_button_label(Some("View"));
+    content_toolbar.add_top_bar(&generation_banner);
     content_toolbar.set_content(Some(&toast_overlay));
 
     let split_view = adw::OverlaySplitView::builder()
@@ -123,6 +133,8 @@ pub fn build(app: &adw::Application) -> adw::ApplicationWindow {
     let conversation_ids = Rc::new(RefCell::new(Vec::new()));
     let ui = Rc::new(WindowUi {
         window: window.clone(),
+        new_chat_button,
+        preferences_button,
         root_stack,
         split_view: split_view.clone(),
         toast_overlay,
@@ -142,20 +154,36 @@ pub fn build(app: &adw::Application) -> adw::ApplicationWindow {
         messages: chat.messages,
         messages_scrolled: chat.messages_scrolled,
         chat_status_page: chat.status_page,
+        chat_welcome: chat.welcome,
         message_stack: chat.message_stack,
         entry: chat.entry,
         send_button: chat.send_button,
         stop_button: chat.stop_button,
+        draft_label: chat.draft_label,
+        thinking_picker: chat.thinking_picker,
+        attachments: chat.attachments,
+        generation_banner,
+        restoring_draft: Cell::new(false),
+        draft_source: RefCell::new(None),
+        thinking_state: RefCell::new(reasoning::State::default()),
+        streaming_message: RefCell::new(None),
         model_names,
         installed_models,
         conversation_ids,
         first_run_guide,
+        message_action_group: gio::SimpleActionGroup::new(),
         restoring_model_selection: RefCell::new(false),
         restoring_conversation_selection: RefCell::new(false),
     });
 
     bind_sidebar_visibility(&split_view, &sidebar_toggle_button);
 
+    ui
+}
+
+pub fn build(app: &adw::Application) -> adw::ApplicationWindow {
+    let ui = build_ui(app);
+    let window = ui.window.clone();
     match Backend::new() {
         Ok(backend) => {
             let backend = Rc::new(backend);
@@ -165,12 +193,26 @@ pub fn build(app: &adw::Application) -> adw::ApplicationWindow {
                 &window,
                 &ui,
                 &backend,
-                &new_chat_button,
-                &model_manager_button,
-                &preferences_button,
+                &ui.new_chat_button,
+                &ui.model_manager_button,
+                &ui.preferences_button,
             );
             bind_global_shortcuts(&ui, &backend);
-            if provider.is_some() {
+            message_actions::bind(&ui, &backend);
+            workspace::bind(&ui, &backend);
+            reasoning::bind(&ui, &backend);
+            attachments::bind(&ui, &backend);
+            generation::bind(&ui, &backend);
+            if let Err(error) = backend
+                .conversation_repository
+                .recover_interrupted_responses()
+            {
+                ui.toast_overlay.add_toast(adw::Toast::new(&format!(
+                    "Interrupted responses could not be restored: {error}"
+                )));
+            }
+            workspace::restore_last(&ui, &backend);
+            if active_provider(&backend).is_some() {
                 refresh_models(&ui, &backend);
             } else {
                 show_first_run_guide(&ui);
@@ -212,6 +254,7 @@ struct Backend {
     active_conversation_id: RefCell<Option<String>>,
     active_assistant_message_id: RefCell<Option<String>>,
     active_assistant_content: RefCell<String>,
+    generation_context: RefCell<generation::Context>,
 }
 
 struct ActiveModelPull {
@@ -221,6 +264,8 @@ struct ActiveModelPull {
 
 struct WindowUi {
     window: adw::ApplicationWindow,
+    new_chat_button: gtk::Button,
+    preferences_button: gtk::Button,
     root_stack: gtk::Stack,
     split_view: adw::OverlaySplitView,
     toast_overlay: adw::ToastOverlay,
@@ -240,14 +285,24 @@ struct WindowUi {
     messages: gtk::Box,
     messages_scrolled: gtk::ScrolledWindow,
     chat_status_page: adw::StatusPage,
+    chat_welcome: adw::Clamp,
     message_stack: gtk::Stack,
     entry: gtk::TextView,
     send_button: gtk::Button,
     stop_button: gtk::Button,
+    draft_label: gtk::Label,
+    thinking_picker: gtk::DropDown,
+    attachments: attachments::Controls,
+    generation_banner: adw::Banner,
+    restoring_draft: Cell<bool>,
+    draft_source: RefCell<Option<gtk::glib::SourceId>>,
+    thinking_state: RefCell<reasoning::State>,
+    streaming_message: RefCell<Option<chat_view::StreamingMessage>>,
     model_names: Rc<RefCell<Vec<String>>>,
     installed_models: Rc<RefCell<Vec<OllamaModel>>>,
     conversation_ids: Rc<RefCell<Vec<Option<String>>>>,
     first_run_guide: first_run::FirstRunGuide,
+    message_action_group: gio::SimpleActionGroup,
     restoring_model_selection: RefCell<bool>,
     restoring_conversation_selection: RefCell<bool>,
 }
@@ -263,6 +318,7 @@ enum ModelLoadEvent {
 }
 
 enum ChatUiEvent {
+    Thinking(String),
     Token(String),
     Done,
     Failed(String),
@@ -277,11 +333,6 @@ enum AssistantMessageEnd {
     Complete,
     Cancelled,
     Failed,
-}
-
-struct PendingExchange {
-    user: Message,
-    assistant: Message,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -342,6 +393,7 @@ impl Backend {
             .unwrap_or_default();
         let shortcuts = shortcuts::merged_values(shortcuts);
         download_job_repository.fail_active_jobs("Download interrupted.")?;
+        conversation_repository.collect_unused_assets()?;
         let runtime = tokio::runtime::Builder::new_multi_thread()
             .enable_all()
             .build()?;
@@ -366,13 +418,8 @@ impl Backend {
             active_conversation_id: RefCell::new(None),
             active_assistant_message_id: RefCell::new(None),
             active_assistant_content: RefCell::new(String::new()),
+            generation_context: RefCell::new(generation::Context::default()),
         })
-    }
-
-    fn abort_generation(&self) {
-        if let Some(handle) = self.active_generation.borrow_mut().take() {
-            handle.abort();
-        }
     }
 
     fn cancel_generation(&self) -> Result<bool> {
@@ -605,8 +652,11 @@ fn bind_actions(
     ui.entry.add_controller(key_controller);
 
     let target_ui = Rc::clone(ui);
+    let target_backend = Rc::clone(backend);
     ui.entry.buffer().connect_changed(move |_| {
         update_send_button(&target_ui);
+        workspace::schedule_save(&target_ui, &target_backend);
+        attachments::sync_counts(&target_ui, &target_backend);
     });
 
     let target_ui = Rc::clone(ui);
@@ -640,19 +690,15 @@ fn bind_actions(
             return;
         };
 
-        if target_backend.active_generation.borrow().is_some() {
-            target_ui
-                .toast_overlay
-                .add_toast(adw::Toast::new("Finish the active generation first"));
-            return;
-        }
-
         if let Err(error) = conversation_list::load_selected(&target_ui, &target_backend, row) {
             target_ui.toast_overlay.add_toast(adw::Toast::new(&format!(
                 "Conversation could not be loaded: {error}"
             )));
         } else {
             show_chat(&target_ui);
+            workspace::sync_provider(&target_ui, &target_backend);
+            generation::sync_controls(&target_ui, &target_backend);
+            reasoning::refresh(&target_ui, &target_backend);
         }
     });
 
@@ -735,22 +781,21 @@ fn run_shortcut_action(action: &str, ui: &Rc<WindowUi>, backend: &Rc<Backend>) -
 
 fn new_conversation_action(ui: &Rc<WindowUi>, backend: &Rc<Backend>) {
     show_chat(ui);
-    match backend.cancel_generation() {
-        Ok(true) => finish_generation(ui),
-        Ok(false) => {}
-        Err(error) => {
-            finish_generation(ui);
-            ui.toast_overlay.add_toast(adw::Toast::new(&format!(
-                "Conversation could not be saved: {error}"
-            )));
-        }
+    if let Err(error) = workspace::save(ui, backend) {
+        ui.toast_overlay.add_toast(adw::Toast::new(&format!(
+            "Draft could not be saved: {error}"
+        )));
+        return;
     }
     match create_empty_conversation(backend) {
         Ok(conversation_id) => {
             clear_messages(ui);
+            workspace::restore(ui, backend).ok();
+            generation::sync_controls(ui, backend);
             restore_selected_provider_model(ui, backend);
+            reasoning::refresh(ui, backend);
             update_profile_indicator(ui, backend, None).ok();
-            set_chat_empty_state(ui, "Empty Conversation", "Send a message to begin.");
+            show_chat_welcome(ui);
             conversation_list::refresh(ui, backend);
             conversation_list::select(ui, &conversation_id);
             ui.entry.grab_focus();
@@ -764,12 +809,8 @@ fn new_conversation_action(ui: &Rc<WindowUi>, backend: &Rc<Backend>) {
 }
 
 fn show_model_manager_action(ui: &Rc<WindowUi>, backend: &Rc<Backend>) {
-    if backend.active_generation.borrow().is_some() {
-        ui.toast_overlay
-            .add_toast(adw::Toast::new("Finish the active generation first"));
-        return;
-    }
     show_model_manager(ui);
+    generation::sync_controls(ui, backend);
 }
 
 fn show_preferences_action(
@@ -784,6 +825,9 @@ fn stop_generation_action(ui: &Rc<WindowUi>, backend: &Rc<Backend>, notify_inact
     match backend.cancel_generation() {
         Ok(true) => {
             finish_generation(ui);
+            workspace::sync_provider(ui, backend);
+            generation::sync_controls(ui, backend);
+            message_actions::refresh(ui, backend);
             conversation_list::refresh(ui, backend);
             ui.toast_overlay
                 .add_toast(adw::Toast::new("Generation cancelled"));
@@ -911,6 +955,12 @@ fn provider_change_is_blocked(ui: &Rc<WindowUi>, backend: &Rc<Backend>) -> bool 
 }
 
 fn apply_active_provider(ui: &Rc<WindowUi>, backend: &Rc<Backend>, provider: Provider) {
+    if let Err(error) = workspace::save(ui, backend) {
+        ui.toast_overlay.add_toast(adw::Toast::new(&format!(
+            "Draft could not be saved: {error}"
+        )));
+        return;
+    }
     *backend.provider.borrow_mut() = Some(provider.clone());
     if !provider.is_managed {
         backend.stop_managed_ollama();
@@ -923,6 +973,12 @@ fn apply_active_provider(ui: &Rc<WindowUi>, backend: &Rc<Backend>, provider: Pro
 }
 
 fn clear_active_provider(ui: &Rc<WindowUi>, backend: &Rc<Backend>) {
+    if let Err(error) = workspace::save(ui, backend) {
+        ui.toast_overlay.add_toast(adw::Toast::new(&format!(
+            "Draft could not be saved: {error}"
+        )));
+        return;
+    }
     *backend.provider.borrow_mut() = None;
     backend.stop_managed_ollama();
     reset_active_conversation(ui, backend);
@@ -941,10 +997,10 @@ fn clear_active_provider(ui: &Rc<WindowUi>, backend: &Rc<Backend>) {
 
 fn reset_active_conversation(ui: &WindowUi, backend: &Backend) {
     backend.active_conversation_id.borrow_mut().take();
-    backend.active_assistant_message_id.borrow_mut().take();
-    backend.active_assistant_content.borrow_mut().clear();
     ui.conversation_list.unselect_all();
     clear_messages(ui);
+    generation::sync_controls(ui, backend);
+    ui.draft_label.set_label("");
 }
 
 fn refresh_models(ui: &Rc<WindowUi>, backend: &Rc<Backend>) {
@@ -974,6 +1030,7 @@ fn refresh_models(ui: &Rc<WindowUi>, backend: &Rc<Backend>) {
         show_first_run_guide(ui);
         return;
     };
+    let requested_provider_id = provider.id.clone();
     let provider_is_managed = provider.is_managed;
     ui.provider_status.set_text(if provider.is_managed {
         "Starting"
@@ -1035,6 +1092,11 @@ fn refresh_models(ui: &Rc<WindowUi>, backend: &Rc<Backend>) {
     let target_ui = Rc::clone(ui);
     let target_backend = Rc::clone(backend);
     gtk::glib::timeout_add_local(Duration::from_millis(50), move || {
+        if active_provider(&target_backend)
+            .is_none_or(|provider| provider.id != requested_provider_id)
+        {
+            return gtk::glib::ControlFlow::Break;
+        }
         match receiver.try_recv() {
             Ok(ModelLoadEvent::Loaded {
                 available,
@@ -1117,31 +1179,52 @@ fn managed_ready_status(acceleration: Option<ManagedOllamaAcceleration>) -> Stri
 }
 
 fn send_message(ui: &Rc<WindowUi>, backend: &Rc<Backend>) {
-    let prompt = prompt_text(&ui.entry).trim().to_string();
-    if prompt.is_empty() {
-        return;
+    let mut prompt = prompt_text(&ui.entry).trim().to_string();
+    if prompt.is_empty() && ui.attachments.count.get() > 0 {
+        prompt = if ui.attachments.has_images.get() {
+            "Describe the attached images."
+        } else {
+            "Summarize the attached documents."
+        }
+        .into();
     }
+    if !prompt.is_empty() {
+        submit_message(ui, backend, message_actions::Submission::New(prompt));
+    }
+}
 
+fn submit_message(
+    ui: &Rc<WindowUi>,
+    backend: &Rc<Backend>,
+    submission: message_actions::Submission,
+) -> bool {
     if backend.active_generation.borrow().is_some() {
         ui.toast_overlay
             .add_toast(adw::Toast::new("Generation is already running"));
-        return;
-    }
-
-    if backend.active_model_pull.borrow().is_some() {
-        ui.toast_overlay
-            .add_toast(adw::Toast::new("Finish the active model download first"));
-        return;
+        return false;
     }
 
     if backend.active_model_delete.borrow().is_some() {
         ui.toast_overlay
             .add_toast(adw::Toast::new("Finish the active model deletion first"));
-        return;
+        return false;
     }
 
+    if let Err(error) = generation::retry_pending(backend) {
+        ui.toast_overlay.add_toast(adw::Toast::new(&format!(
+            "Previous response could not be saved: {error}"
+        )));
+        return false;
+    }
+    if !workspace::provider_matches(backend) {
+        workspace::sync_provider(ui, backend);
+        ui.toast_overlay.add_toast(adw::Toast::new(
+            "This chat’s instance must be ready before sending. Your draft is saved.",
+        ));
+        return false;
+    }
     let Some(provider) = require_active_provider(ui, backend) else {
-        return;
+        return false;
     };
 
     let (conversation_id, should_generate_title) = match ensure_active_conversation(backend) {
@@ -1150,7 +1233,7 @@ fn send_message(ui: &Rc<WindowUi>, backend: &Rc<Backend>) {
             ui.toast_overlay.add_toast(adw::Toast::new(&format!(
                 "Conversation could not be saved: {error}"
             )));
-            return;
+            return false;
         }
     };
     let settings = match load_chat_settings(backend, &conversation_id) {
@@ -1159,57 +1242,79 @@ fn send_message(ui: &Rc<WindowUi>, backend: &Rc<Backend>) {
             ui.toast_overlay.add_toast(adw::Toast::new(&format!(
                 "Chat settings could not be loaded: {error}"
             )));
-            return;
+            return false;
         }
     };
     let model = match request_model(ui, &settings) {
         Ok(model) => model,
         Err(message) => {
             ui.toast_overlay.add_toast(adw::Toast::new(&message));
-            return;
+            return false;
         }
     };
-    let context_limit = usize::try_from(settings.context_messages)
-        .unwrap_or(DEFAULT_CONTEXT_MESSAGE_LIMIT as usize);
-    let history_limit = context_limit.saturating_sub(1);
-    let history = match backend
+    let (prompt, history) = match backend
         .conversation_repository
-        .list_recent_context_messages(&conversation_id, history_limit)
+        .list_messages(&conversation_id)
+        .and_then(|history| submission.prepare(&history))
     {
-        Ok(messages) => messages,
+        Ok(context) => context,
         Err(error) => {
             ui.toast_overlay.add_toast(adw::Toast::new(&format!(
-                "Conversation context could not be loaded: {error}"
+                "Message could not be prepared: {error}"
             )));
-            return;
+            return false;
         }
     };
-    let request_messages = build_conversation_context(
-        &history,
+    let (request_messages, sources) = match attachments::prepare(
+        ui,
+        backend,
+        &conversation_id,
+        &submission,
         &prompt,
-        context_limit,
-        Some(&settings.system_prompt),
-    );
-    let request = match ChatRequest::streaming_with_options(
-        model.clone(),
-        request_messages,
-        chat_options(&settings),
+        &history,
+        &settings,
+        &model,
     ) {
-        Ok(request) => request,
+        Ok(result) => result,
         Err(error) => {
-            ui.toast_overlay.add_toast(adw::Toast::new(&format!(
-                "Message could not be sent: {error}"
-            )));
-            return;
+            ui.toast_overlay
+                .add_toast(adw::Toast::new(&error.to_string()));
+            return false;
         }
     };
-    let pending_exchange = match save_pending_exchange(backend, &conversation_id, &prompt) {
-        Ok(pending_exchange) => pending_exchange,
+    let mut options = chat_options(&settings);
+    if options.num_ctx.is_none()
+        && (!sources.is_empty()
+            || request_messages
+                .iter()
+                .any(|message| !message.images.is_empty()))
+    {
+        options.num_ctx = Some(4096);
+    }
+    let mut request =
+        match ChatRequest::streaming_with_options(model.clone(), request_messages, options) {
+            Ok(request) => request,
+            Err(error) => {
+                ui.toast_overlay.add_toast(adw::Toast::new(&format!(
+                    "Message could not be sent: {error}"
+                )));
+                return false;
+            }
+        };
+    request.think = reasoning::selected_for_model(ui, &model);
+    let exchange = backend.conversation_repository.submit_with_sources(
+        &conversation_id,
+        &submission,
+        &prompt,
+        &sources,
+    );
+    let (_, assistant) = match exchange {
+        Ok(exchange) => exchange,
         Err(error) => {
             ui.toast_overlay.add_toast(adw::Toast::new(&format!(
                 "Message could not be saved: {error}"
             )));
-            return;
+            return false;
         }
     };
     conversation_list::refresh(ui, backend);
@@ -1223,165 +1328,17 @@ fn send_message(ui: &Rc<WindowUi>, backend: &Rc<Backend>) {
         );
     }
 
-    backend.abort_generation();
-    let assistant_message_id = pending_exchange.assistant.id.clone();
-    *backend.active_assistant_message_id.borrow_mut() = Some(assistant_message_id);
-    backend.active_assistant_content.borrow_mut().clear();
-    clear_prompt(&ui.entry);
-    ui.message_stack.set_visible_child_name("messages");
-    chat_view::append_message(
-        &ui.messages,
-        "You",
-        &prompt,
-        Some(&pending_exchange.user.created_at),
+    generation::start(
+        ui,
+        backend,
+        provider,
+        conversation_id,
+        model,
+        request,
+        assistant,
+        matches!(submission, message_actions::Submission::New(_)),
     );
-    let assistant_message = chat_view::append_streaming_message(
-        &ui.messages,
-        &model,
-        Some(&pending_exchange.assistant.created_at),
-    );
-    scroll_chat_to_bottom(ui);
-    ui.send_button.set_sensitive(false);
-    ui.stop_button.set_sensitive(true);
-
-    let (sender, receiver) = mpsc::channel();
-    let paths = backend.paths.clone();
-    let managed_ollama = Arc::clone(&backend.managed_ollama);
-    let managed_gpu = backend.managed_gpu.borrow().clone();
-    let handle = backend.runtime.spawn(async move {
-        let client =
-            match prepared_ollama_client(paths, managed_ollama, managed_gpu, provider).await {
-                Ok(client) => client,
-                Err(error) => {
-                    let _ = sender.send(ChatUiEvent::Failed(error.to_string()));
-                    return;
-                }
-            };
-        let result = client
-            .stream_chat(request, |event| match event {
-                ChatStreamEvent::Token(token) => {
-                    let _ = sender.send(ChatUiEvent::Token(token));
-                }
-                ChatStreamEvent::Done => {
-                    let _ = sender.send(ChatUiEvent::Done);
-                }
-            })
-            .await;
-
-        if let Err(error) = result {
-            let _ = sender.send(ChatUiEvent::Failed(error.to_string()));
-        }
-    });
-    *backend.active_generation.borrow_mut() = Some(handle);
-    conversation_list::refresh(ui, backend);
-
-    let target_ui = Rc::clone(ui);
-    let target_backend = Rc::clone(backend);
-    gtk::glib::timeout_add_local(Duration::from_millis(80), move || {
-        let mut content_changed = false;
-
-        loop {
-            match receiver.try_recv() {
-                Ok(ChatUiEvent::Token(token)) => {
-                    let mut content = target_backend.active_assistant_content.borrow_mut();
-                    content.push_str(&token);
-                    content_changed = true;
-                }
-                Ok(ChatUiEvent::Done) => {
-                    if target_backend
-                        .active_assistant_content
-                        .borrow()
-                        .trim()
-                        .is_empty()
-                    {
-                        *target_backend.active_assistant_content.borrow_mut() =
-                            "No response generated.".to_string();
-                    }
-                    let display_content = target_backend.active_assistant_content.borrow().clone();
-                    chat_view::set_streaming_message_content(&assistant_message, &display_content);
-                    scroll_chat_to_bottom(&target_ui);
-                    finish_generation(&target_ui);
-                    target_backend.active_generation.borrow_mut().take();
-                    if let Err(error) = persist_active_assistant_message(
-                        &target_backend,
-                        AssistantMessageEnd::Complete,
-                    ) {
-                        target_ui.toast_overlay.add_toast(adw::Toast::new(&format!(
-                            "Conversation could not be saved: {error}"
-                        )));
-                    }
-                    conversation_list::refresh(&target_ui, &target_backend);
-                    return gtk::glib::ControlFlow::Break;
-                }
-                Ok(ChatUiEvent::Failed(error)) => {
-                    let display_content = {
-                        let content = target_backend.active_assistant_content.borrow();
-                        message_content_with_live_state(content.as_str(), "Response failed.")
-                    };
-                    chat_view::set_streaming_message_content(&assistant_message, &display_content);
-                    scroll_chat_to_bottom(&target_ui);
-                    finish_generation(&target_ui);
-                    target_backend.active_generation.borrow_mut().take();
-                    if let Err(save_error) = persist_active_assistant_message(
-                        &target_backend,
-                        AssistantMessageEnd::Failed,
-                    ) {
-                        target_ui.toast_overlay.add_toast(adw::Toast::new(&format!(
-                            "Conversation could not be saved: {save_error}"
-                        )));
-                    }
-                    conversation_list::refresh(&target_ui, &target_backend);
-                    target_ui
-                        .toast_overlay
-                        .add_toast(adw::Toast::new(&format!("Generation failed: {error}")));
-                    return gtk::glib::ControlFlow::Break;
-                }
-                Err(mpsc::TryRecvError::Empty) => {
-                    if content_changed {
-                        let should_scroll =
-                            chat_view::should_stick_to_bottom(&target_ui.messages_scrolled);
-                        let content = target_backend.active_assistant_content.borrow();
-                        chat_view::update_streaming_message_content(
-                            &assistant_message,
-                            content.as_str(),
-                        );
-                        if should_scroll {
-                            scroll_chat_to_bottom(&target_ui);
-                        }
-                    }
-                    return gtk::glib::ControlFlow::Continue;
-                }
-                Err(mpsc::TryRecvError::Disconnected) => {
-                    let display_content = {
-                        let content = target_backend.active_assistant_content.borrow();
-                        message_content_with_live_state(content.as_str(), "Response cancelled.")
-                    };
-                    chat_view::set_streaming_message_content(&assistant_message, &display_content);
-                    scroll_chat_to_bottom(&target_ui);
-                    finish_generation(&target_ui);
-                    target_backend.active_generation.borrow_mut().take();
-                    if let Err(error) = persist_active_assistant_message(
-                        &target_backend,
-                        AssistantMessageEnd::Cancelled,
-                    ) {
-                        target_ui.toast_overlay.add_toast(adw::Toast::new(&format!(
-                            "Conversation could not be saved: {error}"
-                        )));
-                    }
-                    conversation_list::refresh(&target_ui, &target_backend);
-                    return gtk::glib::ControlFlow::Break;
-                }
-            }
-        }
-    });
-}
-
-fn message_content_with_live_state(content: &str, state: &str) -> String {
-    if content.trim().is_empty() {
-        state.to_string()
-    } else {
-        format!("{content}\n\n{state}")
-    }
+    true
 }
 
 fn request_model(
@@ -1461,8 +1418,6 @@ fn create_empty_conversation(backend: &Backend) -> Result<String> {
     })?;
     let conversation_id = conversation.id;
     *backend.active_conversation_id.borrow_mut() = Some(conversation_id.clone());
-    backend.active_assistant_message_id.borrow_mut().take();
-    backend.active_assistant_content.borrow_mut().clear();
     Ok(conversation_id)
 }
 
@@ -1540,17 +1495,17 @@ fn load_conversation(ui: &WindowUi, backend: &Backend, conversation_id: &str) ->
         .conversation_repository
         .list_messages(conversation_id)?;
 
+    workspace::save(ui, backend)?;
+    generation::retry_pending(backend)?;
     clear_messages(ui);
     *backend.active_conversation_id.borrow_mut() = Some(conversation_id.to_string());
-    backend.active_assistant_message_id.borrow_mut().take();
-    backend.active_assistant_content.borrow_mut().clear();
+    workspace::restore(ui, backend)?;
+    generation::sync_controls(ui, backend);
 
-    for message in &messages {
-        chat_view::append_stored_message(&ui.messages, message);
-    }
+    message_actions::render(ui, backend, None)?;
 
     if messages.is_empty() {
-        set_chat_empty_state(ui, "Empty Conversation", "Send a message to begin.");
+        show_chat_welcome(ui);
         ui.message_stack.set_visible_child_name("empty");
     } else {
         ui.message_stack.set_visible_child_name("messages");
@@ -1814,42 +1769,35 @@ fn numbered_conversation_title(
     Ok(title.to_string())
 }
 
-fn save_pending_exchange(
-    backend: &Backend,
-    conversation_id: &str,
-    prompt: &str,
-) -> Result<PendingExchange> {
-    let user = backend
-        .conversation_repository
-        .create_message(NewMessage::user(conversation_id, prompt))?;
-    let assistant_message = backend
-        .conversation_repository
-        .create_message(NewMessage::assistant_streaming(conversation_id))?;
-    Ok(PendingExchange {
-        user,
-        assistant: assistant_message,
-    })
-}
-
 fn persist_active_assistant_message(backend: &Backend, end: AssistantMessageEnd) -> Result<()> {
-    let Some(message_id) = backend.active_assistant_message_id.borrow_mut().take() else {
-        backend.active_assistant_content.borrow_mut().clear();
-        return Ok(());
+    let status = match end {
+        AssistantMessageEnd::Complete => "complete",
+        AssistantMessageEnd::Cancelled => "cancelled",
+        AssistantMessageEnd::Failed => "failed",
     };
-
-    let content = backend.active_assistant_content.borrow().clone();
-    let update = match end {
-        AssistantMessageEnd::Complete => MessageUpdate::completed(message_id, content),
-        AssistantMessageEnd::Cancelled => MessageUpdate::cancelled(message_id, content),
-        AssistantMessageEnd::Failed => MessageUpdate::failed(message_id, content),
-    };
-    backend.conversation_repository.update_message(update)?;
+    let status = backend
+        .generation_context
+        .borrow()
+        .pending_status
+        .unwrap_or(status);
+    backend.generation_context.borrow_mut().pending_status = Some(status);
+    backend
+        .generation_context
+        .borrow_mut()
+        .finished
+        .get_or_insert_with(std::time::Instant::now);
+    generation::persist(backend, status)?;
+    backend.active_assistant_message_id.borrow_mut().take();
     backend.active_assistant_content.borrow_mut().clear();
+    backend.generation_context.borrow_mut().pending_status = None;
     Ok(())
 }
 
 fn finish_generation(ui: &WindowUi) {
+    ui.generation_banner.set_revealed(false);
+    ui.streaming_message.borrow_mut().take();
     ui.stop_button.set_sensitive(false);
+    message_actions::set_enabled(ui, true);
     update_send_button(ui);
 }
 
@@ -1873,7 +1821,8 @@ fn prompt_is_ready(entry: &gtk::TextView) -> bool {
 
 fn update_send_button(ui: &WindowUi) {
     let can_send = selected_model(&ui.model_picker, &ui.model_names).is_some()
-        && prompt_is_ready(&ui.entry)
+        && (prompt_is_ready(&ui.entry) || ui.attachments.count.get() > 0)
+        && attachments::can_send(ui)
         && !ui.stop_button.is_sensitive();
     ui.send_button.set_sensitive(can_send);
 }
@@ -1945,14 +1894,11 @@ fn set_models(ui: &Rc<WindowUi>, backend: &Rc<Backend>, models: Vec<OllamaModel>
         )));
     }
     set_installed_models(ui, backend, models);
+    reasoning::refresh(ui, backend);
     if is_empty {
         show_no_models_state(ui, backend);
     } else if ui.message_stack.visible_child_name().as_deref() == Some("empty") {
-        set_chat_empty_state(
-            ui,
-            "No Conversation Selected",
-            "Choose a model and start a conversation.",
-        );
+        show_chat_welcome(ui);
     }
 }
 
@@ -1992,6 +1938,7 @@ fn set_model_picker(ui: &WindowUi, models: Vec<String>, selected_model: Option<&
     *ui.restoring_model_selection.borrow_mut() = true;
 
     if is_empty {
+        reasoning::reset(ui);
         let list = gtk::StringList::new(&["No model selected"]);
         ui.model_picker.set_model(Some(&list));
         ui.model_picker.set_selected(0);
@@ -2018,9 +1965,8 @@ fn set_model_picker(ui: &WindowUi, models: Vec<String>, selected_model: Option<&
     update_send_button(ui);
 }
 
-fn set_chat_empty_state(ui: &WindowUi, title: &str, description: &str) {
-    chat_view::set_empty_state(&ui.chat_status_page, title, description);
-    ui.chat_status_page.set_child(None::<&gtk::Widget>);
+fn show_chat_welcome(ui: &WindowUi) {
+    chat_welcome::show(&ui.chat_status_page, &ui.chat_welcome);
 }
 
 fn show_no_models_state(ui: &Rc<WindowUi>, backend: &Rc<Backend>) {
@@ -2083,17 +2029,24 @@ fn show_model_manager(ui: &WindowUi) {
 }
 
 fn clear_messages(ui: &WindowUi) {
+    if gtk::prelude::GtkWindowExt::focus(&ui.window)
+        .is_some_and(|focus| focus.is_ancestor(&ui.messages))
+    {
+        ui.entry.grab_focus();
+    }
     while let Some(child) = ui.messages.first_child() {
         ui.messages.remove(&child);
     }
+    ui.restoring_draft.set(true);
     clear_prompt(&ui.entry);
-    ui.stop_button.set_sensitive(false);
+    ui.restoring_draft.set(false);
+    ui.streaming_message.borrow_mut().take();
+    ui.attachments.count.set(0);
+    ui.attachments.has_images.set(false);
+    ui.attachments.previews.set_visible(false);
+    ui.attachments.status.set_visible(false);
     update_send_button(ui);
-    set_chat_empty_state(
-        ui,
-        "No Conversation Selected",
-        "Choose a model and start a conversation.",
-    );
+    show_chat_welcome(ui);
     ui.message_stack.set_visible_child_name("empty");
 }
 

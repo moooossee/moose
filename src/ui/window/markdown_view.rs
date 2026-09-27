@@ -1,7 +1,8 @@
 use comrak::{
     Arena, Options,
     nodes::{
-        AstNode, ListType, NodeCode, NodeHeading, NodeLink, NodeList, NodeValue, TableAlignment,
+        AstNode, ListType, NodeCode, NodeHeading, NodeLink, NodeList, NodeMath, NodeValue,
+        TableAlignment,
     },
     parse_document,
 };
@@ -9,7 +10,7 @@ use gtk::prelude::*;
 use gtk::{Align, Orientation, PolicyType, glib};
 use url::Url;
 
-use super::code_view;
+use super::{code_view, math_syntax, math_view};
 
 pub(super) fn render(content: &str) -> gtk::Box {
     let root = gtk::Box::builder()
@@ -30,7 +31,39 @@ pub(super) fn update(root: &gtk::Box, content: &str) {
     }
 
     let arena = Arena::new();
-    let document = parse_document(&arena, content, &markdown_options());
+    let prepared = math_syntax::prepare(content);
+    let document = parse_document(&arena, &prepared.markdown, &markdown_options());
+    for node in document.descendants() {
+        let formula = match &node.data().value {
+            NodeValue::Math(formula) => prepared.formulas.get(&formula.literal),
+            _ => None,
+        };
+        if let Some(formula) = formula {
+            node.data_mut().value = NodeValue::Math(NodeMath {
+                dollar_math: true,
+                display_math: formula.display,
+                literal: formula.source.clone(),
+            });
+        } else {
+            match &mut node.data_mut().value {
+                NodeValue::CodeBlock(block) => {
+                    block.literal = prepared.restore(&block.literal);
+                    block.info = prepared.restore(&block.info);
+                }
+                NodeValue::Code(code) => code.literal = prepared.restore(&code.literal),
+                NodeValue::HtmlBlock(block) => block.literal = prepared.restore(&block.literal),
+                NodeValue::Text(text) => *text = prepared.restore(text).into(),
+                NodeValue::HtmlInline(text) | NodeValue::FrontMatter(text) => {
+                    *text = prepared.restore(text)
+                }
+                NodeValue::Link(link) | NodeValue::Image(link) => {
+                    link.url = prepared.restore(&link.url);
+                    link.title = prepared.restore(&link.title);
+                }
+                _ => {}
+            }
+        }
+    }
 
     for child in document.children() {
         append_block(root, child);
@@ -65,6 +98,7 @@ fn markdown_options() -> Options<'static> {
     options.extension.table = true;
     options.extension.tagfilter = true;
     options.extension.tasklist = true;
+    options.extension.math_code = true;
     options
 }
 
@@ -73,9 +107,16 @@ fn append_block<'a>(parent: &gtk::Box, node: &'a AstNode<'a>) {
 
     match value {
         NodeValue::Document => append_children(parent, node),
-        NodeValue::Paragraph => append_paragraph(parent, &inline_markup_children(node)),
+        NodeValue::Paragraph => append_rich_paragraph(parent, node),
         NodeValue::Heading(heading) => append_heading(parent, node, heading),
-        NodeValue::CodeBlock(block) => parent.append(&code_view::code_block(&block)),
+        NodeValue::CodeBlock(block) => {
+            if math_view::is_math_language(&block.info) {
+                parent.append(&math_view::block(&block.literal));
+            } else {
+                parent.append(&code_view::code_block(&block));
+            }
+        }
+        NodeValue::Math(formula) => parent.append(&math_view::block(&formula.literal)),
         NodeValue::BlockQuote | NodeValue::MultilineBlockQuote(_) => append_quote(parent, node),
         NodeValue::List(list) => append_list(parent, node, list),
         NodeValue::Item(_) => append_children(parent, node),
@@ -122,7 +163,130 @@ fn append_paragraph(parent: &gtk::Box, markup: &str) {
     parent.append(&label);
 }
 
+fn has_math<'a>(node: &'a AstNode<'a>) -> bool {
+    node.descendants()
+        .any(|child| matches!(&child.data().value, NodeValue::Math(_)))
+}
+
+fn append_rich_paragraph<'a>(parent: &gtk::Box, node: &'a AstNode<'a>) {
+    if !has_math(node) {
+        append_paragraph(parent, &inline_markup_children(node));
+        return;
+    }
+    let mut paragraph = MathParagraph { parent, view: None };
+    for child in node.children() {
+        paragraph.append(child, &[]);
+    }
+}
+
+struct MathParagraph<'a> {
+    parent: &'a gtk::Box,
+    view: Option<gtk::TextView>,
+}
+
+impl MathParagraph<'_> {
+    fn view(&mut self) -> gtk::TextView {
+        let parent = self.parent;
+        self.view
+            .get_or_insert_with(|| {
+                let view = gtk::TextView::builder()
+                    .editable(false)
+                    .cursor_visible(false)
+                    .wrap_mode(gtk::WrapMode::WordChar)
+                    .hexpand(true)
+                    .width_request(240)
+                    .pixels_above_lines(2)
+                    .pixels_below_lines(2)
+                    .build();
+                view.add_css_class("moose-math-paragraph");
+                parent.append(&view);
+                view
+            })
+            .clone()
+    }
+
+    fn insert_markup(&mut self, markup: &str, styles: &[(&str, &str)]) {
+        if markup.is_empty() || (self.view.is_none() && markup.trim().is_empty()) {
+            return;
+        }
+        let mut formatted = String::new();
+        for (open, _) in styles {
+            formatted.push_str(open);
+        }
+        formatted.push_str(markup);
+        for (_, close) in styles.iter().rev() {
+            formatted.push_str(close);
+        }
+        let buffer = self.view().buffer();
+        buffer.insert_markup(&mut buffer.end_iter(), &formatted);
+    }
+
+    fn insert_widget(&mut self, widget: &impl IsA<gtk::Widget>) {
+        let view = self.view();
+        let buffer = view.buffer();
+        let anchor = buffer.create_child_anchor(&mut buffer.end_iter());
+        view.add_child_at_anchor(widget, &anchor);
+    }
+
+    fn append<'a>(&mut self, node: &'a AstNode<'a>, styles: &[(&str, &str)]) {
+        let value = node.data().value.clone();
+        match value {
+            NodeValue::Math(formula) => {
+                if !formula.display_math {
+                    if let Some(widget) = math_view::inline(&formula.literal) {
+                        self.insert_widget(&widget);
+                        return;
+                    }
+                }
+                self.view = None;
+                self.parent.append(&math_view::block(&formula.literal));
+            }
+            NodeValue::Link(link) => {
+                let label = markdown_label(&link_markup(node, &link));
+                label.set_width_chars(-1);
+                label.set_max_width_chars(24);
+                label.set_hexpand(false);
+                self.insert_widget(&label);
+            }
+            NodeValue::Emph
+            | NodeValue::Strong
+            | NodeValue::Strikethrough
+            | NodeValue::Underline
+            | NodeValue::Subscript
+            | NodeValue::Superscript => {
+                let style = match value {
+                    NodeValue::Emph => ("<i>", "</i>"),
+                    NodeValue::Strong => ("<b>", "</b>"),
+                    NodeValue::Strikethrough => ("<s>", "</s>"),
+                    NodeValue::Underline => ("<u>", "</u>"),
+                    NodeValue::Subscript => ("<span rise=\"-3000\" size=\"smaller\">", "</span>"),
+                    _ => ("<span rise=\"6000\" size=\"smaller\">", "</span>"),
+                };
+                let mut nested = styles.to_vec();
+                nested.push(style);
+                for child in node.children() {
+                    self.append(child, &nested);
+                }
+            }
+            _ if node.first_child().is_some() => {
+                for child in node.children() {
+                    self.append(child, styles);
+                }
+            }
+            _ => self.insert_markup(&inline_markup(node), styles),
+        }
+    }
+}
+
 fn append_heading<'a>(parent: &gtk::Box, node: &'a AstNode<'a>, heading: NodeHeading) {
+    if has_math(node) {
+        let content = gtk::Box::new(Orientation::Vertical, 6);
+        content.add_css_class("heading");
+        content.add_css_class("moose-markdown-heading");
+        append_rich_paragraph(&content, node);
+        parent.append(&content);
+        return;
+    }
     let label = markdown_label(&format!("<b>{}</b>", inline_markup_children(node)));
     label.add_css_class("heading");
     label.add_css_class("moose-markdown-heading");
@@ -246,6 +410,16 @@ fn append_table<'a>(parent: &gtk::Box, node: &'a AstNode<'a>, alignments: &[Tabl
     for (row_index, row) in node.children().enumerate() {
         let header = matches!(row.data().value.clone(), NodeValue::TableRow(true));
         for (column_index, cell) in row.children().enumerate() {
+            if has_math(cell) {
+                let content = gtk::Box::new(Orientation::Vertical, 6);
+                content.add_css_class("moose-markdown-table-cell");
+                if header {
+                    content.add_css_class("moose-markdown-table-header");
+                }
+                append_rich_paragraph(&content, cell);
+                grid.attach(&content, column_index as i32, row_index as i32, 1, 1);
+                continue;
+            }
             let label = table_cell_label(
                 &inline_markup_children(cell),
                 alignments.get(column_index).copied(),
@@ -289,7 +463,8 @@ fn markdown_label(markup: &str) -> gtk::Label {
         .wrap(true)
         .wrap_mode(gtk::pango::WrapMode::WordChar)
         .natural_wrap_mode(gtk::NaturalWrapMode::Word)
-        .width_chars(120)
+        .width_chars(1)
+        .max_width_chars(120)
         .xalign(0.0)
         .build();
     label.set_markup(markup);

@@ -16,12 +16,64 @@ finish-args:
   - --socket=fallback-x11
   - --socket=wayland
 modules:
+  - name: poppler-data
+    buildsystem: cmake-ninja
+    sources:
+      - type: archive
+        url: https://poppler.freedesktop.org/poppler-data-0.4.12.tar.gz
+        sha256: c835b640a40ce357e1b83666aabd95edffa24ddddd49b8daff63adb851cdab74
+  - name: poppler
+    buildsystem: cmake-ninja
+    config-opts:
+      - -DCMAKE_BUILD_TYPE=Release
+      - -DENABLE_UTILS=ON
+      - -DENABLE_CPP=OFF
+      - -DENABLE_GLIB=OFF
+      - -DENABLE_GOBJECT_INTROSPECTION=OFF
+      - -DENABLE_QT5=OFF
+      - -DENABLE_QT6=OFF
+      - -DENABLE_BOOST=OFF
+      - -DENABLE_LIBCURL=OFF
+      - -DENABLE_LIBOPENJPEG=OFF
+      - -DENABLE_NSS3=OFF
+      - -DENABLE_GPGME=OFF
+      - -DBUILD_GTK_TESTS=OFF
+      - -DBUILD_QT5_TESTS=OFF
+      - -DBUILD_QT6_TESTS=OFF
+      - -DBUILD_CPP_TESTS=OFF
+      - -DBUILD_MANUAL_TESTS=OFF
+    cleanup:
+      - /include
+      - /lib/pkgconfig
+      - /share/man
+      - /bin/pdfattach
+      - /bin/pdfdetach
+      - /bin/pdffonts
+      - /bin/pdfimages
+      - /bin/pdfinfo
+      - /bin/pdfseparate
+      - /bin/pdfsig
+      - /bin/pdftocairo
+      - /bin/pdftohtml
+      - /bin/pdftoppm
+      - /bin/pdftops
+      - /bin/pdfunite
+    sources:
+      - type: archive
+        url: https://poppler.freedesktop.org/poppler-26.09.0.tar.xz
+        sha256: 8059eadb6805340768f138c465b57f8164c92b4a0773c37ef031ea6c0d987b2e
   - name: moose
     buildsystem: meson
     config-opts:
       - -Dgui=true
       - -Dcargo_profile=release
       - --buildtype=release
+    post-install:
+      - install -Dm644 /run/build/moose/LICENSE /app/share/licenses/io.github.moooossee.Moose/LICENSE
+      - install -Dm644 /run/build/moose/cargo/vendor/latex-rust-1.0.4/LICENSE-MIT /app/share/licenses/io.github.moooossee.Moose/latex-rust/LICENSE-MIT
+      - install -Dm644 /run/build/moose/cargo/vendor/latex-rust-1.0.4/NOTICE /app/share/licenses/io.github.moooossee.Moose/latex-rust/NOTICE
+      - install -Dm644 /run/build/moose/cargo/vendor/latex-rust-1.0.4/fonts/stix-two-math/OFL.txt /app/share/licenses/io.github.moooossee.Moose/latex-rust/fonts/stix-two-math/OFL.txt
+      - install -Dm644 /run/build/moose/cargo/vendor/ttf-parser-0.25.1/LICENSE-MIT /app/share/licenses/io.github.moooossee.Moose/ttf-parser/LICENSE-MIT
     sources:
       - type: dir
         path: .
