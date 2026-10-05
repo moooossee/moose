@@ -149,12 +149,9 @@ mod tests {
 
         run_migrations(&mut connection).unwrap();
         run_migrations(&mut connection).unwrap();
-        require_migration(&connection, 1).unwrap();
-        require_migration(&connection, 2).unwrap();
-        require_migration(&connection, 3).unwrap();
-        require_migration(&connection, 4).unwrap();
-        require_migration(&connection, 5).unwrap();
-        require_migration(&connection, 6).unwrap();
+        for (version, _) in super::MIGRATIONS {
+            require_migration(&connection, *version).unwrap();
+        }
 
         let provider_table_count: i64 = connection
             .query_row(
@@ -170,6 +167,9 @@ mod tests {
             .unwrap();
 
         assert_eq!(provider_table_count, 1);
-        assert_eq!(migration_count, 7);
+        assert_eq!(
+            usize::try_from(migration_count).unwrap(),
+            super::MIGRATIONS.len()
+        );
     }
 }
