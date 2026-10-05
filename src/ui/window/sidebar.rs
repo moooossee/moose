@@ -45,10 +45,13 @@ pub(super) fn build() -> Sidebar {
 
     let new_chat_button = icon_button("list-add-symbolic", "New Conversation");
     let model_manager_button = icon_button("view-list-symbolic", "Models");
+    let files_button = icon_button("folder-documents-symbolic", "Files and Library");
     new_chat_button.add_css_class("moose-sidebar-button");
     model_manager_button.add_css_class("moose-sidebar-button");
+    files_button.add_css_class("moose-sidebar-button");
 
     header_bar.append(&title);
+    header_bar.append(&files_button);
     header_bar.append(&model_manager_button);
     header_bar.append(&new_chat_button);
 
@@ -125,17 +128,6 @@ pub(super) fn build() -> Sidebar {
         .vexpand(true)
         .build();
     content.add_css_class("moose-sidebar-content");
-    let files_button = gtk::Button::new();
-    files_button.add_css_class("flat");
-    files_button.add_css_class("moose-files-navigation");
-    files_button.set_tooltip_text(Some("Files and Library"));
-    let files_label = gtk::Box::new(Orientation::Horizontal, 10);
-    let files_icon = gtk::Image::from_icon_name("folder-documents-symbolic");
-    files_icon.add_css_class("dim-label");
-    files_label.append(&files_icon);
-    files_label.append(&gtk::Label::new(Some("Files")));
-    files_button.set_child(Some(&files_label));
-    content.append(&files_button);
     content.append(&search_box);
     content.append(&chats_label);
     content.append(&scrolled);
