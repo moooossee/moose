@@ -112,7 +112,9 @@ fn set(ui: &Rc<WindowUi>, backend: &Rc<Backend>, summaries: Vec<ConversationSumm
     }
     *ui.conversation_ids.borrow_mut() = ids;
 
-    if let Some(conversation_id) = backend.active_conversation_id.borrow().as_deref() {
+    if ui.content_stack.visible_child_name().as_deref() != Some("chat") {
+        ui.conversation_list.unselect_all();
+    } else if let Some(conversation_id) = backend.active_conversation_id.borrow().as_deref() {
         select(ui, conversation_id);
     } else {
         ui.conversation_list.unselect_all();

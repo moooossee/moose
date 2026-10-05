@@ -3,7 +3,7 @@ use crate::attachments::{Asset, MAX_ATTACHMENTS, MAX_FILE_BYTES, error};
 use gtk::{gdk, glib};
 
 mod import;
-mod library;
+pub(super) mod library;
 mod request;
 pub(super) use request::prepare;
 
@@ -25,22 +25,21 @@ pub(super) struct Controls {
     capabilities: RefCell<HashMap<(String, String), bool>>,
     revision: Cell<u64>,
     capability_failed: Cell<bool>,
-    library_changed: RefCell<Option<Box<dyn Fn()>>>,
 }
 
 pub(super) fn build() -> Controls {
     let button = gtk::MenuButton::builder()
-        .icon_name("list-add-symbolic")
-        .tooltip_text("Attach Files or Open Library")
+        .icon_name("mail-attachment-symbolic")
+        .tooltip_text("Add Attachments")
         .valign(gtk::Align::Center)
         .build();
     button.add_css_class("moose-attach-button");
     button.add_css_class("flat");
     let menu = gtk::Box::new(gtk::Orientation::Vertical, 2);
     menu.add_css_class("moose-attachment-menu");
-    let add = menu_item("list-add-symbolic", "Attach Files…");
+    let add = menu_item("mail-attachment-symbolic", "Attach Files…");
     let paste = menu_item("edit-paste-symbolic", "Paste Image");
-    let library = menu_item("folder-documents-symbolic", "Document Library…");
+    let library = menu_item("folder-documents-symbolic", "Browse Files");
     menu.append(&add);
     menu.append(&paste);
     menu.append(&gtk::Separator::new(gtk::Orientation::Horizontal));
@@ -87,11 +86,11 @@ pub(super) fn build() -> Controls {
         vision: RefCell::new(None),
         capabilities: RefCell::new(HashMap::new()),
         revision: Cell::new(0),
-        library_changed: RefCell::new(None),
     }
 }
 
 pub(super) fn bind(ui: &Rc<WindowUi>, backend: &Rc<Backend>) {
+    library::bind(ui, backend);
     let target_ui = ui.clone();
     ui.attachments.cancel.connect_clicked(move |button| {
         target_ui
@@ -164,11 +163,7 @@ fn draft_id(ui: &WindowUi, backend: &Backend) -> Result<String> {
 
 pub(super) fn choose_files(ui: &Rc<WindowUi>, backend: &Rc<Backend>, library_only: bool) {
     let filter = gtk::FileFilter::new();
-    filter.set_name(Some(if library_only {
-        "Documents and source code"
-    } else {
-        "Images, documents and source code"
-    }));
+    filter.set_name(Some("Images, documents and source code"));
     for extension in [
         "txt", "md", "markdown", "pdf", "rs", "py", "js", "jsx", "ts", "tsx", "json", "yaml",
         "yml", "toml", "xml", "html", "css", "csv", "log", "c", "h", "cpp", "hpp", "java", "go",
@@ -177,10 +172,8 @@ pub(super) fn choose_files(ui: &Rc<WindowUi>, backend: &Rc<Backend>, library_onl
         filter.add_suffix(extension);
     }
     filter.add_mime_type("text/*");
-    if !library_only {
-        for mime in ["image/png", "image/jpeg", "image/webp"] {
-            filter.add_mime_type(mime);
-        }
+    for mime in ["image/png", "image/jpeg", "image/webp"] {
+        filter.add_mime_type(mime);
     }
     let filters = gio::ListStore::new::<gtk::FileFilter>();
     filters.append(&filter);
@@ -190,7 +183,7 @@ pub(super) fn choose_files(ui: &Rc<WindowUi>, backend: &Rc<Backend>, library_onl
     filters.append(&all);
     let dialog = gtk::FileDialog::builder()
         .title(if library_only {
-            "Add to Document Library"
+            "Import Files"
         } else {
             "Attach Files"
         })
@@ -273,7 +266,7 @@ fn import_files(
     if files.len() > if library_only { 32 } else { MAX_ATTACHMENTS } {
         toast(
             ui,
-            "Select up to 8 attachments or 32 library documents at a time",
+            "Select up to 8 attachments or 32 library files at a time",
         );
         return;
     }
@@ -305,8 +298,7 @@ fn import_files(
                 let worker = backend.runtime.spawn_blocking(move || import::parse(name, bytes, &cache));
                 let asset = import_step(&ui, epoch, async { worker.await.map_err(|_| error("This file could not be processed"))? }).await?;
                 if ui.attachments.import_epoch.get() != epoch { return Err(error("Import canceled")); }
-                if library_only && asset.kind == "image" { return Err(error("The document library accepts PDF, text and source code. Attach images directly to a chat.")); }
-                backend.conversation_repository.import_asset(asset, conversation.as_deref())?;
+                backend.conversation_repository.import_asset_from_uri(asset, conversation.as_deref(), file.uri().as_str())?;
                 Ok::<_, MooseError>(())
             }.await;
             match result { Ok(()) => imported += 1, Err(error) => toast(&ui, &format!("{name}: {error}")) }
@@ -314,7 +306,7 @@ fn import_files(
         ui.attachments.busy.set(0);
         refresh(&ui, &backend);
         conversation_list::refresh(&ui, &backend);
-        if let Some(changed) = ui.attachments.library_changed.borrow().as_ref() { changed(); }
+        library::refresh_if_visible(&ui, &backend);
         if imported > 0 { toast(&ui, &format!("{imported} file{} {}", if imported == 1 { "" } else { "s" }, if library_only { "added to the library" } else { "attached to the draft" })); }
     });
 }
@@ -372,6 +364,7 @@ fn paste_image(ui: &Rc<WindowUi>, backend: &Rc<Backend>) {
             .set(ui.attachments.busy.get().saturating_sub(1));
         refresh(&ui, &backend);
         conversation_list::refresh(&ui, &backend);
+        library::refresh_if_visible(&ui, &backend);
     });
 }
 
@@ -448,14 +441,15 @@ pub(super) fn sync_counts(ui: &WindowUi, backend: &Backend) {
 }
 
 fn update_status(ui: &WindowUi, backend: &Backend) {
+    library::sync_import(ui);
     let count = ui.attachments.count.get();
     ui.attachments
         .summary
         .set_label(&format!("Attachments · {count} of {MAX_ATTACHMENTS}"));
     ui.attachments.button.set_tooltip_text(Some(if count > 0 {
-        "Add More Files or Open Library"
+        "Add More Attachments"
     } else {
-        "Attach Files or Open Library"
+        "Add Attachments"
     }));
     ui.attachments
         .cancel

@@ -49,6 +49,154 @@
   opacity: 0.58;
 }
 
+.moose-files-navigation {
+  margin: 4px 8px 10px;
+  padding: 9px 10px;
+  border-radius: 7px;
+  font-weight: 500;
+}
+
+.moose-files-navigation:hover {
+  background-color: alpha(@window_fg_color, 0.045);
+}
+
+.moose-files-navigation.moose-sidebar-button-active {
+  background-color: alpha(@window_fg_color, 0.075);
+}
+
+.moose-files-navigation.moose-sidebar-button-active image {
+  opacity: 1;
+}
+
+.moose-files-content {
+  padding: 6px 28px 12px;
+}
+
+.moose-files-body {
+  padding: 0 28px 28px;
+}
+
+.moose-files-title {
+  font-size: 1.8em;
+  font-weight: 700;
+  letter-spacing: -0.5px;
+}
+
+.moose-files-subtitle {
+  font-size: 0.92em;
+}
+
+.moose-files-back {
+  padding: 5px 8px;
+  margin-left: -8px;
+  color: alpha(@window_fg_color, 0.6);
+  font-size: 0.9em;
+}
+
+.moose-files-import {
+  padding: 8px 16px;
+  border-radius: 9px;
+  box-shadow: none;
+  font-weight: 600;
+}
+
+.moose-files-search {
+  min-height: 38px;
+  border-radius: 10px;
+  background-color: alpha(@window_fg_color, 0.035);
+}
+
+.moose-files-filters {
+  padding-bottom: 4px;
+}
+
+.moose-files-filter {
+  min-height: 28px;
+  padding: 3px 10px;
+  border-radius: 7px;
+  font-size: 0.88em;
+  color: alpha(@window_fg_color, 0.6);
+}
+
+.moose-files-filter:checked {
+  background-color: alpha(@window_fg_color, 0.075);
+  color: @window_fg_color;
+  font-weight: 600;
+}
+
+.moose-files-grid {
+  background-color: transparent;
+  padding: 2px;
+}
+
+.moose-files-grid > flowboxchild {
+  padding: 0;
+  background-color: transparent;
+  border-radius: 14px;
+}
+
+.moose-file-card {
+  padding: 18px;
+  border: 1px solid alpha(@borders, 0.65);
+  border-radius: 14px;
+  background-image: none;
+  background-color: @card_bg_color;
+  color: @window_fg_color;
+  box-shadow: 0 2px 5px alpha(black, 0.025);
+  transition: border-color 150ms ease, background-color 150ms ease;
+}
+
+.moose-file-card:hover {
+  border-color: alpha(@window_fg_color, 0.22);
+  background-color: mix(@card_bg_color, @window_fg_color, 0.025);
+}
+
+.moose-file-card:active {
+  background-color: mix(@card_bg_color, @window_fg_color, 0.055);
+}
+
+.moose-file-card:focus-visible {
+  outline: 2px solid @accent_color;
+  outline-offset: -3px;
+}
+
+.moose-file-name {
+  font-weight: 600;
+  font-size: 0.95em;
+}
+
+.moose-file-details {
+  font-weight: 400;
+  font-size: 0.82em;
+  color: alpha(@window_fg_color, 0.55);
+}
+
+.moose-file-icon {
+  padding: 12px;
+  border-radius: 12px;
+  background-color: alpha(@window_fg_color, 0.045);
+  color: alpha(@window_fg_color, 0.65);
+}
+
+.moose-file-actions {
+  opacity: 0.55;
+}
+
+.moose-file-tile:hover .moose-file-actions,
+.moose-file-tile:focus-within .moose-file-actions {
+  opacity: 1;
+}
+
+.moose-files-more {
+  padding: 8px 18px;
+  border-radius: 8px;
+  color: alpha(@window_fg_color, 0.65);
+}
+
+.moose-files-empty {
+  color: alpha(@window_fg_color, 0.7);
+}
+
 .moose-sidebar-search {
   padding: 6px 7px 5px 9px;
 }
@@ -478,10 +626,6 @@ popover.moose-provider-popover > contents {
 .moose-composer-hint {
   color: alpha(@window_fg_color, 0.55);
   font-size: 0.8em;
-}
-
-.moose-composer-actions spinner {
-  color: alpha(@window_fg_color, 0.65);
 }
 
 .moose-composer-actions .moose-composer-button {

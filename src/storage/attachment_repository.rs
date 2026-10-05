@@ -25,6 +25,24 @@ impl ConversationRepository {
         imported: ImportedAsset,
         conversation: Option<&str>,
     ) -> Result<Asset> {
+        self.import_asset_with_location(imported, conversation, None)
+    }
+
+    pub fn import_asset_from_uri(
+        &self,
+        imported: ImportedAsset,
+        conversation: Option<&str>,
+        source_uri: &str,
+    ) -> Result<Asset> {
+        self.import_asset_with_location(imported, conversation, Some(source_uri))
+    }
+
+    fn import_asset_with_location(
+        &self,
+        imported: ImportedAsset,
+        conversation: Option<&str>,
+        source_uri: Option<&str>,
+    ) -> Result<Asset> {
         let digest = Sha256::digest(&imported.payload)
             .iter()
             .map(|byte| format!("{byte:02x}"))
@@ -38,7 +56,7 @@ impl ConversationRepository {
             )
             .optional()?;
         let id = existing.clone().unwrap_or_else(crate::core::new_id);
-        let library = imported.kind != "image";
+        let library = imported.kind != "image" || conversation.is_none();
         if existing.is_none() {
             transaction.execute(
                 "INSERT INTO assets VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
@@ -69,6 +87,13 @@ impl ConversationRepository {
         if let Some(conversation) = conversation {
             self.attach_to_draft(conversation, &id)?;
         }
+        if let Some(source_uri) = source_uri {
+            transaction.execute(
+                "INSERT INTO asset_locations (asset_id, source_uri) VALUES (?1, ?2)
+                 ON CONFLICT(asset_id) DO UPDATE SET source_uri = excluded.source_uri",
+                params![id, source_uri],
+            )?;
+        }
         transaction.commit()?;
         self.asset(&id)
     }
@@ -79,6 +104,62 @@ impl ConversationRepository {
             [id],
             asset_from_row,
         )?)
+    }
+
+    pub fn asset_source_uri(&self, id: &str) -> Result<Option<String>> {
+        Ok(self
+            .connection
+            .query_row(
+                "SELECT source_uri FROM asset_locations WHERE asset_id = ?1",
+                [id],
+                |row| row.get(0),
+            )
+            .optional()?)
+    }
+
+    pub fn file_assets(&self, query: &str, filter: &str, limit: usize) -> Result<Vec<Asset>> {
+        let search = search_expression(query);
+        let content_match = if search.is_empty() {
+            "?2 != ''"
+        } else {
+            "a.id IN (SELECT c.asset_id FROM document_search f
+                JOIN document_chunks c ON c.id = f.rowid
+                WHERE document_search MATCH ?2)"
+        };
+        let mut statement = self.connection.prepare(&format!(
+            "SELECT {ASSET_COLUMNS} FROM assets a
+             WHERE (?1 = '' OR instr(lower(a.name), lower(?1)) > 0
+                OR ({content_match}))
+             AND (?3 = 'all' OR (?3 = 'library' AND a.in_library = 1)
+                OR (?3 = 'documents' AND a.kind != 'image')
+                OR (?3 = 'images' AND a.kind = 'image'))
+             ORDER BY a.created_at DESC, a.id DESC LIMIT ?4"
+        ))?;
+        Ok(statement
+            .query_map(
+                params![query.trim(), search, filter, i64::try_from(limit)?],
+                asset_from_row,
+            )?
+            .collect::<rusqlite::Result<_>>()?)
+    }
+
+    pub fn asset_conversations(&self, asset: &str) -> Result<Vec<Conversation>> {
+        let mut statement = self.connection.prepare(
+            "SELECT c.id, c.provider_id, c.model_id, c.title, c.created_at,
+                    c.updated_at, c.archived_at, c.pinned_at
+             FROM conversations c WHERE c.id IN (
+                SELECT d.conversation_id FROM draft_assets d WHERE d.asset_id = ?1
+                UNION
+                SELECT m.conversation_id FROM messages m
+                JOIN message_assets a ON a.message_id = m.id WHERE a.asset_id = ?1
+                UNION
+                SELECT m.conversation_id FROM messages m
+                JOIN response_sources s ON s.message_id = m.id WHERE s.asset_id = ?1
+             ) ORDER BY c.updated_at DESC, c.id DESC",
+        )?;
+        Ok(statement
+            .query_map([asset], conversation_from_row)?
+            .collect::<rusqlite::Result<_>>()?)
     }
 
     pub fn asset_bytes(&self, id: &str) -> Result<Vec<u8>> {

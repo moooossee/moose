@@ -104,7 +104,7 @@ pub(super) fn bind(ui: &Rc<WindowUi>, backend: &Rc<Backend>) {
     }
 }
 
-fn open(ui: &Rc<WindowUi>, backend: &Rc<Backend>, id: &str) {
+pub(super) fn open(ui: &Rc<WindowUi>, backend: &Rc<Backend>, id: &str) {
     match load_conversation(ui, backend, id) {
         Ok(()) => {
             show_chat(ui);

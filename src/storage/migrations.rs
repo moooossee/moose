@@ -22,6 +22,7 @@ const MIGRATIONS: &[(i64, &str)] = &[
         7,
         include_str!("../../migrations/0007_attachments_library.sql"),
     ),
+    (8, include_str!("../../migrations/0008_asset_locations.sql")),
 ];
 
 pub fn run_migrations(connection: &mut Connection) -> Result<()> {

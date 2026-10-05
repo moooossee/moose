@@ -82,6 +82,7 @@ fn build_ui(app: &adw::Application) -> Rc<WindowUi> {
     let sidebar = sidebar::build();
     let chat = chat_view::build();
     let model_manager = model_manager::build();
+    let files = attachments::library::build();
     let first_run_guide = first_run::build();
     let new_chat_button = sidebar.new_chat_button.clone();
 
@@ -99,6 +100,7 @@ fn build_ui(app: &adw::Application) -> Rc<WindowUi> {
     content_stack.set_transition_type(gtk::StackTransitionType::Crossfade);
     content_stack.add_named(&chat.root, Some("chat"));
     content_stack.add_named(&model_manager.root, Some("models"));
+    content_stack.add_named(&files.root, Some("files"));
     content_stack.set_visible_child_name("chat");
     toast_overlay.set_child(Some(&content_stack));
     content_toolbar.add_top_bar(&header_bar);
@@ -141,6 +143,8 @@ fn build_ui(app: &adw::Application) -> Rc<WindowUi> {
         content_stack,
         model_manager,
         model_manager_button: sidebar.model_manager_button,
+        files,
+        files_button: sidebar.files_button,
         provider_row: sidebar.provider_row,
         provider_status: sidebar.provider_status,
         provider_switch_button: sidebar.provider_switch_button,
@@ -272,6 +276,8 @@ struct WindowUi {
     content_stack: gtk::Stack,
     model_manager: model_manager::ModelManager,
     model_manager_button: gtk::Button,
+    files: attachments::library::Library,
+    files_button: gtk::Button,
     provider_row: adw::ActionRow,
     provider_status: gtk::Label,
     provider_switch_button: gtk::Button,
@@ -2015,6 +2021,7 @@ fn show_no_models_state(ui: &Rc<WindowUi>, backend: &Rc<Backend>) {
 
 fn show_chat(ui: &WindowUi) {
     ui.root_stack.set_visible_child_name("app");
+    ui.files_button.remove_css_class("moose-sidebar-button-active");
     ui.model_manager_button
         .remove_css_class("moose-sidebar-button-active");
     ui.content_stack.set_visible_child_name("chat");
@@ -2022,6 +2029,7 @@ fn show_chat(ui: &WindowUi) {
 
 fn show_model_manager(ui: &WindowUi) {
     ui.root_stack.set_visible_child_name("app");
+    ui.files_button.remove_css_class("moose-sidebar-button-active");
     ui.conversation_list.unselect_all();
     ui.model_manager_button
         .add_css_class("moose-sidebar-button-active");

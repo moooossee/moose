@@ -10,6 +10,7 @@ pub(super) struct Sidebar {
     pub(super) root: adw::ToolbarView,
     pub(super) new_chat_button: gtk::Button,
     pub(super) model_manager_button: gtk::Button,
+    pub(super) files_button: gtk::Button,
     pub(super) provider_row: adw::ActionRow,
     pub(super) provider_status: gtk::Label,
     pub(super) provider_switch_button: gtk::Button,
@@ -124,6 +125,17 @@ pub(super) fn build() -> Sidebar {
         .vexpand(true)
         .build();
     content.add_css_class("moose-sidebar-content");
+    let files_button = gtk::Button::new();
+    files_button.add_css_class("flat");
+    files_button.add_css_class("moose-files-navigation");
+    files_button.set_tooltip_text(Some("Files and Library"));
+    let files_label = gtk::Box::new(Orientation::Horizontal, 10);
+    let files_icon = gtk::Image::from_icon_name("folder-documents-symbolic");
+    files_icon.add_css_class("dim-label");
+    files_label.append(&files_icon);
+    files_label.append(&gtk::Label::new(Some("Files")));
+    files_button.set_child(Some(&files_label));
+    content.append(&files_button);
     content.append(&search_box);
     content.append(&chats_label);
     content.append(&scrolled);
@@ -143,6 +155,7 @@ pub(super) fn build() -> Sidebar {
         root,
         new_chat_button,
         model_manager_button,
+        files_button,
         provider_row,
         provider_status,
         provider_switch_button,

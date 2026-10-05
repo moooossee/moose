@@ -34,6 +34,8 @@ pub(super) struct Chat {
 
 pub(super) struct StreamingMessage {
     content: LiveMarkdown,
+    indicator: gtk::Box,
+    spinner: gtk::Spinner,
     status: gtk::Label,
     reasoning: gtk::Expander,
     reasoning_text: gtk::TextBuffer,
@@ -160,12 +162,6 @@ pub(super) fn build() -> Chat {
         .build();
     action_stack.add_named(&send_button, Some("send"));
     action_stack.add_named(&stop_button, Some("stop"));
-    let activity = gtk::Spinner::builder()
-        .width_request(14)
-        .height_request(14)
-        .valign(Align::Center)
-        .visible(false)
-        .build();
     let hint = gtk::Label::builder()
         .label("Enter to send · Shift+Enter for a new line")
         .xalign(0.0)
@@ -174,11 +170,8 @@ pub(super) fn build() -> Chat {
         .ellipsize(gtk::pango::EllipsizeMode::End)
         .build();
     hint.add_css_class("moose-composer-hint");
-    let feedback = gtk::Box::new(Orientation::Horizontal, 6);
-    feedback.append(&activity);
-    feedback.append(&hint);
     let feedback_revealer = gtk::Revealer::builder()
-        .child(&feedback)
+        .child(&hint)
         .hexpand(true)
         .valign(Align::Center)
         .transition_type(gtk::RevealerTransitionType::Crossfade)
@@ -195,7 +188,6 @@ pub(super) fn build() -> Chat {
     let weak_stop = stop_button.downgrade();
     let weak_previews = attachments.previews.downgrade();
     let weak_stack = action_stack.downgrade();
-    let weak_activity = activity.downgrade();
     let weak_hint = hint.downgrade();
     let weak_revealer = feedback_revealer.downgrade();
     let weak_focus = focus.downgrade();
@@ -207,7 +199,6 @@ pub(super) fn build() -> Chat {
             Some(stop),
             Some(previews),
             Some(stack),
-            Some(activity),
             Some(hint),
             Some(revealer),
             Some(focus),
@@ -218,7 +209,6 @@ pub(super) fn build() -> Chat {
             weak_stop.upgrade(),
             weak_previews.upgrade(),
             weak_stack.upgrade(),
-            weak_activity.upgrade(),
             weak_hint.upgrade(),
             weak_revealer.upgrade(),
             weak_focus.upgrade(),
@@ -245,12 +235,6 @@ pub(super) fn build() -> Chat {
             entry.grab_focus();
         }
         stack.set_visible_child_name(if running { "stop" } else { "send" });
-        activity.set_visible(running);
-        if running {
-            activity.start();
-        } else {
-            activity.stop();
-        }
         let text = if running {
             "Responding… You can keep writing"
         } else {
@@ -492,8 +476,8 @@ pub(super) fn append_streaming_message(
         .build();
     let role_label = gtk::Label::builder()
         .label(message_header_label(model, created_at))
+        .height_request(24)
         .halign(Align::Fill)
-        .hexpand(true)
         .width_chars(1)
         .ellipsize(gtk::pango::EllipsizeMode::End)
         .xalign(0.0)
@@ -502,7 +486,7 @@ pub(super) fn append_streaming_message(
     let thinking_indicator = gtk::Box::builder()
         .orientation(Orientation::Horizontal)
         .spacing(6)
-        .halign(Align::End)
+        .halign(Align::Start)
         .valign(Align::Center)
         .build();
     let spinner = gtk::Spinner::new();
@@ -533,9 +517,8 @@ pub(super) fn append_streaming_message(
     thinking_indicator.append(&spinner);
     thinking_indicator.append(&thinking_label);
     let header = gtk::Box::builder()
-        .orientation(Orientation::Horizontal)
-        .spacing(12)
-        .height_request(24)
+        .orientation(Orientation::Vertical)
+        .spacing(2)
         .build();
     header.append(&role_label);
     header.append(&thinking_indicator);
@@ -546,6 +529,8 @@ pub(super) fn append_streaming_message(
 
     StreamingMessage {
         content,
+        indicator: thinking_indicator,
+        spinner,
         status: thinking_label,
         reasoning,
         reasoning_text,
@@ -561,15 +546,20 @@ pub(super) fn update_streaming_message(
     elapsed: u64,
     reasoning_ms: i64,
 ) {
-    let phase = if !content.is_empty() {
-        "Responding"
-    } else if !reasoning.is_empty() {
-        "Reasoning"
+    let has_content = !content.is_empty();
+    message.indicator.set_visible(!has_content);
+    if has_content {
+        message.spinner.stop();
     } else {
-        "Waiting for response"
-    };
-    message.status.set_label(&format!("{phase} · {elapsed}s"));
-    message.content.widget().set_visible(!content.is_empty());
+        message.spinner.start();
+        let phase = if reasoning.is_empty() {
+            "Waiting for response"
+        } else {
+            "Reasoning"
+        };
+        message.status.set_label(&format!("{phase} · {elapsed}s"));
+    }
+    message.content.widget().set_visible(has_content);
     if message.content_length.replace(content.len()) != content.len() {
         message.content.update(content);
     }
