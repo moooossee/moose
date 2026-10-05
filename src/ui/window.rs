@@ -2021,7 +2021,8 @@ fn show_no_models_state(ui: &Rc<WindowUi>, backend: &Rc<Backend>) {
 
 fn show_chat(ui: &WindowUi) {
     ui.root_stack.set_visible_child_name("app");
-    ui.files_button.remove_css_class("moose-sidebar-button-active");
+    ui.files_button
+        .remove_css_class("moose-sidebar-button-active");
     ui.model_manager_button
         .remove_css_class("moose-sidebar-button-active");
     ui.content_stack.set_visible_child_name("chat");
@@ -2029,7 +2030,8 @@ fn show_chat(ui: &WindowUi) {
 
 fn show_model_manager(ui: &WindowUi) {
     ui.root_stack.set_visible_child_name("app");
-    ui.files_button.remove_css_class("moose-sidebar-button-active");
+    ui.files_button
+        .remove_css_class("moose-sidebar-button-active");
     ui.conversation_list.unselect_all();
     ui.model_manager_button
         .add_css_class("moose-sidebar-button-active");

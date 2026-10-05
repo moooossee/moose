@@ -46,9 +46,11 @@ pub(super) fn menu(ui: &Rc<WindowUi>, backend: &Rc<Backend>, asset: &Asset) -> g
         let item = menu_item(icon, label);
         if matches!(action, Action::Folder) {
             item.set_sensitive(source.is_some());
-            item.set_tooltip_text(Some(source.as_deref().unwrap_or(
-                "Original location unavailable. Open Preview to save a copy.",
-            )));
+            item.set_tooltip_text(Some(
+                source
+                    .as_deref()
+                    .unwrap_or("Original location unavailable. Open Preview to save a copy."),
+            ));
         }
         if matches!(action, Action::Attach) {
             item.set_sensitive(active_provider(backend).is_some());
@@ -197,7 +199,10 @@ fn show_folder(ui: &Rc<WindowUi>, backend: &Backend, asset: &Asset) {
     let uri = match backend.conversation_repository.asset_source_uri(&asset.id) {
         Ok(Some(uri)) => uri,
         Ok(None) => {
-            toast(ui, "Original location unavailable. Open Preview to save a copy.");
+            toast(
+                ui,
+                "Original location unavailable. Open Preview to save a copy.",
+            );
             return;
         }
         Err(error) => {

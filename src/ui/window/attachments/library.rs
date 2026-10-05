@@ -37,10 +37,7 @@ pub(in crate::ui::window) fn build() -> Library {
     back.set_child(Some(&back_content));
     let titles = gtk::Box::new(gtk::Orientation::Vertical, 4);
     titles.set_hexpand(true);
-    let title = gtk::Label::builder()
-        .label("Files")
-        .xalign(0.0)
-        .build();
+    let title = gtk::Label::builder().label("Files").xalign(0.0).build();
     title.add_css_class("moose-files-title");
     let subtitle = gtk::Label::builder()
         .label("Everything you bring to a conversation.")
@@ -235,10 +232,7 @@ pub(in crate::ui::window) fn bind(ui: &Rc<WindowUi>, backend: &Rc<Backend>) {
     let target_ui = ui.clone();
     let target_backend = backend.clone();
     ui.files.more.connect_clicked(move |_| {
-        target_ui
-            .files
-            .limit
-            .set(target_ui.files.limit.get() + 100);
+        target_ui.files.limit.set(target_ui.files.limit.get() + 100);
         populate(&target_ui, &target_backend);
     });
     let target_ui = ui.clone();
@@ -284,8 +278,7 @@ pub(in crate::ui::window) fn show(ui: &Rc<WindowUi>, backend: &Rc<Backend>) {
     ui.conversation_list.unselect_all();
     ui.model_manager_button
         .remove_css_class("moose-sidebar-button-active");
-    ui.files_button
-        .add_css_class("moose-sidebar-button-active");
+    ui.files_button.add_css_class("moose-sidebar-button-active");
     ui.content_stack.set_visible_child_name("files");
     sync_scope(ui, backend);
     sync_import(ui);

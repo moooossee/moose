@@ -289,25 +289,60 @@ fn import_files(
     glib::MainContext::default().spawn_local(async move {
         let mut imported = 0;
         for file in files {
-            if ui.attachments.import_epoch.get() != epoch { break; }
-            let name = file.basename().map(|name| name.to_string_lossy().into_owned()).unwrap_or_else(|| "Document".into());
+            if ui.attachments.import_epoch.get() != epoch {
+                break;
+            }
+            let name = file
+                .basename()
+                .map(|name| name.to_string_lossy().into_owned())
+                .unwrap_or_else(|| "Document".into());
             let result = async {
                 let bytes = import_step(&ui, epoch, read_file(&file)).await?;
                 let cache = backend.paths.cache_dir().to_path_buf();
                 let name = name.clone();
-                let worker = backend.runtime.spawn_blocking(move || import::parse(name, bytes, &cache));
-                let asset = import_step(&ui, epoch, async { worker.await.map_err(|_| error("This file could not be processed"))? }).await?;
-                if ui.attachments.import_epoch.get() != epoch { return Err(error("Import canceled")); }
-                backend.conversation_repository.import_asset_from_uri(asset, conversation.as_deref(), file.uri().as_str())?;
+                let worker = backend
+                    .runtime
+                    .spawn_blocking(move || import::parse(name, bytes, &cache));
+                let asset = import_step(&ui, epoch, async {
+                    worker
+                        .await
+                        .map_err(|_| error("This file could not be processed"))?
+                })
+                .await?;
+                if ui.attachments.import_epoch.get() != epoch {
+                    return Err(error("Import canceled"));
+                }
+                backend.conversation_repository.import_asset_from_uri(
+                    asset,
+                    conversation.as_deref(),
+                    file.uri().as_str(),
+                )?;
                 Ok::<_, MooseError>(())
-            }.await;
-            match result { Ok(()) => imported += 1, Err(error) => toast(&ui, &format!("{name}: {error}")) }
+            }
+            .await;
+            match result {
+                Ok(()) => imported += 1,
+                Err(error) => toast(&ui, &format!("{name}: {error}")),
+            }
         }
         ui.attachments.busy.set(0);
         refresh(&ui, &backend);
         conversation_list::refresh(&ui, &backend);
         library::refresh_if_visible(&ui, &backend);
-        if imported > 0 { toast(&ui, &format!("{imported} file{} {}", if imported == 1 { "" } else { "s" }, if library_only { "added to the library" } else { "attached to the draft" })); }
+        if imported > 0 {
+            toast(
+                &ui,
+                &format!(
+                    "{imported} file{} {}",
+                    if imported == 1 { "" } else { "s" },
+                    if library_only {
+                        "added to the library"
+                    } else {
+                        "attached to the draft"
+                    }
+                ),
+            );
+        }
     });
 }
 
