@@ -30,7 +30,6 @@ pub const MANAGED_OLLAMA_BASE_URL: &str = "http://127.0.0.1:11435/api";
 const READY_INITIAL_BACKOFF: Duration = Duration::from_millis(100);
 const READY_MAX_BACKOFF: Duration = Duration::from_secs(1);
 const READY_REQUEST_TIMEOUT: Duration = Duration::from_millis(500);
-const EXISTING_LISTENER_READY_TIMEOUT: Duration = Duration::from_secs(2);
 const SHUTDOWN_TIMEOUT: Duration = Duration::from_secs(2);
 const SHUTDOWN_POLL_INTERVAL: Duration = Duration::from_millis(50);
 
@@ -132,6 +131,7 @@ impl ManagedOllamaConfig {
                 self.config_dir.as_os_str().to_os_string(),
             ),
             ("OLLAMA_HOST", OsString::from(&self.host)),
+            ("OLLAMA_NO_CLOUD", OsString::from("1")),
             ("OLLAMA_MODELS", self.models_dir.as_os_str().to_os_string()),
             (
                 "OLLAMA_ORIGINS",
@@ -287,30 +287,8 @@ impl ManagedOllamaService {
     }
 
     pub async fn ensure_ready(&mut self, timeout: Duration) -> Result<()> {
-        match self.ensure_started() {
-            Ok(()) => self.wait_until_ready(timeout).await,
-            Err(MooseError::ManagedOllamaPortUnavailable(host)) => {
-                if self.existing_listener_is_usable().await {
-                    self.state = ManagedOllamaServiceState::Running;
-                    return Ok(());
-                }
-
-                let error = MooseError::ManagedOllamaPortUnavailable(host);
-                self.fail_from_error(&error);
-                Err(error)
-            }
-            Err(error) => Err(error),
-        }
-    }
-
-    async fn existing_listener_is_usable(&self) -> bool {
-        let Ok(client) =
-            OllamaClient::with_timeout(&self.config.base_url, EXISTING_LISTENER_READY_TIMEOUT)
-        else {
-            return false;
-        };
-
-        client.version().await.is_ok() && client.list_models().await.is_ok()
+        self.ensure_started()?;
+        self.wait_until_ready(timeout).await
     }
 
     pub fn shutdown(&mut self) {

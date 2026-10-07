@@ -23,6 +23,7 @@ const MIGRATIONS: &[(i64, &str)] = &[
         include_str!("../../migrations/0007_attachments_library.sql"),
     ),
     (8, include_str!("../../migrations/0008_asset_locations.sql")),
+    (9, include_str!("../../migrations/0009_cloud_providers.sql")),
 ];
 
 pub fn run_migrations(connection: &mut Connection) -> Result<()> {
@@ -47,13 +48,34 @@ pub fn run_migrations(connection: &mut Connection) -> Result<()> {
             continue;
         }
 
-        let transaction = connection.transaction()?;
-        transaction.execute_batch(sql)?;
-        transaction.execute(
-            "INSERT INTO schema_migrations (version, applied_at) VALUES (?1, ?2)",
-            params![version, utc_now()],
-        )?;
-        transaction.commit()?;
+        let rebuilds_parent = *version == 9;
+        if rebuilds_parent {
+            connection.pragma_update(None, "foreign_keys", "OFF")?;
+        }
+        let result = (|| -> Result<()> {
+            let transaction = connection.transaction()?;
+            transaction.execute_batch(sql)?;
+            let violations: i64 = transaction.query_row(
+                "SELECT COUNT(*) FROM pragma_foreign_key_check",
+                [],
+                |row| row.get(0),
+            )?;
+            if violations != 0 {
+                return Err(crate::error::MooseError::ProviderResponse(
+                    "Database migration would break existing references".into(),
+                ));
+            }
+            transaction.execute(
+                "INSERT INTO schema_migrations (version, applied_at) VALUES (?1, ?2)",
+                params![version, utc_now()],
+            )?;
+            transaction.commit()?;
+            Ok(())
+        })();
+        if rebuilds_parent {
+            connection.pragma_update(None, "foreign_keys", "ON")?;
+        }
+        result?;
     }
 
     Ok(())

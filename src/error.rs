@@ -6,6 +6,22 @@ pub type Result<T> = std::result::Result<T, MooseError>;
 
 #[derive(Debug, Error)]
 pub enum MooseError {
+    #[error(
+        "secure credential storage is unavailable; unlock your desktop keyring or enable the Secret portal and try again"
+    )]
+    CredentialStoreUnavailable,
+    #[error("no API key is saved for this provider; add one in Preferences")]
+    MissingApiKey,
+    #[error("invalid API key; enter the key without spaces or line breaks")]
+    InvalidApiKey,
+    #[error(
+        "this connection is blocked by Local Only mode; only Ollama managed by Moose is allowed"
+    )]
+    LocalOnly,
+    #[error("invalid provider response: {0}")]
+    ProviderResponse(String),
+    #[error("{0}")]
+    ProviderRequest(String),
     #[error("{0}")]
     Attachment(String),
     #[error("I/O failed: {0}")]
@@ -71,7 +87,7 @@ pub enum MooseError {
     BuiltinProfileCannotBeDeleted,
     #[error("download job was not found")]
     DownloadJobNotFound,
-    #[error("no Ollama instance is configured")]
+    #[error("no provider is configured")]
     ProviderNotConfigured,
     #[error("invalid Ollama response: {0}")]
     InvalidOllamaResponse(String),

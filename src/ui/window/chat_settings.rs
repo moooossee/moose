@@ -12,8 +12,8 @@ use crate::{
 };
 
 use super::{
-    Backend, ChatSettingsValues, WindowUi, restore_selected_provider_model, save_chat_settings,
-    select_model_by_name, update_profile_indicator, widgets,
+    Backend, ChatSettingsValues, WindowUi, active_provider, restore_selected_provider_model,
+    save_chat_settings, select_model_by_name, update_profile_indicator, widgets,
 };
 
 #[derive(Clone)]
@@ -123,6 +123,12 @@ pub(super) fn dialog(
 
     behavior_group.add(&model_row);
     behavior_group.add(&temperature_row);
+    let provider_kind = active_provider(backend).map(|provider| provider.kind);
+    let sampling = !matches!(
+        provider_kind,
+        Some(crate::providers::ProviderKind::OpenAi | crate::providers::ProviderKind::Anthropic)
+    );
+    temperature_row.set_visible(sampling);
     behavior_group.add(&context_messages_row);
 
     let prompt_group = adw::PreferencesGroup::builder()
@@ -216,6 +222,7 @@ pub(super) fn dialog(
     advanced_row.add_row(&seed_row);
     advanced_row.add_row(&num_ctx_row);
     behavior_group.add(&advanced_row);
+    advanced_row.set_visible(provider_kind == Some(crate::providers::ProviderKind::Ollama));
 
     let action_group = adw::PreferencesGroup::new();
     let action_box = gtk::Box::builder()
@@ -239,6 +246,13 @@ pub(super) fn dialog(
     page.add(&profile_group);
     page.add(&behavior_group);
     page.add(&prompt_group);
+    if active_provider(backend).is_some_and(|p| p.is_remote()) {
+        page.add(&super::privacy::conversation_group(
+            ui,
+            backend,
+            conversation_id,
+        ));
+    }
     page.add(&action_group);
     dialog.add(&page);
 

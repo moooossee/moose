@@ -5,15 +5,12 @@ use rusqlite::{Connection, OptionalExtension, Row, params};
 use crate::{
     core::utc_now,
     error::Result,
-    providers::{
-        NewProvider, Provider, ProviderKind, ProviderUpdate, validate_base_url,
-        validate_provider_name,
-    },
+    providers::{NewProvider, Provider, ProviderKind, ProviderUpdate, validate_provider_name},
 };
 
 #[derive(Clone)]
 pub struct ProviderRepository {
-    connection: Rc<Connection>,
+    pub(super) connection: Rc<Connection>,
 }
 
 impl ProviderRepository {
@@ -102,7 +99,10 @@ impl ProviderRepository {
 
     pub fn create(&self, new_provider: NewProvider) -> Result<Provider> {
         let provider = new_provider.into_provider()?;
+        self.insert(provider)
+    }
 
+    pub(crate) fn insert(&self, provider: Provider) -> Result<Provider> {
         if provider.is_default {
             self.connection
                 .execute("UPDATE providers SET is_default = 0", [])?;
@@ -135,7 +135,11 @@ impl ProviderRepository {
         let base_url = if current.as_ref().is_some_and(|provider| provider.is_managed) {
             crate::providers::validate_managed_provider_base_url(&update.base_url)?
         } else {
-            validate_base_url(&update.base_url)?
+            current
+                .as_ref()
+                .ok_or(crate::error::MooseError::ProviderNotConfigured)?
+                .kind
+                .validate_url(&update.base_url)?
         };
         let timestamp = utc_now();
 
@@ -232,7 +236,7 @@ mod tests {
             .create(NewProvider {
                 kind: ProviderKind::Ollama,
                 name: "Remote Ollama".to_string(),
-                base_url: "http://192.168.1.20:11434/api".to_string(),
+                base_url: "https://192.168.1.20:11434/api".to_string(),
                 is_managed: false,
                 is_default: false,
             })
@@ -242,7 +246,7 @@ mod tests {
             .update(ProviderUpdate {
                 id: second.id.clone(),
                 name: "Workstation Ollama".to_string(),
-                base_url: "http://192.168.1.21:11434/api".to_string(),
+                base_url: "https://192.168.1.21:11434/api".to_string(),
                 is_default: true,
             })
             .unwrap();

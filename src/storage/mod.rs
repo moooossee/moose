@@ -2,6 +2,7 @@ mod connection;
 mod conversation_repository;
 mod download_job_repository;
 mod migrations;
+mod privacy;
 mod profile_repository;
 mod provider_repository;
 

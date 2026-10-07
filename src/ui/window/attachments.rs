@@ -22,7 +22,7 @@ pub(super) struct Controls {
     pub(super) count: Cell<usize>,
     pub(super) has_images: Cell<bool>,
     vision: RefCell<Option<bool>>,
-    capabilities: RefCell<HashMap<(String, String), bool>>,
+    pub(super) capabilities: RefCell<HashMap<(String, String), bool>>,
     revision: Cell<u64>,
     capability_failed: Cell<bool>,
 }
@@ -558,9 +558,11 @@ pub(super) fn refresh_capabilities(ui: &Rc<WindowUi>, backend: &Rc<Backend>) {
     }
     update_status(ui, backend);
     let (sender, receiver) = mpsc::channel();
+    let policy = backend.network_policy.clone();
     backend.runtime.spawn(async move {
         let result = async {
-            OllamaClient::new(&provider.base_url)?
+            ProviderClient::new(provider, policy)
+                .await?
                 .supports_vision(&model)
                 .await
         }

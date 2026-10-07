@@ -7,7 +7,7 @@ pub(super) struct State {
     model: String,
     restoring: bool,
     values: Vec<ThinkingValue>,
-    cache: HashMap<(String, String), Vec<ThinkingValue>>,
+    pub(super) cache: HashMap<(String, String), Vec<ThinkingValue>>,
 }
 
 pub(super) fn bind(ui: &Rc<WindowUi>, backend: &Rc<Backend>) {
@@ -135,9 +135,11 @@ pub(super) fn refresh(ui: &Rc<WindowUi>, backend: &Rc<Backend>) {
         .set_tooltip_text(Some("Checking this model’s reasoning controls…"));
     let (sender, receiver) = mpsc::channel();
     let target_model = model.clone();
+    let policy = backend.network_policy.clone();
     backend.runtime.spawn(async move {
         let result = async {
-            OllamaClient::new(&provider.base_url)?
+            ProviderClient::new(provider, policy)
+                .await?
                 .thinking_values(&target_model)
                 .await
         }

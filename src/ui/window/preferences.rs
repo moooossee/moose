@@ -9,11 +9,10 @@ use crate::providers::{
 };
 
 use super::{
-    Backend, WindowUi, active_provider, apply_active_provider, clear_active_provider,
-    managed_acceleration_label, managed_gpu_enabled, provider_change_is_blocked, refresh_models,
-    reset_shortcut_values, save_managed_gpu_acceleration, save_shortcut_values,
-    set_shortcut_capture_active, shortcut_values, shortcuts, show_error, update_provider_summary,
-    widgets,
+    Backend, WindowUi, active_provider, managed_acceleration_label, managed_gpu_enabled,
+    provider_change_is_blocked, refresh_models, reset_shortcut_values,
+    save_managed_gpu_acceleration, save_shortcut_values, set_shortcut_capture_active,
+    shortcut_values, shortcuts, show_error, update_provider_summary, widgets,
 };
 
 pub(super) fn dialog(
@@ -48,7 +47,7 @@ pub(super) fn dialog(
         .icon_name("network-server-symbolic")
         .build();
     let provider_group = adw::PreferencesGroup::builder()
-        .title("Ollama Provider")
+        .title("Active Provider")
         .build();
     let name_row = adw::EntryRow::builder()
         .title("Name")
@@ -58,7 +57,7 @@ pub(super) fn dialog(
         .title("Base URL")
         .text(provider_url)
         .build();
-    if provider_is_managed {
+    if provider_is_managed || provider.as_ref().is_some_and(|p| p.kind.requires_key()) {
         url_row.set_editable(false);
     }
     let port_row = provider_is_managed.then(|| {
@@ -100,6 +99,27 @@ pub(super) fn dialog(
     provider_group.add(&url_row);
     provider_group.add(&action_box);
     provider_page.add(&provider_group);
+    if let Some(provider) = provider.as_ref().filter(|p| p.kind.requires_key()) {
+        let key_group = adw::PreferencesGroup::builder()
+            .title("Credentials")
+            .description("API keys are protected by the desktop keyring and excluded from exports.")
+            .build();
+        let row = adw::ActionRow::builder()
+            .title("API Key")
+            .subtitle("Add, replace or remove the saved key")
+            .build();
+        let button = gtk::Button::with_label("Manage Key");
+        button.set_valign(Align::Center);
+        row.add_suffix(&button);
+        key_group.add(&row);
+        provider_page.add(&key_group);
+        let provider = provider.clone();
+        let target_ui = Rc::clone(ui);
+        let target_backend = Rc::clone(backend);
+        button.connect_clicked(move |_| {
+            super::cloud_setup::edit_key(&target_ui, &target_backend, provider.clone())
+        });
+    }
 
     let managed_gpu_switch = provider_is_managed.then(|| {
         let managed_group = adw::PreferencesGroup::builder()
@@ -146,6 +166,7 @@ pub(super) fn dialog(
             .build(),
     );
     privacy_page.add(&privacy_group);
+    privacy_page.add(&super::privacy::settings_group(ui, backend));
 
     let shortcuts_page = adw::PreferencesPage::builder()
         .title("Shortcuts")
@@ -315,54 +336,26 @@ pub(super) fn dialog(
 
     let target_ui = Rc::clone(ui);
     let target_backend = Rc::clone(backend);
+    let target_dialog = dialog.clone();
     add_button.connect_clicked(move |_| {
         if provider_change_is_blocked(&target_ui, &target_backend) {
             return;
         }
-
+        target_dialog.close();
         super::show_connect_external_dialog(&target_ui, &target_backend);
     });
 
     let target_ui = Rc::clone(ui);
     let target_backend = Rc::clone(backend);
-    let target_parent = parent.clone();
-    let target_name_row = name_row;
-    let target_url_row = url_row;
+    let target_dialog = dialog.clone();
     delete_button.connect_clicked(move |_| {
-        if provider_change_is_blocked(&target_ui, &target_backend) {
-            return;
-        }
-
-        let Some(current) = active_provider(&target_backend) else {
-            target_ui
-                .toast_overlay
-                .add_toast(adw::Toast::new("Create or connect an instance first"));
-            return;
-        };
-        match target_backend
-            .repository
-            .delete(&current.id)
-            .and_then(|_| target_backend.repository.ensure_default_provider())
-        {
-            Ok(Some(provider)) => {
-                target_name_row.set_text(&provider.name);
-                target_url_row.set_text(&provider.base_url);
-                target_url_row.set_editable(!provider.is_managed);
-                apply_active_provider(&target_ui, &target_backend, provider);
-                target_ui
-                    .toast_overlay
-                    .add_toast(adw::Toast::new("Provider removed"));
-            }
-            Ok(None) => {
-                target_name_row.set_text("");
-                target_url_row.set_text("");
-                target_url_row.set_editable(true);
-                clear_active_provider(&target_ui, &target_backend);
-                target_ui
-                    .toast_overlay
-                    .add_toast(adw::Toast::new("Provider removed"));
-            }
-            Err(error) => show_error(&target_parent, "Provider could not be removed", &error),
+        if let Some(provider) = active_provider(&target_backend) {
+            target_dialog.close();
+            super::provider_controls::confirm_provider_delete(
+                &target_ui,
+                &target_backend,
+                &provider.id,
+            );
         }
     });
 

@@ -21,11 +21,14 @@ use crate::{
     },
     error::{MooseError, Result},
     ollama::{
-        OllamaClient, OllamaModel,
+        OllamaModel,
         service::{ManagedOllamaAcceleration, ManagedOllamaGpuConfig, ManagedOllamaService},
     },
     platform::AppPaths,
-    providers::{Provider, managed_ollama_port_from_base_url},
+    providers::{
+        Provider, ProviderKind, client::ProviderClient, managed_ollama_port_from_base_url,
+        policy::NetworkPolicy,
+    },
     storage::{
         ConversationRepository, DownloadJobRepository, ProfileRepository, ProviderRepository,
         open_database,
@@ -36,6 +39,7 @@ mod attachments;
 mod chat_settings;
 mod chat_view;
 mod chat_welcome;
+mod cloud_setup;
 mod code_view;
 mod conversation_export;
 mod conversation_list;
@@ -50,6 +54,7 @@ mod message_actions;
 mod model_actions;
 mod model_manager;
 mod preferences;
+mod privacy;
 mod provider_controls;
 mod reasoning;
 mod shortcuts;
@@ -248,6 +253,9 @@ struct Backend {
     managed_ollama: ManagedOllamaHandle,
     managed_gpu: RefCell<ManagedOllamaGpuConfig>,
     settings: Option<gio::Settings>,
+    network_policy: NetworkPolicy,
+    credential_operation: Cell<bool>,
+    model_load_revision: Cell<u64>,
     selected_models: RefCell<HashMap<String, String>>,
     shortcuts: RefCell<HashMap<String, String>>,
     capturing_shortcut: RefCell<bool>,
@@ -383,6 +391,7 @@ impl Backend {
         let profile_repository = ProfileRepository::new(Rc::clone(&connection));
         let download_job_repository = DownloadJobRepository::new(connection);
         let provider = repository.ensure_default_provider()?;
+        let network_policy = NetworkPolicy::new(repository.local_only()?);
         let settings = app_settings();
         let managed_gpu = managed_gpu_config(settings.as_ref());
         let managed_ollama = Arc::new(tokio::sync::Mutex::new(ManagedOllamaService::new_with_gpu(
@@ -414,6 +423,9 @@ impl Backend {
             managed_ollama,
             managed_gpu: RefCell::new(managed_gpu),
             settings,
+            network_policy,
+            credential_operation: Cell::new(false),
+            model_load_revision: Cell::new(0),
             selected_models: RefCell::new(selected_models),
             shortcuts: RefCell::new(shortcuts),
             capturing_shortcut: RefCell::new(false),
@@ -471,14 +483,16 @@ impl Backend {
     }
 }
 
-async fn prepared_ollama_client(
+async fn prepared_provider_client(
     paths: AppPaths,
     managed_ollama: ManagedOllamaHandle,
     managed_gpu: ManagedOllamaGpuConfig,
     provider: Provider,
-) -> Result<OllamaClient> {
+    policy: NetworkPolicy,
+) -> Result<ProviderClient> {
+    policy.check(&provider)?;
     if !provider.is_managed {
-        return OllamaClient::new(&provider.base_url);
+        return ProviderClient::new(provider, policy).await;
     }
 
     let port = managed_ollama_port_from_base_url(&provider.base_url)?;
@@ -488,7 +502,8 @@ async fn prepared_ollama_client(
         *service = ManagedOllamaService::new_with_port_and_gpu(&paths, port, managed_gpu)?;
     }
     service.ensure_ready(MANAGED_OLLAMA_READY_TIMEOUT).await?;
-    OllamaClient::new(&service.config().base_url)
+    drop(service);
+    ProviderClient::new(provider, policy).await
 }
 
 fn active_provider(backend: &Backend) -> Option<Provider> {
@@ -499,7 +514,7 @@ fn require_active_provider(ui: &WindowUi, backend: &Backend) -> Option<Provider>
     let provider = active_provider(backend);
     if provider.is_none() {
         ui.toast_overlay
-            .add_toast(adw::Toast::new("Create or connect an instance first"));
+            .add_toast(adw::Toast::new("Add a provider first"));
     }
     provider
 }
@@ -939,6 +954,11 @@ fn save_managed_gpu_acceleration(
 }
 
 fn provider_change_is_blocked(ui: &Rc<WindowUi>, backend: &Rc<Backend>) -> bool {
+    if backend.credential_operation.get() {
+        ui.toast_overlay
+            .add_toast(adw::Toast::new("Finish the keyring operation first"));
+        return true;
+    }
     if backend.active_generation.borrow().is_some() {
         ui.toast_overlay
             .add_toast(adw::Toast::new("Finish the active generation first"));
@@ -1010,6 +1030,11 @@ fn reset_active_conversation(ui: &WindowUi, backend: &Backend) {
 }
 
 fn refresh_models(ui: &Rc<WindowUi>, backend: &Rc<Backend>) {
+    if backend.credential_operation.get() {
+        return;
+    }
+    let revision = backend.model_load_revision.get().wrapping_add(1);
+    backend.model_load_revision.set(revision);
     if backend.active_model_pull.borrow().is_some() {
         ui.toast_overlay
             .add_toast(adw::Toast::new("Finish the active model download first"));
@@ -1053,17 +1078,23 @@ fn refresh_models(ui: &Rc<WindowUi>, backend: &Rc<Backend>) {
     let paths = backend.paths.clone();
     let managed_ollama = Arc::clone(&backend.managed_ollama);
     let managed_gpu = backend.managed_gpu.borrow().clone();
+    let policy = backend.network_policy.clone();
     backend.runtime.spawn(async move {
-        let client =
-            match prepared_ollama_client(paths, Arc::clone(&managed_ollama), managed_gpu, provider)
-                .await
-            {
-                Ok(client) => client,
-                Err(error) => {
-                    let _ = sender.send(ModelLoadEvent::Failed(error.to_string()));
-                    return;
-                }
-            };
+        let client = match prepared_provider_client(
+            paths,
+            Arc::clone(&managed_ollama),
+            managed_gpu,
+            provider,
+            policy,
+        )
+        .await
+        {
+            Ok(client) => client,
+            Err(error) => {
+                let _ = sender.send(ModelLoadEvent::Failed(error.to_string()));
+                return;
+            }
+        };
         let health = client.health().await;
         if !health.available {
             let _ = sender.send(ModelLoadEvent::Loaded {
@@ -1098,8 +1129,9 @@ fn refresh_models(ui: &Rc<WindowUi>, backend: &Rc<Backend>) {
     let target_ui = Rc::clone(ui);
     let target_backend = Rc::clone(backend);
     gtk::glib::timeout_add_local(Duration::from_millis(50), move || {
-        if active_provider(&target_backend)
-            .is_none_or(|provider| provider.id != requested_provider_id)
+        if target_backend.model_load_revision.get() != revision
+            || active_provider(&target_backend)
+                .is_none_or(|provider| provider.id != requested_provider_id)
         {
             return gtk::glib::ControlFlow::Break;
         }
@@ -1126,13 +1158,13 @@ fn refresh_models(ui: &Rc<WindowUi>, backend: &Rc<Backend>) {
                     if !provider_is_managed {
                         target_ui
                             .toast_overlay
-                            .add_toast(adw::Toast::new(&format!("Ollama unavailable: {status}")));
+                            .add_toast(adw::Toast::new(&format!("Provider unavailable: {status}")));
                     }
                     set_model_picker(&target_ui, Vec::new(), None);
                     set_installed_models(&target_ui, &target_backend, Vec::new());
                     model_manager::set_unavailable(
                         &target_ui.model_manager,
-                        "Ollama Unavailable",
+                        "Provider Unavailable",
                         "The active provider did not respond.",
                     );
                     return gtk::glib::ControlFlow::Break;
@@ -1152,7 +1184,7 @@ fn refresh_models(ui: &Rc<WindowUi>, backend: &Rc<Backend>) {
                 model_manager::set_unavailable(
                     &target_ui.model_manager,
                     "Models Could Not Load",
-                    "Ollama returned an error while listing local models.",
+                    "Check your connection and provider credentials.",
                 );
                 gtk::glib::ControlFlow::Break
             }
@@ -1165,7 +1197,7 @@ fn refresh_models(ui: &Rc<WindowUi>, backend: &Rc<Backend>) {
                 set_installed_models(&target_ui, &target_backend, Vec::new());
                 model_manager::set_unavailable(
                     &target_ui.model_manager,
-                    "Ollama Disconnected",
+                    "Provider Disconnected",
                     "The model refresh stopped before a response was received.",
                 );
                 gtk::glib::ControlFlow::Break
@@ -1204,6 +1236,11 @@ fn submit_message(
     backend: &Rc<Backend>,
     submission: message_actions::Submission,
 ) -> bool {
+    if backend.credential_operation.get() {
+        ui.toast_overlay
+            .add_toast(adw::Toast::new("Finish the keyring operation first"));
+        return false;
+    }
     if backend.active_generation.borrow().is_some() {
         ui.toast_overlay
             .add_toast(adw::Toast::new("Generation is already running"));
@@ -1233,6 +1270,11 @@ fn submit_message(
         return false;
     };
 
+    if let Err(error) = backend.network_policy.check(&provider) {
+        ui.toast_overlay
+            .add_toast(adw::Toast::new(&error.to_string()));
+        return false;
+    }
     let (conversation_id, should_generate_title) = match ensure_active_conversation(backend) {
         Ok(result) => result,
         Err(error) => {
@@ -1308,6 +1350,55 @@ fn submit_message(
             }
         };
     request.think = reasoning::selected_for_model(ui, &model);
+    let pending = PendingChat {
+        provider,
+        conversation_id,
+        model,
+        request,
+        submission,
+        prompt,
+        sources,
+        should_generate_title,
+    };
+    privacy::authorize(ui, backend, pending)
+}
+
+struct PendingChat {
+    provider: Provider,
+    conversation_id: String,
+    model: String,
+    request: ChatRequest,
+    submission: message_actions::Submission,
+    prompt: String,
+    sources: Vec<crate::attachments::Source>,
+    should_generate_title: bool,
+}
+
+fn start_prepared_chat(ui: &Rc<WindowUi>, backend: &Rc<Backend>, pending: PendingChat) -> bool {
+    let PendingChat {
+        provider,
+        conversation_id,
+        model,
+        request,
+        submission,
+        prompt,
+        sources,
+        should_generate_title,
+    } = pending;
+    if backend.credential_operation.get()
+        || backend.active_generation.borrow().is_some()
+        || backend.active_model_delete.borrow().is_some()
+        || active_provider(backend)
+            .is_none_or(|p| p.id != provider.id || p.base_url != provider.base_url)
+        || backend.active_conversation_id.borrow().as_deref() != Some(&conversation_id)
+    {
+        return false;
+    }
+    if let Err(error) = backend.network_policy.check(&provider) {
+        ui.toast_overlay
+            .add_toast(adw::Toast::new(&error.to_string()));
+        return false;
+    }
     let exchange = backend.conversation_repository.submit_with_sources(
         &conversation_id,
         &submission,
@@ -1325,15 +1416,24 @@ fn submit_message(
     };
     conversation_list::refresh(ui, backend);
     if should_generate_title {
-        generate_conversation_title(
-            ui,
-            backend,
-            conversation_id.clone(),
-            prompt.clone(),
-            model.clone(),
-        );
+        if provider.is_remote() {
+            let title = prompt
+                .split_whitespace()
+                .take(8)
+                .collect::<Vec<_>>()
+                .join(" ");
+            let title: String = title.chars().take(60).collect();
+            let _ = apply_generated_conversation_title(ui, backend, &conversation_id, &title);
+        } else {
+            generate_conversation_title(
+                ui,
+                backend,
+                conversation_id.clone(),
+                prompt.clone(),
+                model.clone(),
+            );
+        }
     }
-
     generation::start(
         ui,
         backend,
@@ -1361,11 +1461,11 @@ fn request_model(
             return Ok(model.clone());
         }
 
-        return Err(format!("Preferred model \"{model}\" is not installed"));
+        return Err(format!("Preferred model \"{model}\" is not available"));
     }
 
     selected_model(&ui.model_picker, &ui.model_names)
-        .ok_or_else(|| "Select an installed model first".to_string())
+        .ok_or_else(|| "Select a model first".to_string())
 }
 
 fn chat_options(settings: &ChatSettingsValues) -> ChatOptions {
@@ -1618,15 +1718,18 @@ fn generate_conversation_title(
     let paths = backend.paths.clone();
     let managed_ollama = Arc::clone(&backend.managed_ollama);
     let managed_gpu = backend.managed_gpu.borrow().clone();
+    let policy = backend.network_policy.clone();
     backend.runtime.spawn(async move {
-        let event = match prepared_ollama_client(paths, managed_ollama, managed_gpu, provider).await
-        {
-            Ok(client) => match generate_model_title(client, &fallback_model, &prompt).await {
-                Ok(title) => TitleUiEvent::Generated(title),
+        let event =
+            match prepared_provider_client(paths, managed_ollama, managed_gpu, provider, policy)
+                .await
+            {
+                Ok(client) => match generate_model_title(client, &fallback_model, &prompt).await {
+                    Ok(title) => TitleUiEvent::Generated(title),
+                    Err(_) => TitleUiEvent::Failed,
+                },
                 Err(_) => TitleUiEvent::Failed,
-            },
-            Err(_) => TitleUiEvent::Failed,
-        };
+            };
         let _ = sender.send(event);
     });
 
@@ -1652,7 +1755,7 @@ fn generate_conversation_title(
 }
 
 async fn generate_model_title(
-    client: OllamaClient,
+    client: ProviderClient,
     fallback_model: &str,
     prompt: &str,
 ) -> Result<String> {
@@ -1915,6 +2018,15 @@ fn set_installed_models(ui: &Rc<WindowUi>, backend: &Rc<Backend>, models: Vec<Ol
 }
 
 fn render_model_manager(ui: &Rc<WindowUi>, backend: &Rc<Backend>, query: &str) {
+    if active_provider(backend).is_some_and(|p| p.kind.requires_key()) {
+        model_manager::set_unavailable(
+            &ui.model_manager,
+            "Cloud Models",
+            "Choose an available model from the chat model picker. Cloud models do not need downloads.",
+        );
+        ui.model_manager.pull_button.set_sensitive(false);
+        return;
+    }
     let installed_models = ui.installed_models.borrow();
     let target_parent = ui.window.clone();
     let target_ui = Rc::clone(ui);
@@ -1976,6 +2088,17 @@ fn show_chat_welcome(ui: &WindowUi) {
 }
 
 fn show_no_models_state(ui: &Rc<WindowUi>, backend: &Rc<Backend>) {
+    if active_provider(backend).is_some_and(|p| p.kind.requires_key()) {
+        chat_view::set_empty_state(
+            &ui.chat_status_page,
+            "No Chat Models Available",
+            "Check your provider account and API key, then refresh the model list.",
+        );
+        ui.chat_status_page.set_child(gtk::Widget::NONE);
+        ui.message_stack.set_visible_child_name("empty");
+        show_chat(ui);
+        return;
+    }
     chat_view::set_empty_state(
         &ui.chat_status_page,
         "No Models Installed",
@@ -2071,8 +2194,12 @@ fn apply_provider_state(ui: &WindowUi, provider: &Option<Provider>) {
             update_provider_summary(ui, provider);
             ui.refresh_button.set_sensitive(true);
             ui.model_manager.refresh_button.set_sensitive(true);
-            ui.model_manager.pull_button.set_sensitive(true);
-            ui.model_manager.download_jobs_button.set_sensitive(true);
+            let local_models = provider.kind == ProviderKind::Ollama;
+            ui.model_manager_button.set_visible(local_models);
+            ui.model_manager.pull_button.set_sensitive(local_models);
+            ui.model_manager
+                .download_jobs_button
+                .set_sensitive(local_models);
             update_send_button(ui);
         }
         None => {
@@ -2093,7 +2220,7 @@ fn apply_provider_state(ui: &WindowUi, provider: &Option<Provider>) {
 fn update_provider_summary(ui: &WindowUi, provider: &Provider) {
     ui.provider_row.set_title(&provider.name);
     ui.provider_row.set_tooltip_text(Some(&provider.base_url));
-    ui.provider_row.set_subtitle("");
+    ui.provider_row.set_subtitle(provider.location_label());
 }
 
 fn show_error(parent: &adw::ApplicationWindow, heading: &str, error: &dyn std::error::Error) {

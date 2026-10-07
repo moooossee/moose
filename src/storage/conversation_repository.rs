@@ -23,7 +23,7 @@ pub use workspace::MessageDetails;
 
 #[derive(Clone)]
 pub struct ConversationRepository {
-    connection: Rc<Connection>,
+    pub(super) connection: Rc<Connection>,
 }
 
 impl ConversationRepository {

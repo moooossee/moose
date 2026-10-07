@@ -192,10 +192,12 @@ pub(super) fn start(
     let paths = backend.paths.clone();
     let managed_ollama = Arc::clone(&backend.managed_ollama);
     let managed_gpu = backend.managed_gpu.borrow().clone();
+    let policy = backend.network_policy.clone();
     let handle = backend.runtime.spawn(async move {
         let result = async {
             let client =
-                prepared_ollama_client(paths, managed_ollama, managed_gpu, provider).await?;
+                prepared_provider_client(paths, managed_ollama, managed_gpu, provider, policy)
+                    .await?;
             client
                 .stream_chat(request, |event| {
                     let event = match event {

@@ -129,11 +129,15 @@ impl OllamaClient {
     pub fn with_timeout(base_url: &str, timeout: Duration) -> Result<Self> {
         let normalized_url = validate_base_url(base_url)?;
         let stream_timeout = Duration::from_secs(300);
-        let client = reqwest::Client::builder()
-            .connect_timeout(timeout)
-            .read_timeout(stream_timeout)
-            .build()?;
         let base_url = reqwest::Url::parse(&normalized_url)?;
+        let mut builder = reqwest::Client::builder()
+            .redirect(reqwest::redirect::Policy::none())
+            .connect_timeout(timeout)
+            .read_timeout(stream_timeout);
+        if crate::providers::is_loopback_url(&base_url) {
+            builder = builder.no_proxy();
+        }
+        let client = builder.build()?;
         Ok(Self {
             client,
             base_url,

@@ -6,8 +6,9 @@
 
 <p align="center">A simple home for your AI chats on Linux.</p>
 
-Moose lets you chat with AI models through Ollama in a native GTK and libadwaita
-app. Download a model, ask a question, or bring your own files into the conversation.
+Moose lets you chat with local AI models or an optional cloud provider in a native
+GTK and libadwaita app. Download a local model, ask a question, or bring your own
+files into the conversation.
 Your chats and drafts are saved on your computer, so you can pick up where you left off.
 
 
@@ -28,7 +29,11 @@ flatpak install flathub io.github.moooossee.Moose
 - **Read answers clearly.** View formatted code, math formulas, and model reasoning.
 - **Rework a conversation.** Edit a message, retry an answer, or continue from an earlier message while keeping previous versions.
 - **Come back later.** Drafts save automatically, and you can export your chats whenever you need them.
-- **Choose your connection.** Use Ollama managed by Moose or connect to an existing instance.
+- **Choose your connection.** Use Ollama managed by Moose, an existing Ollama instance,
+  Ollama Cloud, Groq, OpenAI, Anthropic Claude, or Google Gemini.
+- **Protect your API keys.** Save cloud credentials securely in your desktop keyring.
+- **Control what you share.** Local Only mode blocks remote inference, and remote
+  chats ask permission before sharing messages or files.
 
 
 ## Getting started
@@ -40,9 +45,9 @@ To ask about a file, use the attachment button, drop it into the chat, or paste 
 screenshot. Images need a model with vision support. PDFs need selectable text;
 scanned pages are not read automatically.
 
-Chats and your document library stay on your computer. If you connect to a remote
-Ollama instance, your messages and the attached content used for the answer are
-sent to that instance.
+Chats and your document library are stored on your computer. Local model inference
+uses Ollama managed by Moose. Cloud and external Ollama requests send the approved
+conversation context to the selected provider.
 
 ## Build and run
 

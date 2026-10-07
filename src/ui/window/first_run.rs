@@ -32,27 +32,27 @@ pub(super) fn build() -> FirstRunGuide {
     let welcome_page = adw::StatusPage::builder()
         .icon_name(APPLICATION_ID)
         .title("Welcome to Moose")
-        .description("Set up an Ollama instance and get cozy with local chat.")
+        .description("Start with local Ollama, or connect an optional cloud provider. Your chats stay on this device.")
         .hexpand(true)
         .vexpand(true)
         .child(&start_button)
         .build();
 
     let create_button = gtk::Button::with_label("Create Ollama Instance");
-    let connect_button = gtk::Button::with_label("Connect External Instance");
+    let connect_button = gtk::Button::with_label("Connect a Provider");
     create_button.add_css_class("suggested-action");
     create_button.add_css_class("moose-guide-choice");
     connect_button.add_css_class("moose-guide-choice");
 
     let title = gtk::Label::builder()
-        .label("Instances")
+        .label("Providers")
         .halign(gtk::Align::Center)
         .justify(gtk::Justification::Center)
         .build();
     title.add_css_class("title-1");
 
     let description = gtk::Label::builder()
-        .label("Instances are Ollama providers Moose uses for models and chat.")
+        .label("Choose local Ollama for private, offline chat, or connect a provider using your own API key.")
         .halign(gtk::Align::Center)
         .justify(gtk::Justification::Center)
         .wrap(true)

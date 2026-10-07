@@ -14,7 +14,7 @@ use crate::{
 };
 
 use super::{
-    ActiveModelPull, Backend, WindowUi, model_manager, prepared_ollama_client, refresh_models,
+    ActiveModelPull, Backend, WindowUi, model_manager, prepared_provider_client, refresh_models,
     require_active_provider, show_model_manager, widgets,
 };
 
@@ -34,6 +34,9 @@ pub(super) fn show_pull_dialog(
     ui: &Rc<WindowUi>,
     backend: &Rc<Backend>,
 ) {
+    if !can_manage_models(ui, backend) {
+        return;
+    }
     if backend.active_model_pull.borrow().is_some() {
         ui.toast_overlay
             .add_toast(adw::Toast::new("A model download is already running"));
@@ -82,6 +85,9 @@ pub(super) fn request_model_pull(
     backend: &Rc<Backend>,
     model: String,
 ) {
+    if !can_manage_models(ui, backend) {
+        return;
+    }
     let model = match validate_model_name(&model) {
         Ok(model) => model,
         Err(_) => {
@@ -384,6 +390,9 @@ pub(super) fn format_download_size(size_bytes: u64) -> String {
 }
 
 fn start_model_pull(ui: &Rc<WindowUi>, backend: &Rc<Backend>, model: String) {
+    if !can_manage_models(ui, backend) {
+        return;
+    }
     if backend.active_model_pull.borrow().is_some() {
         ui.toast_overlay
             .add_toast(adw::Toast::new("A model download is already running"));
@@ -439,9 +448,12 @@ fn start_model_pull(ui: &Rc<WindowUi>, backend: &Rc<Backend>, model: String) {
     let paths = backend.paths.clone();
     let managed_ollama = Arc::clone(&backend.managed_ollama);
     let managed_gpu = backend.managed_gpu.borrow().clone();
+    let policy = backend.network_policy.clone();
     let handle = backend.runtime.spawn(async move {
         let client =
-            match prepared_ollama_client(paths, managed_ollama, managed_gpu, provider).await {
+            match prepared_provider_client(paths, managed_ollama, managed_gpu, provider, policy)
+                .await
+            {
                 Ok(client) => client,
                 Err(error) => {
                     let _ = sender.send(ModelPullUiEvent::Failed(error.to_string()));
@@ -571,6 +583,9 @@ pub(super) fn confirm_model_delete(
     backend: &Rc<Backend>,
     model: String,
 ) {
+    if !can_manage_models(ui, backend) {
+        return;
+    }
     let model = match validate_model_name(&model) {
         Ok(model) => model,
         Err(_) => {
@@ -631,6 +646,9 @@ pub(super) fn confirm_model_delete(
 }
 
 fn start_model_delete(ui: &Rc<WindowUi>, backend: &Rc<Backend>, model: String) {
+    if !can_manage_models(ui, backend) {
+        return;
+    }
     if backend.active_generation.borrow().is_some() {
         ui.toast_overlay
             .add_toast(adw::Toast::new("Finish the active generation first"));
@@ -669,9 +687,12 @@ fn start_model_delete(ui: &Rc<WindowUi>, backend: &Rc<Backend>, model: String) {
     let paths = backend.paths.clone();
     let managed_ollama = Arc::clone(&backend.managed_ollama);
     let managed_gpu = backend.managed_gpu.borrow().clone();
+    let policy = backend.network_policy.clone();
     let handle = backend.runtime.spawn(async move {
         let client =
-            match prepared_ollama_client(paths, managed_ollama, managed_gpu, provider).await {
+            match prepared_provider_client(paths, managed_ollama, managed_gpu, provider, policy)
+                .await
+            {
                 Ok(client) => client,
                 Err(error) => {
                     let _ = sender.send(ModelDeleteUiEvent::Failed(error.to_string()));
@@ -739,6 +760,25 @@ fn start_model_delete(ui: &Rc<WindowUi>, backend: &Rc<Backend>, model: String) {
             }
         }
     });
+}
+
+fn can_manage_models(ui: &Rc<WindowUi>, backend: &Rc<Backend>) -> bool {
+    if backend.credential_operation.get() {
+        return false;
+    }
+    let Some(provider) = require_active_provider(ui, backend) else {
+        return false;
+    };
+    if provider.kind.requires_key() {
+        ui.toast_overlay.add_toast(adw::Toast::new("Cloud models are managed by the provider. Refresh the model list to see available models."));
+        return false;
+    }
+    if let Err(error) = backend.network_policy.check(&provider) {
+        ui.toast_overlay
+            .add_toast(adw::Toast::new(&error.to_string()));
+        return false;
+    }
+    true
 }
 
 fn provider_is_local(provider: &Provider) -> bool {

@@ -69,6 +69,9 @@ fn test_backend(base_url: String) -> Rc<Backend> {
         )),
         managed_gpu: std::cell::RefCell::new(Default::default()),
         settings: None,
+        network_policy: crate::providers::policy::NetworkPolicy::new(false),
+        credential_operation: std::cell::Cell::new(false),
+        model_load_revision: std::cell::Cell::new(0),
         selected_models: std::cell::RefCell::new(HashMap::new()),
         shortcuts: std::cell::RefCell::new(HashMap::new()),
         capturing_shortcut: std::cell::RefCell::new(false),
@@ -163,6 +166,17 @@ fn message_actions_complete_the_edit_regenerate_retry_and_fork_flow() {
             model_id: None,
             title: "Message actions".into(),
         })
+        .unwrap();
+    backend
+        .conversation_repository
+        .set_remote_permissions(
+            &conversation.id,
+            backend.provider.borrow().as_ref().unwrap(),
+            crate::providers::policy::RemotePermissions {
+                messages: true,
+                files: false,
+            },
+        )
         .unwrap();
     let (user, original) = backend
         .conversation_repository

@@ -133,7 +133,11 @@ fn provider_switch_row(provider: &Provider, is_active: bool) -> gtk::ListBoxRow 
     labels.append(&title);
 
     let subtitle = gtk::Label::builder()
-        .label(&provider.base_url)
+        .label(format!(
+            "{} · {}",
+            provider.kind.label(),
+            provider.location_label()
+        ))
         .halign(Align::Start)
         .hexpand(true)
         .xalign(0.0)
@@ -203,9 +207,9 @@ fn show_provider_setup(ui: &Rc<WindowUi>, backend: &Rc<Backend>, external_only: 
 
     let dialog = adw::Dialog::builder()
         .title(if external_only {
-            "Connect Ollama Instance"
+            "Connect Provider"
         } else {
-            "Add Ollama Instance"
+            "Add Provider"
         })
         .follows_content_size(true)
         .build();
@@ -227,12 +231,17 @@ fn show_provider_setup(ui: &Rc<WindowUi>, backend: &Rc<Backend>, external_only: 
             .label("Connect Existing")
             .build(),
     );
+    type_toggle.add(
+        adw::Toggle::builder()
+            .name("cloud")
+            .label("Cloud Provider")
+            .build(),
+    );
     type_toggle.set_active(u32::from(external_only));
-    type_toggle.set_visible(!external_only);
 
     let description = gtk::Label::builder()
         .label(if external_only {
-            "Connect to Ollama running on this device or another computer."
+            "Connect to an existing Ollama server. This enables external connections; its execution location cannot be verified by Moose."
         } else {
             "Moose installs and runs Ollama on this device."
         })
@@ -309,8 +318,11 @@ fn show_provider_setup(ui: &Rc<WindowUi>, backend: &Rc<Backend>, external_only: 
     let target_scroll = scrolled.downgrade();
     type_toggle.connect_active_notify(move |toggle| {
         let external = toggle.active() == 1;
-        target_description.set_label(if external {
-            "Connect to Ollama running on this device or another computer."
+        let cloud = toggle.active() == 2;
+        target_description.set_label(if cloud {
+            "Connect Ollama Cloud, Groq, OpenAI, Claude or Gemini using your own API key."
+        } else if external {
+            "Connect to an existing Ollama server. This enables external connections; its execution location cannot be verified by Moose."
         } else {
             "Moose installs and runs Ollama on this device."
         });
@@ -346,6 +358,9 @@ fn show_provider_setup(ui: &Rc<WindowUi>, backend: &Rc<Backend>, external_only: 
         if type_toggle.active() == 0 {
             target_dialog.close();
             managed_install::show_dialog(&target_ui, &target_backend);
+        } else if type_toggle.active() == 2 {
+            target_dialog.close();
+            super::cloud_setup::show(&target_ui, &target_backend);
         } else if add_provider_from_sidebar(
             &target_ui,
             &target_backend,
@@ -359,7 +374,7 @@ fn show_provider_setup(ui: &Rc<WindowUi>, backend: &Rc<Backend>, external_only: 
     dialog.present(Some(&ui.window));
 }
 
-fn confirm_provider_delete(ui: &Rc<WindowUi>, backend: &Rc<Backend>, provider_id: &str) {
+pub(super) fn confirm_provider_delete(ui: &Rc<WindowUi>, backend: &Rc<Backend>, provider_id: &str) {
     if provider_change_is_blocked(ui, backend) {
         return;
     }
@@ -463,14 +478,18 @@ fn add_provider_from_sidebar(
         return false;
     }
 
-    match backend.repository.create(NewProvider {
+    match (NewProvider {
         kind: ProviderKind::Ollama,
         name,
         base_url,
         is_managed: false,
         is_default: true,
-    }) {
+    })
+    .into_provider()
+    .and_then(|provider| backend.repository.insert_remote(provider))
+    {
         Ok(provider) => {
+            backend.network_policy.set_local_only(false);
             apply_active_provider(ui, backend, provider);
             show_chat(ui);
             ui.toast_overlay
@@ -489,6 +508,16 @@ fn delete_provider_from_sidebar(ui: &Rc<WindowUi>, backend: &Rc<Backend>, provid
         return;
     }
 
+    if let Ok(Some(provider)) = backend.repository.get(provider_id)
+        && provider.kind.requires_key()
+    {
+        super::cloud_setup::delete_provider(ui, backend, provider);
+        return;
+    }
+    delete_provider_record(ui, backend, provider_id);
+}
+
+pub(super) fn delete_provider_record(ui: &Rc<WindowUi>, backend: &Rc<Backend>, provider_id: &str) {
     let was_active = active_provider(backend)
         .as_ref()
         .is_some_and(|provider| provider.id.as_str() == provider_id);

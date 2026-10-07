@@ -6,6 +6,11 @@ use crate::{
     core::{new_id, utc_now},
     error::{MooseError, Result},
 };
+pub mod client;
+pub mod credentials;
+pub mod policy;
+mod stream;
+mod wire;
 
 pub use crate::ollama::service::{
     MANAGED_OLLAMA_BASE_URL, MANAGED_OLLAMA_BIND_ADDRESS, MANAGED_OLLAMA_DEFAULT_PORT,
@@ -16,25 +21,82 @@ pub use crate::ollama::service::{
 
 pub const DEFAULT_OLLAMA_BASE_URL: &str = "http://127.0.0.1:11434/api";
 
-#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub enum ProviderKind {
     Ollama,
+    OllamaCloud,
+    OpenAi,
+    Anthropic,
+    Groq,
+    Gemini,
 }
 
 impl ProviderKind {
     pub const fn as_str(&self) -> &'static str {
         match self {
             Self::Ollama => "ollama",
+            Self::OllamaCloud => "ollama-cloud",
+            Self::OpenAi => "openai",
+            Self::Anthropic => "anthropic",
+            Self::Groq => "groq",
+            Self::Gemini => "gemini",
         }
     }
 
     fn parse_kind(value: &str) -> Result<Self> {
         match value {
             "ollama" => Ok(Self::Ollama),
+            "ollama-cloud" => Ok(Self::OllamaCloud),
+            "openai" => Ok(Self::OpenAi),
+            "anthropic" => Ok(Self::Anthropic),
+            "groq" => Ok(Self::Groq),
+            "gemini" => Ok(Self::Gemini),
             _ => Err(MooseError::InvalidOllamaResponse(format!(
                 "unknown provider kind {value}"
             ))),
         }
+    }
+
+    pub const CLOUD: [Self; 5] = [
+        Self::OllamaCloud,
+        Self::Groq,
+        Self::OpenAi,
+        Self::Anthropic,
+        Self::Gemini,
+    ];
+
+    pub const fn label(self) -> &'static str {
+        match self {
+            Self::Ollama => "Ollama",
+            Self::OllamaCloud => "Ollama Cloud",
+            Self::OpenAi => "OpenAI",
+            Self::Anthropic => "Claude (Anthropic)",
+            Self::Groq => "Groq",
+            Self::Gemini => "Google Gemini",
+        }
+    }
+
+    pub const fn base_url(self) -> &'static str {
+        match self {
+            Self::Ollama => DEFAULT_OLLAMA_BASE_URL,
+            Self::OllamaCloud => "https://ollama.com/api",
+            Self::OpenAi => "https://api.openai.com/v1",
+            Self::Anthropic => "https://api.anthropic.com/v1",
+            Self::Groq => "https://api.groq.com/openai/v1",
+            Self::Gemini => "https://generativelanguage.googleapis.com/v1beta",
+        }
+    }
+
+    pub const fn requires_key(self) -> bool {
+        !matches!(self, Self::Ollama)
+    }
+
+    pub fn validate_url(self, value: &str) -> Result<String> {
+        let url = validate_base_url(value)?;
+        if self.requires_key() && url != self.base_url() {
+            return Err(MooseError::InvalidProviderUrl);
+        }
+        Ok(url)
     }
 }
 
@@ -114,10 +176,13 @@ impl NewProvider {
 
     pub fn into_provider(self) -> Result<Provider> {
         let timestamp = utc_now();
+        if self.is_managed && self.kind != ProviderKind::Ollama {
+            return Err(MooseError::InvalidProviderUrl);
+        }
         let base_url = if self.is_managed {
             validate_managed_provider_base_url(&self.base_url)?
         } else {
-            validate_base_url(&self.base_url)?
+            self.kind.validate_url(&self.base_url)?
         };
 
         Ok(Provider {
@@ -130,6 +195,22 @@ impl NewProvider {
             created_at: timestamp.clone(),
             updated_at: timestamp,
         })
+    }
+}
+
+impl Provider {
+    pub fn is_remote(&self) -> bool {
+        self.kind.requires_key() || !self.is_managed
+    }
+
+    pub fn location_label(&self) -> &'static str {
+        if self.is_managed {
+            "Local · Managed by Moose"
+        } else if self.kind.requires_key() {
+            "Cloud"
+        } else {
+            "External Ollama · Execution location unverified"
+        }
     }
 }
 
@@ -154,7 +235,21 @@ pub fn validate_base_url(value: &str) -> Result<String> {
     {
         return Err(MooseError::InvalidProviderUrl);
     }
+    if url.scheme() == "http" && !is_loopback_url(&url) {
+        return Err(MooseError::ProviderRequest(
+            "Remote Ollama requires HTTPS. HTTP is only allowed on this device.".into(),
+        ));
+    }
     Ok(trimmed.to_string())
+}
+
+pub fn is_loopback_url(url: &reqwest::Url) -> bool {
+    match url.host() {
+        Some(url::Host::Ipv4(ip)) => ip.is_loopback(),
+        Some(url::Host::Ipv6(ip)) => ip.is_loopback(),
+        Some(url::Host::Domain(host)) => host == "localhost",
+        None => false,
+    }
 }
 
 pub fn managed_ollama_port_from_base_url(value: &str) -> Result<u16> {
