@@ -142,6 +142,14 @@ impl ProviderRepository {
                 .validate_url(&update.base_url)?
         };
         let timestamp = utc_now();
+        let transaction = self.connection.unchecked_transaction()?;
+
+        if current
+            .as_ref()
+            .is_some_and(|provider| provider.base_url != base_url)
+        {
+            self.clear_remote_permissions(&update.id)?;
+        }
 
         if update.is_default {
             self.connection
@@ -155,8 +163,11 @@ impl ProviderRepository {
             params![name, base_url, update.is_default, timestamp, update.id],
         )?;
 
-        self.get(&update.id)
-            .map(|provider| provider.expect("provider exists immediately after update"))
+        let provider = self
+            .get(&update.id)?
+            .expect("provider exists immediately after update");
+        transaction.commit()?;
+        Ok(provider)
     }
 
     pub fn delete(&self, id: &str) -> Result<()> {

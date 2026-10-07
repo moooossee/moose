@@ -2,6 +2,7 @@ use super::*;
 use crate::providers::{
     NewProvider,
     credentials::{self, ApiKey},
+    policy::RemotePermissions,
 };
 
 fn password_entry() -> gtk::PasswordEntry {
@@ -25,7 +26,7 @@ pub(super) fn show(ui: &Rc<WindowUi>, backend: &Rc<Backend>) {
         .show_end_title_buttons(false)
         .build();
     let description = gtk::Label::builder()
-        .label("Connecting enables remote connections. Moose asks before sharing chats or files with this provider.")
+        .label("Connecting enables remote connections. Choose whether to allow messages in all chats or ask in each chat. Files require separate permission. Shared content is processed under the provider's own data policy.")
         .wrap(true)
         .wrap_mode(gtk::pango::WrapMode::WordChar)
         .width_chars(1)
@@ -50,6 +51,11 @@ pub(super) fn show(ui: &Rc<WindowUi>, backend: &Rc<Backend>) {
     group.add(&kinds);
     group.add(&name);
     group.add(&endpoint);
+    let sharing_group = adw::PreferencesGroup::builder()
+        .title("Sharing Permissions")
+        .build();
+    let message_permission = super::privacy::message_permission_row();
+    sharing_group.add(&message_permission);
     let key = password_entry();
     key.set_placeholder_text(Some("Enter your API key"));
     key.set_activates_default(true);
@@ -74,6 +80,7 @@ pub(super) fn show(ui: &Rc<WindowUi>, backend: &Rc<Backend>) {
     content.add_css_class("moose-instance-content");
     content.append(&description);
     content.append(&group);
+    content.append(&sharing_group);
     content.append(&key_group);
     content.append(&hint);
     let scrolled = gtk::ScrolledWindow::builder()
@@ -119,9 +126,11 @@ pub(super) fn show(ui: &Rc<WindowUi>, backend: &Rc<Backend>) {
     });
     let target_name = name.clone();
     let target_key = key.clone();
+    let target_message_permission = message_permission.clone();
     kinds.connect_selected_notify(move |row| {
         let kind = ProviderKind::CLOUD[row.selected() as usize];
         target_key.set_text("");
+        target_message_permission.set_selected(0);
         target_name.set_text(kind.label());
         endpoint.set_subtitle(kind.base_url());
         hint.set_label(provider_privacy_hint(kind));
@@ -152,6 +161,10 @@ pub(super) fn show(ui: &Rc<WindowUi>, backend: &Rc<Backend>) {
         if provider_change_is_blocked(&target_ui, &target_backend) {
             return;
         }
+        let permissions = RemotePermissions {
+            messages: message_permission.selected() == 1,
+            files: false,
+        };
         target_dialog.close();
         target_backend.credential_operation.set(true);
         target_ui.toast_overlay.add_toast(adw::Toast::new(
@@ -167,7 +180,7 @@ pub(super) fn show(ui: &Rc<WindowUi>, backend: &Rc<Backend>) {
             let result = handle.await;
             backend.credential_operation.set(false);
             match result {
-                Ok(Ok(())) => match backend.repository.insert_remote(provider.clone()) {
+                Ok(Ok(())) => match backend.repository.insert_remote(provider.clone(), permissions) {
                     Ok(provider) => {
                         backend.network_policy.set_local_only(false);
                         apply_active_provider(&ui, &backend, provider);

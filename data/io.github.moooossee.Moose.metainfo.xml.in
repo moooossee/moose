@@ -2,22 +2,23 @@
 <component type="desktop-application">
   <id>io.github.moooossee.Moose</id>
   <name>Moose</name>
-  <summary>Chat with local AI</summary>
+  <summary>Chat with local and cloud AI</summary>
   <developer id="io.github.moooossee">
     <name>moooossee</name>
   </developer>
   <metadata_license>CC0-1.0</metadata_license>
   <project_license>GPL-3.0-or-later</project_license>
   <description>
-    <p>Ask questions, write and work through code with AI models running on your computer. Moose helps you set up Ollama, download a model and start a conversation in one place.</p>
-    <p>Bring images, PDFs and text files into your chats. Keep a searchable document library and read the source excerpts alongside answers. Images need a model with vision support, and PDFs need selectable text.</p>
+    <p>Ask questions, write and work through code with local AI models. Set up Ollama and download models, or connect securely to cloud providers using your own API key.</p>
+    <p>Bring images, PDFs and text files into your chats. Browse attachments and your document library in Files, preview documents and return to the chats that use them. Search documents locally and read source excerpts alongside answers. Images need a model with vision support, and PDFs need selectable text.</p>
     <p>Edit messages, explore different answers and return to earlier versions. Drafts save automatically, and responses can include formatted code, mathematical formulas and model reasoning.</p>
-    <p>Your conversations and document library stay on your device. You can also connect to an existing Ollama instance. When using a remote instance, messages and relevant file content are sent to that server.</p>
+    <p>Your conversations, drafts and document library are stored on your device. Local Only mode restricts inference to Ollama managed by Moose. Remote connections require your permission to share messages, history or files. Message and file permissions are separate and can be reset in Privacy settings. The provider's data policy applies to shared content. API keys are stored securely using your desktop's secret storage.</p>
   </description>
   <keywords>
     <keyword>AI</keyword>
     <keyword>Artificial intelligence</keyword>
     <keyword>Local AI</keyword>
+    <keyword>Cloud AI</keyword>
     <keyword>Ollama</keyword>
     <keyword>LLM</keyword>
     <keyword>Chatbot</keyword>
@@ -37,20 +38,46 @@
   </branding>
   <screenshots>
     <screenshot type="default">
-      <image type="source">https://raw.githubusercontent.com/moooossee/moose/v0.5.0/data/screenshots/main.png</image>
-      <caption>Chat with local models and read formatted answers</caption>
+      <image type="source" width="1650" height="982">https://raw.githubusercontent.com/moooossee/moose/v0.6.0/data/screenshots/main.png</image>
+      <caption>Chat with AI models and read formatted answers</caption>
     </screenshot>
     <screenshot>
-      <image type="source">https://raw.githubusercontent.com/moooossee/moose/v0.5.0/data/screenshots/instances.png</image>
-      <caption>Set up Ollama or connect to an existing instance</caption>
+      <image type="source" width="1650" height="982">https://raw.githubusercontent.com/moooossee/moose/v0.6.0/data/screenshots/2.png</image>
+      <caption>Ask questions about images with vision models</caption>
     </screenshot>
     <screenshot>
-      <image type="source">https://raw.githubusercontent.com/moooossee/moose/v0.5.0/data/screenshots/model-manager.png</image>
-      <caption>Browse and download models for your conversations</caption>
+      <image type="source" width="1650" height="982">https://raw.githubusercontent.com/moooossee/moose/v0.6.0/data/screenshots/4.png</image>
+      <caption>Browse, search and filter attachments in Files</caption>
+    </screenshot>
+    <screenshot>
+      <image type="source" width="1650" height="982">https://raw.githubusercontent.com/moooossee/moose/v0.6.0/data/screenshots/3.png</image>
+      <caption>Explore math with clear, formatted explanations</caption>
+    </screenshot>
+    <screenshot>
+      <image type="source" width="1650" height="982">https://raw.githubusercontent.com/moooossee/moose/v0.6.0/data/screenshots/5.png</image>
+      <caption>Review and approve context shared with cloud providers</caption>
+    </screenshot>
+    <screenshot>
+      <image type="source" width="1650" height="982">https://raw.githubusercontent.com/moooossee/moose/v0.6.0/data/screenshots/6.png</image>
+      <caption>Control remote connections and reset sharing permissions</caption>
     </screenshot>
   </screenshots>
   <content_rating type="oars-1.1" />
   <releases>
+    <release version="0.6.0" date="2026-10-06" type="stable">
+      <url type="details">https://github.com/moooossee/moose/releases/tag/v0.6.0</url>
+      <description>
+        <p>Connect securely to cloud providers using your own API key and control what you share.</p>
+        <ul>
+          <li>Enable Local Only mode to restrict inference to Ollama managed by Moose.</li>
+          <li>Allow messages in all chats with a provider or ask in each chat. File sharing requires separate permission. Review context before sending and reset permissions in Privacy settings.</li>
+          <li>Open Files from the sidebar to browse, search and filter attachments and library documents. Preview files, find their original folder, reopen related chats or attach them to the current chat.</li>
+          <li>Browse more local models for chat, vision, reasoning and coding.</li>
+          <li>See clearer waiting and reasoning indicators that disappear when the answer starts arriving.</li>
+          <li>External Ollama connections now require HTTPS, with HTTP available only for connections on this device.</li>
+        </ul>
+      </description>
+    </release>
     <release version="0.5.0" date="2026-09-26" type="stable">
       <url type="details">https://github.com/moooossee/moose/releases/tag/v0.5.0</url>
       <description>

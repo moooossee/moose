@@ -247,11 +247,7 @@ pub(super) fn dialog(
     page.add(&behavior_group);
     page.add(&prompt_group);
     if active_provider(backend).is_some_and(|p| p.is_remote()) {
-        page.add(&super::privacy::conversation_group(
-            ui,
-            backend,
-            conversation_id,
-        ));
+        page.add(&super::privacy::conversation_group(ui, backend));
     }
     page.add(&action_group);
     dialog.add(&page);

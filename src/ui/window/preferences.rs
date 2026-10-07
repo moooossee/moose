@@ -1,4 +1,4 @@
-use std::{collections::HashMap, rc::Rc};
+use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
 use adw::prelude::*;
 use gtk::{Align, Orientation};
@@ -167,6 +167,14 @@ pub(super) fn dialog(
     );
     privacy_page.add(&privacy_group);
     privacy_page.add(&super::privacy::settings_group(ui, backend));
+    let sharing_group = Rc::new(RefCell::new(None));
+    match super::privacy::sharing_group(ui, backend) {
+        Ok(group) => {
+            privacy_page.add(&group);
+            *sharing_group.borrow_mut() = Some(group);
+        }
+        Err(error) => show_error(parent, "Sharing permissions could not be loaded", &error),
+    }
 
     let shortcuts_page = adw::PreferencesPage::builder()
         .title("Shortcuts")
@@ -282,6 +290,8 @@ pub(super) fn dialog(
     let target_name_row = name_row.clone();
     let target_url_row = url_row.clone();
     let target_port_row = port_row.clone();
+    let target_privacy_page = privacy_page.clone();
+    let target_sharing_group = Rc::clone(&sharing_group);
     save_button.connect_clicked(move |_| {
         if provider_change_is_blocked(&target_ui, &target_backend) {
             return;
@@ -325,6 +335,20 @@ pub(super) fn dialog(
                     port_row.set_text(&port.to_string());
                 }
                 update_provider_summary(&target_ui, &provider);
+                if let Some(group) = target_sharing_group.borrow_mut().take() {
+                    target_privacy_page.remove(&group);
+                }
+                match super::privacy::sharing_group(&target_ui, &target_backend) {
+                    Ok(group) => {
+                        target_privacy_page.add(&group);
+                        *target_sharing_group.borrow_mut() = Some(group);
+                    }
+                    Err(error) => show_error(
+                        &target_parent,
+                        "Sharing permissions could not be loaded",
+                        &error,
+                    ),
+                }
                 refresh_models(&target_ui, &target_backend);
                 target_ui
                     .toast_overlay

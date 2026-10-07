@@ -24,6 +24,15 @@ const MIGRATIONS: &[(i64, &str)] = &[
     ),
     (8, include_str!("../../migrations/0008_asset_locations.sql")),
     (9, include_str!("../../migrations/0009_cloud_providers.sql")),
+    (
+        10,
+        "CREATE TABLE provider_remote_permissions (
+            provider_id TEXT PRIMARY KEY REFERENCES providers(id) ON DELETE CASCADE,
+            destination TEXT NOT NULL,
+            allow_messages INTEGER NOT NULL DEFAULT 0 CHECK (allow_messages IN (0, 1)),
+            allow_files INTEGER NOT NULL DEFAULT 0 CHECK (allow_files IN (0, 1))
+        );",
+    ),
 ];
 
 pub fn run_migrations(connection: &mut Connection) -> Result<()> {

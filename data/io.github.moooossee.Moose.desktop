@@ -1,10 +1,10 @@
 [Desktop Entry]
 Name=Moose
-Comment=Chat with local AI
+Comment=Chat with local and cloud AI
 Exec=moose
 Type=Application
 Icon=io.github.moooossee.Moose
 Categories=Network;Chat;
-Keywords=AI;Artificial intelligence;Local AI;Ollama;LLM;Chatbot;Models;PDF;Documents;Vision;Reasoning;
+Keywords=AI;Artificial intelligence;Local AI;Cloud AI;Ollama;LLM;Chatbot;Models;PDF;Documents;Vision;Reasoning;
 StartupNotify=true
 DBusActivatable=true

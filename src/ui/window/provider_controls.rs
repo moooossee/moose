@@ -5,7 +5,7 @@ use gtk::{Align, Orientation, pango};
 
 use crate::providers::{
     DEFAULT_OLLAMA_BASE_URL, MANAGED_OLLAMA_DEFAULT_PORT, NewProvider, Provider, ProviderKind,
-    managed_ollama_port_from_base_url, managed_ollama_port_is_available,
+    managed_ollama_port_from_base_url, managed_ollama_port_is_available, policy::RemotePermissions,
 };
 
 use super::{
@@ -266,6 +266,13 @@ fn show_provider_setup(ui: &Rc<WindowUi>, backend: &Rc<Backend>, external_only: 
     connection_group.add(&name_row);
     connection_group.add(&url_row);
     connection_group.set_visible(external_only);
+    let sharing_group = adw::PreferencesGroup::builder()
+        .title("Sharing Permissions")
+        .description("Choose whether this server can receive messages in all chats. Files require separate permission. Shared content is processed under the server's own data policy.")
+        .visible(external_only)
+        .build();
+    let message_permission = super::privacy::message_permission_row();
+    sharing_group.add(&message_permission);
 
     let content = gtk::Box::builder()
         .orientation(Orientation::Vertical)
@@ -275,6 +282,7 @@ fn show_provider_setup(ui: &Rc<WindowUi>, backend: &Rc<Backend>, external_only: 
     content.append(&type_toggle);
     content.append(&description);
     content.append(&connection_group);
+    content.append(&sharing_group);
 
     let scrolled = gtk::ScrolledWindow::builder()
         .hscrollbar_policy(gtk::PolicyType::Never)
@@ -314,6 +322,7 @@ fn show_provider_setup(ui: &Rc<WindowUi>, backend: &Rc<Backend>, external_only: 
 
     let target_description = description.clone();
     let target_group = connection_group.clone();
+    let target_sharing_group = sharing_group.clone();
     let target_button = primary_button.clone();
     let target_scroll = scrolled.downgrade();
     type_toggle.connect_active_notify(move |toggle| {
@@ -327,6 +336,7 @@ fn show_provider_setup(ui: &Rc<WindowUi>, backend: &Rc<Backend>, external_only: 
             "Moose installs and runs Ollama on this device."
         });
         target_group.set_visible(external);
+        target_sharing_group.set_visible(external);
         target_button.set_label(if external { "Connect" } else { "Continue" });
         if let Some(scrolled) = target_scroll.upgrade() {
             let adjustment = scrolled.vadjustment();
@@ -337,6 +347,10 @@ fn show_provider_setup(ui: &Rc<WindowUi>, backend: &Rc<Backend>, external_only: 
     let target_url_row = url_row.clone();
     name_row.connect_entry_activated(move |_| {
         target_url_row.grab_focus();
+    });
+    let target_message_permission = message_permission.clone();
+    url_row.connect_text_notify(move |_| {
+        target_message_permission.set_selected(0);
     });
     let target_button = primary_button.clone();
     url_row.connect_entry_activated(move |_| {
@@ -366,6 +380,10 @@ fn show_provider_setup(ui: &Rc<WindowUi>, backend: &Rc<Backend>, external_only: 
             &target_backend,
             name_row.text().to_string(),
             url_row.text().to_string(),
+            RemotePermissions {
+                messages: message_permission.selected() == 1,
+                files: false,
+            },
         ) {
             target_dialog.close();
         }
@@ -473,6 +491,7 @@ fn add_provider_from_sidebar(
     backend: &Rc<Backend>,
     name: String,
     base_url: String,
+    permissions: RemotePermissions,
 ) -> bool {
     if provider_change_is_blocked(ui, backend) {
         return false;
@@ -486,7 +505,7 @@ fn add_provider_from_sidebar(
         is_default: true,
     })
     .into_provider()
-    .and_then(|provider| backend.repository.insert_remote(provider))
+    .and_then(|provider| backend.repository.insert_remote(provider, permissions))
     {
         Ok(provider) => {
             backend.network_policy.set_local_only(false);

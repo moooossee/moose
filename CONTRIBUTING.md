@@ -66,3 +66,8 @@ CI checks formatting, metadata, Rust code, and the Flatpak build. Review its res
 and address any failures before asking for a final review.
 
 Be kind, give useful feedback, and ask when something is unclear.
+
+## Flathub generative AI policy
+
+For Flathub submissions, follow the official
+[generative AI policy](https://docs.flathub.org/docs/for-app-authors/requirements/#generative-ai-policy)
