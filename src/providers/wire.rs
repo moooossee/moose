@@ -36,7 +36,9 @@ pub(super) fn request(kind: ProviderKind, request: &ChatRequest) -> Result<Value
     match kind {
         ProviderKind::Ollama | ProviderKind::OllamaCloud => Ok(serde_json::to_value(request)?),
         ProviderKind::OpenAi => openai(request),
-        ProviderKind::Groq => groq(request),
+        ProviderKind::Groq | ProviderKind::Mistral | ProviderKind::DeepSeek => {
+            chat_completions(kind, request)
+        }
         ProviderKind::Anthropic => anthropic(request),
         ProviderKind::Gemini => gemini(request),
     }
@@ -66,13 +68,18 @@ fn openai(request: &ChatRequest) -> Result<Value> {
     Ok(value)
 }
 
-fn groq(request: &ChatRequest) -> Result<Value> {
+fn chat_completions(kind: ProviderKind, request: &ChatRequest) -> Result<Value> {
     let mut messages = Vec::new();
     for message in &request.messages {
         let role = role(message)?;
         if message.images.is_empty() {
             messages.push(json!({"role":role,"content":message.content}));
         } else {
+            if kind != ProviderKind::Groq && role != "user" {
+                return Err(MooseError::ProviderRequest(
+                    "Images are only supported in user messages for this provider.".into(),
+                ));
+            }
             let mut content = vec![json!({"type":"text","text":message.content})];
             for image in &message.images {
                 content.push(json!({"type":"image_url","image_url":{"url":format!("data:{};base64,{image}",image_mime(image)?)}}));
@@ -80,17 +87,29 @@ fn groq(request: &ChatRequest) -> Result<Value> {
             messages.push(json!({"role":role,"content":content}));
         }
     }
-    let mut value = json!({"model":request.model,"messages":messages,"stream":true,"store":false});
+    let mut value = json!({"model":request.model,"messages":messages,"stream":true});
+    if kind == ProviderKind::Groq {
+        value["store"] = json!(false);
+    }
+    let deepseek_thinking = kind == ProviderKind::DeepSeek
+        && !matches!(&request.think, Some(ThinkingValue::Enabled(false)))
+        && !matches!(&request.think, Some(ThinkingValue::Level(effort)) if effort == "none");
     if let Some(options) = &request.options {
-        if let Some(t) = options.temperature {
+        if let Some(t) = options.temperature.filter(|_| !deepseek_thinking) {
             value["temperature"] = json!(t);
         }
-        if let Some(p) = options.top_p {
+        if let Some(p) = options
+            .top_p
+            .filter(|_| kind != ProviderKind::DeepSeek || deepseek_thinking)
+        {
             value["top_p"] = json!(p);
         }
     }
     if let Some(ThinkingValue::Level(effort)) = &request.think {
         value["reasoning_effort"] = json!(effort);
+    }
+    if kind == ProviderKind::DeepSeek && request.think.is_some() {
+        value["thinking"] = json!({"type":if deepseek_thinking {"enabled"} else {"disabled"}});
     }
     Ok(value)
 }
@@ -168,11 +187,38 @@ pub(super) fn supports_images(kind: ProviderKind, model: &str) -> bool {
         ProviderKind::Groq => {
             model.starts_with("meta-llama/llama-4") || model.starts_with("qwen/qwen3.8")
         }
+        ProviderKind::DeepSeek => {
+            matches!(model, "deepseek-flash" | "deepseek-v4-flash-vision-exp")
+        }
         _ => false,
     }
 }
 
 pub(super) fn thinking_values(kind: ProviderKind, model: &str) -> Vec<ThinkingValue> {
+    if kind == ProviderKind::DeepSeek && model.starts_with("deepseek-") {
+        return vec![
+            ThinkingValue::Enabled(false),
+            ThinkingValue::Level("low".into()),
+            ThinkingValue::Level("high".into()),
+            ThinkingValue::Level("max".into()),
+        ];
+    }
+    if kind == ProviderKind::Mistral {
+        let levels: &[&str] = match model {
+            "mistral-small-latest"
+            | "mistral-small-2603"
+            | "mistral-medium-latest"
+            | "mistral-medium-3-5"
+            | "mistral-large-latest"
+            | "mistral-large-4-0" => &["none", "high"],
+            "zai-glm-5-3" => &["low", "high", "max"],
+            _ => &[],
+        };
+        return levels
+            .iter()
+            .map(|level| ThinkingValue::Level((*level).into()))
+            .collect();
+    }
     let supported = match kind {
         ProviderKind::OpenAi => {
             ["gpt-5", "gpt-6", "o3", "o4"]

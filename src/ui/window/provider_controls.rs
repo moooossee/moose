@@ -329,7 +329,7 @@ fn show_provider_setup(ui: &Rc<WindowUi>, backend: &Rc<Backend>, external_only: 
         let external = toggle.active() == 1;
         let cloud = toggle.active() == 2;
         target_description.set_label(if cloud {
-            "Connect Ollama Cloud, Groq, OpenAI, Claude or Gemini using your own API key."
+            "Connect Ollama Cloud, Groq, OpenAI, Claude, Gemini, Mistral AI or DeepSeek using your own API key."
         } else if external {
             "Connect to an existing Ollama server. This enables external connections; its execution location cannot be verified by Moose."
         } else {

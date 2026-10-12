@@ -103,7 +103,7 @@ fn apply(ui: &WindowUi, backend: &Backend, model: &str, values: Vec<ThinkingValu
     ui.thinking_picker.set_tooltip_text(Some(if unsupported {
         "This model does not support reasoning"
     } else if labels.len() == 1 {
-        "Ollama has not provided reasoning controls. The model’s default behavior will be used."
+        "The provider has not provided reasoning controls. The model’s default behavior will be used."
     } else {
         "Choose how this model reasons in this chat. Automatic uses the model’s default."
     }));

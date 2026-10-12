@@ -137,11 +137,24 @@ impl ProviderClient {
             unreachable!()
         };
         let kind = self.provider.kind;
+        if matches!(kind, ProviderKind::Mistral | ProviderKind::DeepSeek)
+            && request
+                .messages
+                .iter()
+                .any(|message| !message.images.is_empty())
+            && !self.supports_vision(&request.model).await?
+        {
+            return Err(MooseError::ProviderRequest(
+                "This model does not support images. Select a model with image support.".into(),
+            ));
+        }
         let url = match kind {
             ProviderKind::OllamaCloud => self.endpoint("chat")?,
             ProviderKind::OpenAi => self.endpoint("responses")?,
             ProviderKind::Anthropic => self.endpoint("messages")?,
-            ProviderKind::Groq => self.endpoint("chat/completions")?,
+            ProviderKind::Groq | ProviderKind::Mistral | ProviderKind::DeepSeek => {
+                self.endpoint("chat/completions")?
+            }
             ProviderKind::Gemini => {
                 let model = request
                     .model
@@ -219,6 +232,31 @@ impl ProviderClient {
         response_json(response).await
     }
 
+    async fn mistral_model(&self, model: &str) -> Result<Value> {
+        self.check()?;
+        let model = validate_model_name(model)?;
+        let Transport::Cloud(client) = &self.transport else {
+            unreachable!()
+        };
+        let mut url = self.endpoint("models")?;
+        url.path_segments_mut()
+            .map_err(|_| MooseError::InvalidProviderUrl)?
+            .push(&model);
+        let response = client
+            .get(url)
+            .timeout(Duration::from_secs(30))
+            .send()
+            .await
+            .map_err(network_error)?;
+        let data = response_json(response).await?;
+        if !data["capabilities"].is_object() {
+            return Err(MooseError::ProviderResponse(
+                "The provider returned invalid model capabilities.".into(),
+            ));
+        }
+        Ok(data)
+    }
+
     pub async fn supports_vision(&self, model: &str) -> Result<bool> {
         self.check()?;
         if let Transport::Ollama(client) = &self.transport {
@@ -229,6 +267,10 @@ impl ProviderClient {
             return Ok(data["capabilities"]
                 .as_array()
                 .is_some_and(|a| a.iter().any(|c| c == "vision")));
+        }
+        if self.provider.kind == ProviderKind::Mistral {
+            let data = self.mistral_model(model).await?;
+            return Ok(data["capabilities"]["vision"].as_bool() == Some(true));
         }
         Ok(wire::supports_images(self.provider.kind, model))
     }
@@ -243,6 +285,19 @@ impl ProviderClient {
             return Ok(
                 serde_json::from_value(data["thinking"]["values"].clone()).unwrap_or_default()
             );
+        }
+        if self.provider.kind == ProviderKind::Mistral {
+            let data = self.mistral_model(model).await?;
+            for name in [data["id"].as_str(), data["root"].as_str(), Some(model)]
+                .into_iter()
+                .flatten()
+            {
+                let values = wire::thinking_values(self.provider.kind, name);
+                if !values.is_empty() {
+                    return Ok(values);
+                }
+            }
+            return Ok(Vec::new());
         }
         Ok(wire::thinking_values(self.provider.kind, model))
     }
@@ -393,22 +448,29 @@ fn parse_models(kind: ProviderKind, data: &Value) -> Result<Vec<OllamaModel>> {
         if kind == ProviderKind::OpenAi && !openai_responses_model(name) {
             continue;
         }
-        if [
-            "embedding",
-            "whisper",
-            "tts",
-            "transcribe",
-            "realtime",
-            "audio",
-            "image",
-            "moderation",
-            "safeguard",
-            "search",
-            "computer-use",
-            "compound",
-        ]
-        .iter()
-        .any(|part| name.contains(part))
+        if kind == ProviderKind::Mistral
+            && (item["capabilities"]["completion_chat"].as_bool() != Some(true)
+                || item["archived"].as_bool() == Some(true))
+        {
+            continue;
+        }
+        if kind != ProviderKind::Mistral
+            && [
+                "embedding",
+                "whisper",
+                "tts",
+                "transcribe",
+                "realtime",
+                "audio",
+                "image",
+                "moderation",
+                "safeguard",
+                "search",
+                "computer-use",
+                "compound",
+            ]
+            .iter()
+            .any(|part| name.contains(part))
         {
             continue;
         }

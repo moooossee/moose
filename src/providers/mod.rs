@@ -29,6 +29,8 @@ pub enum ProviderKind {
     Anthropic,
     Groq,
     Gemini,
+    Mistral,
+    DeepSeek,
 }
 
 impl ProviderKind {
@@ -40,6 +42,8 @@ impl ProviderKind {
             Self::Anthropic => "anthropic",
             Self::Groq => "groq",
             Self::Gemini => "gemini",
+            Self::Mistral => "mistral",
+            Self::DeepSeek => "deepseek",
         }
     }
 
@@ -51,18 +55,22 @@ impl ProviderKind {
             "anthropic" => Ok(Self::Anthropic),
             "groq" => Ok(Self::Groq),
             "gemini" => Ok(Self::Gemini),
+            "mistral" => Ok(Self::Mistral),
+            "deepseek" => Ok(Self::DeepSeek),
             _ => Err(MooseError::InvalidOllamaResponse(format!(
                 "unknown provider kind {value}"
             ))),
         }
     }
 
-    pub const CLOUD: [Self; 5] = [
+    pub const CLOUD: [Self; 7] = [
         Self::OllamaCloud,
         Self::Groq,
         Self::OpenAi,
         Self::Anthropic,
         Self::Gemini,
+        Self::Mistral,
+        Self::DeepSeek,
     ];
 
     pub const fn label(self) -> &'static str {
@@ -73,6 +81,8 @@ impl ProviderKind {
             Self::Anthropic => "Claude (Anthropic)",
             Self::Groq => "Groq",
             Self::Gemini => "Google Gemini",
+            Self::Mistral => "Mistral AI",
+            Self::DeepSeek => "DeepSeek",
         }
     }
 
@@ -84,6 +94,8 @@ impl ProviderKind {
             Self::Anthropic => "https://api.anthropic.com/v1",
             Self::Groq => "https://api.groq.com/openai/v1",
             Self::Gemini => "https://generativelanguage.googleapis.com/v1beta",
+            Self::Mistral => "https://api.mistral.ai/v1",
+            Self::DeepSeek => "https://api.deepseek.com",
         }
     }
 

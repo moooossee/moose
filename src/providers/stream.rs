@@ -94,8 +94,27 @@ fn token(events: &mut Vec<ChatStreamEvent>, value: &Value, thinking: bool) {
     }
 }
 
+fn content_tokens(events: &mut Vec<ChatStreamEvent>, value: &Value, thinking: bool) {
+    if let Some(chunks) = value.as_array() {
+        for chunk in chunks {
+            match chunk["type"].as_str() {
+                Some("text") => token(events, &chunk["text"], thinking),
+                Some("thinking") => content_tokens(events, &chunk["thinking"], true),
+                _ => {}
+            }
+        }
+    } else {
+        token(events, value, thinking);
+    }
+}
+
 fn parse(kind: ProviderKind, data: &[u8]) -> Result<Vec<ChatStreamEvent>> {
-    if data == b"[DONE]" && kind == ProviderKind::Groq {
+    if data == b"[DONE]"
+        && matches!(
+            kind,
+            ProviderKind::Groq | ProviderKind::Mistral | ProviderKind::DeepSeek
+        )
+    {
         return Ok(vec![ChatStreamEvent::Done]);
     }
     let v: Value = serde_json::from_slice(data).map_err(|_| invalid())?;
@@ -127,10 +146,21 @@ fn parse(kind: ProviderKind, data: &[u8]) -> Result<Vec<ChatStreamEvent>> {
             }
             _ => {}
         },
-        ProviderKind::Groq => {
+        ProviderKind::Groq | ProviderKind::Mistral | ProviderKind::DeepSeek => {
             if let Some(choice) = v["choices"].as_array().and_then(|c| c.first()) {
-                token(&mut out, &choice["delta"]["content"], false);
-                token(&mut out, &choice["delta"]["reasoning"], true);
+                match kind {
+                    ProviderKind::Mistral => {
+                        content_tokens(&mut out, &choice["delta"]["content"], false);
+                    }
+                    ProviderKind::DeepSeek => {
+                        token(&mut out, &choice["delta"]["reasoning_content"], true);
+                        token(&mut out, &choice["delta"]["content"], false);
+                    }
+                    _ => {
+                        token(&mut out, &choice["delta"]["content"], false);
+                        token(&mut out, &choice["delta"]["reasoning"], true);
+                    }
+                }
                 match choice["finish_reason"].as_str() {
                     Some("stop") => out.push(ChatStreamEvent::Done),
                     Some("content_filter") => return Err(blocked()),

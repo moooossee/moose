@@ -441,6 +441,12 @@ fn extract_tar_archive<R: Read>(archive: &mut tar::Archive<R>, destination: &Pat
             destination.display()
         ))
     })?;
+    let destination = fs::canonicalize(destination).map_err(|error| {
+        extraction_failed(format!(
+            "could not resolve extraction directory {}: {error}",
+            destination.display()
+        ))
+    })?;
 
     let mut extracted_paths = HashSet::new();
 
@@ -478,7 +484,7 @@ fn extract_tar_archive<R: Read>(archive: &mut tar::Archive<R>, destination: &Pat
         } else if entry_type.is_symlink() {
             extract_symlink_entry(&mut entry, &output_path)?;
         } else if entry_type.is_hard_link() {
-            extract_hardlink_entry(&mut entry, destination, &output_path)?;
+            extract_hardlink_entry(&mut entry, &destination, &output_path)?;
         } else {
             return Err(extraction_failed(format!(
                 "unsupported archive entry type {:?} for {}",
