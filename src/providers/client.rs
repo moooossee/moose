@@ -143,10 +143,10 @@ impl ProviderClient {
             unreachable!();
         };
         let kind = self.provider.api_kind();
-        let path = if kind == ProviderKind::OllamaCloud {
-            "tags"
-        } else {
-            "models"
+        let path = match kind {
+            ProviderKind::OllamaCloud => "tags",
+            ProviderKind::Cloudflare => "models/search",
+            _ => "models",
         };
         let mut url = self.endpoint(path)?;
         if kind == ProviderKind::Anthropic {
@@ -155,8 +155,11 @@ impl ProviderClient {
         if kind == ProviderKind::Gemini {
             url.query_pairs_mut().append_pair("pageSize", "1000");
         }
+        if kind == ProviderKind::Cloudflare {
+            url.query_pairs_mut().append_pair("per_page", "100");
+        }
         let mut models = Vec::new();
-        for _ in 0..100 {
+        for page in 1..=100 {
             self.check()?;
             let response = client
                 .get(url.clone())
@@ -170,20 +173,32 @@ impl ProviderClient {
                 &data,
                 self.provider.kind == ProviderKind::Custom,
             )?);
-            let next =
+            let next: Option<(&str, String)> =
                 if kind == ProviderKind::Anthropic && data["has_more"].as_bool() == Some(true) {
-                    data["last_id"].as_str().map(|s| ("after_id", s))
+                    data["last_id"].as_str().map(|s| ("after_id", s.to_owned()))
                 } else if kind == ProviderKind::Gemini {
                     data["nextPageToken"]
                         .as_str()
                         .filter(|s| !s.is_empty())
-                        .map(|s| ("pageToken", s))
+                        .map(|s| ("pageToken", s.to_owned()))
+                } else if kind == ProviderKind::Cloudflare {
+                    let count = data["result"].as_array().map_or(0, Vec::len);
+                    let per_page =
+                        data["result_info"]["per_page"].as_u64().unwrap_or(100) as usize;
+                    if per_page > 0 && count >= per_page {
+                        Some(("page", (page + 1).to_string()))
+                    } else {
+                        None
+                    }
                 } else {
                     None
                 };
             if let Some((key, token)) = next {
                 url = self.endpoint(path)?;
-                url.query_pairs_mut().append_pair(key, token);
+                if kind == ProviderKind::Cloudflare {
+                    url.query_pairs_mut().append_pair("per_page", "100");
+                }
+                url.query_pairs_mut().append_pair(key, &token);
             } else {
                 models.sort_by(|a, b| a.name.cmp(&b.name));
                 models.dedup_by(|a, b| a.name == b.name);
@@ -210,7 +225,11 @@ impl ProviderClient {
         let kind = self.provider.api_kind();
         if matches!(
             self.provider.kind,
-            ProviderKind::Mistral | ProviderKind::DeepSeek | ProviderKind::Custom
+            ProviderKind::Mistral
+                | ProviderKind::DeepSeek
+                | ProviderKind::Cloudflare
+                | ProviderKind::Nvidia
+                | ProviderKind::Custom
         ) && request
             .messages
             .iter()
@@ -225,9 +244,11 @@ impl ProviderClient {
             ProviderKind::OllamaCloud => self.endpoint("chat")?,
             ProviderKind::OpenAi => self.endpoint("responses")?,
             ProviderKind::Anthropic => self.endpoint("messages")?,
+            ProviderKind::Cloudflare => self.endpoint("v1/chat/completions")?,
             ProviderKind::Groq
             | ProviderKind::Mistral
             | ProviderKind::DeepSeek
+            | ProviderKind::Nvidia
             | ProviderKind::Custom => self.endpoint("chat/completions")?,
             ProviderKind::Gemini => {
                 let model = request
@@ -331,6 +352,41 @@ impl ProviderClient {
         Ok(data)
     }
 
+    async fn cloudflare_model(&self, model: &str) -> Result<Value> {
+        self.check()?;
+        let model = validate_model_name(model)?;
+        let Transport::Cloud(client) = &self.transport else {
+            unreachable!()
+        };
+        let mut url = self.endpoint("models/search")?;
+        url.query_pairs_mut().append_pair("search", &model);
+        let response = client
+            .get(url)
+            .timeout(Duration::from_secs(30))
+            .send()
+            .await
+            .map_err(network_error)?;
+        let data = response_json(response).await?;
+        let Some(list) = data["result"].as_array() else {
+            return Err(MooseError::ProviderResponse(
+                "The provider returned invalid model capabilities.".into(),
+            ));
+        };
+        list.iter()
+            .find(|entry| {
+                entry["name"]
+                    .as_str()
+                    .or_else(|| entry["id"].as_str())
+                    .is_some_and(|id| id == model)
+            })
+            .cloned()
+            .ok_or_else(|| {
+                MooseError::ProviderResponse(
+                    "The provider returned invalid model capabilities.".into(),
+                )
+            })
+    }
+
     pub async fn supports_vision(&self, model: &str) -> Result<bool> {
         self.check()?;
         if let Transport::Ollama(client) = &self.transport {
@@ -346,8 +402,13 @@ impl ProviderClient {
             let Transport::Cloud(client) = &self.transport else {
                 unreachable!()
             };
+            let path = if self.provider.api_kind() == ProviderKind::Cloudflare {
+                "models/search"
+            } else {
+                "models"
+            };
             let response = client
-                .get(self.endpoint("models")?)
+                .get(self.endpoint(path)?)
                 .timeout(Duration::from_secs(30))
                 .send()
                 .await
@@ -364,6 +425,13 @@ impl ProviderClient {
         if self.provider.kind == ProviderKind::Mistral {
             let data = self.mistral_model(model).await?;
             return Ok(data["capabilities"]["vision"].as_bool() == Some(true));
+        }
+        if self.provider.kind == ProviderKind::Cloudflare {
+            let data = self.cloudflare_model(model).await?;
+            if let Some(task) = data["task"]["name"].as_str() {
+                return Ok(task == "Image-Text-to-Text");
+            }
+            return Ok(wire::supports_images(self.provider.kind, model));
         }
         Ok(wire::supports_images(self.provider.kind, model))
     }
@@ -421,6 +489,11 @@ impl ProviderClient {
     }
     fn endpoint(&self, path: &str) -> Result<reqwest::Url> {
         self.provider.kind.validate_url(&self.provider.base_url)?;
+        if self.provider.api_kind() == ProviderKind::Cloudflare {
+            let base = self.provider.base_url.trim_end_matches('/');
+            let base = base.strip_suffix("/v1").unwrap_or(base);
+            return Ok(reqwest::Url::parse(&format!("{base}/{path}"))?);
+        }
         Ok(reqwest::Url::parse(&format!(
             "{}/{path}",
             self.provider.base_url
@@ -523,12 +596,13 @@ async fn response_json(response: Response) -> Result<Value> {
 }
 
 fn parse_models(kind: ProviderKind, data: &Value, custom: bool) -> Result<Vec<OllamaModel>> {
-    let list = data[if matches!(kind, ProviderKind::OllamaCloud | ProviderKind::Gemini) {
-        "models"
-    } else {
-        "data"
-    }]
-    .as_array()
+    let list = match kind {
+        ProviderKind::OllamaCloud | ProviderKind::Gemini => data["models"].as_array(),
+        ProviderKind::Cloudflare => data["result"]
+            .as_array()
+            .or_else(|| data["data"].as_array()),
+        _ => data["data"].as_array(),
+    }
     .ok_or_else(|| {
         MooseError::ProviderResponse("The provider returned an invalid model list.".into())
     })?;
@@ -541,12 +615,19 @@ fn parse_models(kind: ProviderKind, data: &Value, custom: bool) -> Result<Vec<Ol
         {
             continue;
         }
-        let Some(name) = item[if matches!(kind, ProviderKind::OllamaCloud | ProviderKind::Gemini) {
-            "name"
-        } else {
-            "id"
-        }]
-        .as_str() else {
+        let has_cf_task = kind == ProviderKind::Cloudflare && item["task"]["name"].is_string();
+        if has_cf_task
+            && !item["task"]["name"]
+                .as_str()
+                .is_some_and(|t| matches!(t, "Text Generation" | "Image-Text-to-Text"))
+        {
+            continue;
+        }
+        let Some(name) = (match kind {
+            ProviderKind::OllamaCloud | ProviderKind::Gemini => item["name"].as_str(),
+            ProviderKind::Cloudflare => item["name"].as_str().or_else(|| item["id"].as_str()),
+            _ => item["id"].as_str(),
+        }) else {
             continue;
         };
         let name = if kind == ProviderKind::Gemini {
@@ -567,7 +648,29 @@ fn parse_models(kind: ProviderKind, data: &Value, custom: bool) -> Result<Vec<Ol
             continue;
         }
         if !custom
+            && kind == ProviderKind::Nvidia
+            && [
+                "embed",
+                "rerank",
+                "bge-",
+                "deplot",
+                "paligemma",
+                "kosmos",
+                "neva",
+                "vila",
+                "clip",
+                "guard",
+                "parse",
+                "ocr",
+            ]
+            .iter()
+            .any(|part| name.contains(part))
+        {
+            continue;
+        }
+        if !custom
             && kind != ProviderKind::Mistral
+            && !has_cf_task
             && [
                 "embedding",
                 "whisper",
@@ -623,6 +726,7 @@ fn custom_model_vision(data: &Value, model: &str) -> bool {
     data["data"]
         .as_array()
         .or_else(|| data["models"].as_array())
+        .or_else(|| data["result"].as_array())
         .and_then(|models| {
             models.iter().find(|entry| {
                 entry["id"]
@@ -636,9 +740,12 @@ fn custom_model_vision(data: &Value, model: &str) -> bool {
         })
         .is_some_and(|entry| {
             entry["capabilities"]["vision"].as_bool() == Some(true)
+                || entry["task"]["name"].as_str() == Some("Image-Text-to-Text")
                 || entry["architecture"]["input_modalities"]
                     .as_array()
                     .or_else(|| entry["input_modalities"].as_array())
-                    .is_some_and(|modalities| modalities.iter().any(|modality| modality == "image"))
+                    .is_some_and(|modalities| {
+                        modalities.iter().any(|modality| modality == "image")
+                    })
         })
 }
