@@ -9,7 +9,7 @@
   <metadata_license>CC0-1.0</metadata_license>
   <project_license>GPL-3.0-or-later</project_license>
   <description>
-    <p>Ask questions, write and work through code with local AI models. Set up Ollama and download models, or connect securely to cloud providers using your own API key.</p>
+    <p>Ask questions, write and work through code with local AI models. Set up Ollama and download models, or connect securely to cloud providers using your own API key. Choose a built-in provider or add a custom connection using a compatible API.</p>
     <p>Bring images, PDFs and text files into your chats. Browse attachments and your document library in Files, preview documents and return to the chats that use them. Search documents locally and read source excerpts alongside answers. Images need a model with vision support, and PDFs need selectable text.</p>
     <p>Edit messages, explore different answers and return to earlier versions. Drafts save automatically, and responses can include formatted code, mathematical formulas and model reasoning.</p>
     <p>Your conversations, drafts and document library are stored on your device. Local Only mode restricts inference to Ollama managed by Moose. Remote connections require your permission to share messages, history or files. Message and file permissions are separate and can be reset in Privacy settings. The provider's data policy applies to shared content. API keys are stored securely using your desktop's secret storage.</p>
@@ -64,6 +64,14 @@
   </screenshots>
   <content_rating type="oars-1.1" />
   <releases>
+    <release version="0.6.1" date="2026-10-16" type="stable">
+      <url type="details">https://github.com/moooossee/moose/releases/tag/v0.6.1</url>
+      <description>
+        <p>Connect to Mistral AI and DeepSeek, or add a custom cloud provider with your own server address and authentication settings.</p>
+        <p>Discover models automatically or add them manually, with image support configurable for each saved model.</p>
+        <p>This update also adds reasoning controls for supported Mistral and DeepSeek models and fixes managed Ollama installation in folders accessed through symbolic links.</p>
+      </description>
+    </release>
     <release version="0.6.0" date="2026-10-06" type="stable">
       <url type="details">https://github.com/moooossee/moose/releases/tag/v0.6.0</url>
       <description>
