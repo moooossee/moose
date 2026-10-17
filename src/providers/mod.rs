@@ -23,6 +23,9 @@ pub use crate::ollama::service::{
 };
 
 pub const DEFAULT_OLLAMA_BASE_URL: &str = "http://127.0.0.1:11434/api";
+pub const NVIDIA_BASE_URL: &str = "https://integrate.api.nvidia.com/v1";
+pub const CLOUDFLARE_API_HOST: &str = "api.cloudflare.com";
+const CLOUDFLARE_ACCOUNT_ID_LEN: usize = 32;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub enum ProviderKind {
@@ -34,6 +37,8 @@ pub enum ProviderKind {
     Gemini,
     Mistral,
     DeepSeek,
+    Nvidia,
+    Cloudflare,
     Custom,
 }
 
@@ -48,6 +53,8 @@ impl ProviderKind {
             Self::Gemini => "gemini",
             Self::Mistral => "mistral",
             Self::DeepSeek => "deepseek",
+            Self::Nvidia => "nvidia",
+            Self::Cloudflare => "cloudflare",
             Self::Custom => "custom",
         }
     }
@@ -62,6 +69,8 @@ impl ProviderKind {
             "gemini" => Ok(Self::Gemini),
             "mistral" => Ok(Self::Mistral),
             "deepseek" => Ok(Self::DeepSeek),
+            "nvidia" => Ok(Self::Nvidia),
+            "cloudflare" => Ok(Self::Cloudflare),
             "custom" => Ok(Self::Custom),
             _ => Err(MooseError::InvalidOllamaResponse(format!(
                 "unknown provider kind {value}"
@@ -69,7 +78,7 @@ impl ProviderKind {
         }
     }
 
-    pub const CLOUD: [Self; 8] = [
+    pub const CLOUD: [Self; 10] = [
         Self::OllamaCloud,
         Self::Groq,
         Self::OpenAi,
@@ -77,6 +86,8 @@ impl ProviderKind {
         Self::Gemini,
         Self::Mistral,
         Self::DeepSeek,
+        Self::Nvidia,
+        Self::Cloudflare,
         Self::Custom,
     ];
 
@@ -90,10 +101,14 @@ impl ProviderKind {
             Self::Gemini => "Google Gemini",
             Self::Mistral => "Mistral AI",
             Self::DeepSeek => "DeepSeek",
+            Self::Nvidia => "NVIDIA NIM",
+            Self::Cloudflare => "Cloudflare Workers AI",
             Self::Custom => "Custom Provider",
         }
     }
 
+    /// Fixed base URL for providers that have one. Cloudflare is account
+    /// specific, so it has no default: build it with `cloudflare_base_url`.
     pub const fn default_base_url(self) -> Option<&'static str> {
         match self {
             Self::Ollama => Some(DEFAULT_OLLAMA_BASE_URL),
@@ -104,7 +119,8 @@ impl ProviderKind {
             Self::Gemini => Some("https://generativelanguage.googleapis.com/v1beta"),
             Self::Mistral => Some("https://api.mistral.ai/v1"),
             Self::DeepSeek => Some("https://api.deepseek.com"),
-            Self::Custom => None,
+            Self::Nvidia => Some(NVIDIA_BASE_URL),
+            Self::Cloudflare | Self::Custom => None,
         }
     }
 
@@ -119,6 +135,9 @@ impl ProviderKind {
                 .to_string()
                 .trim_end_matches('/')
                 .into());
+        }
+        if self == Self::Cloudflare {
+            return validate_cloudflare_url(&url);
         }
         if self.requires_key() && Some(url.as_str()) != self.default_base_url() {
             return Err(MooseError::InvalidProviderUrl);
@@ -306,6 +325,42 @@ pub fn validate_base_url(value: &str) -> Result<String> {
     Ok(trimmed.to_string())
 }
 
+/// Builds the Workers AI base URL from a Cloudflare account ID
+/// (32 hex characters, shown in the Cloudflare dashboard).
+pub fn cloudflare_base_url(account_id: &str) -> Result<String> {
+    let account_id = account_id.trim();
+    if account_id.len() != CLOUDFLARE_ACCOUNT_ID_LEN
+        || !account_id.bytes().all(|byte| byte.is_ascii_hexdigit())
+    {
+        return Err(MooseError::InvalidProviderUrl);
+    }
+    Ok(format!(
+        "https://{CLOUDFLARE_API_HOST}/client/v4/accounts/{}/ai/v1",
+        account_id.to_ascii_lowercase()
+    ))
+}
+
+/// Pins the host and path shape so an API token can only be sent to
+/// `api.cloudflare.com`, then normalizes to `.../accounts/<id>/ai/v1`.
+fn validate_cloudflare_url(value: &str) -> Result<String> {
+    let url = reqwest::Url::parse(value)?;
+    if url.scheme() != "https"
+        || url.host_str() != Some(CLOUDFLARE_API_HOST)
+        || url.port().is_some()
+    {
+        return Err(MooseError::InvalidProviderUrl);
+    }
+    let segments: Vec<&str> = url
+        .path_segments()
+        .map(|segments| segments.collect::<Vec<_>>())
+        .unwrap_or_default();
+    match segments.as_slice() {
+        ["client", "v4", "accounts", account_id, "ai"]
+        | ["client", "v4", "accounts", account_id, "ai", "v1"] => cloudflare_base_url(account_id),
+        _ => Err(MooseError::InvalidProviderUrl),
+    }
+}
+
 pub fn is_loopback_url(url: &reqwest::Url) -> bool {
     match url.host() {
         Some(url::Host::Ipv4(ip)) => ip.is_loopback(),
@@ -350,7 +405,9 @@ pub fn validate_model_name(value: &str) -> Result<String> {
 
 #[cfg(test)]
 mod tests {
-    use super::{validate_base_url, validate_model_name};
+    use super::{ProviderKind, validate_base_url, validate_model_name};
+
+    const ACCOUNT_ID: &str = "023e105f4ecef8ad9ca31a8372d0c353";
 
     #[test]
     fn provider_url_validation_accepts_local_ollama() {
@@ -372,5 +429,64 @@ mod tests {
     #[test]
     fn model_name_validation_rejects_whitespace() {
         assert!(validate_model_name("llama 3").is_err());
+    }
+
+    #[test]
+    fn model_name_validation_accepts_cloudflare_and_nvidia_names() {
+        assert!(validate_model_name("@cf/meta/llama-3.1-8b-instruct").is_ok());
+        assert!(validate_model_name("nvidia/llama-3.1-nemotron-70b-instruct").is_ok());
+    }
+
+    #[test]
+    fn provider_kind_round_trips_new_providers() {
+        for kind in ProviderKind::CLOUD {
+            assert_eq!(kind.as_str().parse::<ProviderKind>().unwrap(), kind);
+        }
+    }
+
+    #[test]
+    fn nvidia_only_accepts_its_fixed_url() {
+        let default = ProviderKind::Nvidia.default_base_url().unwrap();
+        assert_eq!(ProviderKind::Nvidia.validate_url(default).unwrap(), default);
+        assert!(
+            ProviderKind::Nvidia
+                .validate_url("https://example.com/v1")
+                .is_err()
+        );
+    }
+
+    #[test]
+    fn cloudflare_url_is_pinned_and_normalized() {
+        let good = format!("https://api.cloudflare.com/client/v4/accounts/{ACCOUNT_ID}/ai/v1");
+        let kind = ProviderKind::Cloudflare;
+
+        assert_eq!(kind.validate_url(&good).unwrap(), good);
+        assert_eq!(
+            kind.validate_url(&format!(
+                "https://api.cloudflare.com/client/v4/accounts/{ACCOUNT_ID}/ai/"
+            ))
+            .unwrap(),
+            good
+        );
+        assert!(
+            kind.validate_url(&format!(
+                "https://evil.example/client/v4/accounts/{ACCOUNT_ID}/ai/v1"
+            ))
+            .is_err()
+        );
+        assert!(
+            kind.validate_url("https://api.cloudflare.com/client/v4/accounts/short/ai/v1")
+                .is_err()
+        );
+        assert!(
+            kind.validate_url(&format!("{good}/chat/completions"))
+                .is_err()
+        );
+    }
+
+    #[test]
+    fn cloudflare_base_url_requires_a_valid_account_id() {
+        assert!(super::cloudflare_base_url(ACCOUNT_ID).is_ok());
+        assert!(super::cloudflare_base_url("not-an-account-id").is_err());
     }
 }
