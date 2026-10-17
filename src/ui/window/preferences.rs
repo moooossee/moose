@@ -99,7 +99,46 @@ pub(super) fn dialog(
     provider_group.add(&url_row);
     provider_group.add(&action_box);
     provider_page.add(&provider_group);
-    if let Some(provider) = provider.as_ref().filter(|p| p.kind.requires_key()) {
+    if let Some(provider) = provider.as_ref()
+        && let Some(config) = &provider.custom_config
+    {
+        let custom_group = adw::PreferencesGroup::builder()
+            .title("Custom Connection")
+            .description("Configure the server, authentication and model IDs.")
+            .build();
+        let row = adw::ActionRow::builder()
+            .title("API Format")
+            .subtitle(config.protocol.label())
+            .build();
+        let configure = gtk::Button::with_label("Configure Provider");
+        configure.set_valign(Align::Center);
+        row.add_suffix(&configure);
+        row.set_activatable_widget(Some(&configure));
+        custom_group.add(&row);
+        provider_page.add(&custom_group);
+        let target_ui = Rc::clone(ui);
+        let target_backend = Rc::clone(backend);
+        let target_dialog = dialog.downgrade();
+        let id = provider.id.clone();
+        configure.connect_clicked(move |_| {
+            if provider_change_is_blocked(&target_ui, &target_backend) {
+                return;
+            }
+            match target_backend.repository.get(&id) {
+                Ok(Some(provider)) => {
+                    if let Some(dialog) = target_dialog.upgrade() {
+                        dialog.close();
+                    }
+                    super::cloud_setup::edit_custom(&target_ui, &target_backend, provider);
+                }
+                Ok(None) => target_ui
+                    .toast_overlay
+                    .add_toast(adw::Toast::new("This provider is no longer available")),
+                Err(error) => show_error(&target_ui.window, "Provider could not be loaded", &error),
+            }
+        });
+    }
+    if let Some(provider) = provider.as_ref().filter(|p| p.requires_key()) {
         let key_group = adw::PreferencesGroup::builder()
             .title("Credentials")
             .description("API keys are protected by the desktop keyring and excluded from exports.")
@@ -113,11 +152,17 @@ pub(super) fn dialog(
         row.add_suffix(&button);
         key_group.add(&row);
         provider_page.add(&key_group);
-        let provider = provider.clone();
+        let provider_id = provider.id.clone();
         let target_ui = Rc::clone(ui);
         let target_backend = Rc::clone(backend);
-        button.connect_clicked(move |_| {
-            super::cloud_setup::edit_key(&target_ui, &target_backend, provider.clone())
+        button.connect_clicked(move |_| match target_backend.repository.get(&provider_id) {
+            Ok(Some(provider)) => {
+                super::cloud_setup::edit_key(&target_ui, &target_backend, provider)
+            }
+            Ok(None) => target_ui
+                .toast_overlay
+                .add_toast(adw::Toast::new("This provider is no longer available")),
+            Err(error) => show_error(&target_ui.window, "Provider could not be loaded", &error),
         });
     }
 
@@ -292,6 +337,7 @@ pub(super) fn dialog(
     let target_port_row = port_row.clone();
     let target_privacy_page = privacy_page.clone();
     let target_sharing_group = Rc::clone(&sharing_group);
+    let expected_provider_id = provider.as_ref().map(|provider| provider.id.clone());
     save_button.connect_clicked(move |_| {
         if provider_change_is_blocked(&target_ui, &target_backend) {
             return;
@@ -303,6 +349,12 @@ pub(super) fn dialog(
                 .add_toast(adw::Toast::new("Create or connect an instance first"));
             return;
         };
+        if expected_provider_id.as_deref() != Some(current.id.as_str()) {
+            target_ui.toast_overlay.add_toast(adw::Toast::new(
+                "The active provider changed. Reopen Preferences to edit it.",
+            ));
+            return;
+        }
         let base_url = if current.is_managed {
             let Some(port_row) = target_port_row.as_ref() else {
                 target_ui

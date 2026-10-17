@@ -124,7 +124,10 @@ pub(super) fn refresh(ui: &Rc<WindowUi>, backend: &Rc<Backend>) {
     let Some(provider) = active_provider(backend) else {
         return;
     };
-    let key = (provider.base_url.clone(), model.clone());
+    let key = (
+        crate::providers::policy::destination(&provider),
+        model.clone(),
+    );
     let cached = ui.thinking_state.borrow().cache.get(&key).cloned();
     if let Some(values) = cached {
         apply(ui, backend, &model, values);

@@ -347,6 +347,7 @@ pub(super) fn authorize(ui: &Rc<WindowUi>, backend: &Rc<Backend>, pending: Pendi
             provider.id != pending.provider.id
                 || provider.kind != pending.provider.kind
                 || provider.base_url != pending.provider.base_url
+                || provider.custom_config != pending.provider.custom_config
         }) || backend.active_conversation_id.borrow().as_deref()
             != Some(pending.conversation_id.as_str())
         {

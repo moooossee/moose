@@ -123,7 +123,7 @@ pub(super) fn dialog(
 
     behavior_group.add(&model_row);
     behavior_group.add(&temperature_row);
-    let provider_kind = active_provider(backend).map(|provider| provider.kind);
+    let provider_kind = active_provider(backend).map(|provider| provider.api_kind());
     if provider_kind == Some(crate::providers::ProviderKind::DeepSeek) {
         temperature_row.set_subtitle("Applies when reasoning is off; higher is more creative");
     }

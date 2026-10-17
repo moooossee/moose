@@ -36,9 +36,10 @@ pub(super) fn request(kind: ProviderKind, request: &ChatRequest) -> Result<Value
     match kind {
         ProviderKind::Ollama | ProviderKind::OllamaCloud => Ok(serde_json::to_value(request)?),
         ProviderKind::OpenAi => openai(request),
-        ProviderKind::Groq | ProviderKind::Mistral | ProviderKind::DeepSeek => {
-            chat_completions(kind, request)
-        }
+        ProviderKind::Groq
+        | ProviderKind::Mistral
+        | ProviderKind::DeepSeek
+        | ProviderKind::Custom => chat_completions(kind, request),
         ProviderKind::Anthropic => anthropic(request),
         ProviderKind::Gemini => gemini(request),
     }

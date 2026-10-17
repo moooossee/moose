@@ -43,6 +43,7 @@ mod cloud_setup;
 mod code_view;
 mod conversation_export;
 mod conversation_list;
+mod custom_provider;
 mod first_run;
 mod generation;
 mod managed_install;
@@ -327,6 +328,8 @@ enum ModelLoadEvent {
         status: String,
         models: Vec<OllamaModel>,
         acceleration: Option<ManagedOllamaAcceleration>,
+        verified: bool,
+        warning: Option<String>,
     },
     Failed(String),
 }
@@ -1102,12 +1105,14 @@ fn refresh_models(ui: &Rc<WindowUi>, backend: &Rc<Backend>) {
                 status: health.message,
                 models: Vec::new(),
                 acceleration: None,
+                verified: false,
+                warning: None,
             });
             return;
         }
 
-        match client.list_models().await {
-            Ok(models) => {
+        match client.model_catalog().await {
+            Ok(catalog) => {
                 let acceleration = if provider_is_managed {
                     Some(managed_ollama.lock().await.acceleration())
                 } else {
@@ -1116,8 +1121,10 @@ fn refresh_models(ui: &Rc<WindowUi>, backend: &Rc<Backend>) {
                 let _ = sender.send(ModelLoadEvent::Loaded {
                     available: true,
                     status: health.message,
-                    models,
+                    models: catalog.models,
                     acceleration,
+                    verified: catalog.verified,
+                    warning: catalog.warning,
                 });
             }
             Err(error) => {
@@ -1141,14 +1148,18 @@ fn refresh_models(ui: &Rc<WindowUi>, backend: &Rc<Backend>) {
                 status,
                 models,
                 acceleration,
+                verified,
+                warning,
             }) => {
                 target_ui.refresh_button.set_sensitive(true);
                 target_ui.model_manager.refresh_button.set_sensitive(true);
                 let provider_status = if available {
                     if provider_is_managed {
                         managed_ready_status(acceleration)
-                    } else {
+                    } else if verified {
                         "Connected".to_string()
+                    } else {
+                        "Ready".to_string()
                     }
                 } else {
                     "Disconnected".to_string()
@@ -1168,6 +1179,9 @@ fn refresh_models(ui: &Rc<WindowUi>, backend: &Rc<Backend>) {
                         "The active provider did not respond.",
                     );
                     return gtk::glib::ControlFlow::Break;
+                }
+                if let Some(warning) = warning {
+                    target_ui.toast_overlay.add_toast(adw::Toast::new(&warning));
                 }
                 set_models(&target_ui, &target_backend, models);
                 gtk::glib::ControlFlow::Break
@@ -1388,8 +1402,12 @@ fn start_prepared_chat(ui: &Rc<WindowUi>, backend: &Rc<Backend>, pending: Pendin
     if backend.credential_operation.get()
         || backend.active_generation.borrow().is_some()
         || backend.active_model_delete.borrow().is_some()
-        || active_provider(backend)
-            .is_none_or(|p| p.id != provider.id || p.base_url != provider.base_url)
+        || active_provider(backend).is_none_or(|p| {
+            p.id != provider.id
+                || p.kind != provider.kind
+                || p.base_url != provider.base_url
+                || p.custom_config != provider.custom_config
+        })
         || backend.active_conversation_id.borrow().as_deref() != Some(&conversation_id)
     {
         return false;
@@ -2022,7 +2040,13 @@ fn render_model_manager(ui: &Rc<WindowUi>, backend: &Rc<Backend>, query: &str) {
         model_manager::set_unavailable(
             &ui.model_manager,
             "Cloud Models",
-            "Choose an available model from the chat model picker. Cloud models do not need downloads.",
+            if active_provider(backend)
+                .is_some_and(|provider| provider.kind == ProviderKind::Custom)
+            {
+                "Choose a model from the chat model picker. Add model IDs in Preferences → Provider → Configure Provider."
+            } else {
+                "Choose an available model from the chat model picker. Cloud models do not need downloads."
+            },
         );
         ui.model_manager.pull_button.set_sensitive(false);
         return;
@@ -2092,7 +2116,13 @@ fn show_no_models_state(ui: &Rc<WindowUi>, backend: &Rc<Backend>) {
         chat_view::set_empty_state(
             &ui.chat_status_page,
             "No Chat Models Available",
-            "Check your provider account and API key, then refresh the model list.",
+            if active_provider(backend)
+                .is_some_and(|provider| provider.kind == ProviderKind::Custom)
+            {
+                "Add a model ID in Preferences → Provider → Configure Provider, or check automatic model discovery."
+            } else {
+                "Check your provider account and API key, then refresh the model list."
+            },
         );
         ui.chat_status_page.set_child(gtk::Widget::NONE);
         ui.message_stack.set_visible_child_name("empty");
@@ -2223,7 +2253,7 @@ fn update_provider_summary(ui: &WindowUi, provider: &Provider) {
     ui.provider_row.set_subtitle(provider.location_label());
 }
 
-fn show_error(parent: &adw::ApplicationWindow, heading: &str, error: &dyn std::error::Error) {
+fn show_error(parent: &impl IsA<gtk::Widget>, heading: &str, error: &dyn std::error::Error) {
     let dialog = adw::AlertDialog::builder()
         .heading(heading)
         .body(error.to_string())

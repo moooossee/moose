@@ -36,12 +36,20 @@ impl NetworkPolicy {
 }
 
 pub fn destination(provider: &Provider) -> String {
-    format!(
+    let destination = format!(
         "{}|{}|{}",
         provider.id,
         provider.kind.as_str(),
         provider.base_url
-    )
+    );
+    match &provider.custom_config {
+        Some(config) => format!(
+            "{destination}|{}|{}",
+            config.protocol.as_str(),
+            config.authentication.destination_key()
+        ),
+        None => destination,
+    }
 }
 
 #[derive(Clone, Copy, Default)]

@@ -5,7 +5,10 @@ use rusqlite::{Connection, OptionalExtension, Row, params};
 use crate::{
     core::utc_now,
     error::Result,
-    providers::{NewProvider, Provider, ProviderKind, ProviderUpdate, validate_provider_name},
+    providers::{
+        NewProvider, Provider, ProviderKind, ProviderUpdate, policy::destination,
+        validate_provider_name,
+    },
 };
 
 #[derive(Clone)]
@@ -20,7 +23,7 @@ impl ProviderRepository {
 
     pub fn list(&self) -> Result<Vec<Provider>> {
         let mut statement = self.connection.prepare(
-            "SELECT id, kind, name, base_url, is_managed, is_default, created_at, updated_at
+            "SELECT id, kind, name, base_url, is_managed, is_default, created_at, updated_at, custom_config
              FROM providers
              ORDER BY is_default DESC, updated_at DESC, name ASC",
         )?;
@@ -33,7 +36,7 @@ impl ProviderRepository {
     pub fn get(&self, id: &str) -> Result<Option<Provider>> {
         self.connection
             .query_row(
-                "SELECT id, kind, name, base_url, is_managed, is_default, created_at, updated_at
+                "SELECT id, kind, name, base_url, is_managed, is_default, created_at, updated_at, custom_config
                  FROM providers
                  WHERE id = ?1",
                 params![id],
@@ -46,7 +49,7 @@ impl ProviderRepository {
     pub fn default_provider(&self) -> Result<Option<Provider>> {
         self.connection
             .query_row(
-                "SELECT id, kind, name, base_url, is_managed, is_default, created_at, updated_at
+                "SELECT id, kind, name, base_url, is_managed, is_default, created_at, updated_at, custom_config
                  FROM providers
                  WHERE is_default = 1
                  LIMIT 1",
@@ -60,7 +63,7 @@ impl ProviderRepository {
     pub fn managed_provider(&self) -> Result<Option<Provider>> {
         self.connection
             .query_row(
-                "SELECT id, kind, name, base_url, is_managed, is_default, created_at, updated_at
+                "SELECT id, kind, name, base_url, is_managed, is_default, created_at, updated_at, custom_config
                  FROM providers
                  WHERE is_managed = 1
                  ORDER BY is_default DESC, updated_at DESC
@@ -103,6 +106,12 @@ impl ProviderRepository {
     }
 
     pub(crate) fn insert(&self, provider: Provider) -> Result<Provider> {
+        provider.validate_configuration()?;
+        let custom_config = provider
+            .custom_config
+            .as_ref()
+            .map(serde_json::to_string)
+            .transpose()?;
         if provider.is_default {
             self.connection
                 .execute("UPDATE providers SET is_default = 0", [])?;
@@ -110,9 +119,9 @@ impl ProviderRepository {
 
         self.connection.execute(
             "INSERT INTO providers (
-                id, kind, name, base_url, is_managed, is_default, created_at, updated_at
+                id, kind, name, base_url, is_managed, is_default, created_at, updated_at, custom_config
              )
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
             params![
                 provider.id,
                 provider.kind.as_str(),
@@ -122,6 +131,7 @@ impl ProviderRepository {
                 provider.is_default,
                 provider.created_at,
                 provider.updated_at,
+                custom_config,
             ],
         )?;
 
@@ -170,6 +180,42 @@ impl ProviderRepository {
         Ok(provider)
     }
 
+    pub fn update_custom(&self, expected: &Provider, mut provider: Provider) -> Result<Provider> {
+        if expected.kind != ProviderKind::Custom
+            || provider.kind != ProviderKind::Custom
+            || provider.id != expected.id
+        {
+            return Err(crate::error::MooseError::ProviderRequest(
+                "Only custom providers can be configured here.".into(),
+            ));
+        }
+        provider.name = validate_provider_name(&provider.name)?;
+        provider.base_url = provider.kind.validate_url(&provider.base_url)?;
+        provider.validate_configuration()?;
+        let config = serde_json::to_string(&provider.custom_config)?;
+        let transaction = self.connection.unchecked_transaction()?;
+        let current = self
+            .get(&provider.id)?
+            .ok_or(crate::error::MooseError::ProviderNotConfigured)?;
+        if current != *expected {
+            return Err(crate::error::MooseError::ProviderRequest(
+                "The provider changed. Reopen its settings and try again.".into(),
+            ));
+        }
+        if destination(&current) != destination(&provider) {
+            self.clear_remote_permissions(&provider.id)?;
+        }
+        self.connection.execute(
+            "UPDATE providers SET name = ?1, base_url = ?2, custom_config = ?3, updated_at = ?4 WHERE id = ?5",
+            params![provider.name, provider.base_url, config, utc_now(), provider.id],
+        )?;
+        let provider = self
+            .get(&provider.id)?
+            .ok_or(crate::error::MooseError::ProviderNotConfigured)?;
+        transaction.commit()?;
+        Ok(provider)
+    }
+
     pub fn delete(&self, id: &str) -> Result<()> {
         self.connection
             .execute("DELETE FROM providers WHERE id = ?1", params![id])?;
@@ -199,6 +245,17 @@ fn provider_from_row(row: &Row<'_>) -> rusqlite::Result<Provider> {
     let kind: String = row.get(1)?;
     let is_managed: bool = row.get(4)?;
     let is_default: bool = row.get(5)?;
+    let custom_config: Option<String> = row.get(8)?;
+    let custom_config = custom_config
+        .map(|value| serde_json::from_str(&value))
+        .transpose()
+        .map_err(|error| {
+            rusqlite::Error::FromSqlConversionFailure(
+                8,
+                rusqlite::types::Type::Text,
+                Box::new(error),
+            )
+        })?;
 
     Ok(Provider {
         id: row.get(0)?,
@@ -215,6 +272,7 @@ fn provider_from_row(row: &Row<'_>) -> rusqlite::Result<Provider> {
         is_default,
         created_at: row.get(6)?,
         updated_at: row.get(7)?,
+        custom_config,
     })
 }
 

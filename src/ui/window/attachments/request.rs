@@ -150,7 +150,10 @@ pub(in crate::ui::window) fn prepare(
             .attachments
             .capabilities
             .borrow()
-            .get(&(provider.base_url, model.to_string()))
+            .get(&(
+                crate::providers::policy::destination(&provider),
+                model.to_string(),
+            ))
             .copied();
         match supported {
             Some(true) => {}

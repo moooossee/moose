@@ -8,9 +8,12 @@ use crate::{
 };
 pub mod client;
 pub mod credentials;
+mod custom;
 pub mod policy;
 mod stream;
 mod wire;
+
+pub use custom::{ApiProtocol, CustomAuthentication, CustomModel, CustomProviderConfig};
 
 pub use crate::ollama::service::{
     MANAGED_OLLAMA_BASE_URL, MANAGED_OLLAMA_BIND_ADDRESS, MANAGED_OLLAMA_DEFAULT_PORT,
@@ -31,6 +34,7 @@ pub enum ProviderKind {
     Gemini,
     Mistral,
     DeepSeek,
+    Custom,
 }
 
 impl ProviderKind {
@@ -44,6 +48,7 @@ impl ProviderKind {
             Self::Gemini => "gemini",
             Self::Mistral => "mistral",
             Self::DeepSeek => "deepseek",
+            Self::Custom => "custom",
         }
     }
 
@@ -57,13 +62,14 @@ impl ProviderKind {
             "gemini" => Ok(Self::Gemini),
             "mistral" => Ok(Self::Mistral),
             "deepseek" => Ok(Self::DeepSeek),
+            "custom" => Ok(Self::Custom),
             _ => Err(MooseError::InvalidOllamaResponse(format!(
                 "unknown provider kind {value}"
             ))),
         }
     }
 
-    pub const CLOUD: [Self; 7] = [
+    pub const CLOUD: [Self; 8] = [
         Self::OllamaCloud,
         Self::Groq,
         Self::OpenAi,
@@ -71,6 +77,7 @@ impl ProviderKind {
         Self::Gemini,
         Self::Mistral,
         Self::DeepSeek,
+        Self::Custom,
     ];
 
     pub const fn label(self) -> &'static str {
@@ -83,19 +90,21 @@ impl ProviderKind {
             Self::Gemini => "Google Gemini",
             Self::Mistral => "Mistral AI",
             Self::DeepSeek => "DeepSeek",
+            Self::Custom => "Custom Provider",
         }
     }
 
-    pub const fn base_url(self) -> &'static str {
+    pub const fn default_base_url(self) -> Option<&'static str> {
         match self {
-            Self::Ollama => DEFAULT_OLLAMA_BASE_URL,
-            Self::OllamaCloud => "https://ollama.com/api",
-            Self::OpenAi => "https://api.openai.com/v1",
-            Self::Anthropic => "https://api.anthropic.com/v1",
-            Self::Groq => "https://api.groq.com/openai/v1",
-            Self::Gemini => "https://generativelanguage.googleapis.com/v1beta",
-            Self::Mistral => "https://api.mistral.ai/v1",
-            Self::DeepSeek => "https://api.deepseek.com",
+            Self::Ollama => Some(DEFAULT_OLLAMA_BASE_URL),
+            Self::OllamaCloud => Some("https://ollama.com/api"),
+            Self::OpenAi => Some("https://api.openai.com/v1"),
+            Self::Anthropic => Some("https://api.anthropic.com/v1"),
+            Self::Groq => Some("https://api.groq.com/openai/v1"),
+            Self::Gemini => Some("https://generativelanguage.googleapis.com/v1beta"),
+            Self::Mistral => Some("https://api.mistral.ai/v1"),
+            Self::DeepSeek => Some("https://api.deepseek.com"),
+            Self::Custom => None,
         }
     }
 
@@ -105,7 +114,13 @@ impl ProviderKind {
 
     pub fn validate_url(self, value: &str) -> Result<String> {
         let url = validate_base_url(value)?;
-        if self.requires_key() && url != self.base_url() {
+        if self == Self::Custom {
+            return Ok(reqwest::Url::parse(&url)?
+                .to_string()
+                .trim_end_matches('/')
+                .into());
+        }
+        if self.requires_key() && Some(url.as_str()) != self.default_base_url() {
             return Err(MooseError::InvalidProviderUrl);
         }
         Ok(url)
@@ -136,6 +151,7 @@ pub struct Provider {
     pub is_default: bool,
     pub created_at: String,
     pub updated_at: String,
+    pub custom_config: Option<CustomProviderConfig>,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -206,11 +222,46 @@ impl NewProvider {
             is_default: self.is_default,
             created_at: timestamp.clone(),
             updated_at: timestamp,
+            custom_config: (self.kind == ProviderKind::Custom).then(CustomProviderConfig::default),
         })
     }
 }
 
 impl Provider {
+    pub fn requires_key(&self) -> bool {
+        self.custom_config.as_ref().map_or_else(
+            || self.kind.requires_key(),
+            |config| config.authentication != CustomAuthentication::None,
+        )
+    }
+
+    pub fn api_kind(&self) -> ProviderKind {
+        self.custom_config
+            .as_ref()
+            .map_or(self.kind, |config| match config.protocol {
+                ApiProtocol::ChatCompletions => ProviderKind::Custom,
+                ApiProtocol::Responses => ProviderKind::OpenAi,
+                ApiProtocol::Anthropic => ProviderKind::Anthropic,
+                ApiProtocol::Gemini => ProviderKind::Gemini,
+            })
+    }
+
+    pub fn validate_configuration(&self) -> Result<()> {
+        if self.is_managed && self.kind != ProviderKind::Ollama {
+            return Err(MooseError::InvalidProviderUrl);
+        }
+        match (self.kind, &self.custom_config) {
+            (ProviderKind::Custom, Some(config)) => config.validate(),
+            (ProviderKind::Custom, None) => Err(MooseError::ProviderRequest(
+                "Custom provider settings are missing.".into(),
+            )),
+            (_, Some(_)) => Err(MooseError::ProviderRequest(
+                "Custom settings require a custom provider.".into(),
+            )),
+            (_, None) => Ok(()),
+        }
+    }
+
     pub fn is_remote(&self) -> bool {
         self.kind.requires_key() || !self.is_managed
     }
@@ -249,7 +300,7 @@ pub fn validate_base_url(value: &str) -> Result<String> {
     }
     if url.scheme() == "http" && !is_loopback_url(&url) {
         return Err(MooseError::ProviderRequest(
-            "Remote Ollama requires HTTPS. HTTP is only allowed on this device.".into(),
+            "Remote providers require HTTPS. HTTP is only allowed on this device.".into(),
         ));
     }
     Ok(trimmed.to_string())
@@ -289,7 +340,7 @@ pub fn validate_model_name(value: &str) -> Result<String> {
         && trimmed.len() <= 256
         && trimmed.chars().all(|character| {
             character.is_ascii_alphanumeric()
-                || matches!(character, '.' | ':' | '_' | '-' | '/' | '@')
+                || matches!(character, '.' | ':' | '_' | '-' | '/' | '@' | '~' | '+')
         });
     if !valid {
         return Err(MooseError::InvalidModelName);

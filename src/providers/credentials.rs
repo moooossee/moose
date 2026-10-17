@@ -1,4 +1,4 @@
-use super::Provider;
+use super::{CustomAuthentication, Provider};
 use crate::{
     APPLICATION_ID,
     error::{MooseError, Result},
@@ -35,7 +35,7 @@ impl ApiKey {
 }
 
 fn validate(value: &[u8]) -> Result<()> {
-    if !(8..=8192).contains(&value.len()) || !value.iter().all(|b| b.is_ascii_graphic()) {
+    if !(1..=8192).contains(&value.len()) || !value.iter().all(|b| b.is_ascii_graphic()) {
         return Err(MooseError::InvalidApiKey);
     }
     Ok(())
@@ -46,12 +46,25 @@ fn attributes(provider: &Provider) -> Result<HashMap<&str, &str>> {
     if !provider.kind.requires_key() {
         return Err(MooseError::InvalidProviderUrl);
     }
-    Ok(HashMap::from([
+    let mut attributes = HashMap::from([
         ("application", APPLICATION_ID),
         ("provider-id", provider.id.as_str()),
         ("provider-kind", provider.kind.as_str()),
         ("destination", provider.base_url.as_str()),
-    ]))
+    ]);
+    if let Some(config) = &provider.custom_config {
+        attributes.insert("protocol", config.protocol.as_str());
+        let authentication = match &config.authentication {
+            CustomAuthentication::Bearer => "bearer",
+            CustomAuthentication::Header(name) => {
+                attributes.insert("header", name.as_str());
+                "header"
+            }
+            CustomAuthentication::None => "none",
+        };
+        attributes.insert("authentication", authentication);
+    }
+    Ok(attributes)
 }
 async fn open() -> Result<Keyring> {
     let keyring = if oo7::ashpd::is_sandboxed() {
@@ -86,7 +99,7 @@ pub async fn save(provider: &Provider, key: &ApiKey) -> Result<()> {
     let keyring = open().await?;
     keyring
         .create_item(
-            &format!("Moose · {} API key", provider.kind.label()),
+            &format!("Moose · {} API key", provider.name),
             &attributes,
             key.0.clone(),
             true,

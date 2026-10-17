@@ -1,6 +1,6 @@
 use super::{
-    Provider, ProviderKind, credentials, policy::NetworkPolicy, stream::Decoder,
-    validate_model_name, wire,
+    CustomAuthentication, Provider, ProviderKind, credentials, is_loopback_url,
+    policy::NetworkPolicy, stream::Decoder, validate_model_name, wire,
 };
 use crate::{
     chat::{ChatRequest, ChatStreamEvent, ThinkingValue},
@@ -18,6 +18,12 @@ use std::time::Duration;
 const MAX_RESPONSE_BYTES: usize = 8 * 1024 * 1024;
 const STREAM_TIMEOUT: Duration = Duration::from_secs(300);
 
+pub struct ModelCatalog {
+    pub models: Vec<OllamaModel>,
+    pub verified: bool,
+    pub warning: Option<String>,
+}
+
 pub struct ProviderClient {
     provider: Provider,
     policy: NetworkPolicy,
@@ -31,12 +37,17 @@ enum Transport {
 impl ProviderClient {
     pub async fn new(provider: Provider, policy: NetworkPolicy) -> Result<Self> {
         policy.check(&provider)?;
+        provider.validate_configuration()?;
         let transport = if provider.kind == ProviderKind::Ollama {
             Transport::Ollama(OllamaClient::new(&provider.base_url)?)
         } else {
-            let key = credentials::load(&provider).await?;
+            let key = if provider.requires_key() {
+                Some(credentials::load(&provider).await?)
+            } else {
+                None
+            };
             policy.check(&provider)?;
-            Transport::Cloud(http_client(provider.kind, &key)?)
+            Transport::Cloud(http_client(&provider, key.as_ref())?)
         };
         Ok(Self {
             provider,
@@ -68,6 +79,62 @@ impl ProviderClient {
     }
 
     pub async fn list_models(&self) -> Result<Vec<OllamaModel>> {
+        Ok(self.model_catalog().await?.models)
+    }
+
+    pub async fn model_catalog(&self) -> Result<ModelCatalog> {
+        self.check()?;
+        let mut manual = self
+            .provider
+            .custom_config
+            .as_ref()
+            .map_or_else(Vec::new, |config| {
+                config
+                    .models
+                    .iter()
+                    .map(|model| cloud_model(&model.id, &self.provider.name))
+                    .collect()
+            });
+        if self
+            .provider
+            .custom_config
+            .as_ref()
+            .is_some_and(|config| !config.discover_models)
+        {
+            return Ok(ModelCatalog {
+                models: manual,
+                verified: false,
+                warning: None,
+            });
+        }
+        match self.discover_models().await {
+            Ok(mut models) => {
+                models.append(&mut manual);
+                models.sort_by(|a, b| a.name.cmp(&b.name));
+                models.dedup_by(|a, b| a.name == b.name);
+                Ok(ModelCatalog {
+                    models,
+                    verified: true,
+                    warning: None,
+                })
+            }
+            Err(error) => {
+                self.check()?;
+                if manual.is_empty() {
+                    return Err(error);
+                }
+                Ok(ModelCatalog {
+                    models: manual,
+                    verified: false,
+                    warning: Some(format!(
+                        "Model discovery failed: {error}. Using your saved model IDs."
+                    )),
+                })
+            }
+        }
+    }
+
+    async fn discover_models(&self) -> Result<Vec<OllamaModel>> {
         self.check()?;
         let Transport::Cloud(client) = &self.transport else {
             if let Transport::Ollama(client) = &self.transport {
@@ -75,7 +142,7 @@ impl ProviderClient {
             }
             unreachable!();
         };
-        let kind = self.provider.kind;
+        let kind = self.provider.api_kind();
         let path = if kind == ProviderKind::OllamaCloud {
             "tags"
         } else {
@@ -98,7 +165,11 @@ impl ProviderClient {
                 .await
                 .map_err(network_error)?;
             let data = response_json(response).await?;
-            models.extend(parse_models(kind, &data)?);
+            models.extend(parse_models(
+                kind,
+                &data,
+                self.provider.kind == ProviderKind::Custom,
+            )?);
             let next =
                 if kind == ProviderKind::Anthropic && data["has_more"].as_bool() == Some(true) {
                     data["last_id"].as_str().map(|s| ("after_id", s))
@@ -136,12 +207,14 @@ impl ProviderClient {
         let Transport::Cloud(client) = &self.transport else {
             unreachable!()
         };
-        let kind = self.provider.kind;
-        if matches!(kind, ProviderKind::Mistral | ProviderKind::DeepSeek)
-            && request
-                .messages
-                .iter()
-                .any(|message| !message.images.is_empty())
+        let kind = self.provider.api_kind();
+        if matches!(
+            self.provider.kind,
+            ProviderKind::Mistral | ProviderKind::DeepSeek | ProviderKind::Custom
+        ) && request
+            .messages
+            .iter()
+            .any(|message| !message.images.is_empty())
             && !self.supports_vision(&request.model).await?
         {
             return Err(MooseError::ProviderRequest(
@@ -152,9 +225,10 @@ impl ProviderClient {
             ProviderKind::OllamaCloud => self.endpoint("chat")?,
             ProviderKind::OpenAi => self.endpoint("responses")?,
             ProviderKind::Anthropic => self.endpoint("messages")?,
-            ProviderKind::Groq | ProviderKind::Mistral | ProviderKind::DeepSeek => {
-                self.endpoint("chat/completions")?
-            }
+            ProviderKind::Groq
+            | ProviderKind::Mistral
+            | ProviderKind::DeepSeek
+            | ProviderKind::Custom => self.endpoint("chat/completions")?,
             ProviderKind::Gemini => {
                 let model = request
                     .model
@@ -262,6 +336,25 @@ impl ProviderClient {
         if let Transport::Ollama(client) = &self.transport {
             return client.supports_vision(model).await;
         }
+        if let Some(config) = &self.provider.custom_config {
+            if let Some(model) = config.models.iter().find(|entry| entry.id == model) {
+                return Ok(model.vision);
+            }
+            if !config.discover_models {
+                return Ok(false);
+            }
+            let Transport::Cloud(client) = &self.transport else {
+                unreachable!()
+            };
+            let response = client
+                .get(self.endpoint("models")?)
+                .timeout(Duration::from_secs(30))
+                .send()
+                .await
+                .map_err(network_error)?;
+            let data = response_json(response).await?;
+            return Ok(custom_model_vision(&data, model));
+        }
         if self.provider.kind == ProviderKind::OllamaCloud {
             let data = self.ollama_capabilities(model).await?;
             return Ok(data["capabilities"]
@@ -277,6 +370,9 @@ impl ProviderClient {
 
     pub async fn thinking_values(&self, model: &str) -> Result<Vec<ThinkingValue>> {
         self.check()?;
+        if self.provider.kind == ProviderKind::Custom {
+            return Ok(Vec::new());
+        }
         if let Transport::Ollama(client) = &self.transport {
             return client.thinking_values(model).await;
         }
@@ -332,35 +428,51 @@ impl ProviderClient {
     }
 }
 
-fn http_client(kind: ProviderKind, key: &credentials::ApiKey) -> Result<Client> {
+fn http_client(provider: &Provider, key: Option<&credentials::ApiKey>) -> Result<Client> {
     let mut headers = HeaderMap::new();
-    match kind {
-        ProviderKind::Anthropic => {
-            headers.insert(HeaderName::from_static("x-api-key"), key.header(false)?);
-            headers.insert(
-                HeaderName::from_static("anthropic-version"),
-                reqwest::header::HeaderValue::from_static("2023-06-01"),
-            );
-        }
-        ProviderKind::Gemini => {
-            headers.insert(
-                HeaderName::from_static("x-goog-api-key"),
-                key.header(false)?,
-            );
-        }
-        _ => {
-            headers.insert(AUTHORIZATION, key.header(true)?);
-        }
+    if provider.api_kind() == ProviderKind::Anthropic {
+        headers.insert(
+            HeaderName::from_static("anthropic-version"),
+            reqwest::header::HeaderValue::from_static("2023-06-01"),
+        );
     }
-    Client::builder()
+    if let Some(key) = key {
+        let authentication = provider
+            .custom_config
+            .as_ref()
+            .map(|config| config.authentication.clone())
+            .unwrap_or_else(|| match provider.kind {
+                ProviderKind::Anthropic => CustomAuthentication::Header("x-api-key".into()),
+                ProviderKind::Gemini => CustomAuthentication::Header("x-goog-api-key".into()),
+                _ => CustomAuthentication::Bearer,
+            });
+        match authentication {
+            CustomAuthentication::Bearer => {
+                headers.insert(AUTHORIZATION, key.header(true)?);
+            }
+            CustomAuthentication::Header(name) => {
+                let name = HeaderName::from_bytes(name.as_bytes()).map_err(|_| {
+                    MooseError::ProviderRequest("Invalid API key header name.".into())
+                })?;
+                headers.insert(name, key.header(false)?);
+            }
+            CustomAuthentication::None => {}
+        }
+    } else if provider.requires_key() {
+        return Err(MooseError::MissingApiKey);
+    }
+    let loopback = is_loopback_url(&reqwest::Url::parse(&provider.base_url)?);
+    let mut builder = Client::builder()
         .default_headers(headers)
         .redirect(reqwest::redirect::Policy::none())
         .referer(false)
         .connect_timeout(Duration::from_secs(30))
         .read_timeout(STREAM_TIMEOUT)
-        .https_only(true)
-        .build()
-        .map_err(network_error)
+        .https_only(!loopback);
+    if loopback {
+        builder = builder.no_proxy();
+    }
+    builder.build().map_err(network_error)
 }
 
 fn network_error(_: reqwest::Error) -> MooseError {
@@ -410,7 +522,7 @@ async fn response_json(response: Response) -> Result<Value> {
         .map_err(|_| MooseError::ProviderResponse("The provider returned invalid JSON.".into()))
 }
 
-fn parse_models(kind: ProviderKind, data: &Value) -> Result<Vec<OllamaModel>> {
+fn parse_models(kind: ProviderKind, data: &Value, custom: bool) -> Result<Vec<OllamaModel>> {
     let list = data[if matches!(kind, ProviderKind::OllamaCloud | ProviderKind::Gemini) {
         "models"
     } else {
@@ -445,7 +557,7 @@ fn parse_models(kind: ProviderKind, data: &Value) -> Result<Vec<OllamaModel>> {
         if validate_model_name(name).is_err() {
             continue;
         }
-        if kind == ProviderKind::OpenAi && !openai_responses_model(name) {
+        if !custom && kind == ProviderKind::OpenAi && !openai_responses_model(name) {
             continue;
         }
         if kind == ProviderKind::Mistral
@@ -454,7 +566,8 @@ fn parse_models(kind: ProviderKind, data: &Value) -> Result<Vec<OllamaModel>> {
         {
             continue;
         }
-        if kind != ProviderKind::Mistral
+        if !custom
+            && kind != ProviderKind::Mistral
             && [
                 "embedding",
                 "whisper",
@@ -477,17 +590,7 @@ fn parse_models(kind: ProviderKind, data: &Value) -> Result<Vec<OllamaModel>> {
         if item["active"].as_bool() == Some(false) {
             continue;
         }
-        models.push(OllamaModel {
-            name: name.into(),
-            digest: None,
-            size_bytes: None,
-            family: Some(kind.label().into()),
-            families: Vec::new(),
-            parameter_size: None,
-            quantization_level: None,
-            modified_at: None,
-            supports_chat: true,
-        });
+        models.push(cloud_model(name, kind.label()));
     }
     Ok(models)
 }
@@ -500,4 +603,42 @@ fn openai_responses_model(name: &str) -> bool {
         && !name.contains("chat-latest")
         && !name.starts_with("o1-mini")
         && !name.starts_with("o1-preview")
+}
+
+fn cloud_model(name: &str, family: &str) -> OllamaModel {
+    OllamaModel {
+        name: name.into(),
+        digest: None,
+        size_bytes: None,
+        family: Some(family.into()),
+        families: Vec::new(),
+        parameter_size: None,
+        quantization_level: None,
+        modified_at: None,
+        supports_chat: true,
+    }
+}
+
+fn custom_model_vision(data: &Value, model: &str) -> bool {
+    data["data"]
+        .as_array()
+        .or_else(|| data["models"].as_array())
+        .and_then(|models| {
+            models.iter().find(|entry| {
+                entry["id"]
+                    .as_str()
+                    .or_else(|| entry["name"].as_str())
+                    .is_some_and(|id| {
+                        id.strip_prefix("models/").unwrap_or(id)
+                            == model.strip_prefix("models/").unwrap_or(model)
+                    })
+            })
+        })
+        .is_some_and(|entry| {
+            entry["capabilities"]["vision"].as_bool() == Some(true)
+                || entry["architecture"]["input_modalities"]
+                    .as_array()
+                    .or_else(|| entry["input_modalities"].as_array())
+                    .is_some_and(|modalities| modalities.iter().any(|modality| modality == "image"))
+        })
 }

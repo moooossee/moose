@@ -112,7 +112,10 @@ fn parse(kind: ProviderKind, data: &[u8]) -> Result<Vec<ChatStreamEvent>> {
     if data == b"[DONE]"
         && matches!(
             kind,
-            ProviderKind::Groq | ProviderKind::Mistral | ProviderKind::DeepSeek
+            ProviderKind::Groq
+                | ProviderKind::Mistral
+                | ProviderKind::DeepSeek
+                | ProviderKind::Custom
         )
     {
         return Ok(vec![ChatStreamEvent::Done]);
@@ -146,9 +149,20 @@ fn parse(kind: ProviderKind, data: &[u8]) -> Result<Vec<ChatStreamEvent>> {
             }
             _ => {}
         },
-        ProviderKind::Groq | ProviderKind::Mistral | ProviderKind::DeepSeek => {
+        ProviderKind::Groq
+        | ProviderKind::Mistral
+        | ProviderKind::DeepSeek
+        | ProviderKind::Custom => {
             if let Some(choice) = v["choices"].as_array().and_then(|c| c.first()) {
                 match kind {
+                    ProviderKind::Custom => {
+                        content_tokens(&mut out, &choice["delta"]["content"], false);
+                        let reasoning = choice["delta"]
+                            .get("reasoning_content")
+                            .filter(|value| !value.is_null())
+                            .unwrap_or(&choice["delta"]["reasoning"]);
+                        content_tokens(&mut out, reasoning, true);
+                    }
                     ProviderKind::Mistral => {
                         content_tokens(&mut out, &choice["delta"]["content"], false);
                     }

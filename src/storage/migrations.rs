@@ -37,6 +37,10 @@ const MIGRATIONS: &[(i64, &str)] = &[
         11,
         include_str!("../../migrations/0011_mistral_deepseek_providers.sql"),
     ),
+    (
+        13,
+        include_str!("../../migrations/0013_custom_providers.sql"),
+    ),
 ];
 
 pub fn run_migrations(connection: &mut Connection) -> Result<()> {
@@ -61,7 +65,7 @@ pub fn run_migrations(connection: &mut Connection) -> Result<()> {
             continue;
         }
 
-        let rebuilds_parent = matches!(*version, 9 | 11);
+        let rebuilds_parent = matches!(*version, 9 | 11 | 13);
         if rebuilds_parent {
             connection.pragma_update(None, "foreign_keys", "OFF")?;
         }

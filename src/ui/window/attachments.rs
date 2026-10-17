@@ -528,6 +528,16 @@ pub(super) fn can_send(ui: &WindowUi) -> bool {
         && (!ui.attachments.has_images.get() || *ui.attachments.vision.borrow() == Some(true))
 }
 
+pub(super) fn invalidate_capabilities(ui: &WindowUi) {
+    ui.attachments
+        .revision
+        .set(ui.attachments.revision.get().wrapping_add(1));
+    ui.attachments.capabilities.borrow_mut().clear();
+    *ui.attachments.vision.borrow_mut() = None;
+    ui.attachments.capability_failed.set(false);
+    ui.attachments.capability.set_visible(false);
+}
+
 pub(super) fn refresh_capabilities(ui: &Rc<WindowUi>, backend: &Rc<Backend>) {
     let revision = ui.attachments.revision.get() + 1;
     ui.attachments.revision.set(revision);
@@ -543,7 +553,10 @@ pub(super) fn refresh_capabilities(ui: &Rc<WindowUi>, backend: &Rc<Backend>) {
         update_status(ui, backend);
         return;
     };
-    let key = (provider.base_url.clone(), model.clone());
+    let key = (
+        crate::providers::policy::destination(&provider),
+        model.clone(),
+    );
     let cached = ui.attachments.capabilities.borrow().get(&key).copied();
     if let Some(vision) = cached {
         *ui.attachments.vision.borrow_mut() = Some(vision);
