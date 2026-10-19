@@ -1,22 +1,25 @@
 use std::cell::RefCell;
-use std::collections::VecDeque;
+use std::collections::{HashMap, VecDeque};
+use std::hash::{DefaultHasher, Hash, Hasher};
+use std::rc::{Rc, Weak};
 
 use gtk::prelude::*;
 use gtk::{Align, Orientation, PolicyType, cairo, gdk_pixbuf};
 use latex_rust::{Dim, MathFont, MathStyle, SvgOptions};
 
-#[derive(Clone)]
 struct FormulaImage {
     mask: cairo::ImageSurface,
     width: i32,
     height: i32,
 }
 
-type CachedFormula = (String, bool, Option<FormulaImage>);
+type CachedFormula = (String, bool, Option<Rc<FormulaImage>>);
+type VisibleFormulas = HashMap<(String, bool), Weak<FormulaImage>>;
 
 thread_local! {
     static FONT: Option<MathFont> = MathFont::stix_two_math().ok();
     static CACHE: RefCell<VecDeque<CachedFormula>> = const { RefCell::new(VecDeque::new()) };
+    static VISIBLE: RefCell<VisibleFormulas> = RefCell::new(HashMap::new());
 }
 
 pub(super) fn is_math_language(info: &str) -> bool {
@@ -38,6 +41,7 @@ pub(super) fn inline(source: &str) -> Option<gtk::Button> {
         .build();
     button.add_css_class("flat");
     button.add_css_class("moose-math-inline");
+    button.set_widget_name(&formula_name(source, false));
     button.update_property(&[gtk::accessible::Property::Label(&format!(
         "Copy formula: {}",
         source.trim()
@@ -55,6 +59,7 @@ pub(super) fn block(source: &str) -> gtk::Box {
         .width_request(280)
         .build();
     root.add_css_class("moose-math-block");
+    root.set_widget_name(&formula_name(source, true));
 
     let image = formula_image(source, true);
     let header = gtk::Box::builder()
@@ -123,13 +128,19 @@ pub(super) fn block(source: &str) -> gtk::Box {
     root
 }
 
-fn drawing(image: &FormulaImage) -> gtk::DrawingArea {
+fn formula_name(source: &str, display: bool) -> String {
+    let mut hash = DefaultHasher::new();
+    (source, display).hash(&mut hash);
+    format!("moose-formula-{:x}", hash.finish())
+}
+
+fn drawing(image: &Rc<FormulaImage>) -> gtk::DrawingArea {
     let area = gtk::DrawingArea::builder()
         .content_width(image.width)
         .content_height(image.height)
         .accessible_role(gtk::AccessibleRole::Img)
         .build();
-    let mask = image.mask.clone();
+    let image = Rc::clone(image);
     area.set_draw_func(move |area, context, _, _| {
         let color = area.color();
         context.set_source_rgba(
@@ -139,12 +150,12 @@ fn drawing(image: &FormulaImage) -> gtk::DrawingArea {
             f64::from(color.alpha()),
         );
         context.scale(0.5, 0.5);
-        let _ = context.mask_surface(&mask, 0.0, 0.0);
+        let _ = context.mask_surface(&image.mask, 0.0, 0.0);
     });
     area
 }
 
-fn formula_image(source: &str, display: bool) -> Option<FormulaImage> {
+fn formula_image(source: &str, display: bool) -> Option<Rc<FormulaImage>> {
     let source = source.trim();
     CACHE.with(|cache| {
         let cached = cache
@@ -160,9 +171,23 @@ fn formula_image(source: &str, display: bool) -> Option<FormulaImage> {
         if !bounded_source(source) {
             return None;
         }
+        let key = (source.to_string(), display);
+        if let Some(image) =
+            VISIBLE.with(|visible| visible.borrow().get(&key).and_then(Weak::upgrade))
+        {
+            return Some(image);
+        }
         let image = std::panic::catch_unwind(|| rasterize(source, display))
             .ok()
-            .flatten();
+            .flatten()
+            .map(Rc::new);
+        VISIBLE.with(|visible| {
+            let mut visible = visible.borrow_mut();
+            visible.retain(|_, image| image.strong_count() > 0);
+            if let Some(image) = &image {
+                visible.insert(key, Rc::downgrade(image));
+            }
+        });
         let mut cache = cache.borrow_mut();
         if cache.len() >= 24 {
             cache.pop_front();

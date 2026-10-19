@@ -106,16 +106,12 @@ pub(super) fn render(ui: &WindowUi, backend: &Backend, skip: Option<&str>) -> Re
             super::generation::append_live(ui, backend, message);
             continue;
         }
-        let row = chat_view::append_stored_message(&ui.messages, message);
-        if let Some(details) = backend
-            .conversation_repository
-            .message_details(&message.id)?
-        {
-            chat_view::append_details(&row, &details);
-        }
-        super::attachments::append_stored(ui, backend, &row, &message.id)?;
-        append_toolbar(&row, message, versions.get(message.id.as_str()).copied());
-        row.set_widget_name(&message.id);
+        let row = append_row(
+            ui,
+            backend,
+            message,
+            versions.get(message.id.as_str()).copied(),
+        )?;
         let mut child = row.first_child();
         while let Some(widget) = child {
             if let Ok(expander) = widget.clone().downcast::<gtk::Expander>() {
@@ -128,14 +124,104 @@ pub(super) fn render(ui: &WindowUi, backend: &Backend, skip: Option<&str>) -> Re
 }
 
 pub(super) fn refresh(ui: &WindowUi, backend: &Backend) {
-    let should_scroll = chat_view::should_stick_to_bottom(&ui.messages_scrolled);
+    let should_scroll = ui.messages_scroll.is_following();
     if let Err(error) = render(ui, backend, None) {
         ui.toast_overlay.add_toast(adw::Toast::new(&format!(
             "Conversation could not be displayed: {error}"
         )));
     }
     if should_scroll {
-        chat_view::scroll_to_bottom(&ui.messages_scrolled);
+        ui.messages_scroll.follow();
+    }
+}
+
+fn append_row(
+    ui: &WindowUi,
+    backend: &Backend,
+    message: &Message,
+    versions: Option<&Vec<String>>,
+) -> Result<gtk::Box> {
+    let row = chat_view::append_stored_message(&ui.messages, message);
+    if let Some(details) = backend
+        .conversation_repository
+        .message_details(&message.id)?
+    {
+        chat_view::append_details(&row, &details);
+    }
+    super::attachments::append_stored(ui, backend, &row, &message.id)?;
+    append_toolbar(&row, message, versions);
+    row.set_widget_name(&message.id);
+    Ok(row)
+}
+
+pub(super) fn refresh_message(ui: &WindowUi, backend: &Backend, id: &str) {
+    let should_scroll = ui.messages_scroll.is_following();
+    let result = (|| -> Result<()> {
+        let message = backend
+            .conversation_repository
+            .get_message(id)?
+            .ok_or(MooseError::MessageNotFound)?;
+        if backend.active_conversation_id.borrow().as_deref()
+            != Some(message.conversation_id.as_str())
+        {
+            return Ok(());
+        }
+        let mut child = ui.messages.first_child();
+        let mut previous = None;
+        while let Some(row) = child {
+            child = row.next_sibling();
+            if row.widget_name() == id {
+                previous = Some(row);
+                break;
+            }
+        }
+        let Some(previous) = previous else {
+            return render(ui, backend, None);
+        };
+        let mut expanded = false;
+        let mut child = previous.first_child();
+        while let Some(widget) = child {
+            child = widget.next_sibling();
+            if let Some(expander) = widget.downcast_ref::<gtk::Expander>() {
+                expanded |= expander.is_expanded() && expander.has_css_class("moose-reasoning");
+            }
+        }
+        let versions = backend
+            .conversation_repository
+            .message_versions(&message.conversation_id)?;
+        let group = versions
+            .iter()
+            .find(|group| group.iter().any(|version| version == id));
+        let row = append_row(ui, backend, &message, group)?;
+        if expanded {
+            let mut child = row.first_child();
+            while let Some(widget) = child {
+                child = widget.next_sibling();
+                if let Some(expander) = widget.downcast_ref::<gtk::Expander>()
+                    && expander.has_css_class("moose-reasoning")
+                {
+                    expander.set_expanded(true);
+                }
+            }
+        }
+        if gtk::prelude::GtkWindowExt::focus(&ui.window)
+            .is_some_and(|focus| focus.is_ancestor(&previous))
+        {
+            ui.entry.grab_focus();
+        }
+        let sibling = previous.prev_sibling();
+        ui.messages.remove(&row);
+        ui.messages.insert_child_after(&row, sibling.as_ref());
+        ui.messages.remove(&previous);
+        Ok(())
+    })();
+    if let Err(error) = result {
+        ui.toast_overlay.add_toast(adw::Toast::new(&format!(
+            "Message could not be displayed: {error}"
+        )));
+    }
+    if should_scroll {
+        ui.messages_scroll.follow();
     }
 }
 
@@ -275,6 +361,7 @@ fn select_version(ui: &Rc<WindowUi>, backend: &Rc<Backend>, id: &str) -> Result<
         gtk::prelude::GtkWindowExt::focus(&ui.window).and_then(|focus| focus.tooltip_text());
     let position = ui.messages_scrolled.vadjustment().value();
     backend.conversation_repository.select_message_version(id)?;
+    ui.messages_scroll.pause();
     render(ui, backend, None)?;
     conversation_list::refresh(ui, backend);
     if let Some(tooltip) = focused_action {

@@ -36,6 +36,7 @@ use crate::{
 };
 
 mod attachments;
+mod chat_scroll;
 mod chat_settings;
 mod chat_view;
 mod chat_welcome;
@@ -60,6 +61,7 @@ mod provider_controls;
 mod reasoning;
 mod shortcuts;
 mod sidebar;
+mod streaming_text;
 mod widgets;
 mod workspace;
 
@@ -163,6 +165,7 @@ fn build_ui(app: &adw::Application) -> Rc<WindowUi> {
         conversation_list: sidebar.conversation_list,
         messages: chat.messages,
         messages_scrolled: chat.messages_scrolled,
+        messages_scroll: chat.scroll,
         chat_status_page: chat.status_page,
         chat_welcome: chat.welcome,
         message_stack: chat.message_stack,
@@ -299,6 +302,7 @@ struct WindowUi {
     conversation_list: gtk::ListBox,
     messages: gtk::Box,
     messages_scrolled: gtk::ScrolledWindow,
+    messages_scroll: chat_scroll::ChatScroll,
     chat_status_page: adw::StatusPage,
     chat_welcome: adw::Clamp,
     message_stack: gtk::Stack,
@@ -846,12 +850,15 @@ fn show_preferences_action(
 }
 
 fn stop_generation_action(ui: &Rc<WindowUi>, backend: &Rc<Backend>, notify_inactive: bool) -> bool {
+    let assistant_id = backend.active_assistant_message_id.borrow().clone();
     match backend.cancel_generation() {
         Ok(true) => {
             finish_generation(ui);
             workspace::sync_provider(ui, backend);
             generation::sync_controls(ui, backend);
-            message_actions::refresh(ui, backend);
+            if let Some(id) = assistant_id {
+                message_actions::refresh_message(ui, backend, &id);
+            }
             conversation_list::refresh(ui, backend);
             ui.toast_overlay
                 .add_toast(adw::Toast::new("Generation cancelled"));
@@ -1929,7 +1936,7 @@ fn finish_generation(ui: &WindowUi) {
 }
 
 fn scroll_chat_to_bottom(ui: &WindowUi) {
-    chat_view::scroll_to_bottom(&ui.messages_scrolled);
+    ui.messages_scroll.follow();
 }
 
 fn prompt_text(entry: &gtk::TextView) -> String {

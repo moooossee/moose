@@ -1,74 +1,53 @@
-use std::{cell::RefCell, path::Path, rc::Rc, time::Duration};
+use std::{path::Path, time::Duration};
 
 use comrak::nodes::NodeCodeBlock;
 use gtk::prelude::*;
 use gtk::{Align, Orientation, PolicyType, glib};
 use sourceview5::prelude::*;
 
+use super::{chat_scroll::ChatScroll, streaming_text};
+
 pub(super) struct LiveCodeBlock {
     root: gtk::Box,
-    language_label: gtk::Label,
+    label: gtk::Label,
     scrolled: gtk::ScrolledWindow,
+    view: sourceview5::View,
     buffer: sourceview5::Buffer,
-    code: Rc<RefCell<String>>,
+    content: String,
     language: String,
     height: i32,
 }
 
-pub(super) fn code_block(block: &NodeCodeBlock) -> gtk::Box {
-    let code = block.literal.clone();
-    let language = code_language(&block.info, &code);
-    let copy_button = copy_button();
-    bind_copy_button(&copy_button, code.clone());
-
-    let (root, _) = code_shell(&language_label_text(&language), &copy_button);
-    let height = code_height(&code, CodeHeightMode::Stable);
-    let scrolled = gtk::ScrolledWindow::builder()
-        .hexpand(true)
-        .hscrollbar_policy(PolicyType::Automatic)
-        .min_content_height(height)
-        .propagate_natural_height(true)
-        .build();
-    let buffer = highlighted_code_buffer(&code, &language);
-    let view = source_code_view(&buffer, code_line_count(&code) > 14);
-    scrolled.set_child(Some(&view));
-    scrolled.set_vscrollbar_policy(PolicyType::Automatic);
-    scrolled.set_max_content_height(420);
-    scrolled.add_css_class("moose-code-scroll");
-
-    root.append(&scrolled);
-    root
-}
-
 impl LiveCodeBlock {
-    pub(super) fn new(content: &str, language: &str) -> Self {
-        let code = Rc::new(RefCell::new(content.to_string()));
-        let copy_button = copy_button();
-        bind_live_copy_button(&copy_button, Rc::clone(&code));
-
-        let (root, language_label) = code_shell(&language_label_text(language), &copy_button);
-        let buffer = highlighted_code_buffer(content, language);
-        let view = source_code_view(&buffer, false);
-        let height = code_height(content, CodeHeightMode::Live);
+    pub(super) fn new(content: &str, info: &str) -> Self {
+        let language = live_language(info, content);
+        let buffer = highlighted_code_buffer(content, &language);
+        let view = source_code_view(&buffer, code_line_count(content) > 14);
+        let copy = copy_button();
+        bind_copy_button(&copy, &buffer);
+        let (root, label) = code_shell(&language_label_text(&language), &copy);
+        let height = code_height(content);
         let scrolled = gtk::ScrolledWindow::builder()
             .child(&view)
             .hexpand(true)
             .hscrollbar_policy(PolicyType::Automatic)
-            .vscrollbar_policy(PolicyType::Never)
+            .vscrollbar_policy(PolicyType::Automatic)
             .min_content_height(height)
+            .max_content_height(420)
             .propagate_natural_height(true)
             .build();
         scrolled.add_css_class("moose-code-scroll");
-
+        ChatScroll::bind_code(&scrolled, &buffer);
         root.append(&scrolled);
 
         Self {
             root,
-            language_label,
+            label,
             scrolled,
+            view,
             buffer,
-            code,
-            language: language.to_string(),
+            content: content.to_string(),
+            language,
             height,
         }
     }
@@ -77,27 +56,71 @@ impl LiveCodeBlock {
         self.root.clone().upcast()
     }
 
-    pub(super) fn update(&mut self, content: &str, language: &str) {
-        if self.language != language {
-            self.language = language.to_string();
-            self.language_label
-                .set_text(&language_label_text(&self.language));
-            set_buffer_language(&self.buffer, &self.language);
+    pub(super) fn has_selection(&self) -> bool {
+        self.buffer.has_selection()
+    }
+
+    pub(super) fn update(&mut self, content: &str, info: &str) {
+        let explicit = code_language(info, "");
+        let language = if !explicit.is_empty() {
+            explicit
+        } else if self.language.is_empty() {
+            live_language(info, content)
+        } else {
+            self.language.clone()
+        };
+        if language != self.language {
+            self.language = language;
+            self.label.set_text(&language_label_text(&self.language));
+            let language = source_language(&self.language);
+            self.buffer.set_language(language.as_ref());
+            self.buffer.set_highlight_syntax(language.is_some());
         }
-        self.buffer.set_text(content);
-        *self.code.borrow_mut() = content.to_string();
-        let next_height = code_height(content, CodeHeightMode::Live);
-        if self.height != next_height {
-            self.height = next_height;
-            self.scrolled.set_min_content_height(next_height);
+
+        if !streaming_text::update(&self.buffer, &mut self.content, content) {
+            return;
         }
+        let height = code_height(content);
+        if height != self.height {
+            self.height = height;
+            self.scrolled.set_min_content_height(height);
+        }
+        self.view
+            .set_show_line_numbers(code_line_count(content) > 14);
     }
 }
 
-#[derive(Clone, Copy)]
-enum CodeHeightMode {
-    Stable,
-    Live,
+fn live_language(info: &str, content: &str) -> String {
+    let mut end = content.len().min(4096);
+    while !content.is_char_boundary(end) {
+        end -= 1;
+    }
+    code_language(info, &content[..end])
+}
+
+pub(super) fn code_block(block: &NodeCodeBlock) -> gtk::Box {
+    let code = block.literal.clone();
+    let language = code_language(&block.info, &code);
+    let buffer = highlighted_code_buffer(&code, &language);
+    let copy_button = copy_button();
+    bind_copy_button(&copy_button, &buffer);
+
+    let (root, _) = code_shell(&language_label_text(&language), &copy_button);
+    let height = code_height(&code);
+    let scrolled = gtk::ScrolledWindow::builder()
+        .hexpand(true)
+        .hscrollbar_policy(PolicyType::Automatic)
+        .min_content_height(height)
+        .propagate_natural_height(true)
+        .build();
+    let view = source_code_view(&buffer, code_line_count(&code) > 14);
+    scrolled.set_child(Some(&view));
+    scrolled.set_vscrollbar_policy(PolicyType::Automatic);
+    scrolled.set_max_content_height(420);
+    scrolled.add_css_class("moose-code-scroll");
+
+    root.append(&scrolled);
+    root
 }
 
 fn code_shell(label: &str, copy_button: &gtk::Button) -> (gtk::Box, gtk::Label) {
@@ -156,14 +179,10 @@ fn highlighted_code_buffer(code: &str, language: &str) -> sourceview5::Buffer {
         buffer.set_style_scheme(Some(&scheme));
     }
     buffer.set_highlight_syntax(source_language.is_some());
+    buffer.set_enable_undo(false);
+    buffer.set_highlight_matching_brackets(false);
     buffer.set_text(code);
     buffer
-}
-
-fn set_buffer_language(buffer: &sourceview5::Buffer, language: &str) {
-    let source_language = source_language(language);
-    buffer.set_language(source_language.as_ref());
-    buffer.set_highlight_syntax(source_language.is_some());
 }
 
 fn source_code_view(buffer: &sourceview5::Buffer, show_line_numbers: bool) -> sourceview5::View {
@@ -184,40 +203,51 @@ fn source_code_view(buffer: &sourceview5::Buffer, show_line_numbers: bool) -> so
     view
 }
 
-fn bind_copy_button(button: &gtk::Button, code: String) {
-    button.connect_clicked(move |button| {
-        if let Some(display) = gtk::gdk::Display::default() {
-            display.clipboard().set_text(&code);
+fn bind_copy_button(button: &gtk::Button, buffer: &sourceview5::Buffer) {
+    button.connect_clicked(glib::clone!(
+        #[weak]
+        buffer,
+        move |button| {
+            button.clipboard().set_text(&buffer.text(
+                &buffer.start_iter(),
+                &buffer.end_iter(),
+                true,
+            ));
             button.set_icon_name("object-select-symbolic");
-            let button = button.clone();
+            let weak = button.downgrade();
             glib::timeout_add_local_once(Duration::from_millis(1200), move || {
-                button.set_icon_name("edit-copy-symbolic");
+                if let Some(button) = weak.upgrade() {
+                    button.set_icon_name("edit-copy-symbolic");
+                }
             });
         }
-    });
+    ));
 }
 
-fn bind_live_copy_button(button: &gtk::Button, code: Rc<RefCell<String>>) {
-    button.connect_clicked(move |button| {
-        if let Some(display) = gtk::gdk::Display::default() {
-            let code = code.borrow();
-            display.clipboard().set_text(code.as_str());
-            button.set_icon_name("object-select-symbolic");
-            let button = button.clone();
-            glib::timeout_add_local_once(Duration::from_millis(1200), move || {
-                button.set_icon_name("edit-copy-symbolic");
-            });
-        }
-    });
-}
-
-fn code_height(code: &str, mode: CodeHeightMode) -> i32 {
-    let line_count = code_line_count(code);
-    let lines = match mode {
-        CodeHeightMode::Stable => line_count.min(18),
-        CodeHeightMode::Live => line_count,
+pub(super) fn sync_source_view(target: &sourceview5::View, source: &sourceview5::View) {
+    let Ok(buffer) = target.buffer().downcast::<sourceview5::Buffer>() else {
+        return;
     };
-    let lines = lines as i32;
+    let Ok(next) = source.buffer().downcast::<sourceview5::Buffer>() else {
+        return;
+    };
+    if buffer.language() != next.language() {
+        buffer.set_language(next.language().as_ref());
+        buffer.set_highlight_syntax(next.is_highlight_syntax());
+    }
+    if buffer.style_scheme() != next.style_scheme() {
+        buffer.set_style_scheme(next.style_scheme().as_ref());
+    }
+    let mut previous = buffer
+        .text(&buffer.start_iter(), &buffer.end_iter(), true)
+        .to_string();
+    let content = next.text(&next.start_iter(), &next.end_iter(), true);
+    streaming_text::update(&buffer, &mut previous, &content);
+    target.set_show_line_numbers(source.shows_line_numbers());
+}
+
+fn code_height(code: &str) -> i32 {
+    let lines = code_line_count(code).min(18) as i32;
     (lines * 21 + 24).max(58)
 }
 
@@ -226,7 +256,7 @@ fn code_line_count(code: &str) -> usize {
     (code.lines().count() + trailing_line).max(1)
 }
 
-pub(super) fn code_language(info: &str, code: &str) -> String {
+fn code_language(info: &str, code: &str) -> String {
     let explicit = info
         .split_whitespace()
         .next()

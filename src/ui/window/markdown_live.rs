@@ -1,32 +1,46 @@
-use std::cell::RefCell;
+use std::{
+    cell::RefCell,
+    ops::Range,
+    time::{Duration, Instant},
+};
 
+use comrak::{
+    Arena,
+    nodes::{NodeCodeBlock, NodeValue},
+    parse_document,
+};
 use gtk::prelude::*;
 use gtk::{Align, Orientation};
 
-use super::{code_view, markdown_view, math_syntax, math_view};
+use super::{
+    code_view,
+    markdown_view::{self, live_view::LiveContent},
+    math_syntax, math_view,
+};
 
 pub(super) struct LiveMarkdown {
     root: gtk::Box,
-    blocks: RefCell<Vec<LiveBlock>>,
+    state: RefCell<LiveState>,
+}
+
+#[derive(Default)]
+struct LiveState {
+    source: String,
+    committed: usize,
+    current: Option<LiveBlock>,
+    updated: Option<Instant>,
+    deferred: bool,
 }
 
 enum LiveBlock {
-    Text { root: gtk::Box, content: String },
-    Math { root: gtk::Box, content: String },
-    Code(code_view::LiveCodeBlock),
+    Text(LiveContent),
+    Code(Box<code_view::LiveCodeBlock>),
 }
 
-struct LiveSegment {
-    kind: LiveSegmentKind,
-    content: String,
-    language: String,
-}
-
-#[derive(Clone, Copy, PartialEq, Eq)]
-enum LiveSegmentKind {
-    Text,
-    Code,
-    Math,
+struct ParsedBlock {
+    range: Range<usize>,
+    code: Option<NodeCodeBlock>,
+    complete: bool,
 }
 
 impl LiveMarkdown {
@@ -39,10 +53,9 @@ impl LiveMarkdown {
             .build();
         root.add_css_class("moose-message-content");
         root.add_css_class("moose-markdown-content");
-
         Self {
             root,
-            blocks: RefCell::new(Vec::new()),
+            state: RefCell::new(LiveState::default()),
         }
     }
 
@@ -51,226 +64,234 @@ impl LiveMarkdown {
     }
 
     pub(super) fn update(&self, content: &str) {
-        let segments = live_segments(content);
-        let mut blocks = self.blocks.borrow_mut();
-        let mut index = 0usize;
-
-        while index < segments.len() {
-            let mismatched = blocks
-                .get(index)
-                .is_some_and(|block| block.kind() != segments[index].kind);
-            if mismatched {
-                remove_live_blocks(&self.root, &mut blocks, index);
+        let mut state = self.state.borrow_mut();
+        if state.source == content && !state.deferred {
+            return;
+        }
+        if state.current.as_ref().is_some_and(LiveBlock::has_selection) {
+            state.deferred = true;
+            return;
+        }
+        if content.starts_with(state.source.as_str())
+            && state.updated.is_some_and(|updated| {
+                updated.elapsed() < render_interval(content.len().saturating_sub(state.committed))
+            })
+        {
+            return;
+        }
+        if let Some(appended) = content.strip_prefix(state.source.as_str()) {
+            state.source.push_str(appended);
+        } else {
+            while let Some(child) = self.root.first_child() {
+                self.root.remove(&child);
             }
+            *state = LiveState::default();
+            state.source.push_str(content);
+        }
+        state.updated = Some(Instant::now());
+        state.deferred = false;
 
-            if let Some(block) = blocks.get_mut(index) {
-                block.update(&segments[index]);
+        let base = state.committed;
+        let pending = &content[base..];
+        let blocks = parse_blocks(pending);
+        if blocks.is_empty() {
+            if pending.trim().is_empty() {
+                state.clear_current(&self.root);
+                state.committed = content.len();
             } else {
-                let block = LiveBlock::new(&segments[index]);
-                self.root.append(&block.widget());
-                blocks.push(block);
+                state.deferred = !state.update_text(&self.root, pending);
             }
-
-            index += 1;
+            return;
         }
 
-        remove_live_blocks(&self.root, &mut blocks, segments.len());
+        for block in blocks {
+            let source = &pending[block.range.clone()];
+            if let Some(code) = block.code {
+                if block.complete && math_view::is_math_language(&code.info) {
+                    if state.current.as_ref().is_some_and(LiveBlock::has_selection) {
+                        state.deferred = true;
+                        break;
+                    }
+                    let widget = math_view::block(&code.literal);
+                    state.clear_current(&self.root);
+                    self.root.append(&widget);
+                } else {
+                    state.update_code(&self.root, &code);
+                }
+            } else if !state.update_text(&self.root, source) {
+                state.deferred = true;
+                break;
+            }
+
+            if block.complete {
+                state.current.take();
+                state.committed = base + block.range.end;
+            } else {
+                break;
+            }
+        }
+    }
+}
+
+impl LiveState {
+    fn clear_current(&mut self, root: &gtk::Box) {
+        if let Some(block) = self.current.take() {
+            root.remove(&block.widget());
+        }
+    }
+
+    fn update_text(&mut self, root: &gtk::Box, source: &str) -> bool {
+        if let Some(LiveBlock::Text(block)) = self.current.as_mut() {
+            return block.update(source);
+        }
+        if self.current.as_ref().is_some_and(LiveBlock::has_selection) {
+            return false;
+        }
+        let block = LiveContent::new(source);
+        self.clear_current(root);
+        root.append(&block.widget());
+        self.current = Some(LiveBlock::Text(block));
+        true
+    }
+
+    fn update_code(&mut self, root: &gtk::Box, code: &NodeCodeBlock) {
+        if let Some(LiveBlock::Code(block)) = self.current.as_mut() {
+            block.update(&code.literal, &code.info);
+            return;
+        }
+        self.clear_current(root);
+        let block = code_view::LiveCodeBlock::new(&code.literal, &code.info);
+        root.append(&block.widget());
+        self.current = Some(LiveBlock::Code(Box::new(block)));
     }
 }
 
 impl LiveBlock {
-    fn new(segment: &LiveSegment) -> Self {
-        match segment.kind {
-            LiveSegmentKind::Text => {
-                let root = gtk::Box::new(Orientation::Vertical, 8);
-                root.set_hexpand(true);
-                update_live_text(&root, &segment.content);
-                Self::Text {
-                    root,
-                    content: segment.content.clone(),
-                }
-            }
-            LiveSegmentKind::Math => {
-                let root = gtk::Box::new(Orientation::Vertical, 8);
-                root.set_hexpand(true);
-                root.append(&math_view::block(&segment.content));
-                Self::Math {
-                    root,
-                    content: segment.content.clone(),
-                }
-            }
-            LiveSegmentKind::Code => Self::Code(code_view::LiveCodeBlock::new(
-                &segment.content,
-                &segment.language,
-            )),
-        }
-    }
-
-    fn kind(&self) -> LiveSegmentKind {
-        match self {
-            Self::Text { .. } => LiveSegmentKind::Text,
-            Self::Code(_) => LiveSegmentKind::Code,
-            Self::Math { .. } => LiveSegmentKind::Math,
-        }
-    }
-
     fn widget(&self) -> gtk::Widget {
         match self {
-            Self::Text { root, .. } | Self::Math { root, .. } => root.clone().upcast(),
+            Self::Text(block) => block.widget(),
             Self::Code(block) => block.widget(),
         }
     }
 
-    fn update(&mut self, segment: &LiveSegment) {
+    fn has_selection(&self) -> bool {
         match self {
-            Self::Text { root, content } => {
-                if *content != segment.content {
-                    update_live_text(root, &segment.content);
-                    content.clone_from(&segment.content);
-                }
-            }
-            Self::Math { root, content } => {
-                if *content != segment.content {
-                    while let Some(child) = root.first_child() {
-                        root.remove(&child);
-                    }
-                    root.append(&math_view::block(&segment.content));
-                    content.clone_from(&segment.content);
-                }
-            }
-            Self::Code(block) => block.update(&segment.content, &segment.language),
+            Self::Text(block) => block.has_selection(),
+            Self::Code(block) => block.has_selection(),
         }
     }
 }
 
-fn remove_live_blocks(root: &gtk::Box, blocks: &mut Vec<LiveBlock>, start: usize) {
-    for block in blocks.drain(start..) {
-        root.remove(&block.widget());
-    }
-}
-
-fn update_live_text(root: &gtk::Box, content: &str) {
-    if !math_syntax::prepare(content).formulas.is_empty() {
-        markdown_view::update(root, content);
-        return;
-    }
-    if let Some(label) = root
-        .first_child()
-        .and_then(|widget| widget.downcast::<gtk::Label>().ok())
-    {
-        if label.next_sibling().is_none() {
-            label.set_text(content);
-            return;
+fn parse_blocks(source: &str) -> Vec<ParsedBlock> {
+    let arena = Arena::new();
+    let document = parse_document(&arena, source, &markdown_view::markdown_options());
+    let nodes = document.children().collect::<Vec<_>>();
+    let mut lines = vec![0];
+    for (index, byte) in source.bytes().enumerate() {
+        if byte == b'\n' || (byte == b'\r' && source.as_bytes().get(index + 1) != Some(&b'\n')) {
+            lines.push(index + 1);
         }
     }
-    while let Some(child) = root.first_child() {
-        root.remove(&child);
-    }
-    root.append(&plain_live_label(content));
-}
-
-fn plain_live_label(content: &str) -> gtk::Label {
-    let label = gtk::Label::builder()
-        .label(content)
-        .halign(Align::Fill)
-        .hexpand(true)
-        .selectable(true)
-        .wrap(true)
-        .wrap_mode(gtk::pango::WrapMode::WordChar)
-        .natural_wrap_mode(gtk::NaturalWrapMode::Word)
-        .width_chars(1)
-        .max_width_chars(120)
-        .xalign(0.0)
-        .build();
-    label.add_css_class("body");
-    label.add_css_class("moose-markdown-label");
-    label.add_css_class("moose-markdown-paragraph");
-    label
-}
-
-fn live_segments(content: &str) -> Vec<LiveSegment> {
-    let mut segments = Vec::new();
-    let mut text = String::new();
-    let mut lines = content.split_inclusive('\n').peekable();
-
-    while let Some(line) = lines.next() {
-        let Some(fence) = parse_opening_fence(line) else {
-            text.push_str(line);
-            continue;
-        };
-
-        push_live_text_segment(&mut segments, &mut text);
-
-        let mut code = String::new();
-        let mut closed = false;
-        for code_line in lines.by_ref() {
-            if is_closing_fence(code_line, fence.marker, fence.length) {
-                closed = true;
-                break;
-            }
-            code.push_str(code_line);
-        }
-
-        let language = code_view::code_language(&fence.info, &code);
-        segments.push(LiveSegment {
-            kind: if closed && math_view::is_math_language(&fence.info) {
-                LiveSegmentKind::Math
+    let starts = nodes
+        .iter()
+        .enumerate()
+        .map(|(index, node)| {
+            if index == 0 {
+                0
             } else {
-                LiveSegmentKind::Code
-            },
-            content: code,
-            language,
-        });
-    }
+                lines
+                    .get(node.data().sourcepos.start.line.saturating_sub(1))
+                    .copied()
+                    .unwrap_or(source.len())
+            }
+        })
+        .collect::<Vec<_>>();
 
-    push_live_text_segment(&mut segments, &mut text);
-    segments
+    let blocks = nodes
+        .iter()
+        .enumerate()
+        .map(|(index, node)| {
+            let start = starts[index];
+            let end = starts.get(index + 1).copied().unwrap_or(source.len());
+            let raw = &source[start..end];
+            let data = node.data();
+            let value = &data.value;
+            let opening = lines
+                .get(data.sourcepos.start.line.saturating_sub(1))
+                .copied()
+                .unwrap_or(end);
+            let opening_terminated = source[opening..end].contains(['\n', '\r']);
+            let terminated = raw.ends_with(['\n', '\r']);
+            let complete = index + 1 < nodes.len()
+                || match value {
+                    NodeValue::CodeBlock(code) => code.fenced && code.closed && terminated,
+                    NodeValue::Heading(_) | NodeValue::ThematicBreak => terminated,
+                    NodeValue::Paragraph | NodeValue::Table(_) => ends_with_blank_line(raw),
+                    _ => false,
+                };
+            let code = match value {
+                NodeValue::CodeBlock(code) if !code.fenced || opening_terminated => {
+                    Some(code.as_ref().clone())
+                }
+                _ => None,
+            };
+            ParsedBlock {
+                range: start..end,
+                code,
+                complete,
+            }
+        })
+        .collect::<Vec<_>>();
+    if !source.contains(['$', '\\']) {
+        return blocks;
+    }
+    let prepared = math_syntax::prepare(source);
+    let mut ranges = prepared.ranges.iter().peekable();
+    let mut merged: Vec<ParsedBlock> = Vec::with_capacity(blocks.len());
+    for mut block in blocks {
+        let boundary = block.range.start;
+        while ranges.peek().is_some_and(|range| range.end <= boundary) {
+            ranges.next();
+        }
+        let inside_formula = ranges
+            .peek()
+            .is_some_and(|range| range.start < boundary && boundary < range.end)
+            || prepared.incomplete.is_some_and(|start| start < boundary);
+        if prepared
+            .incomplete
+            .is_some_and(|start| block.range.end > start)
+        {
+            block.complete = false;
+        }
+        if inside_formula && let Some(previous) = merged.last_mut() {
+            previous.range.end = block.range.end;
+            previous.complete = block.complete;
+            previous.code = None;
+        } else {
+            merged.push(block);
+        }
+    }
+    merged
 }
 
-struct CodeFence {
-    marker: char,
-    length: usize,
-    info: String,
-}
-
-fn push_live_text_segment(segments: &mut Vec<LiveSegment>, text: &mut String) {
-    if text.is_empty() {
-        return;
-    }
-
-    segments.push(LiveSegment {
-        kind: LiveSegmentKind::Text,
-        content: std::mem::take(text),
-        language: String::new(),
-    });
-}
-
-fn parse_opening_fence(line: &str) -> Option<CodeFence> {
-    let trimmed = line.trim_start_matches(' ');
-    let marker = trimmed.chars().next()?;
-    if marker != '`' && marker != '~' {
-        return None;
-    }
-
-    let length = trimmed.chars().take_while(|value| *value == marker).count();
-    if length < 3 {
-        return None;
-    }
-
-    let info = trimmed[length..].trim().to_string();
-    Some(CodeFence {
-        marker,
-        length,
-        info,
+fn render_interval(bytes: usize) -> Duration {
+    Duration::from_millis(match bytes {
+        0..=16_384 => 80,
+        16_385..=65_536 => 160,
+        _ => 240,
     })
 }
 
-fn is_closing_fence(line: &str, marker: char, opening_length: usize) -> bool {
-    let trimmed = line.trim_start_matches(' ');
-    let length = trimmed.chars().take_while(|value| *value == marker).count();
-    if length < opening_length {
+fn ends_with_blank_line(source: &str) -> bool {
+    let Some(prefix) = source
+        .strip_suffix('\n')
+        .or_else(|| source.strip_suffix('\r'))
+    else {
         return false;
-    }
-
-    trimmed[length..].trim().is_empty()
+    };
+    let prefix = prefix.strip_suffix('\r').unwrap_or(prefix);
+    prefix
+        .rsplit(['\n', '\r'])
+        .next()
+        .is_some_and(|line| line.bytes().all(|byte| byte == b' ' || byte == b'\t'))
 }

@@ -1,4 +1,4 @@
-use std::{cell::Cell, time::Duration};
+use std::cell::Cell;
 
 use adw::prelude::*;
 use gtk::{Align, Orientation, glib::DateTime};
@@ -18,6 +18,7 @@ pub(super) struct Chat {
     pub(super) root: gtk::Box,
     pub(super) messages: gtk::Box,
     pub(super) messages_scrolled: gtk::ScrolledWindow,
+    pub(super) scroll: super::chat_scroll::ChatScroll,
     pub(super) status_page: adw::StatusPage,
     pub(super) welcome: adw::Clamp,
     pub(super) message_stack: gtk::Stack,
@@ -39,7 +40,6 @@ pub(super) struct StreamingMessage {
     status: gtk::Label,
     reasoning: gtk::Expander,
     reasoning_text: gtk::TextBuffer,
-    content_length: Cell<usize>,
     reasoning_length: Cell<usize>,
 }
 
@@ -60,6 +60,8 @@ pub(super) fn build() -> Chat {
     let empty_clamp = adw::Clamp::builder()
         .maximum_size(860)
         .tightening_threshold(560)
+        .margin_start(16)
+        .margin_end(16)
         .hexpand(true)
         .vexpand(true)
         .child(&status_page)
@@ -72,14 +74,25 @@ pub(super) fn build() -> Chat {
         .build();
     messages.add_css_class("moose-chat-column");
 
+    let messages_clamp = adw::Clamp::builder()
+        .maximum_size(1080)
+        .tightening_threshold(800)
+        .margin_start(16)
+        .margin_end(16)
+        .hexpand(true)
+        .child(&messages)
+        .build();
+
     let scrolled = gtk::ScrolledWindow::builder()
         .hexpand(true)
         .vexpand(true)
         .hscrollbar_policy(gtk::PolicyType::Never)
-        .vscrollbar_policy(gtk::PolicyType::External)
-        .overlay_scrolling(true)
-        .child(&messages)
+        .vscrollbar_policy(gtk::PolicyType::Automatic)
+        .overlay_scrolling(false)
+        .child(&messages_clamp)
         .build();
+
+    let scroll = super::chat_scroll::ChatScroll::new(&scrolled);
 
     let message_stack = gtk::Stack::builder().hexpand(true).vexpand(true).build();
     message_stack.add_named(&empty_clamp, Some("empty"));
@@ -348,25 +361,17 @@ pub(super) fn build() -> Chat {
     composer_footer.append(&draft_label);
     composer_area.append(&composer_footer);
 
-    let column = gtk::Box::builder()
-        .orientation(Orientation::Vertical)
-        .hexpand(true)
-        .vexpand(true)
-        .build();
-    column.append(&message_stack);
-    column.append(&composer_area);
-
-    let column_clamp = adw::Clamp::builder()
+    let composer_clamp = adw::Clamp::builder()
         .maximum_size(1080)
         .tightening_threshold(800)
         .margin_start(16)
         .margin_end(16)
         .hexpand(true)
-        .vexpand(true)
-        .child(&column)
+        .child(&composer_area)
         .build();
 
-    root.append(&column_clamp);
+    root.append(&message_stack);
+    root.append(&composer_clamp);
     let welcome = super::chat_welcome::build(&entry, &attachments.previews, &attachments.button);
     super::chat_welcome::show(&status_page, &welcome);
 
@@ -374,6 +379,7 @@ pub(super) fn build() -> Chat {
         root,
         messages,
         messages_scrolled: scrolled,
+        scroll,
         status_page,
         welcome,
         message_stack,
@@ -428,8 +434,6 @@ pub(super) fn append_message(
         .justify(justification)
         .build();
     let content_view = markdown_view::render(content);
-    content_view.set_halign(if is_user { Align::Start } else { Align::Fill });
-    content_view.set_hexpand(!is_user);
 
     row.add_css_class("moose-message");
     if is_user {
@@ -442,18 +446,18 @@ pub(super) fn append_message(
     if is_user {
         role_label.set_xalign(1.0);
         role_label.set_justify(gtk::Justification::Right);
-        markdown_view::constrain_labels(&content_view, 72);
+        markdown_view::constrain_width(&content_view, 72);
 
         let bubble = gtk::Box::builder()
             .orientation(Orientation::Vertical)
-            .spacing(5)
             .halign(Align::End)
+            .hexpand(false)
             .build();
         bubble.add_css_class("moose-message-user-bubble");
         role_label.add_css_class("moose-message-user-meta");
         content_view.add_css_class("moose-message-user-content");
-        bubble.append(&role_label);
         bubble.append(&content_view);
+        row.append(&role_label);
         row.append(&bubble);
     } else {
         row.append(&role_label);
@@ -534,7 +538,6 @@ pub(super) fn append_streaming_message(
         status: thinking_label,
         reasoning,
         reasoning_text,
-        content_length: Cell::new(0),
         reasoning_length: Cell::new(0),
     }
 }
@@ -547,22 +550,21 @@ pub(super) fn update_streaming_message(
     reasoning_ms: i64,
 ) {
     let has_content = !content.is_empty();
-    message.indicator.set_visible(!has_content);
-    if has_content {
-        message.spinner.stop();
+    message.indicator.set_visible(true);
+    message.spinner.start();
+    let phase = if has_content {
+        "Writing response"
+    } else if reasoning.is_empty() {
+        "Waiting for response"
     } else {
-        message.spinner.start();
-        let phase = if reasoning.is_empty() {
-            "Waiting for response"
-        } else {
-            "Reasoning"
-        };
-        message.status.set_label(&format!("{phase} · {elapsed}s"));
+        "Reasoning"
+    };
+    let status = format!("{phase} · {elapsed}s");
+    if message.status.text().as_str() != status.as_str() {
+        message.status.set_text(&status);
     }
     message.content.widget().set_visible(has_content);
-    if message.content_length.replace(content.len()) != content.len() {
-        message.content.update(content);
-    }
+    message.content.update(content);
     message.reasoning.set_visible(!reasoning.is_empty());
     message
         .reasoning
@@ -628,35 +630,6 @@ pub(super) fn append_details(row: &gtk::Box, details: &crate::storage::MessageDe
     label.add_css_class("caption");
     label.add_css_class("dim-label");
     row.append(&label);
-}
-
-pub(super) fn scroll_to_bottom(scrolled: &gtk::ScrolledWindow) {
-    let adjustment = scrolled.vadjustment();
-    gtk::glib::idle_add_local_once(move || {
-        set_adjustment_to_bottom(&adjustment);
-        schedule_bottom_adjustment(&adjustment, 16);
-    });
-}
-
-pub(super) fn should_stick_to_bottom(scrolled: &gtk::ScrolledWindow) -> bool {
-    is_near_bottom(&scrolled.vadjustment())
-}
-
-fn schedule_bottom_adjustment(adjustment: &gtk::Adjustment, delay_ms: u64) {
-    let adjustment = adjustment.clone();
-    gtk::glib::timeout_add_local_once(Duration::from_millis(delay_ms), move || {
-        set_adjustment_to_bottom(&adjustment);
-    });
-}
-
-fn set_adjustment_to_bottom(adjustment: &gtk::Adjustment) {
-    let value = (adjustment.upper() - adjustment.page_size()).max(adjustment.lower());
-    adjustment.set_value(value);
-}
-
-fn is_near_bottom(adjustment: &gtk::Adjustment) -> bool {
-    let bottom = (adjustment.upper() - adjustment.page_size()).max(adjustment.lower());
-    bottom - adjustment.value() <= 240.0
 }
 
 pub(super) fn set_empty_state(status_page: &adw::StatusPage, title: &str, description: &str) {

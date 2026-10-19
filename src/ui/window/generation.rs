@@ -225,7 +225,6 @@ pub(super) fn start(
         if backend.active_assistant_message_id.borrow().as_deref() != Some(&assistant_id) {
             return gtk::glib::ControlFlow::Break;
         }
-        let mut changed = false;
         let mut end = None;
         for _ in 0..512 {
             match receiver.try_recv() {
@@ -241,7 +240,6 @@ pub(super) fn start(
                             .active_assistant_content
                             .borrow_mut()
                             .push_str(&token);
-                        changed = true;
                     }
                 }
                 Ok(ChatUiEvent::Thinking(token)) => {
@@ -249,7 +247,6 @@ pub(super) fn start(
                     context.reasoning_started.get_or_insert_with(Instant::now);
                     context.reasoning_finished = None;
                     context.reasoning.push_str(&token);
-                    changed = true;
                 }
                 Ok(ChatUiEvent::Done) => {
                     end = Some((AssistantMessageEnd::Complete, None));
@@ -282,7 +279,7 @@ pub(super) fn start(
             }
             finish_generation(&ui);
             if is_visible(&backend) {
-                message_actions::refresh(&ui, &backend);
+                message_actions::refresh_message(&ui, &backend, &assistant_id);
             }
             workspace::sync_provider(&ui, &backend);
             sync_controls(&ui, &backend);
@@ -294,13 +291,7 @@ pub(super) fn start(
             notify(&ui, &backend, &conversation_id, completed);
             return gtk::glib::ControlFlow::Break;
         }
-        let should_scroll = changed
-            && is_visible(&backend)
-            && chat_view::should_stick_to_bottom(&ui.messages_scrolled);
         update_live(&ui, &backend);
-        if should_scroll {
-            scroll_chat_to_bottom(&ui);
-        }
         let checkpoint_due = backend
             .generation_context
             .borrow()

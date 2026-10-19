@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, ops::Range};
 
 #[derive(Clone)]
 pub(super) struct Formula {
@@ -10,6 +10,8 @@ pub(super) struct Formula {
 pub(super) struct Prepared {
     pub(super) markdown: String,
     pub(super) formulas: HashMap<String, Formula>,
+    pub(super) ranges: Vec<Range<usize>>,
+    pub(super) incomplete: Option<usize>,
 }
 
 impl Prepared {
@@ -45,6 +47,8 @@ pub(super) fn prepare(content: &str) -> Prepared {
     let mut result = Prepared {
         markdown: String::new(),
         formulas: HashMap::new(),
+        ranges: Vec::new(),
+        incomplete: None,
     };
     let mut offset = 0;
     while offset < content.len() {
@@ -67,8 +71,12 @@ pub(super) fn prepare(content: &str) -> Prepared {
         if let Some(length) = environment_end(tail) {
             let source = &tail[..length];
             result.push_formula(&prefix, source, source, true);
+            result.ranges.push(offset..offset + length);
             offset += length;
             continue;
+        }
+        if environment_name(tail).is_some() {
+            result.incomplete.get_or_insert(offset);
         }
         let delimiter = if tail.starts_with("\\[") {
             Some(("\\[", "\\]", true))
@@ -97,8 +105,12 @@ pub(super) fn prepare(content: &str) -> Prepared {
                     &content[offset..end + close.len()],
                     display,
                 );
+                result.ranges.push(offset..end + close.len());
                 offset = end + close.len();
                 continue;
+            }
+            if open != "$" || !content[start..].contains(['\n', '\r']) {
+                result.incomplete.get_or_insert(offset);
             }
         }
         let ch = tail.chars().next().unwrap_or_default();
@@ -114,7 +126,7 @@ pub(super) fn prepare(content: &str) -> Prepared {
     result
 }
 
-fn environment_end(source: &str) -> Option<usize> {
+fn environment_name(source: &str) -> Option<&str> {
     let name = source.strip_prefix("\\begin{")?.split('}').next()?;
     if !matches!(
         name.trim_end_matches('*'),
@@ -139,6 +151,11 @@ fn environment_end(source: &str) -> Option<usize> {
     ) {
         return None;
     }
+    Some(name)
+}
+
+fn environment_end(source: &str) -> Option<usize> {
+    let name = environment_name(source)?;
     let open = format!("\\begin{{{name}}}");
     let close = format!("\\end{{{name}}}");
     let mut depth = 1usize;

@@ -1,16 +1,19 @@
+pub(super) mod live_view;
+mod table_view;
+mod text_sync;
+mod text_view;
+
 use comrak::{
     Arena, Options,
-    nodes::{
-        AstNode, ListType, NodeCode, NodeHeading, NodeLink, NodeList, NodeMath, NodeValue,
-        TableAlignment,
-    },
+    nodes::{AstNode, ListDelimType, ListType, NodeList, NodeMath, NodeValue},
     parse_document,
 };
 use gtk::prelude::*;
-use gtk::{Align, Orientation, PolicyType, glib};
+use gtk::{Align, Orientation};
 use url::Url;
 
 use super::{code_view, math_syntax, math_view};
+use text_view::MarkdownTextView;
 
 pub(super) fn render(content: &str) -> gtk::Box {
     let root = gtk::Box::builder()
@@ -65,21 +68,22 @@ pub(super) fn update(root: &gtk::Box, content: &str) {
         }
     }
 
-    for child in document.children() {
-        append_block(root, child);
-    }
+    let mut renderer = Renderer::new(root);
+    renderer.append_children(document, BlockStyle::default());
 
     if root.first_child().is_none() && !content.is_empty() {
-        append_paragraph(root, &escape(content));
+        renderer.append_plain(content, BlockStyle::default());
     }
 }
 
-pub(super) fn constrain_labels(root: &gtk::Box, width_chars: i32) {
-    constrain_widget_labels(root.upcast_ref::<gtk::Widget>(), width_chars);
+pub(super) fn constrain_width(root: &gtk::Box, width_chars: i32) {
+    constrain_widget_width(root.upcast_ref(), width_chars);
 }
 
-fn constrain_widget_labels(widget: &gtk::Widget, width_chars: i32) {
-    if let Some(label) = widget.downcast_ref::<gtk::Label>() {
+fn constrain_widget_width(widget: &gtk::Widget, width_chars: i32) {
+    if let Some(view) = widget.downcast_ref::<MarkdownTextView>() {
+        view.set_width_chars(1, width_chars);
+    } else if let Some(label) = widget.downcast_ref::<gtk::Label>() {
         label.set_width_chars(-1);
         label.set_max_width_chars(width_chars);
     }
@@ -87,11 +91,11 @@ fn constrain_widget_labels(widget: &gtk::Widget, width_chars: i32) {
     let mut child = widget.first_child();
     while let Some(widget) = child {
         child = widget.next_sibling();
-        constrain_widget_labels(&widget, width_chars);
+        constrain_widget_width(&widget, width_chars);
     }
 }
 
-fn markdown_options() -> Options<'static> {
+pub(super) fn markdown_options() -> Options<'static> {
     let mut options = Options::default();
     options.extension.autolink = true;
     options.extension.strikethrough = true;
@@ -102,480 +106,209 @@ fn markdown_options() -> Options<'static> {
     options
 }
 
-fn append_block<'a>(parent: &gtk::Box, node: &'a AstNode<'a>) {
-    let value = node.data().value.clone();
-
-    match value {
-        NodeValue::Document => append_children(parent, node),
-        NodeValue::Paragraph => append_rich_paragraph(parent, node),
-        NodeValue::Heading(heading) => append_heading(parent, node, heading),
-        NodeValue::CodeBlock(block) => {
-            if math_view::is_math_language(&block.info) {
-                parent.append(&math_view::block(&block.literal));
-            } else {
-                parent.append(&code_view::code_block(&block));
-            }
-        }
-        NodeValue::Math(formula) => parent.append(&math_view::block(&formula.literal)),
-        NodeValue::BlockQuote | NodeValue::MultilineBlockQuote(_) => append_quote(parent, node),
-        NodeValue::List(list) => append_list(parent, node, list),
-        NodeValue::Item(_) => append_children(parent, node),
-        NodeValue::Table(table) => append_table(parent, node, &table.alignments),
-        NodeValue::ThematicBreak => parent.append(&separator()),
-        NodeValue::HtmlBlock(block) => append_plain_block(parent, &block.literal),
-        NodeValue::FrontMatter(value) => append_plain_block(parent, &value),
-        NodeValue::DescriptionList
-        | NodeValue::DescriptionItem(_)
-        | NodeValue::DescriptionTerm
-        | NodeValue::DescriptionDetails
-        | NodeValue::FootnoteDefinition(_)
-        | NodeValue::TableRow(_)
-        | NodeValue::TableCell
-        | NodeValue::TaskItem(_)
-        | NodeValue::Alert(_)
-        | NodeValue::Subtext
-        | NodeValue::BlockDirective(_) => append_children(parent, node),
-        _ => {
-            let markup = inline_markup(node);
-            if !markup.trim().is_empty() {
-                append_paragraph(parent, &markup);
-            } else {
-                append_children(parent, node);
-            }
-        }
-    }
+#[derive(Clone, Copy, Default)]
+struct BlockStyle {
+    left_margin: i32,
+    quote_depth: usize,
 }
 
-fn append_children<'a>(parent: &gtk::Box, node: &'a AstNode<'a>) {
-    for child in node.children() {
-        append_block(parent, child);
-    }
-}
-
-fn append_paragraph(parent: &gtk::Box, markup: &str) {
-    if markup.trim().is_empty() {
-        return;
-    }
-
-    let label = markdown_label(markup);
-    label.add_css_class("body");
-    label.add_css_class("moose-markdown-paragraph");
-    parent.append(&label);
-}
-
-fn has_math<'a>(node: &'a AstNode<'a>) -> bool {
-    node.descendants()
-        .any(|child| matches!(&child.data().value, NodeValue::Math(_)))
-}
-
-fn append_rich_paragraph<'a>(parent: &gtk::Box, node: &'a AstNode<'a>) {
-    if !has_math(node) {
-        append_paragraph(parent, &inline_markup_children(node));
-        return;
-    }
-    let mut paragraph = MathParagraph { parent, view: None };
-    for child in node.children() {
-        paragraph.append(child, &[]);
-    }
-}
-
-struct MathParagraph<'a> {
+struct Renderer<'a> {
     parent: &'a gtk::Box,
-    view: Option<gtk::TextView>,
+    view: Option<MarkdownTextView>,
+    pending_break: usize,
+    prefix: Option<(String, i32)>,
 }
 
-impl MathParagraph<'_> {
-    fn view(&mut self) -> gtk::TextView {
-        let parent = self.parent;
+impl<'r> Renderer<'r> {
+    fn new(parent: &'r gtk::Box) -> Self {
+        Self {
+            parent,
+            view: None,
+            pending_break: 2,
+            prefix: None,
+        }
+    }
+
+    fn view(&mut self) -> MarkdownTextView {
         self.view
             .get_or_insert_with(|| {
-                let view = gtk::TextView::builder()
-                    .editable(false)
-                    .cursor_visible(false)
-                    .wrap_mode(gtk::WrapMode::WordChar)
-                    .hexpand(true)
-                    .width_request(240)
-                    .pixels_above_lines(2)
-                    .pixels_below_lines(2)
-                    .build();
-                view.add_css_class("moose-math-paragraph");
-                parent.append(&view);
+                let view = MarkdownTextView::new();
+                self.parent.append(&view);
                 view
             })
             .clone()
     }
 
-    fn insert_markup(&mut self, markup: &str, styles: &[(&str, &str)]) {
-        if markup.is_empty() || (self.view.is_none() && markup.trim().is_empty()) {
+    fn begin_block(
+        &mut self,
+        style: BlockStyle,
+        heading: Option<u8>,
+    ) -> (MarkdownTextView, i32, gtk::TextTag) {
+        let view = self.view();
+        if view.buffer().char_count() > 0 {
+            let start = view.buffer().char_count();
+            view.append_text(&"\n".repeat(self.pending_break));
+            if self.pending_break > 1 {
+                let tag = view.tag("block-spacing", &[("scale", &0.35f64)]);
+                view.apply_tag(&tag, start + 1);
+            }
+        }
+        self.pending_break = 2;
+        let start = view.buffer().char_count();
+        let prefix = self.prefix.take();
+        let name = format!(
+            "block:{}:{}:{heading:?}",
+            style.left_margin, style.quote_depth
+        );
+        let tag = view.tag(&name, &[("left-margin", &style.left_margin)]);
+        if style.quote_depth > 0 {
+            tag.set_paragraph_background_rgba(Some(&gtk::gdk::RGBA::new(0.5, 0.5, 0.5, 0.08)));
+        }
+        if let Some(level) = heading {
+            tag.set_weight(700);
+            tag.set_scale(match level {
+                1 => 1.22,
+                2 => 1.14,
+                3 => 1.06,
+                _ => 1.0,
+            });
+        }
+        if let Some((prefix, width)) = prefix {
+            let hanging = view.tag(&format!("list-indent:{width}"), &[("indent", &-width)]);
+            view.append_text(&prefix);
+            view.apply_tag(&hanging, start);
+        }
+        (view, start, tag)
+    }
+
+    fn append_plain(&mut self, content: &str, style: BlockStyle) {
+        if content.is_empty() && self.prefix.is_none() {
             return;
         }
-        let mut formatted = String::new();
-        for (open, _) in styles {
-            formatted.push_str(open);
-        }
-        formatted.push_str(markup);
-        for (_, close) in styles.iter().rev() {
-            formatted.push_str(close);
-        }
-        let buffer = self.view().buffer();
-        buffer.insert_markup(&mut buffer.end_iter(), &formatted);
+        let (view, start, tag) = self.begin_block(style, None);
+        view.append_text(content);
+        view.apply_tag(&tag, start);
     }
 
-    fn insert_widget(&mut self, widget: &impl IsA<gtk::Widget>) {
-        let view = self.view();
-        let buffer = view.buffer();
-        let anchor = buffer.create_child_anchor(&mut buffer.end_iter());
-        view.add_child_at_anchor(widget, &anchor);
+    fn append_paragraph<'a>(
+        &mut self,
+        node: &'a AstNode<'a>,
+        style: BlockStyle,
+        heading: Option<u8>,
+    ) {
+        let (view, start, tag) = self.begin_block(style, heading);
+        view.append_children(node);
+        view.apply_tag(&tag, start);
     }
 
-    fn append<'a>(&mut self, node: &'a AstNode<'a>, styles: &[(&str, &str)]) {
+    fn append_widget(&mut self, widget: &impl IsA<gtk::Widget>, style: BlockStyle) {
+        if self.prefix.is_some() {
+            self.append_plain("", style);
+        }
+        widget.set_margin_start(style.left_margin);
+        self.parent.append(widget);
+        self.view = None;
+        self.pending_break = 2;
+    }
+
+    fn append_children<'a>(&mut self, node: &'a AstNode<'a>, style: BlockStyle) {
+        for child in node.children() {
+            self.append_block(child, style);
+        }
+    }
+
+    fn append_block<'a>(&mut self, node: &'a AstNode<'a>, style: BlockStyle) {
         let value = node.data().value.clone();
         match value {
+            NodeValue::Paragraph => self.append_paragraph(node, style, None),
+            NodeValue::Heading(heading) => self.append_paragraph(node, style, Some(heading.level)),
+            NodeValue::CodeBlock(block) => {
+                if math_view::is_math_language(&block.info) {
+                    self.append_widget(&math_view::block(&block.literal), style);
+                } else {
+                    self.append_widget(&code_view::code_block(&block), style);
+                }
+            }
             NodeValue::Math(formula) => {
-                if !formula.display_math {
-                    if let Some(widget) = math_view::inline(&formula.literal) {
-                        self.insert_widget(&widget);
-                        return;
+                self.append_widget(&math_view::block(&formula.literal), style)
+            }
+            NodeValue::BlockQuote | NodeValue::MultilineBlockQuote(_) => {
+                self.append_children(
+                    node,
+                    BlockStyle {
+                        left_margin: style.left_margin + 16,
+                        quote_depth: style.quote_depth + 1,
+                    },
+                );
+            }
+            NodeValue::List(list) => self.append_list(node, list, style),
+            NodeValue::Table(table) => {
+                self.append_widget(&table_view::render(node, &table.alignments), style)
+            }
+            NodeValue::ThematicBreak => {
+                let separator = gtk::Separator::new(Orientation::Horizontal);
+                separator.add_css_class("moose-markdown-separator");
+                self.append_widget(&separator, style);
+            }
+            NodeValue::HtmlBlock(block) => self.append_plain(&block.literal, style),
+            NodeValue::FrontMatter(content) => self.append_plain(&content, style),
+            _ if node.first_child().is_some() => self.append_children(node, style),
+            _ => {
+                let (view, start, tag) = self.begin_block(style, None);
+                view.append_inline(node);
+                view.apply_tag(&tag, start);
+            }
+        }
+    }
+
+    fn append_list<'a>(&mut self, node: &'a AstNode<'a>, list: NodeList, style: BlockStyle) {
+        if self.prefix.is_some() {
+            self.append_plain("", style);
+        }
+        if list.tight && style.left_margin > 0 {
+            self.pending_break = 1;
+        }
+        let start = list.start;
+        for (index, item) in node.children().enumerate() {
+            if index > 0 {
+                self.pending_break = if list.tight { 1 } else { 2 };
+            }
+            let marker = match &item.data().value {
+                NodeValue::TaskItem(task) => {
+                    if task.symbol.is_some() {
+                        "☑ ".to_string()
+                    } else {
+                        "☐ ".to_string()
                     }
                 }
-                self.view = None;
-                self.parent.append(&math_view::block(&formula.literal));
-            }
-            NodeValue::Link(link) => {
-                let label = markdown_label(&link_markup(node, &link));
-                label.set_width_chars(-1);
-                label.set_max_width_chars(24);
-                label.set_hexpand(false);
-                self.insert_widget(&label);
-            }
-            NodeValue::Emph
-            | NodeValue::Strong
-            | NodeValue::Strikethrough
-            | NodeValue::Underline
-            | NodeValue::Subscript
-            | NodeValue::Superscript => {
-                let style = match value {
-                    NodeValue::Emph => ("<i>", "</i>"),
-                    NodeValue::Strong => ("<b>", "</b>"),
-                    NodeValue::Strikethrough => ("<s>", "</s>"),
-                    NodeValue::Underline => ("<u>", "</u>"),
-                    NodeValue::Subscript => ("<span rise=\"-3000\" size=\"smaller\">", "</span>"),
-                    _ => ("<span rise=\"6000\" size=\"smaller\">", "</span>"),
-                };
-                let mut nested = styles.to_vec();
-                nested.push(style);
-                for child in node.children() {
-                    self.append(child, &nested);
-                }
-            }
-            _ if node.first_child().is_some() => {
-                for child in node.children() {
-                    self.append(child, styles);
-                }
-            }
-            _ => self.insert_markup(&inline_markup(node), styles),
-        }
-    }
-}
-
-fn append_heading<'a>(parent: &gtk::Box, node: &'a AstNode<'a>, heading: NodeHeading) {
-    if has_math(node) {
-        let content = gtk::Box::new(Orientation::Vertical, 6);
-        content.add_css_class("heading");
-        content.add_css_class("moose-markdown-heading");
-        append_rich_paragraph(&content, node);
-        parent.append(&content);
-        return;
-    }
-    let label = markdown_label(&format!("<b>{}</b>", inline_markup_children(node)));
-    label.add_css_class("heading");
-    label.add_css_class("moose-markdown-heading");
-    label.add_css_class(&format!(
-        "moose-markdown-heading-{}",
-        heading.level.clamp(1, 6)
-    ));
-    parent.append(&label);
-}
-
-fn append_quote<'a>(parent: &gtk::Box, node: &'a AstNode<'a>) {
-    let quote = gtk::Box::builder()
-        .orientation(Orientation::Vertical)
-        .spacing(6)
-        .hexpand(true)
-        .halign(Align::Fill)
-        .build();
-    quote.add_css_class("moose-markdown-quote");
-    append_children(&quote, node);
-    parent.append(&quote);
-}
-
-fn append_plain_block(parent: &gtk::Box, content: &str) {
-    append_paragraph(parent, &escape(content));
-}
-
-fn append_list<'a>(parent: &gtk::Box, node: &'a AstNode<'a>, list: NodeList) {
-    let list_box = gtk::Box::builder()
-        .orientation(Orientation::Vertical)
-        .spacing(5)
-        .hexpand(true)
-        .halign(Align::Fill)
-        .build();
-    list_box.add_css_class("moose-markdown-list");
-
-    let start = if list.start == 0 { 1 } else { list.start };
-
-    for (index, item) in node.children().enumerate() {
-        let marker = match list.list_type {
-            ListType::Ordered => format!("{}.", start + index),
-            ListType::Bullet => "-".to_string(),
-        };
-        append_list_item(&list_box, item, &marker);
-    }
-
-    parent.append(&list_box);
-}
-
-fn append_list_item<'a>(parent: &gtk::Box, item: &'a AstNode<'a>, marker: &str) {
-    let row = gtk::Box::builder()
-        .orientation(Orientation::Horizontal)
-        .spacing(8)
-        .hexpand(true)
-        .halign(Align::Fill)
-        .build();
-    row.add_css_class("moose-markdown-list-item");
-
-    let content = gtk::Box::builder()
-        .orientation(Orientation::Vertical)
-        .spacing(5)
-        .hexpand(true)
-        .halign(Align::Fill)
-        .build();
-
-    let children = item.children().collect::<Vec<_>>();
-    if let Some((checked, task_node)) = task_item(&children) {
-        let check = gtk::CheckButton::builder()
-            .active(checked)
-            .sensitive(false)
-            .valign(Align::Start)
-            .build();
-        check.add_css_class("moose-markdown-task");
-        row.append(&check);
-        for child in task_node.children() {
-            append_block(&content, child);
-        }
-        for child in children.into_iter().skip(1) {
-            append_block(&content, child);
-        }
-    } else {
-        row.append(&list_marker(marker));
-        for child in children {
-            append_block(&content, child);
-        }
-    }
-
-    row.append(&content);
-    parent.append(&row);
-}
-
-fn task_item<'a>(children: &[&'a AstNode<'a>]) -> Option<(bool, &'a AstNode<'a>)> {
-    let node = children.first().copied()?;
-    match &node.data().value {
-        NodeValue::TaskItem(task) => Some((task.symbol.is_some(), node)),
-        _ => None,
-    }
-}
-
-fn list_marker(marker: &str) -> gtk::Label {
-    let label = gtk::Label::builder()
-        .label(marker)
-        .halign(Align::Start)
-        .valign(Align::Start)
-        .width_chars(3)
-        .xalign(1.0)
-        .build();
-    label.add_css_class("dim-label");
-    label.add_css_class("moose-markdown-list-marker");
-    label
-}
-
-fn append_table<'a>(parent: &gtk::Box, node: &'a AstNode<'a>, alignments: &[TableAlignment]) {
-    let grid = gtk::Grid::builder()
-        .column_spacing(0)
-        .row_spacing(0)
-        .hexpand(true)
-        .halign(Align::Start)
-        .build();
-    grid.add_css_class("moose-markdown-table");
-
-    for (row_index, row) in node.children().enumerate() {
-        let header = matches!(row.data().value.clone(), NodeValue::TableRow(true));
-        for (column_index, cell) in row.children().enumerate() {
-            if has_math(cell) {
-                let content = gtk::Box::new(Orientation::Vertical, 6);
-                content.add_css_class("moose-markdown-table-cell");
-                if header {
-                    content.add_css_class("moose-markdown-table-header");
-                }
-                append_rich_paragraph(&content, cell);
-                grid.attach(&content, column_index as i32, row_index as i32, 1, 1);
-                continue;
-            }
-            let label = table_cell_label(
-                &inline_markup_children(cell),
-                alignments.get(column_index).copied(),
-            );
-            if header {
-                label.add_css_class("moose-markdown-table-header");
-            }
-            grid.attach(&label, column_index as i32, row_index as i32, 1, 1);
-        }
-    }
-
-    let scrolled = gtk::ScrolledWindow::builder()
-        .child(&grid)
-        .hexpand(true)
-        .hscrollbar_policy(PolicyType::Automatic)
-        .vscrollbar_policy(PolicyType::Never)
-        .build();
-    scrolled.add_css_class("moose-markdown-table-scroll");
-    parent.append(&scrolled);
-}
-
-fn table_xalign(alignment: Option<TableAlignment>) -> f32 {
-    match alignment {
-        Some(TableAlignment::Center) => 0.5,
-        Some(TableAlignment::Right) => 1.0,
-        _ => 0.0,
-    }
-}
-
-fn separator() -> gtk::Separator {
-    let separator = gtk::Separator::new(Orientation::Horizontal);
-    separator.add_css_class("moose-markdown-separator");
-    separator
-}
-
-fn markdown_label(markup: &str) -> gtk::Label {
-    let label = gtk::Label::builder()
-        .halign(Align::Fill)
-        .hexpand(true)
-        .selectable(true)
-        .wrap(true)
-        .wrap_mode(gtk::pango::WrapMode::WordChar)
-        .natural_wrap_mode(gtk::NaturalWrapMode::Word)
-        .width_chars(1)
-        .max_width_chars(120)
-        .xalign(0.0)
-        .build();
-    label.set_markup(markup);
-    label.add_css_class("moose-markdown-label");
-    bind_label_links(&label);
-    label
-}
-
-fn table_cell_label(markup: &str, alignment: Option<TableAlignment>) -> gtk::Label {
-    let label = gtk::Label::builder()
-        .halign(Align::Fill)
-        .selectable(true)
-        .wrap(true)
-        .wrap_mode(gtk::pango::WrapMode::WordChar)
-        .natural_wrap_mode(gtk::NaturalWrapMode::Word)
-        .width_chars(12)
-        .max_width_chars(36)
-        .xalign(table_xalign(alignment))
-        .build();
-    label.set_markup(markup);
-    label.add_css_class("moose-markdown-label");
-    label.add_css_class("moose-markdown-table-cell");
-    bind_label_links(&label);
-    label
-}
-
-fn bind_label_links(label: &gtk::Label) {
-    label.connect_activate_link(|_, uri| {
-        let Some(uri) = safe_uri(uri) else {
-            return glib::Propagation::Stop;
-        };
-        gtk::UriLauncher::new(&uri).launch(
-            None::<&gtk::Window>,
-            None::<&gtk::gio::Cancellable>,
-            |_| {},
-        );
-        glib::Propagation::Stop
-    });
-}
-
-fn inline_markup_children<'a>(node: &'a AstNode<'a>) -> String {
-    node.children().map(inline_markup).collect::<String>()
-}
-
-fn inline_markup<'a>(node: &'a AstNode<'a>) -> String {
-    let value = node.data().value.clone();
-
-    match value {
-        NodeValue::Text(text) => escape(&text),
-        NodeValue::Code(NodeCode { literal, .. }) => {
-            format!(
-                "<span font_family=\"monospace\">{}</span>",
-                escape(&literal)
-            )
-        }
-        NodeValue::SoftBreak => "\n".to_string(),
-        NodeValue::LineBreak => "\n".to_string(),
-        NodeValue::Emph => format!("<i>{}</i>", inline_markup_children(node)),
-        NodeValue::Strong => format!("<b>{}</b>", inline_markup_children(node)),
-        NodeValue::Strikethrough => format!("<s>{}</s>", inline_markup_children(node)),
-        NodeValue::Link(link) => link_markup(node, &link),
-        NodeValue::Image(link) => image_markup(node, &link),
-        NodeValue::HtmlInline(value) => escape(&value),
-        NodeValue::Math(value) => escape(&value.literal),
-        NodeValue::WikiLink(link) => escape(&link.url),
-        NodeValue::Underline => format!("<u>{}</u>", inline_markup_children(node)),
-        NodeValue::Subscript => format!(
-            "<span rise=\"-3000\" size=\"smaller\">{}</span>",
-            inline_markup_children(node)
-        ),
-        NodeValue::Superscript => format!(
-            "<span rise=\"6000\" size=\"smaller\">{}</span>",
-            inline_markup_children(node)
-        ),
-        NodeValue::Highlight
-        | NodeValue::Insert
-        | NodeValue::SpoileredText
-        | NodeValue::Escaped => inline_markup_children(node),
-        NodeValue::EscapedTag(value) => escape(value),
-        NodeValue::TaskItem(task) => {
-            let state = if task.symbol.is_some() {
-                "[x] "
-            } else {
-                "[ ] "
+                _ => match list.list_type {
+                    ListType::Ordered => {
+                        let delimiter = match list.delimiter {
+                            ListDelimType::Period => '.',
+                            ListDelimType::Paren => ')',
+                        };
+                        format!("{}{delimiter} ", start.saturating_add(index))
+                    }
+                    ListType::Bullet => "- ".to_string(),
+                },
             };
-            format!("{}{}", state, inline_markup_children(node))
+            let width = self
+                .parent
+                .create_pango_layout(Some(&marker))
+                .pixel_size()
+                .0
+                .max(1);
+            self.prefix = Some((marker, width));
+            let item_style = BlockStyle {
+                left_margin: style.left_margin + width + 12,
+                ..style
+            };
+            self.append_children(item, item_style);
+            if self.prefix.is_some() {
+                self.append_plain("", item_style);
+            }
         }
-        _ => inline_markup_children(node),
-    }
-}
-
-fn link_markup<'a>(node: &'a AstNode<'a>, link: &NodeLink) -> String {
-    let text = inline_markup_children(node);
-    let text = if text.is_empty() {
-        escape(&link.url)
-    } else {
-        text
-    };
-
-    match safe_uri(&link.url) {
-        Some(uri) => format!("<a href=\"{}\">{}</a>", escape(&uri), text),
-        None => text,
-    }
-}
-
-fn image_markup<'a>(node: &'a AstNode<'a>, link: &NodeLink) -> String {
-    let text = inline_markup_children(node);
-    if text.is_empty() {
-        escape(&link.url)
-    } else {
-        text
+        self.pending_break = 2;
     }
 }
 
@@ -585,8 +318,4 @@ fn safe_uri(value: &str) -> Option<String> {
         "http" | "https" | "mailto" => Some(url.to_string()),
         _ => None,
     }
-}
-
-fn escape(value: &str) -> String {
-    glib::markup_escape_text(value).to_string()
 }
