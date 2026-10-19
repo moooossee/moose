@@ -115,13 +115,18 @@ fn parse(kind: ProviderKind, data: &[u8]) -> Result<Vec<ChatStreamEvent>> {
             ProviderKind::Groq
                 | ProviderKind::Mistral
                 | ProviderKind::DeepSeek
+                | ProviderKind::Nvidia
+                | ProviderKind::Cloudflare
                 | ProviderKind::Custom
         )
     {
         return Ok(vec![ChatStreamEvent::Done]);
     }
     let v: Value = serde_json::from_slice(data).map_err(|_| invalid())?;
-    if v.get("error").is_some_and(|e| !e.is_null()) || v["type"] == "error" {
+    if v.get("error").is_some_and(|e| !e.is_null())
+        || v["type"] == "error"
+        || (kind == ProviderKind::Cloudflare && v["success"].as_bool() == Some(false))
+    {
         return Err(MooseError::ProviderResponse(
             "The provider reported an error while generating the answer.".into(),
         ));
@@ -152,10 +157,12 @@ fn parse(kind: ProviderKind, data: &[u8]) -> Result<Vec<ChatStreamEvent>> {
         ProviderKind::Groq
         | ProviderKind::Mistral
         | ProviderKind::DeepSeek
+        | ProviderKind::Nvidia
+        | ProviderKind::Cloudflare
         | ProviderKind::Custom => {
             if let Some(choice) = v["choices"].as_array().and_then(|c| c.first()) {
                 match kind {
-                    ProviderKind::Custom => {
+                    ProviderKind::Nvidia | ProviderKind::Cloudflare | ProviderKind::Custom => {
                         content_tokens(&mut out, &choice["delta"]["content"], false);
                         let reasoning = choice["delta"]
                             .get("reasoning_content")
@@ -227,4 +234,76 @@ fn parse(kind: ProviderKind, data: &[u8]) -> Result<Vec<ChatStreamEvent>> {
         ProviderKind::Ollama => return Err(invalid()),
     }
     Ok(out)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    #[test]
+    fn new_providers_decode_fragmented_content_and_reasoning() {
+        for (kind, reasoning_key) in [
+            (ProviderKind::Nvidia, "reasoning_content"),
+            (ProviderKind::Cloudflare, "reasoning"),
+        ] {
+            let reasoning = json!({"choices":[{"delta":{(reasoning_key):"Thinking"}}]});
+            let content = json!({"choices":[{"delta":{"content":"Hello 🌍"}}]});
+            let finished = json!({"choices":[{"delta":{},"finish_reason":"stop"}]});
+            let stream = format!("data: {reasoning}\r\n\r\ndata: {content}\n\ndata: {finished}");
+            let mut decoder = Decoder::new(kind);
+            let mut events = Vec::new();
+            for chunk in stream.as_bytes().chunks(3) {
+                events.extend(decoder.push(chunk).unwrap());
+            }
+            events.extend(decoder.finish().unwrap());
+            assert_eq!(
+                events,
+                vec![
+                    ChatStreamEvent::Thinking("Thinking".into()),
+                    ChatStreamEvent::Token("Hello 🌍".into()),
+                    ChatStreamEvent::Done,
+                ]
+            );
+        }
+    }
+
+    #[test]
+    fn new_providers_accept_the_done_marker() {
+        for kind in [ProviderKind::Nvidia, ProviderKind::Cloudflare] {
+            let mut decoder = Decoder::new(kind);
+            assert_eq!(
+                decoder.push(b"data: [DONE]\n\n").unwrap(),
+                vec![ChatStreamEvent::Done]
+            );
+        }
+    }
+
+    #[test]
+    fn new_providers_reject_incomplete_and_filtered_answers() {
+        for kind in [ProviderKind::Nvidia, ProviderKind::Cloudflare] {
+            for reason in ["length", "content_filter", "tool_calls"] {
+                let value = json!({"choices":[{"delta":{},"finish_reason":reason}]});
+                assert!(parse(kind, value.to_string().as_bytes()).is_err());
+            }
+        }
+    }
+
+    #[test]
+    fn cloudflare_stream_errors_are_reported() {
+        assert!(
+            parse(
+                ProviderKind::Cloudflare,
+                br#"{"success":false,"errors":[{"code":10000}]}"#
+            )
+            .is_err()
+        );
+        assert!(
+            parse(
+                ProviderKind::Cloudflare,
+                br#"{"error":{"message":"Unavailable"}}"#
+            )
+            .is_err()
+        );
+    }
 }

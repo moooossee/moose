@@ -158,6 +158,7 @@ impl ProviderClient {
         if kind == ProviderKind::Cloudflare {
             url.query_pairs_mut().append_pair("per_page", "100");
         }
+        let first_page_url = url.clone();
         let mut models = Vec::new();
         for page in 1..=100 {
             self.check()?;
@@ -182,10 +183,7 @@ impl ProviderClient {
                         .filter(|s| !s.is_empty())
                         .map(|s| ("pageToken", s.to_owned()))
                 } else if kind == ProviderKind::Cloudflare {
-                    let count = data["result"].as_array().map_or(0, Vec::len);
-                    let per_page =
-                        data["result_info"]["per_page"].as_u64().unwrap_or(100) as usize;
-                    if per_page > 0 && count >= per_page {
+                    if cloudflare_has_next_page(&data, page) {
                         Some(("page", (page + 1).to_string()))
                     } else {
                         None
@@ -194,10 +192,7 @@ impl ProviderClient {
                     None
                 };
             if let Some((key, token)) = next {
-                url = self.endpoint(path)?;
-                if kind == ProviderKind::Cloudflare {
-                    url.query_pairs_mut().append_pair("per_page", "100");
-                }
+                url = first_page_url.clone();
                 url.query_pairs_mut().append_pair(key, &token);
             } else {
                 models.sort_by(|a, b| a.name.cmp(&b.name));
@@ -244,11 +239,11 @@ impl ProviderClient {
             ProviderKind::OllamaCloud => self.endpoint("chat")?,
             ProviderKind::OpenAi => self.endpoint("responses")?,
             ProviderKind::Anthropic => self.endpoint("messages")?,
-            ProviderKind::Cloudflare => self.endpoint("v1/chat/completions")?,
             ProviderKind::Groq
             | ProviderKind::Mistral
             | ProviderKind::DeepSeek
             | ProviderKind::Nvidia
+            | ProviderKind::Cloudflare
             | ProviderKind::Custom => self.endpoint("chat/completions")?,
             ProviderKind::Gemini => {
                 let model = request
@@ -359,7 +354,10 @@ impl ProviderClient {
             unreachable!()
         };
         let mut url = self.endpoint("models/search")?;
-        url.query_pairs_mut().append_pair("search", &model);
+        url.query_pairs_mut()
+            .append_pair("search", &model)
+            .append_pair("per_page", "100")
+            .append_pair("format", "openrouter");
         let response = client
             .get(url)
             .timeout(Duration::from_secs(30))
@@ -367,17 +365,19 @@ impl ProviderClient {
             .await
             .map_err(network_error)?;
         let data = response_json(response).await?;
-        let Some(list) = data["result"].as_array() else {
+        let Some(list) = data["data"]
+            .as_array()
+            .or_else(|| data["result"].as_array())
+        else {
             return Err(MooseError::ProviderResponse(
                 "The provider returned invalid model capabilities.".into(),
             ));
         };
         list.iter()
             .find(|entry| {
-                entry["name"]
-                    .as_str()
-                    .or_else(|| entry["id"].as_str())
-                    .is_some_and(|id| id == model)
+                ["id", "name"]
+                    .iter()
+                    .any(|&field| entry[field].as_str() == Some(model.as_str()))
             })
             .cloned()
             .ok_or_else(|| {
@@ -402,13 +402,8 @@ impl ProviderClient {
             let Transport::Cloud(client) = &self.transport else {
                 unreachable!()
             };
-            let path = if self.provider.api_kind() == ProviderKind::Cloudflare {
-                "models/search"
-            } else {
-                "models"
-            };
             let response = client
-                .get(self.endpoint(path)?)
+                .get(self.endpoint("models")?)
                 .timeout(Duration::from_secs(30))
                 .send()
                 .await
@@ -428,10 +423,7 @@ impl ProviderClient {
         }
         if self.provider.kind == ProviderKind::Cloudflare {
             let data = self.cloudflare_model(model).await?;
-            if let Some(task) = data["task"]["name"].as_str() {
-                return Ok(task == "Image-Text-to-Text");
-            }
-            return Ok(wire::supports_images(self.provider.kind, model));
+            return Ok(model_vision(&data));
         }
         Ok(wire::supports_images(self.provider.kind, model))
     }
@@ -488,16 +480,14 @@ impl ProviderClient {
         ))
     }
     fn endpoint(&self, path: &str) -> Result<reqwest::Url> {
-        self.provider.kind.validate_url(&self.provider.base_url)?;
-        if self.provider.api_kind() == ProviderKind::Cloudflare {
-            let base = self.provider.base_url.trim_end_matches('/');
-            let base = base.strip_suffix("/v1").unwrap_or(base);
-            return Ok(reqwest::Url::parse(&format!("{base}/{path}"))?);
-        }
-        Ok(reqwest::Url::parse(&format!(
-            "{}/{path}",
-            self.provider.base_url
-        ))?)
+        let base = self.provider.kind.validate_url(&self.provider.base_url)?;
+        let base = if self.provider.kind == ProviderKind::Cloudflare && path == "models/search" {
+            base.strip_suffix("/v1")
+                .ok_or(MooseError::InvalidProviderUrl)?
+        } else {
+            &base
+        };
+        Ok(reqwest::Url::parse(&format!("{base}/{path}"))?)
     }
 }
 
@@ -591,8 +581,31 @@ async fn response_json(response: Response) -> Result<Value> {
         }
         bytes.extend_from_slice(&chunk);
     }
-    serde_json::from_slice(&bytes)
-        .map_err(|_| MooseError::ProviderResponse("The provider returned invalid JSON.".into()))
+    let data: Value = serde_json::from_slice(&bytes)
+        .map_err(|_| MooseError::ProviderResponse("The provider returned invalid JSON.".into()))?;
+    if data["success"].as_bool() == Some(false) {
+        return Err(MooseError::ProviderResponse(
+            "The provider rejected the request. Check your API token, account ID and permissions."
+                .into(),
+        ));
+    }
+    Ok(data)
+}
+
+fn cloudflare_has_next_page(data: &Value, page: u64) -> bool {
+    let count = data["result"].as_array().map_or(0, Vec::len);
+    if count == 0 {
+        return false;
+    }
+    if let Some(total_pages) = data["result_info"]["total_pages"].as_u64() {
+        return page < total_pages;
+    }
+    let per_page = data["result_info"]["per_page"]
+        .as_u64()
+        .and_then(|value| usize::try_from(value).ok())
+        .filter(|value| *value > 0)
+        .unwrap_or(100);
+    count >= per_page
 }
 
 fn parse_models(kind: ProviderKind, data: &Value, custom: bool) -> Result<Vec<OllamaModel>> {
@@ -738,14 +751,121 @@ fn custom_model_vision(data: &Value, model: &str) -> bool {
                     })
             })
         })
-        .is_some_and(|entry| {
-            entry["capabilities"]["vision"].as_bool() == Some(true)
-                || entry["task"]["name"].as_str() == Some("Image-Text-to-Text")
-                || entry["architecture"]["input_modalities"]
-                    .as_array()
-                    .or_else(|| entry["input_modalities"].as_array())
-                    .is_some_and(|modalities| {
-                        modalities.iter().any(|modality| modality == "image")
-                    })
-        })
+        .is_some_and(model_vision)
+}
+
+fn model_vision(entry: &Value) -> bool {
+    entry["capabilities"]["vision"].as_bool() == Some(true)
+        || entry["task"]["name"].as_str() == Some("Image-Text-to-Text")
+        || entry["architecture"]["input_modalities"]
+            .as_array()
+            .or_else(|| entry["input_modalities"].as_array())
+            .is_some_and(|modalities| modalities.iter().any(|modality| modality == "image"))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::providers::{NewProvider, cloudflare_base_url};
+
+    #[test]
+    fn cloudflare_endpoints_use_the_correct_api_version() {
+        let base = cloudflare_base_url("023e105f4ecef8ad9ca31a8372d0c353").unwrap();
+        let provider = NewProvider {
+            kind: ProviderKind::Cloudflare,
+            name: "Cloudflare".into(),
+            base_url: base.clone(),
+            is_managed: false,
+            is_default: false,
+        }
+        .into_provider()
+        .unwrap();
+        let transport = Transport::Cloud(http_client(&provider, None).unwrap());
+        let mut client = ProviderClient {
+            provider,
+            policy: NetworkPolicy::new(false),
+            transport,
+        };
+        let models = format!("{}/models/search", base.strip_suffix("/v1").unwrap());
+        for value in [base.as_str(), base.strip_suffix("/v1").unwrap()] {
+            client.provider.base_url = value.into();
+            assert_eq!(client.endpoint("models/search").unwrap().as_str(), models);
+            assert_eq!(
+                client.endpoint("chat/completions").unwrap().as_str(),
+                format!("{base}/chat/completions")
+            );
+        }
+        client.provider.base_url = "https://example.com/v1".into();
+        assert!(client.endpoint("chat/completions").is_err());
+    }
+
+    #[test]
+    fn cloudflare_catalog_excludes_non_chat_tasks() {
+        let data = json!({"result":[
+            {"name":"@cf/meta/llama-3.1-8b-instruct","task":{"name":"Text Generation"}},
+            {"name":"@cf/example/vision","task":{"name":"Image-Text-to-Text"}},
+            {"name":"@cf/baai/bge-base-en-v1.5","task":{"name":"Text Embeddings"}},
+            {"name":"@cf/example/speech","task":{"name":"Automatic Speech Recognition"}}
+        ]});
+        let models = parse_models(ProviderKind::Cloudflare, &data, false).unwrap();
+        assert_eq!(
+            models
+                .iter()
+                .map(|model| model.name.as_str())
+                .collect::<Vec<_>>(),
+            vec!["@cf/meta/llama-3.1-8b-instruct", "@cf/example/vision",]
+        );
+    }
+
+    #[test]
+    fn cloudflare_pagination_stops_at_the_last_page() {
+        let mut data = json!({"result":[{},{}],"result_info":{"per_page":2,"total_pages":2}});
+        assert!(cloudflare_has_next_page(&data, 1));
+        assert!(!cloudflare_has_next_page(&data, 2));
+        data["result_info"]
+            .as_object_mut()
+            .unwrap()
+            .remove("total_pages");
+        assert!(cloudflare_has_next_page(&data, 1));
+        data["result"] = json!([{}]);
+        assert!(!cloudflare_has_next_page(&data, 1));
+        data["result"] = json!([]);
+        data["result_info"]["total_pages"] = json!(10);
+        assert!(!cloudflare_has_next_page(&data, 1));
+    }
+
+    #[test]
+    fn cloudflare_vision_uses_model_modalities() {
+        assert!(model_vision(&json!({
+            "task":{"name":"Text Generation"},
+            "architecture":{"input_modalities":["text","image"]}
+        })));
+        assert!(model_vision(&json!({"task":{"name":"Image-Text-to-Text"}})));
+        assert!(!model_vision(&json!({
+            "task":{"name":"Text Generation"},
+            "architecture":{"input_modalities":["text"]}
+        })));
+    }
+
+    #[test]
+    fn nvidia_catalog_excludes_non_chat_models() {
+        let data = json!({"data":[
+            {"id":"meta/llama-3.1-8b-instruct"},
+            {"id":"nvidia/nemotron-nano-12b-v2-vl"},
+            {"id":"nvidia/nv-embed-v1"},
+            {"id":"nvidia/nv-rerankqa-mistral-4b-v3"},
+            {"id":"nvidia/llama-3.1-nemoguard-8b-content-safety"}
+        ]});
+        let models = parse_models(ProviderKind::Nvidia, &data, false).unwrap();
+        assert_eq!(
+            models
+                .iter()
+                .map(|model| model.name.as_str())
+                .collect::<Vec<_>>(),
+            vec![
+                "meta/llama-3.1-8b-instruct",
+                "nvidia/nemotron-nano-12b-v2-vl",
+            ]
+        );
+    }
 }
