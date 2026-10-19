@@ -780,7 +780,8 @@ mod tests {
         }
         .into_provider()
         .unwrap();
-        let transport = Transport::Cloud(http_client(&provider, None).unwrap());
+        let key = credentials::ApiKey::new("test-api-key".into()).unwrap();
+        let transport = Transport::Cloud(http_client(&provider, Some(&key)).unwrap());
         let mut client = ProviderClient {
             provider,
             policy: NetworkPolicy::new(false),
