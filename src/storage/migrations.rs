@@ -41,6 +41,10 @@ const MIGRATIONS: &[(i64, &str)] = &[
         13,
         include_str!("../../migrations/0013_custom_providers.sql"),
     ),
+    (
+        14,
+        include_str!("../../migrations/0014_nvidia_cloudflare_providers.sql"),
+    ),
 ];
 
 pub fn run_migrations(connection: &mut Connection) -> Result<()> {
@@ -65,7 +69,7 @@ pub fn run_migrations(connection: &mut Connection) -> Result<()> {
             continue;
         }
 
-        let rebuilds_parent = matches!(*version, 9 | 11 | 13);
+        let rebuilds_parent = matches!(*version, 9 | 11 | 13 | 14);
         if rebuilds_parent {
             connection.pragma_update(None, "foreign_keys", "OFF")?;
         }
@@ -123,6 +127,78 @@ mod tests {
     use rusqlite::Connection;
 
     use super::{require_migration, run_migrations};
+
+    #[test]
+    fn new_cloud_providers_migration_preserves_settings_and_history() {
+        let mut connection = Connection::open_in_memory().unwrap();
+        for (version, sql) in super::MIGRATIONS
+            .iter()
+            .filter(|(version, _)| *version < 14)
+        {
+            connection.execute_batch(sql).unwrap();
+            connection
+                .execute(
+                    "INSERT INTO schema_migrations VALUES (?1, '2026-01-01')",
+                    [version],
+                )
+                .unwrap();
+        }
+        let config = r#"{"protocol":"chat-completions","authentication":"none","models":[],"discover_models":true}"#;
+        connection.execute(
+            "INSERT INTO providers VALUES ('custom', 'custom', 'Custom', 'https://example.com/v1', 0, 1, '2026-01-01', '2026-01-01', ?1)",
+            [config],
+        ).unwrap();
+        connection.execute_batch(
+            "INSERT INTO conversations (id, provider_id, title, created_at, updated_at) VALUES ('chat', 'custom', 'Saved chat', '2026-01-01', '2026-01-01');
+             INSERT INTO messages (id, conversation_id, role, content, status, created_at) VALUES ('message', 'chat', 'user', 'Hello', 'complete', '2026-01-01');
+             INSERT INTO provider_remote_permissions VALUES ('custom', 'saved-destination', 1, 0);"
+        ).unwrap();
+        connection
+            .pragma_update(None, "foreign_keys", "ON")
+            .unwrap();
+        run_migrations(&mut connection).unwrap();
+        run_migrations(&mut connection).unwrap();
+        let saved: (String, bool) = connection
+            .query_row(
+                "SELECT custom_config, is_default FROM providers WHERE id = 'custom'",
+                [],
+                |row| Ok((row.get(0)?, row.get(1)?)),
+            )
+            .unwrap();
+        assert_eq!(saved, (config.into(), true));
+        let content: String = connection
+            .query_row(
+                "SELECT content FROM messages WHERE id = 'message'",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(content, "Hello");
+        let destination: String = connection
+            .query_row(
+                "SELECT destination FROM provider_remote_permissions WHERE provider_id = 'custom'",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(destination, "saved-destination");
+        for kind in ["nvidia", "cloudflare"] {
+            connection.execute(
+                "INSERT INTO providers VALUES (?1, ?1, ?1, 'https://example.com', 0, 0, '2026-01-01', '2026-01-01', NULL)",
+                [kind],
+            ).unwrap();
+        }
+        let violations: i64 = connection
+            .query_row("SELECT COUNT(*) FROM pragma_foreign_key_check", [], |row| {
+                row.get(0)
+            })
+            .unwrap();
+        assert_eq!(violations, 0);
+        let foreign_keys: bool = connection
+            .pragma_query_value(None, "foreign_keys", |row| row.get(0))
+            .unwrap();
+        assert!(foreign_keys);
+    }
 
     #[test]
     fn message_versions_migration_preserves_existing_history() {

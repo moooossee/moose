@@ -1,6 +1,6 @@
 use super::*;
 use crate::providers::{
-    NewProvider,
+    NewProvider, cloudflare_base_url,
     credentials::{self, ApiKey},
     policy::{RemotePermissions, destination},
     validate_provider_name,
@@ -85,6 +85,18 @@ fn show_connection(ui: &Rc<WindowUi>, backend: &Rc<Backend>, previous: Option<Pr
         .subtitle_lines(2)
         .visible(initial_kind != ProviderKind::Custom)
         .build();
+    let account_id = adw::EntryRow::builder()
+        .title("Cloudflare Account ID")
+        .visible(initial_kind == ProviderKind::Cloudflare)
+        .build();
+    let account_hint = gtk::Label::builder()
+        .label("Find your account ID in the Cloudflare dashboard. Enter an API token with Workers AI permission below.")
+        .wrap(true)
+        .width_chars(1)
+        .xalign(0.0)
+        .visible(initial_kind == ProviderKind::Cloudflare)
+        .build();
+    account_hint.add_css_class("dim-label");
     let custom_url = adw::EntryRow::builder()
         .title("Base URL")
         .text(
@@ -104,6 +116,7 @@ fn show_connection(ui: &Rc<WindowUi>, backend: &Rc<Backend>, previous: Option<Pr
     url_hint.add_css_class("dim-label");
     group.add(&kinds);
     group.add(&name);
+    group.add(&account_id);
     group.add(&endpoint);
     group.add(&custom_url);
     let custom_fields = CustomProviderFields::new(
@@ -134,6 +147,21 @@ fn show_connection(ui: &Rc<WindowUi>, backend: &Rc<Backend>, previous: Option<Pr
             key.set_text("");
         }
     });
+    let target_key = key.downgrade();
+    let target_endpoint = endpoint.downgrade();
+    let target_message_permission = message_permission.clone();
+    account_id.connect_text_notify(move |row| {
+        if let Some(key) = target_key.upgrade() {
+            key.set_text("");
+        }
+        target_message_permission.set_selected(0);
+        if let Some(endpoint) = target_endpoint.upgrade() {
+            endpoint.set_subtitle(
+                &cloudflare_base_url(&row.text())
+                    .unwrap_or_else(|_| "Enter a valid account ID".into()),
+            );
+        }
+    });
     let key_group = adw::PreferencesGroup::builder()
         .title("API Key")
         .description("Saved securely in your desktop keyring and excluded from chats and exports.")
@@ -157,6 +185,7 @@ fn show_connection(ui: &Rc<WindowUi>, backend: &Rc<Backend>, previous: Option<Pr
     content.add_css_class("moose-instance-content");
     content.append(&description);
     content.append(&group);
+    content.append(&account_hint);
     content.append(&url_hint);
     content.append(&custom_fields.connection_group);
     content.append(&key_group);
@@ -224,14 +253,25 @@ fn show_connection(ui: &Rc<WindowUi>, backend: &Rc<Backend>, previous: Option<Pr
     let target_message_permission = message_permission.clone();
     let target_custom_fields = custom_fields.clone();
     let target_custom_url = custom_url.clone();
+    let target_account_id = account_id.clone();
     kinds.connect_selected_notify(move |row| {
         let kind = ProviderKind::CLOUD[row.selected() as usize];
         let custom = kind == ProviderKind::Custom;
         target_key.set_text("");
         target_message_permission.set_selected(0);
         target_name.set_text(kind.label());
-        endpoint.set_subtitle(kind.default_base_url().unwrap_or_default());
+        let cloudflare = kind == ProviderKind::Cloudflare;
+        if cloudflare {
+            endpoint.set_subtitle(
+                &cloudflare_base_url(&target_account_id.text())
+                    .unwrap_or_else(|_| "Enter your Cloudflare account ID".into()),
+            );
+        } else {
+            endpoint.set_subtitle(kind.default_base_url().unwrap_or_default());
+        }
         endpoint.set_visible(!custom);
+        target_account_id.set_visible(cloudflare);
+        account_hint.set_visible(cloudflare);
         target_custom_url.set_visible(custom);
         url_hint.set_visible(custom);
         target_custom_fields.set_visible(custom);
@@ -266,12 +306,15 @@ fn show_connection(ui: &Rc<WindowUi>, backend: &Rc<Backend>, previous: Option<Pr
                 NewProvider {
                     kind,
                     name: name.text().to_string(),
-                    base_url: if kind == ProviderKind::Custom {
-                        custom_url.text().to_string()
-                    } else {
-                        kind.default_base_url()
+                    base_url: match kind {
+                        ProviderKind::Custom => custom_url.text().to_string(),
+                        ProviderKind::Cloudflare => cloudflare_base_url(&account_id.text())
+                            .map_err(|_| MooseError::ProviderRequest(
+                                "Enter a valid Cloudflare account ID (32 hexadecimal characters).".into(),
+                            ))?,
+                        _ => kind.default_base_url()
                             .ok_or(MooseError::InvalidProviderUrl)?
-                            .into()
+                            .into(),
                     },
                     is_managed: false,
                     is_default: true,

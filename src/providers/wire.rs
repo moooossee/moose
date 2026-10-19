@@ -39,6 +39,8 @@ pub(super) fn request(kind: ProviderKind, request: &ChatRequest) -> Result<Value
         ProviderKind::Groq
         | ProviderKind::Mistral
         | ProviderKind::DeepSeek
+        | ProviderKind::Nvidia
+        | ProviderKind::Cloudflare
         | ProviderKind::Custom => chat_completions(kind, request),
         ProviderKind::Anthropic => anthropic(request),
         ProviderKind::Gemini => gemini(request),
@@ -191,6 +193,16 @@ pub(super) fn supports_images(kind: ProviderKind, model: &str) -> bool {
         ProviderKind::DeepSeek => {
             matches!(model, "deepseek-flash" | "deepseek-v4-flash-vision-exp")
         }
+        ProviderKind::Nvidia => {
+            matches!(
+                model,
+                "meta/llama-3.2-11b-vision-instruct"
+                    | "meta/llama-3.2-90b-vision-instruct"
+                    | "microsoft/phi-3.5-vision-instruct"
+                    | "nvidia/nemotron-nano-12b-v2-vl"
+            ) || model.starts_with("qwen/qwen2.5-vl-")
+                || model.starts_with("qwen/qwen3.5-")
+        }
         _ => false,
     }
 }
@@ -239,5 +251,100 @@ pub(super) fn thinking_values(kind: ProviderKind, model: &str) -> Vec<ThinkingVa
             .to_vec()
     } else {
         Vec::new()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::chat::ChatOptions;
+
+    fn chat_request(model: &str) -> ChatRequest {
+        ChatRequest {
+            think: None,
+            model: model.into(),
+            messages: vec![
+                ChatMessage::system("Be helpful."),
+                ChatMessage {
+                    role: ChatRole::User,
+                    content: "Hello".into(),
+                    images: Vec::new(),
+                },
+            ],
+            stream: true,
+            format: None,
+            options: Some(ChatOptions {
+                temperature: Some(0.7),
+                top_p: Some(0.9),
+                ..Default::default()
+            }),
+        }
+    }
+
+    #[test]
+    fn new_providers_send_chat_completion_requests() {
+        for (kind, model) in [
+            (ProviderKind::Nvidia, "meta/llama-3.1-8b-instruct"),
+            (ProviderKind::Cloudflare, "@cf/meta/llama-3.1-8b-instruct"),
+        ] {
+            let body = request(kind, &chat_request(model)).unwrap();
+            assert_eq!(body["model"], model);
+            assert_eq!(body["stream"], true);
+            assert_eq!(
+                body["messages"][0],
+                json!({"role":"system","content":"Be helpful."})
+            );
+            assert_eq!(
+                body["messages"][1],
+                json!({"role":"user","content":"Hello"})
+            );
+            assert_eq!(body["temperature"], 0.7);
+            assert_eq!(body["top_p"], 0.9);
+            assert!(body.get("store").is_none());
+            assert!(body.get("reasoning_effort").is_none());
+        }
+    }
+
+    #[test]
+    fn new_providers_encode_user_images_and_reject_assistant_images() {
+        for kind in [ProviderKind::Nvidia, ProviderKind::Cloudflare] {
+            let mut chat = chat_request("vision-model");
+            chat.messages[1].images.push("iVBORexample".into());
+            let body = request(kind, &chat).unwrap();
+            assert_eq!(
+                body["messages"][1]["content"][1],
+                json!({
+                    "type":"image_url",
+                    "image_url":{"url":"data:image/png;base64,iVBORexample"}
+                })
+            );
+            chat.messages[1].role = ChatRole::Assistant;
+            assert!(request(kind, &chat).is_err());
+        }
+    }
+
+    #[test]
+    fn new_providers_reject_unsupported_tool_messages() {
+        for kind in [ProviderKind::Nvidia, ProviderKind::Cloudflare] {
+            let mut chat = chat_request("chat-model");
+            chat.messages[1].role = ChatRole::Tool;
+            assert!(request(kind, &chat).is_err());
+        }
+    }
+
+    #[test]
+    fn nvidia_vision_support_excludes_text_models() {
+        assert!(supports_images(
+            ProviderKind::Nvidia,
+            "nvidia/nemotron-nano-12b-v2-vl"
+        ));
+        assert!(supports_images(
+            ProviderKind::Nvidia,
+            "qwen/qwen3.5-122b-a10b"
+        ));
+        assert!(!supports_images(
+            ProviderKind::Nvidia,
+            "meta/llama-3.1-8b-instruct"
+        ));
     }
 }
