@@ -50,6 +50,8 @@ impl LiveMarkdown {
             .spacing(8)
             .hexpand(true)
             .halign(Align::Fill)
+            .vexpand(false)
+            .valign(Align::Start)
             .build();
         root.add_css_class("moose-message-content");
         root.add_css_class("moose-markdown-content");
@@ -61,6 +63,15 @@ impl LiveMarkdown {
 
     pub(super) fn widget(&self) -> &gtk::Box {
         &self.root
+    }
+
+    pub(super) fn finish(&self, content: &str) {
+        markdown_view::update(&self.root, content);
+        *self.state.borrow_mut() = LiveState {
+            source: content.to_string(),
+            committed: content.len(),
+            ..LiveState::default()
+        };
     }
 
     pub(super) fn update(&self, content: &str) {

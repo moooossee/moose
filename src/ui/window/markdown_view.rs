@@ -21,6 +21,8 @@ pub(super) fn render(content: &str) -> gtk::Box {
         .spacing(8)
         .hexpand(true)
         .halign(Align::Fill)
+        .vexpand(false)
+        .valign(Align::Start)
         .build();
     root.add_css_class("moose-message-content");
     root.add_css_class("moose-markdown-content");

@@ -71,6 +71,8 @@ pub(super) fn build() -> Chat {
         .orientation(Orientation::Vertical)
         .spacing(12)
         .hexpand(true)
+        .vexpand(false)
+        .valign(Align::Start)
         .build();
     messages.add_css_class("moose-chat-column");
 
@@ -423,6 +425,8 @@ pub(super) fn append_message(
         .spacing(6)
         .halign(Align::Fill)
         .hexpand(true)
+        .vexpand(false)
+        .valign(Align::Start)
         .build();
     let role_label = gtk::Label::builder()
         .label(message_header_label(role, created_at))
@@ -477,6 +481,8 @@ pub(super) fn append_streaming_message(
         .spacing(6)
         .halign(Align::Fill)
         .hexpand(true)
+        .vexpand(false)
+        .valign(Align::Start)
         .build();
     let role_label = gtk::Label::builder()
         .label(message_header_label(model, created_at))
@@ -578,6 +584,19 @@ pub(super) fn update_streaming_message(
     } else if previous_length > reasoning.len() {
         message.reasoning_text.set_text(reasoning);
     }
+}
+
+pub(super) fn finish_streaming_message(
+    message: &StreamingMessage,
+    content: &str,
+    reasoning: &str,
+    elapsed: u64,
+    reasoning_ms: i64,
+) {
+    update_streaming_message(message, content, reasoning, elapsed, reasoning_ms);
+    message.content.finish(content);
+    message.spinner.stop();
+    message.indicator.set_visible(false);
 }
 
 fn reasoning_section() -> (gtk::Expander, gtk::TextBuffer) {

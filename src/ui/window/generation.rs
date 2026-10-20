@@ -272,13 +272,29 @@ pub(super) fn start(
                 *backend.active_assistant_content.borrow_mut() = "No response generated.".into();
             }
             backend.active_generation.borrow_mut().take();
-            if let Err(error) = persist_active_assistant_message(&backend, status) {
-                ui.toast_overlay.add_toast(adw::Toast::new(&format!(
-                    "Response could not be saved: {error}"
-                )));
-            }
+            let saved = match persist_active_assistant_message(&backend, status) {
+                Ok(()) => true,
+                Err(error) => {
+                    if is_visible(&backend)
+                        && let Some(live) = ui.streaming_message.borrow().as_ref()
+                    {
+                        let context = backend.generation_context.borrow();
+                        chat_view::finish_streaming_message(
+                            live,
+                            &backend.active_assistant_content.borrow(),
+                            &context.reasoning,
+                            (context.elapsed_ms() / 1000) as u64,
+                            context.reasoning_ms(),
+                        );
+                    }
+                    ui.toast_overlay.add_toast(adw::Toast::new(&format!(
+                        "Response could not be saved: {error}"
+                    )));
+                    false
+                }
+            };
             finish_generation(&ui);
-            if is_visible(&backend) {
+            if saved && is_visible(&backend) {
                 message_actions::refresh_message(&ui, &backend, &assistant_id);
             }
             workspace::sync_provider(&ui, &backend);

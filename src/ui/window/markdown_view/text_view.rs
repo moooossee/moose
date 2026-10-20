@@ -29,32 +29,27 @@ mod imp {
     impl ObjectImpl for MarkdownTextView {}
 
     impl WidgetImpl for MarkdownTextView {
-        fn measure(&self, orientation: gtk::Orientation, for_size: i32) -> (i32, i32, i32, i32) {
-            let (minimum, natural, minimum_baseline, natural_baseline) =
-                self.parent_measure(orientation, for_size);
-            let view = self.obj();
-            if orientation == gtk::Orientation::Vertical {
-                let layout = view.create_pango_layout(Some("M"));
-                let attributes = pango::AttrList::new();
-                attributes.insert(pango::AttrFloat::new_line_height(1.5));
-                layout.set_attributes(Some(&attributes));
-                let line_height =
-                    layout.pixel_size().1.max(1) + view.top_margin() + view.bottom_margin();
-                return (
-                    minimum.max(line_height),
-                    natural.max(line_height),
-                    minimum_baseline,
-                    natural_baseline,
-                );
-            }
+        fn request_mode(&self) -> gtk::SizeRequestMode {
+            gtk::SizeRequestMode::HeightForWidth
+        }
 
+        fn measure(&self, orientation: gtk::Orientation, for_size: i32) -> (i32, i32, i32, i32) {
+            let view = self.obj();
             let context = view.pango_context();
             let metrics = context.metrics(None, None);
             let char_width =
                 ((metrics.approximate_char_width() + pango::SCALE - 1) / pango::SCALE).max(1);
             let margins = view.left_margin() + view.right_margin() + CURSOR_SPACE;
-            let minimum = minimum.max(char_width * self.min_width_chars.get() + margins);
             let maximum = char_width * self.max_width_chars.get() + margins;
+            if orientation == gtk::Orientation::Vertical {
+                let width = if for_size < 0 { maximum } else { for_size };
+                let height = view.content_size(Some(width)).1;
+                return (height, height, -1, -1);
+            }
+
+            let (minimum, natural, minimum_baseline, natural_baseline) =
+                self.parent_measure(orientation, for_size);
+            let minimum = minimum.max(char_width * self.min_width_chars.get() + margins);
             if !self.measure_content_width.get() {
                 return (
                     minimum,
@@ -64,13 +59,8 @@ mod imp {
                 );
             }
 
-            let buffer = view.buffer();
-            let mut indentation = 0;
-            buffer.tag_table().foreach(|tag| {
-                indentation = indentation.max(tag.left_margin() + tag.right_margin());
-            });
             let natural = natural
-                .max(view.text_width() + margins + indentation)
+                .max(view.content_size(None).0)
                 .min(maximum)
                 .max(minimum);
             (minimum, natural, minimum_baseline, natural_baseline)
@@ -95,6 +85,7 @@ impl MarkdownTextView {
             .property("accepts-tab", false)
             .property("wrap-mode", gtk::WrapMode::WordChar)
             .property("hexpand", true)
+            .property("vexpand", false)
             .build();
         view.imp().measure_content_width.set(true);
         view.set_width_chars(1, 120);
@@ -110,7 +101,10 @@ impl MarkdownTextView {
     }
 
     pub(super) fn set_streaming(&self, streaming: bool) {
-        self.imp().measure_content_width.set(!streaming);
+        let measure_width = !streaming;
+        if self.imp().measure_content_width.replace(measure_width) != measure_width {
+            self.queue_resize();
+        }
     }
 
     pub(super) fn sync_from(&self, source: &Self) {
@@ -123,23 +117,76 @@ impl MarkdownTextView {
         self.queue_resize();
     }
 
-    fn text_width(&self) -> i32 {
+    fn content_size(&self, width: Option<i32>) -> (i32, i32) {
         let buffer = self.buffer();
-        let text = buffer.slice(&buffer.start_iter(), &buffer.end_iter(), true);
-        let layout = self.create_pango_layout(Some(&text));
+        let mut measured_width = 0;
+        let mut height = self.top_margin() + self.bottom_margin();
+        for line in 0..buffer.line_count() {
+            let Some(start) = buffer.iter_at_line(line) else {
+                continue;
+            };
+            let mut end = start;
+            if !end.ends_line() {
+                end.forward_to_line_end();
+            }
+            let (line_width, line_height) = self.paragraph_size(&start, &end, width);
+            measured_width = measured_width.max(line_width);
+            height += line_height;
+        }
+        (measured_width, height.max(1))
+    }
+
+    fn paragraph_size(
+        &self,
+        start: &gtk::TextIter,
+        end: &gtk::TextIter,
+        width: Option<i32>,
+    ) -> (i32, i32) {
+        let buffer = self.buffer();
+        let text = buffer.slice(start, end, true);
+        let empty = text.is_empty();
+        let layout = self.create_pango_layout(Some(if empty { " " } else { text.as_str() }));
+        let mut left = self.left_margin();
+        let mut right = self.right_margin();
+        let mut indent = self.indent();
+        let mut tags = start.tags();
+        tags.sort_by_key(|tag| tag.priority());
+        for tag in tags {
+            if tag.is_left_margin_set() {
+                left = tag.left_margin();
+            }
+            if tag.is_right_margin_set() {
+                right = tag.right_margin();
+            }
+            if tag.is_indent_set() {
+                indent = tag.indent();
+            }
+        }
+        let margins = left + right + indent.min(0) + CURSOR_SPACE;
+        if let Some(width) = width {
+            layout.set_width(width.saturating_sub(margins).max(1) * pango::SCALE);
+            layout.set_wrap(pango::WrapMode::WordChar);
+        }
+        layout.set_indent(indent * pango::SCALE);
         let attributes = pango::AttrList::new();
-        let mut start = buffer.start_iter();
+        attributes.insert(pango::AttrFloat::new_line_height(1.5));
+        let mut iter = *start;
         let mut byte_offset = 0u32;
 
-        while !start.is_end() {
-            let mut end = start;
-            if !end.forward_to_tag_toggle(None::<&gtk::TextTag>) {
-                end = buffer.end_iter();
+        loop {
+            let mut next = iter;
+            if !next.forward_to_tag_toggle(None::<&gtk::TextTag>) || next.offset() > end.offset() {
+                next = *end;
             }
-            let next_offset = byte_offset + buffer.slice(&start, &end, true).len() as u32;
+            let next_offset = if empty {
+                1
+            } else {
+                byte_offset + buffer.slice(&iter, &next, true).len() as u32
+            };
             let mut font = pango::FontDescription::new();
             let mut scale = 1.0;
-            let mut tags = start.tags();
+            let mut rise = 0;
+            let mut tags = iter.tags();
             tags.sort_by_key(|tag| tag.priority());
             for tag in tags {
                 if let Some(description) = tag.font_desc() {
@@ -147,6 +194,9 @@ impl MarkdownTextView {
                 }
                 if tag.is_scale_set() {
                     scale *= tag.scale();
+                }
+                if tag.is_rise_set() {
+                    rise = tag.rise();
                 }
             }
 
@@ -158,7 +208,14 @@ impl MarkdownTextView {
             scale_attribute.set_start_index(byte_offset);
             scale_attribute.set_end_index(next_offset);
             attributes.insert(scale_attribute);
-            start = end;
+            let mut rise_attribute = pango::AttrInt::new_rise(rise);
+            rise_attribute.set_start_index(byte_offset);
+            rise_attribute.set_end_index(next_offset);
+            attributes.insert(rise_attribute);
+            if next.offset() >= end.offset() {
+                break;
+            }
+            iter = next;
             byte_offset = next_offset;
         }
 
@@ -166,7 +223,10 @@ impl MarkdownTextView {
             if character != '\u{fffc}' {
                 continue;
             }
-            let Some(anchor) = buffer.iter_at_offset(offset as i32).child_anchor() else {
+            let Some(anchor) = buffer
+                .iter_at_offset(start.offset() + offset as i32)
+                .child_anchor()
+            else {
                 continue;
             };
             let Some(widget) = anchor
@@ -190,7 +250,8 @@ impl MarkdownTextView {
         }
 
         layout.set_attributes(Some(&attributes));
-        layout.pixel_size().0
+        let (width, height) = layout.pixel_size();
+        (if empty { margins } else { width + margins }, height)
     }
 
     pub(super) fn append_text(&self, text: &str) {
