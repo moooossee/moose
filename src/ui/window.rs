@@ -22,7 +22,10 @@ use crate::{
     error::{MooseError, Result},
     ollama::{
         OllamaModel,
-        service::{ManagedOllamaAcceleration, ManagedOllamaGpuConfig, ManagedOllamaService},
+        service::{
+            ManagedOllamaAcceleration, ManagedOllamaConfig, ManagedOllamaGpuConfig,
+            ManagedOllamaService, ManagedOllamaShutdown,
+        },
     },
     platform::AppPaths,
     providers::{
@@ -200,6 +203,8 @@ pub fn build(app: &adw::Application) -> adw::ApplicationWindow {
     match Backend::new() {
         Ok(backend) => {
             let backend = Rc::new(backend);
+            let shutdown_backend = Rc::clone(&backend);
+            app.connect_shutdown(move |_| shutdown_backend.shutdown());
             let provider = active_provider(&backend);
             apply_provider_state(&ui, &provider);
             bind_actions(
@@ -255,6 +260,7 @@ struct Backend {
     download_job_repository: DownloadJobRepository,
     provider: RefCell<Option<Provider>>,
     managed_ollama: ManagedOllamaHandle,
+    managed_shutdown: ManagedOllamaShutdown,
     managed_gpu: RefCell<ManagedOllamaGpuConfig>,
     settings: Option<gio::Settings>,
     network_policy: NetworkPolicy,
@@ -401,10 +407,9 @@ impl Backend {
         let network_policy = NetworkPolicy::new(repository.local_only()?);
         let settings = app_settings();
         let managed_gpu = managed_gpu_config(settings.as_ref());
-        let managed_ollama = Arc::new(tokio::sync::Mutex::new(ManagedOllamaService::new_with_gpu(
-            &paths,
-            managed_gpu.clone(),
-        )));
+        let managed_service = ManagedOllamaService::new_with_gpu(&paths, managed_gpu.clone());
+        let managed_shutdown = managed_service.shutdown_handle();
+        let managed_ollama = Arc::new(tokio::sync::Mutex::new(managed_service));
         let selected_models = settings
             .as_ref()
             .map(|settings| settings.get(SETTINGS_SELECTED_MODELS))
@@ -428,6 +433,7 @@ impl Backend {
             download_job_repository,
             provider: RefCell::new(provider),
             managed_ollama,
+            managed_shutdown,
             managed_gpu: RefCell::new(managed_gpu),
             settings,
             network_policy,
@@ -488,6 +494,30 @@ impl Backend {
             managed_ollama.lock().await.shutdown();
         });
     }
+
+    fn shutdown(&self) {
+        if !self.managed_shutdown.request() {
+            return;
+        }
+        self.model_load_revision
+            .set(self.model_load_revision.get().wrapping_add(1));
+        if let Err(error) = self.cancel_generation() {
+            eprintln!("Could not save the interrupted response: {error}");
+        }
+        if let Some(id) = self.cancel_model_pull()
+            && let Err(error) = self
+                .download_job_repository
+                .fail(&id, "Download interrupted because Moose closed.")
+        {
+            eprintln!("Could not save the interrupted download: {error}");
+        }
+        if let Some(handle) = self.active_model_delete.borrow_mut().take() {
+            handle.abort();
+        }
+        self.runtime.block_on(async {
+            self.managed_ollama.lock().await.shutdown();
+        });
+    }
 }
 
 async fn prepared_provider_client(
@@ -504,10 +534,11 @@ async fn prepared_provider_client(
 
     let port = managed_ollama_port_from_base_url(&provider.base_url)?;
     let mut service = managed_ollama.lock().await;
-    if service.config().base_url != provider.base_url || service.config().gpu != managed_gpu {
-        service.shutdown();
-        *service = ManagedOllamaService::new_with_port_and_gpu(&paths, port, managed_gpu)?;
-    }
+    service.reconfigure(ManagedOllamaConfig::from_paths_with_port_and_gpu(
+        &paths,
+        port,
+        managed_gpu,
+    )?)?;
     service.ensure_ready(MANAGED_OLLAMA_READY_TIMEOUT).await?;
     drop(service);
     ProviderClient::new(provider, policy).await

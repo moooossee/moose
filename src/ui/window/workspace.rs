@@ -19,6 +19,7 @@ pub(super) fn bind(ui: &Rc<WindowUi>, backend: &Rc<Backend>) {
                 return gtk::glib::Propagation::Stop;
             }
         }
+        backend.shutdown();
         gtk::glib::Propagation::Proceed
     });
 }

@@ -11,7 +11,7 @@ use crate::{
     ollama::{
         OllamaClient, OllamaModel,
         manager::{ManagedOllamaInstallProgress, ManagedOllamaInstallStatus, ManagedOllamaManager},
-        service::ManagedOllamaService,
+        service::ManagedOllamaConfig,
     },
     platform::AppPaths,
     providers::{
@@ -590,12 +590,12 @@ async fn start_managed_ollama_and_load_models(
     port: u16,
 ) -> Result<Vec<OllamaModel>> {
     let base_url = {
-        let expected_base_url = managed_ollama_base_url(port)?;
         let mut service = managed_ollama.lock().await;
-        if service.config().base_url != expected_base_url || service.config().gpu != managed_gpu {
-            service.shutdown();
-            *service = ManagedOllamaService::new_with_port_and_gpu(&paths, port, managed_gpu)?;
-        }
+        service.reconfigure(ManagedOllamaConfig::from_paths_with_port_and_gpu(
+            &paths,
+            port,
+            managed_gpu,
+        )?)?;
         service.ensure_ready(MANAGED_OLLAMA_READY_TIMEOUT).await?;
         service.config().base_url.clone()
     };

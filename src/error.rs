@@ -109,7 +109,13 @@ pub enum MooseError {
     ManagedOllamaStartFailed(String),
     #[error("managed Ollama did not become ready in time")]
     ManagedOllamaTimedOut,
-    #[error("managed Ollama port is unavailable: {0}")]
+    #[error(
+        "managed Ollama is already running in another Moose instance; close that instance and retry"
+    )]
+    ManagedOllamaInUse,
+    #[error(
+        "managed Ollama port is already in use: {0}; close any previous Moose instances or choose another managed port"
+    )]
     ManagedOllamaPortUnavailable(String),
     #[error("managed Ollama port {0} is invalid; use 1024-65535 except 11434")]
     ManagedOllamaInvalidPort(u16),

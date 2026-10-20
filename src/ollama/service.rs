@@ -1,10 +1,14 @@
 use std::{
     ffi::OsString,
-    fs::{self, OpenOptions},
+    fs::{self, File, OpenOptions, TryLockError},
     io,
     net::TcpListener,
     path::{Path, PathBuf},
-    process::{Child, Command, Stdio},
+    process::{Child, Command, ExitStatus, Stdio},
+    sync::{
+        Arc,
+        atomic::{AtomicBool, Ordering},
+    },
     thread,
     time::{Duration, Instant},
 };
@@ -72,6 +76,17 @@ pub struct ManagedOllamaService {
     config: ManagedOllamaConfig,
     child: Option<Child>,
     state: ManagedOllamaServiceState,
+    shutdown: ManagedOllamaShutdown,
+    process_lock: Option<File>,
+}
+
+#[derive(Clone, Default)]
+pub struct ManagedOllamaShutdown(Arc<AtomicBool>);
+
+impl ManagedOllamaShutdown {
+    pub fn request(&self) -> bool {
+        !self.0.swap(true, Ordering::AcqRel)
+    }
 }
 
 impl ManagedOllamaConfig {
@@ -194,6 +209,8 @@ impl ManagedOllamaService {
             config,
             child: None,
             state: ManagedOllamaServiceState::Stopped,
+            shutdown: ManagedOllamaShutdown::default(),
+            process_lock: None,
         }
     }
 
@@ -205,11 +222,25 @@ impl ManagedOllamaService {
         &self.state
     }
 
+    pub fn shutdown_handle(&self) -> ManagedOllamaShutdown {
+        self.shutdown.clone()
+    }
+
+    pub fn reconfigure(&mut self, config: ManagedOllamaConfig) -> Result<()> {
+        self.check_shutdown()?;
+        if self.config != config {
+            self.shutdown();
+            self.config = config;
+        }
+        Ok(())
+    }
+
     pub fn acceleration(&self) -> ManagedOllamaAcceleration {
         detect_managed_ollama_acceleration(&self.config.log_path)
     }
 
     pub fn ensure_started(&mut self) -> Result<()> {
+        self.check_shutdown()?;
         if self.child_is_running()? {
             return Ok(());
         }
@@ -221,6 +252,9 @@ impl ManagedOllamaService {
         }
 
         self.prepare_runtime_paths()?;
+        let process_lock = acquire_process_lock(&self.config.home_dir).inspect_err(|error| {
+            self.fail_from_error(error);
+        })?;
         ensure_port_available(&self.config.host).inspect_err(|error| {
             self.fail_from_error(error);
         })?;
@@ -239,11 +273,12 @@ impl ManagedOllamaService {
             .stderr(Stdio::from(log));
 
         #[cfg(unix)]
-        command.process_group(0);
+        configure_child(&mut command, &process_lock);
 
         match command.spawn() {
             Ok(child) => {
                 self.child = Some(child);
+                self.process_lock = Some(process_lock);
                 self.state = ManagedOllamaServiceState::Starting;
                 Ok(())
             }
@@ -261,7 +296,8 @@ impl ManagedOllamaService {
         let mut backoff = READY_INITIAL_BACKOFF;
 
         loop {
-            if self.child_exited()? {
+            self.check_shutdown()?;
+            if self.child.is_none() || self.child_exited()? {
                 let error = MooseError::ManagedOllamaStartFailed(startup_exit_message(
                     &self.config.log_path,
                 ));
@@ -270,6 +306,10 @@ impl ManagedOllamaService {
             }
 
             if client.version().await.is_ok() {
+                self.check_shutdown()?;
+                if self.child_exited()? {
+                    continue;
+                }
                 self.state = ManagedOllamaServiceState::Running;
                 return Ok(());
             }
@@ -288,11 +328,17 @@ impl ManagedOllamaService {
 
     pub async fn ensure_ready(&mut self, timeout: Duration) -> Result<()> {
         self.ensure_started()?;
-        self.wait_until_ready(timeout).await
+        if let Err(error) = self.wait_until_ready(timeout).await {
+            self.shutdown();
+            self.fail_from_error(&error);
+            return Err(error);
+        }
+        Ok(())
     }
 
     pub fn shutdown(&mut self) {
         let Some(mut child) = self.child.take() else {
+            self.process_lock = None;
             self.state = ManagedOllamaServiceState::Stopped;
             return;
         };
@@ -300,8 +346,9 @@ impl ManagedOllamaService {
         terminate_child(&mut child);
         let deadline = Instant::now() + SHUTDOWN_TIMEOUT;
         while Instant::now() < deadline {
-            match child.try_wait() {
+            match reap_exited_child(&mut child) {
                 Ok(Some(_)) => {
+                    self.process_lock = None;
                     self.state = ManagedOllamaServiceState::Stopped;
                     return;
                 }
@@ -310,8 +357,9 @@ impl ManagedOllamaService {
             }
         }
 
-        let _ = child.kill();
+        force_terminate_child(&mut child);
         let _ = child.wait();
+        self.process_lock = None;
         self.state = ManagedOllamaServiceState::Stopped;
     }
 
@@ -326,14 +374,24 @@ impl ManagedOllamaService {
         Ok(())
     }
 
+    fn check_shutdown(&self) -> Result<()> {
+        if self.shutdown.0.load(Ordering::Acquire) {
+            return Err(MooseError::ManagedOllamaStartFailed(
+                "Moose is shutting down".into(),
+            ));
+        }
+        Ok(())
+    }
+
     fn child_is_running(&mut self) -> Result<bool> {
         let Some(child) = self.child.as_mut() else {
             return Ok(false);
         };
 
-        match child.try_wait()? {
+        match reap_exited_child(child)? {
             Some(status) => {
                 self.child = None;
+                self.process_lock = None;
                 self.state =
                     ManagedOllamaServiceState::Failed(format!("process exited with {status}"));
                 Ok(false)
@@ -347,9 +405,10 @@ impl ManagedOllamaService {
             return Ok(false);
         };
 
-        match child.try_wait()? {
+        match reap_exited_child(child)? {
             Some(status) => {
                 self.child = None;
+                self.process_lock = None;
                 self.state =
                     ManagedOllamaServiceState::Failed(format!("process exited with {status}"));
                 Ok(true)
@@ -475,14 +534,103 @@ fn recent_log_excerpt(path: &Path, line_count: usize) -> Option<String> {
     Some(lines.into_iter().rev().collect::<Vec<_>>().join(" | "))
 }
 
+fn acquire_process_lock(home_dir: &Path) -> Result<File> {
+    let mut options = OpenOptions::new();
+    options.create(true).truncate(false).read(true).write(true);
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::OpenOptionsExt;
+        options.mode(0o600).custom_flags(libc::O_NOFOLLOW);
+    }
+    let file = options.open(home_dir.join("ollama.lock"))?;
+    match file.try_lock() {
+        Ok(()) => Ok(file),
+        Err(TryLockError::WouldBlock) => Err(MooseError::ManagedOllamaInUse),
+        Err(TryLockError::Error(error)) => Err(MooseError::ManagedOllamaStartFailed(format!(
+            "could not lock the managed Ollama installation: {error}"
+        ))),
+    }
+}
+
 #[cfg(unix)]
-fn terminate_child(child: &mut Child) {
+fn configure_child(command: &mut Command, process_lock: &File) {
+    use std::os::fd::AsRawFd;
+
+    let lock_fd = process_lock.as_raw_fd();
+    #[cfg(target_os = "linux")]
+    let parent_pid = unsafe { libc::getpid() };
+    command.process_group(0);
+    unsafe {
+        command.pre_exec(move || {
+            #[cfg(target_os = "linux")]
+            {
+                if libc::prctl(libc::PR_SET_PDEATHSIG, libc::SIGTERM) == -1 {
+                    return Err(io::Error::last_os_error());
+                }
+                if libc::getppid() != parent_pid {
+                    return Err(io::Error::from(io::ErrorKind::Interrupted));
+                }
+            }
+            let flags = libc::fcntl(lock_fd, libc::F_GETFD);
+            if flags == -1 || libc::fcntl(lock_fd, libc::F_SETFD, flags & !libc::FD_CLOEXEC) == -1 {
+                return Err(io::Error::last_os_error());
+            }
+            Ok(())
+        });
+    }
+}
+
+#[cfg(unix)]
+fn signal_child_group(child: &Child, signal: libc::c_int) {
     let pid = child.id();
     if pid <= i32::MAX as u32 {
         unsafe {
-            libc::kill(-(pid as i32), libc::SIGTERM);
+            libc::kill(-(pid as i32), signal);
         }
     }
+}
+
+#[cfg(unix)]
+fn terminate_child(child: &mut Child) {
+    signal_child_group(child, libc::SIGTERM);
+}
+
+fn force_terminate_child(child: &mut Child) {
+    #[cfg(unix)]
+    signal_child_group(child, libc::SIGKILL);
+    let _ = child.kill();
+}
+
+#[cfg(target_os = "linux")]
+fn reap_exited_child(child: &mut Child) -> io::Result<Option<ExitStatus>> {
+    let mut status = unsafe { std::mem::zeroed::<libc::siginfo_t>() };
+    loop {
+        let result = unsafe {
+            libc::waitid(
+                libc::P_PID,
+                child.id(),
+                &mut status,
+                libc::WEXITED | libc::WNOHANG | libc::WNOWAIT,
+            )
+        };
+        if result != -1 {
+            break;
+        }
+        let error = io::Error::last_os_error();
+        if error.kind() != io::ErrorKind::Interrupted {
+            return Err(error);
+        }
+    }
+    if unsafe { status.si_pid() } == 0 {
+        return Ok(None);
+    }
+    signal_child_group(child, libc::SIGKILL);
+    child.wait().map(Some)
+}
+
+#[cfg(not(target_os = "linux"))]
+fn reap_exited_child(child: &mut Child) -> io::Result<Option<ExitStatus>> {
+    child.try_wait()
 }
 
 #[cfg(not(unix))]

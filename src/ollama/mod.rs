@@ -194,17 +194,21 @@ impl OllamaClient {
             return Err(response_error(response).await);
         }
 
+        let mut completed = false;
         self.stream_lines(response, |line| {
             if let Some(progress) = parse_pull_stream_line(line)? {
-                let done = progress.done;
+                completed = progress.done;
                 on_progress(progress);
-                if done {
-                    return Ok(true);
-                }
             }
-            Ok(false)
+            Ok(completed)
         })
-        .await
+        .await?;
+        if !completed {
+            return Err(MooseError::InvalidOllamaResponse(
+                "The model download ended before completion".into(),
+            ));
+        }
+        Ok(())
     }
 
     pub async fn delete_model(&self, model: &str) -> Result<()> {
@@ -429,11 +433,19 @@ pub fn parse_chat_stream_events(line: &str) -> Result<Vec<ChatStreamEvent>> {
 }
 
 pub fn parse_pull_stream_line(line: &str) -> Result<Option<OllamaPullProgress>> {
-    if line.is_empty() {
+    if line.trim().is_empty() {
         return Ok(None);
     }
 
-    let response: PullLine = serde_json::from_str(line)?;
+    let value: serde_json::Value = serde_json::from_str(line)?;
+    if let Some(error) = value.get("error").filter(|error| !error.is_null()) {
+        let message = error
+            .as_str()
+            .filter(|message| !message.trim().is_empty())
+            .unwrap_or("Ollama returned an invalid model download error");
+        return Err(MooseError::InvalidOllamaResponse(message.to_string()));
+    }
+    let response: PullLine = serde_json::from_value(value)?;
     let status = response.status.trim().to_string();
     if status.is_empty() {
         return Err(MooseError::InvalidOllamaResponse(

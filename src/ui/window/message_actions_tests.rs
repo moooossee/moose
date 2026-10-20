@@ -57,6 +57,8 @@ fn test_backend(base_url: String) -> Rc<Backend> {
         "/unused/cache".into(),
         "/unused/config".into(),
     );
+    let managed_service = crate::ollama::service::ManagedOllamaService::new(&paths);
+    let managed_shutdown = managed_service.shutdown_handle();
     Rc::new(Backend {
         paths: paths.clone(),
         repository,
@@ -64,9 +66,8 @@ fn test_backend(base_url: String) -> Rc<Backend> {
         profile_repository: ProfileRepository::new(Rc::clone(&connection)),
         download_job_repository: DownloadJobRepository::new(connection),
         provider: std::cell::RefCell::new(Some(provider)),
-        managed_ollama: std::sync::Arc::new(tokio::sync::Mutex::new(
-            crate::ollama::service::ManagedOllamaService::new(&paths),
-        )),
+        managed_ollama: std::sync::Arc::new(tokio::sync::Mutex::new(managed_service)),
+        managed_shutdown,
         managed_gpu: std::cell::RefCell::new(Default::default()),
         settings: None,
         network_policy: crate::providers::policy::NetworkPolicy::new(false),
