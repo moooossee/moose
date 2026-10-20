@@ -6,7 +6,7 @@ use crate::{
     core::{new_id, utc_now},
     error::{MooseError, Result},
     profiles::validate_system_prompt,
-    providers::validate_model_name,
+    providers::validate_model_id,
 };
 
 pub const DEFAULT_CONVERSATION_TITLE: &str = "New Conversation";
@@ -295,7 +295,7 @@ impl NewGenerationSettings {
     pub fn into_generation_settings(self) -> Result<GenerationSettings> {
         let model = self
             .model
-            .map(|model| validate_model_name(&model))
+            .map(|model| validate_model_id(&model))
             .transpose()?;
 
         Ok(GenerationSettings {

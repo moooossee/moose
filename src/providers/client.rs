@@ -1,6 +1,6 @@
 use super::{
     CustomAuthentication, Provider, ProviderKind, credentials, is_loopback_url,
-    policy::NetworkPolicy, stream::Decoder, validate_model_name, wire,
+    policy::NetworkPolicy, stream::Decoder, validate_model_id, validate_model_name, wire,
 };
 use crate::{
     chat::{ChatRequest, ChatStreamEvent, ThinkingValue},
@@ -205,19 +205,19 @@ impl ProviderClient {
         ))
     }
 
-    pub async fn stream_chat<F>(&self, request: ChatRequest, mut on_event: F) -> Result<()>
+    pub async fn stream_chat<F>(&self, mut request: ChatRequest, mut on_event: F) -> Result<()>
     where
         F: FnMut(ChatStreamEvent) + Send,
     {
         self.check()?;
-        validate_model_name(&request.model)?;
+        let kind = self.provider.api_kind();
+        request.model = kind.validate_model_id(&request.model)?;
         if let Transport::Ollama(client) = &self.transport {
             return client.stream_chat(request, on_event).await;
         }
         let Transport::Cloud(client) = &self.transport else {
             unreachable!()
         };
-        let kind = self.provider.api_kind();
         if matches!(
             self.provider.kind,
             ProviderKind::Mistral
@@ -250,12 +250,6 @@ impl ProviderClient {
                     .model
                     .strip_prefix("models/")
                     .unwrap_or(&request.model);
-                if !model
-                    .bytes()
-                    .all(|b| b.is_ascii_alphanumeric() || b"-_.".contains(&b))
-                {
-                    return Err(MooseError::InvalidModelName);
-                }
                 let mut url = self.endpoint(&format!("models/{model}:streamGenerateContent"))?;
                 url.query_pairs_mut().append_pair("alt", "sse");
                 url
@@ -324,7 +318,7 @@ impl ProviderClient {
 
     async fn mistral_model(&self, model: &str) -> Result<Value> {
         self.check()?;
-        let model = validate_model_name(model)?;
+        let model = validate_model_id(model)?;
         let Transport::Cloud(client) = &self.transport else {
             unreachable!()
         };
@@ -349,7 +343,7 @@ impl ProviderClient {
 
     async fn cloudflare_model(&self, model: &str) -> Result<Value> {
         self.check()?;
-        let model = validate_model_name(model)?;
+        let model = validate_model_id(model)?;
         let Transport::Cloud(client) = &self.transport else {
             unreachable!()
         };
@@ -648,7 +642,7 @@ fn parse_models(kind: ProviderKind, data: &Value, custom: bool) -> Result<Vec<Ol
         } else {
             name
         };
-        if validate_model_name(name).is_err() {
+        if kind.validate_model_id(name).is_err() {
             continue;
         }
         if !custom && kind == ProviderKind::OpenAi && !openai_responses_model(name) {

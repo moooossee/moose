@@ -144,6 +144,25 @@ impl ProviderKind {
         }
         Ok(url)
     }
+
+    pub fn validate_model_id(self, value: &str) -> Result<String> {
+        let model = validate_model_id(value)?;
+        match self {
+            Self::Ollama | Self::OllamaCloud => validate_model_name(&model),
+            Self::Gemini => {
+                let name = model.strip_prefix("models/").unwrap_or(&model);
+                if name.is_empty()
+                    || !name
+                        .bytes()
+                        .all(|byte| byte.is_ascii_alphanumeric() || b"-_.".contains(&byte))
+                {
+                    return Err(MooseError::InvalidModelName);
+                }
+                Ok(model)
+            }
+            _ => Ok(model),
+        }
+    }
 }
 
 impl fmt::Display for ProviderKind {
@@ -387,6 +406,13 @@ pub fn managed_ollama_port_from_base_url(value: &str) -> Result<u16> {
 
 pub fn validate_managed_provider_base_url(value: &str) -> Result<String> {
     managed_ollama_port_from_base_url(value).and_then(managed_ollama_base_url)
+}
+
+pub fn validate_model_id(value: &str) -> Result<String> {
+    if value.trim().is_empty() || value.len() > 256 || value.chars().any(char::is_control) {
+        return Err(MooseError::InvalidModelName);
+    }
+    Ok(value.to_string())
 }
 
 pub fn validate_model_name(value: &str) -> Result<String> {

@@ -230,10 +230,11 @@ impl OllamaClient {
         Ok(())
     }
 
-    pub async fn stream_chat<F>(&self, request: ChatRequest, mut on_event: F) -> Result<()>
+    pub async fn stream_chat<F>(&self, mut request: ChatRequest, mut on_event: F) -> Result<()>
     where
         F: FnMut(ChatStreamEvent) + Send,
     {
+        request.model = validate_model_name(&request.model)?;
         let response = self
             .client
             .post(self.endpoint("chat")?)

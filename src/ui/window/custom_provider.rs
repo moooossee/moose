@@ -164,7 +164,7 @@ impl CustomProviderFields {
                 .iter()
                 .map(|row| {
                     let id = row.entry.text();
-                    let id = id.trim();
+                    let id = id.as_str();
                     CustomModel {
                         id: if protocol == ApiProtocol::Gemini {
                             id.strip_prefix("models/").unwrap_or(id).to_string()

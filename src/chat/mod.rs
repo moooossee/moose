@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 
 use crate::conversations::{Message, MessageRole, MessageStatus};
-use crate::providers::validate_model_name;
+use crate::providers::validate_model_id;
 
 use crate::error::{MooseError, Result};
 
@@ -154,7 +154,7 @@ impl ChatRequest {
     pub fn streaming(model: impl AsRef<str>, messages: Vec<ChatMessage>) -> Result<Self> {
         Ok(Self {
             think: None,
-            model: validate_model_name(model.as_ref())?,
+            model: validate_model_id(model.as_ref())?,
             messages,
             stream: true,
             format: None,

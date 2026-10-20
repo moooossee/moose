@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::error::{MooseError, Result};
 
-use super::validate_model_name;
+use super::validate_model_id;
 
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
@@ -131,9 +131,7 @@ impl CustomProviderConfig {
                     "Enter a model ID for each manual model, or remove empty rows.".into(),
                 ));
             }
-            if validate_model_name(&model.id)? != model.id {
-                return Err(MooseError::InvalidModelName);
-            }
+            validate_model_id(&model.id)?;
             if !ids.insert(&model.id) {
                 return Err(MooseError::ProviderRequest(
                     "Each manual model must have a unique ID.".into(),
