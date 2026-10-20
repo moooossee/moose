@@ -250,10 +250,17 @@ mod tests {
     use super::{ChatMessage, ChatRequest};
 
     #[test]
-    fn chat_request_validates_model_name() {
-        assert!(
-            ChatRequest::streaming("llama3.2:latest", vec![ChatMessage::user("Hello")]).is_ok()
-        );
-        assert!(ChatRequest::streaming("llama 3", vec![ChatMessage::user("Hello")]).is_err());
+    fn chat_request_validates_model_id() {
+        for model in ["llama3.2:latest", "llama 3", "Qwen3.8 Flash Next"] {
+            let request = ChatRequest::streaming(model, vec![ChatMessage::user("Hello")]).unwrap();
+            assert_eq!(request.model, model);
+        }
+
+        for model in ["", "   ", "llama\n3", "llama\t3", "llama3\0"] {
+            assert!(
+                ChatRequest::streaming(model, vec![ChatMessage::user("Hello")]).is_err(),
+                "{model:?}"
+            );
+        }
     }
 }
