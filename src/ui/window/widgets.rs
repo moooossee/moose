@@ -1,6 +1,102 @@
 use adw::prelude::*;
 use gtk::Align;
 
+pub(super) struct SetupDialog {
+    pub dialog: adw::Dialog,
+    pub content: gtk::Box,
+    pub hero: gtk::Box,
+    pub heading: gtk::Label,
+    pub description: gtk::Label,
+    footer: gtk::Box,
+}
+
+impl SetupDialog {
+    pub fn new(title: &str, heading: &str, description: &str) -> Self {
+        let dialog = adw::Dialog::builder()
+            .title(title)
+            .content_width(620)
+            .content_height(620)
+            .build();
+        let content = gtk::Box::builder()
+            .orientation(gtk::Orientation::Vertical)
+            .spacing(20)
+            .margin_top(8)
+            .margin_bottom(20)
+            .margin_start(24)
+            .margin_end(24)
+            .build();
+        let hero = gtk::Box::builder()
+            .orientation(gtk::Orientation::Vertical)
+            .spacing(6)
+            .build();
+        let heading = gtk::Label::builder()
+            .label(heading)
+            .wrap(true)
+            .justify(gtk::Justification::Center)
+            .css_classes(["title-2"])
+            .build();
+        let description = gtk::Label::builder()
+            .label(description)
+            .wrap(true)
+            .wrap_mode(gtk::pango::WrapMode::WordChar)
+            .width_chars(1)
+            .justify(gtk::Justification::Center)
+            .css_classes(["dim-label"])
+            .build();
+        hero.append(&heading);
+        hero.append(&description);
+        content.append(&hero);
+        let clamp = adw::Clamp::builder()
+            .maximum_size(560)
+            .tightening_threshold(440)
+            .child(&content)
+            .build();
+        let scrolled = gtk::ScrolledWindow::builder()
+            .hscrollbar_policy(gtk::PolicyType::Never)
+            .child(&clamp)
+            .build();
+        let toolbar = adw::ToolbarView::builder().content(&scrolled).build();
+        toolbar.add_top_bar(&adw::HeaderBar::new());
+        let footer = gtk::Box::builder()
+            .orientation(gtk::Orientation::Vertical)
+            .spacing(8)
+            .margin_top(12)
+            .margin_bottom(20)
+            .margin_start(24)
+            .margin_end(24)
+            .visible(false)
+            .build();
+        toolbar.add_bottom_bar(&footer);
+        dialog.set_child(Some(&toolbar));
+        Self {
+            dialog,
+            content,
+            hero,
+            heading,
+            description,
+            footer,
+        }
+    }
+
+    pub fn set_actions(&self, primary: &gtk::Button, cancel: &gtk::Button) {
+        cancel.add_css_class("flat");
+        cancel.set_halign(Align::Center);
+        self.footer.append(&primary_action(primary));
+        self.footer.append(cancel);
+        self.footer.set_visible(true);
+    }
+}
+
+pub(super) fn primary_action(button: &gtk::Button) -> adw::Clamp {
+    button.add_css_class("suggested-action");
+    button.add_css_class("pill");
+    adw::Clamp::builder()
+        .maximum_size(300)
+        .tightening_threshold(240)
+        .child(button)
+        .build()
+}
+
 pub(super) fn icon_button(icon_name: &str, tooltip: &str) -> gtk::Button {
     let button = gtk::Button::from_icon_name(icon_name);
     button.add_css_class("flat");

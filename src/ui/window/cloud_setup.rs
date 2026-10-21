@@ -33,32 +33,30 @@ fn show_connection(ui: &Rc<WindowUi>, backend: &Rc<Backend>, previous: Option<Pr
     let initial_kind = previous
         .as_ref()
         .map_or(ProviderKind::CLOUD[0], |provider| provider.kind);
-    let dialog = adw::Dialog::builder()
-        .title(if editing {
+    let setup = widgets::SetupDialog::new(
+        if editing {
             "Configure Custom Provider"
         } else {
             "Connect Cloud Provider"
-        })
-        .content_width(580)
-        .content_height(680)
-        .build();
-    let header_bar = adw::HeaderBar::builder()
-        .show_start_title_buttons(false)
-        .show_end_title_buttons(false)
-        .build();
-    let description = gtk::Label::builder()
-        .label(if editing {
-            "Changing the server, API format or authentication resets sharing permissions and requires a new API key. Leave the key blank to keep it when these settings stay the same."
+        },
+        initial_kind.label(),
+        if editing {
+            "Manage your custom AI connection."
         } else {
-            "Choose a provider or add a custom connection. Connecting enables remote connections. Shared messages and files are processed under the provider's own data policy."
-        })
+            "Connect using your own API key."
+        },
+    );
+    let dialog = setup.dialog.clone();
+    let description = gtk::Label::builder()
+        .label("Changing the server, API format or authentication resets sharing permissions and requires a new API key. Leave the key blank to keep it when these settings stay the same.")
         .wrap(true)
         .wrap_mode(gtk::pango::WrapMode::WordChar)
         .width_chars(1)
         .xalign(0.0)
+        .visible(editing)
+        .css_classes(["caption", "dim-label"])
         .build();
-    description.add_css_class("dim-label");
-    let group = adw::PreferencesGroup::builder().title("Provider").build();
+    let group = adw::PreferencesGroup::builder().title("Connection").build();
     let labels = ProviderKind::CLOUD.map(ProviderKind::label);
     let kinds = adw::ComboRow::builder()
         .title("Provider")
@@ -81,6 +79,7 @@ fn show_connection(ui: &Rc<WindowUi>, backend: &Rc<Backend>, previous: Option<Pr
         .build();
     let endpoint = adw::ActionRow::builder()
         .title("Server")
+        .use_markup(false)
         .subtitle(initial_kind.default_base_url().unwrap_or_default())
         .subtitle_lines(2)
         .visible(initial_kind != ProviderKind::Custom)
@@ -95,10 +94,11 @@ fn show_connection(ui: &Rc<WindowUi>, backend: &Rc<Backend>, previous: Option<Pr
         .width_chars(1)
         .xalign(0.0)
         .visible(initial_kind == ProviderKind::Cloudflare)
+        .css_classes(["caption", "dim-label"])
         .build();
-    account_hint.add_css_class("dim-label");
     let custom_url = adw::EntryRow::builder()
         .title("Base URL")
+        .input_purpose(gtk::InputPurpose::Url)
         .text(
             previous
                 .as_ref()
@@ -112,8 +112,8 @@ fn show_connection(ui: &Rc<WindowUi>, backend: &Rc<Backend>, previous: Option<Pr
         .width_chars(1)
         .xalign(0.0)
         .visible(initial_kind == ProviderKind::Custom)
+        .css_classes(["caption", "dim-label"])
         .build();
-    url_hint.add_css_class("dim-label");
     group.add(&kinds);
     group.add(&name);
     group.add(&account_id);
@@ -128,6 +128,7 @@ fn show_connection(ui: &Rc<WindowUi>, backend: &Rc<Backend>, previous: Option<Pr
     custom_fields.set_visible(initial_kind == ProviderKind::Custom);
     let sharing_group = adw::PreferencesGroup::builder()
         .title("Sharing Permissions")
+        .description("Connecting enables remote connections. Shared messages and files are processed under the provider's own data policy.")
         .visible(!editing)
         .build();
     let message_permission = super::privacy::message_permission_row();
@@ -176,50 +177,30 @@ fn show_connection(ui: &Rc<WindowUi>, backend: &Rc<Backend>, previous: Option<Pr
         .wrap_mode(gtk::pango::WrapMode::WordChar)
         .width_chars(1)
         .xalign(0.0)
+        .css_classes(["caption", "dim-label"])
         .build();
-    hint.add_css_class("dim-label");
-    let content = gtk::Box::builder()
+    let connection = gtk::Box::builder()
         .orientation(gtk::Orientation::Vertical)
-        .spacing(18)
+        .spacing(8)
         .build();
-    content.add_css_class("moose-instance-content");
+    connection.append(&group);
+    connection.append(&account_hint);
+    connection.append(&url_hint);
+    let content = &setup.content;
     content.append(&description);
-    content.append(&group);
-    content.append(&account_hint);
-    content.append(&url_hint);
+    content.append(&connection);
     content.append(&custom_fields.connection_group);
     content.append(&key_group);
     content.append(&custom_fields.models_group);
     content.append(&sharing_group);
     content.append(&hint);
-    let scrolled = gtk::ScrolledWindow::builder()
-        .hscrollbar_policy(gtk::PolicyType::Never)
-        .vexpand(true)
-        .child(&content)
-        .build();
     let cancel_button = gtk::Button::with_label("Cancel");
     let connect_button = gtk::Button::with_label(if editing {
         "Save Changes"
     } else {
         "Save and Connect"
     });
-    connect_button.add_css_class("suggested-action");
-    let actions = gtk::Box::builder()
-        .orientation(gtk::Orientation::Horizontal)
-        .spacing(10)
-        .homogeneous(true)
-        .build();
-    actions.add_css_class("moose-instance-actions");
-    actions.append(&cancel_button);
-    actions.append(&connect_button);
-    let toolbar_view = adw::ToolbarView::builder()
-        .top_bar_style(adw::ToolbarStyle::Flat)
-        .bottom_bar_style(adw::ToolbarStyle::Flat)
-        .content(&scrolled)
-        .build();
-    toolbar_view.add_top_bar(&header_bar);
-    toolbar_view.add_bottom_bar(&actions);
-    dialog.set_child(Some(&toolbar_view));
+    setup.set_actions(&connect_button, &cancel_button);
     dialog.set_default_widget(Some(&connect_button));
     if editing {
         dialog.set_focus(Some(&name));
@@ -254,9 +235,21 @@ fn show_connection(ui: &Rc<WindowUi>, backend: &Rc<Backend>, previous: Option<Pr
     let target_custom_fields = custom_fields.clone();
     let target_custom_url = custom_url.clone();
     let target_account_id = account_id.clone();
+    let target_heading = setup.heading.downgrade();
+    let target_description = setup.description.downgrade();
     kinds.connect_selected_notify(move |row| {
         let kind = ProviderKind::CLOUD[row.selected() as usize];
         let custom = kind == ProviderKind::Custom;
+        if let Some(heading) = target_heading.upgrade() {
+            heading.set_label(kind.label());
+        }
+        if let Some(description) = target_description.upgrade() {
+            description.set_label(if custom {
+                "Connect to a service using your own connection settings."
+            } else {
+                "Connect using your own API key."
+            });
+        }
         target_key.set_text("");
         target_message_permission.set_selected(0);
         target_name.set_text(kind.label());

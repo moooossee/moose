@@ -193,65 +193,130 @@ fn provider_add_row() -> gtk::ListBoxRow {
 }
 
 fn show_add_provider_dialog(ui: &Rc<WindowUi>, backend: &Rc<Backend>) {
-    show_provider_setup(ui, backend, false);
+    show_provider_setup(ui, backend);
 }
 
-pub(super) fn show_connect_external_dialog(ui: &Rc<WindowUi>, backend: &Rc<Backend>) {
-    show_provider_setup(ui, backend, true);
-}
-
-fn show_provider_setup(ui: &Rc<WindowUi>, backend: &Rc<Backend>, external_only: bool) {
+fn show_provider_setup(ui: &Rc<WindowUi>, backend: &Rc<Backend>) {
     if provider_change_is_blocked(ui, backend) {
         return;
     }
 
     let dialog = adw::Dialog::builder()
-        .title(if external_only {
-            "Connect Provider"
-        } else {
-            "Add Provider"
-        })
+        .title("Add Provider")
+        .content_width(500)
         .follows_content_size(true)
         .build();
-    let header_bar = adw::HeaderBar::builder()
-        .show_start_title_buttons(false)
-        .show_end_title_buttons(false)
+    let content = gtk::Box::builder()
+        .orientation(Orientation::Vertical)
+        .spacing(16)
+        .margin_top(8)
+        .margin_bottom(20)
+        .margin_start(20)
+        .margin_end(20)
         .build();
 
     let type_toggle = adw::ToggleGroup::builder().homogeneous(true).build();
-    type_toggle.add(
-        adw::Toggle::builder()
-            .name("managed")
-            .label("Set Up for Me")
-            .build(),
-    );
-    type_toggle.add(
-        adw::Toggle::builder()
-            .name("external")
-            .label("Connect Existing")
-            .build(),
-    );
-    type_toggle.add(
-        adw::Toggle::builder()
-            .name("cloud")
-            .label("Cloud Provider")
-            .build(),
-    );
-    type_toggle.set_active(u32::from(external_only));
+    for (name, label) in [
+        ("managed", "Set Up for Me"),
+        ("external", "Connect Existing"),
+        ("cloud", "Cloud Provider"),
+    ] {
+        type_toggle.add(adw::Toggle::builder().name(name).label(label).build());
+    }
+    type_toggle.set_active(0);
+    content.append(&type_toggle);
 
     let description = gtk::Label::builder()
-        .label(if external_only {
-            "Connect to an existing Ollama server. This enables external connections; its execution location cannot be verified by Moose."
-        } else {
-            "Moose installs and runs Ollama on this device."
-        })
+        .label("Moose installs and runs Ollama on this device.")
         .wrap(true)
         .wrap_mode(pango::WrapMode::WordChar)
         .width_chars(1)
-        .max_width_chars(48)
-        .xalign(0.0)
+        .justify(gtk::Justification::Center)
+        .css_classes(["dim-label"])
         .build();
-    description.add_css_class("dim-label");
+    content.append(&description);
+
+    let cancel = gtk::Button::builder()
+        .label("Cancel")
+        .css_classes(["flat"])
+        .build();
+    let continue_button = gtk::Button::builder()
+        .label("Continue")
+        .css_classes(["suggested-action", "pill"])
+        .build();
+    let actions = gtk::Box::builder()
+        .orientation(Orientation::Horizontal)
+        .spacing(8)
+        .halign(Align::Center)
+        .build();
+    actions.append(&cancel);
+    actions.append(&continue_button);
+    content.append(&actions);
+    let toolbar = adw::ToolbarView::builder().content(&content).build();
+    toolbar.add_top_bar(&adw::HeaderBar::new());
+    dialog.set_child(Some(&toolbar));
+    dialog.set_default_widget(Some(&continue_button));
+    dialog.set_focus(Some(&type_toggle));
+
+    let target_description = description.downgrade();
+    type_toggle.connect_active_notify(move |toggle| {
+        if let Some(target) = target_description.upgrade() {
+            target.set_label(match toggle.active() {
+                1 => "Use an Ollama server you already run.",
+                2 => "Connect to an AI service using your own API key.",
+                _ => "Moose installs and runs Ollama on this device.",
+            });
+        }
+    });
+
+    let target_dialog = dialog.downgrade();
+    cancel.connect_clicked(move |_| {
+        if let Some(dialog) = target_dialog.upgrade() {
+            dialog.close();
+        }
+    });
+
+    let target_ui = Rc::clone(ui);
+    let target_backend = Rc::clone(backend);
+    let target_dialog = dialog.downgrade();
+    continue_button.connect_clicked(move |_| {
+        let Some(dialog) = target_dialog.upgrade() else {
+            return;
+        };
+        if provider_change_is_blocked(&target_ui, &target_backend) {
+            return;
+        }
+        match type_toggle.active() {
+            0 => {
+                dialog.close();
+                managed_install::show_dialog(&target_ui, &target_backend);
+            }
+            1 => {
+                dialog.close();
+                show_connect_external_dialog(&target_ui, &target_backend);
+            }
+            2 => {
+                dialog.close();
+                super::cloud_setup::show(&target_ui, &target_backend);
+            }
+            _ => {}
+        }
+    });
+
+    dialog.present(Some(&ui.window));
+}
+
+pub(super) fn show_connect_external_dialog(ui: &Rc<WindowUi>, backend: &Rc<Backend>) {
+    if provider_change_is_blocked(ui, backend) {
+        return;
+    }
+
+    let setup = widgets::SetupDialog::new(
+        "Connect Existing",
+        "Connect Existing",
+        "Use an Ollama server you already run.",
+    );
+    let dialog = setup.dialog.clone();
 
     let name_row = adw::EntryRow::builder()
         .title("Instance Name")
@@ -260,89 +325,37 @@ fn show_provider_setup(ui: &Rc<WindowUi>, backend: &Rc<Backend>, external_only: 
     let url_row = adw::EntryRow::builder()
         .title("Ollama URL")
         .text(DEFAULT_OLLAMA_BASE_URL)
+        .input_purpose(gtk::InputPurpose::Url)
         .build();
-    url_row.set_input_purpose(gtk::InputPurpose::Url);
-    let connection_group = adw::PreferencesGroup::new();
+    let connection_group = adw::PreferencesGroup::builder().title("Connection").build();
     connection_group.add(&name_row);
     connection_group.add(&url_row);
-    connection_group.set_visible(external_only);
+
     let sharing_group = adw::PreferencesGroup::builder()
         .title("Sharing Permissions")
         .description("Choose whether this server can receive messages in all chats. Files require separate permission. Shared content is processed under the server's own data policy.")
-        .visible(external_only)
         .build();
     let message_permission = super::privacy::message_permission_row();
     sharing_group.add(&message_permission);
-
-    let content = gtk::Box::builder()
-        .orientation(Orientation::Vertical)
-        .spacing(14)
+    let description = gtk::Label::builder()
+        .label(
+            "Connecting enables external connections. Moose cannot verify where this server runs.",
+        )
+        .wrap(true)
+        .wrap_mode(pango::WrapMode::WordChar)
+        .width_chars(1)
+        .xalign(0.0)
+        .css_classes(["caption", "dim-label"])
         .build();
-    content.add_css_class("moose-instance-content");
-    content.append(&type_toggle);
-    content.append(&description);
-    content.append(&connection_group);
-    content.append(&sharing_group);
+    setup.content.append(&connection_group);
+    setup.content.append(&sharing_group);
+    setup.content.append(&description);
 
-    let scrolled = gtk::ScrolledWindow::builder()
-        .hscrollbar_policy(gtk::PolicyType::Never)
-        .propagate_natural_height(true)
-        .max_content_height(420)
-        .child(&content)
-        .build();
-
-    let cancel_button = gtk::Button::with_label("Cancel");
-    let primary_button =
-        gtk::Button::with_label(if external_only { "Connect" } else { "Continue" });
-    primary_button.add_css_class("suggested-action");
-    let actions = gtk::Box::builder()
-        .orientation(Orientation::Horizontal)
-        .spacing(10)
-        .homogeneous(true)
-        .build();
-    actions.add_css_class("moose-instance-actions");
-    actions.append(&cancel_button);
-    actions.append(&primary_button);
-
-    let toolbar_view = adw::ToolbarView::builder()
-        .width_request(440)
-        .top_bar_style(adw::ToolbarStyle::Flat)
-        .bottom_bar_style(adw::ToolbarStyle::Flat)
-        .content(&scrolled)
-        .build();
-    toolbar_view.add_top_bar(&header_bar);
-    toolbar_view.add_bottom_bar(&actions);
-    dialog.set_child(Some(&toolbar_view));
-    dialog.set_default_widget(Some(&primary_button));
-    if external_only {
-        dialog.set_focus(Some(&url_row));
-    } else {
-        dialog.set_focus(Some(&type_toggle));
-    }
-
-    let target_description = description.clone();
-    let target_group = connection_group.clone();
-    let target_sharing_group = sharing_group.clone();
-    let target_button = primary_button.clone();
-    let target_scroll = scrolled.downgrade();
-    type_toggle.connect_active_notify(move |toggle| {
-        let external = toggle.active() == 1;
-        let cloud = toggle.active() == 2;
-        target_description.set_label(if cloud {
-            "Connect Ollama Cloud, Groq, OpenAI, Claude, Gemini, Mistral AI or DeepSeek using your own API key."
-        } else if external {
-            "Connect to an existing Ollama server. This enables external connections; its execution location cannot be verified by Moose."
-        } else {
-            "Moose installs and runs Ollama on this device."
-        });
-        target_group.set_visible(external);
-        target_sharing_group.set_visible(external);
-        target_button.set_label(if external { "Connect" } else { "Continue" });
-        if let Some(scrolled) = target_scroll.upgrade() {
-            let adjustment = scrolled.vadjustment();
-            adjustment.set_value(adjustment.lower());
-        }
-    });
+    let cancel = gtk::Button::with_label("Cancel");
+    let connect = gtk::Button::with_label("Connect");
+    setup.set_actions(&connect, &cancel);
+    dialog.set_default_widget(Some(&connect));
+    dialog.set_focus(Some(&url_row));
 
     let target_url_row = url_row.clone();
     name_row.connect_entry_activated(move |_| {
@@ -352,30 +365,29 @@ fn show_provider_setup(ui: &Rc<WindowUi>, backend: &Rc<Backend>, external_only: 
     url_row.connect_text_notify(move |_| {
         target_message_permission.set_selected(0);
     });
-    let target_button = primary_button.clone();
+    let target_button = connect.clone();
     url_row.connect_entry_activated(move |_| {
         target_button.emit_clicked();
     });
 
-    let target_dialog = dialog.clone();
-    cancel_button.connect_clicked(move |_| {
-        target_dialog.close();
+    let target_dialog = dialog.downgrade();
+    cancel.connect_clicked(move |_| {
+        if let Some(dialog) = target_dialog.upgrade() {
+            dialog.close();
+        }
     });
 
     let target_ui = Rc::clone(ui);
     let target_backend = Rc::clone(backend);
-    let target_dialog = dialog.clone();
-    primary_button.connect_clicked(move |_| {
+    let target_dialog = dialog.downgrade();
+    connect.connect_clicked(move |_| {
+        let Some(dialog) = target_dialog.upgrade() else {
+            return;
+        };
         if provider_change_is_blocked(&target_ui, &target_backend) {
             return;
         }
-        if type_toggle.active() == 0 {
-            target_dialog.close();
-            managed_install::show_dialog(&target_ui, &target_backend);
-        } else if type_toggle.active() == 2 {
-            target_dialog.close();
-            super::cloud_setup::show(&target_ui, &target_backend);
-        } else if add_provider_from_sidebar(
+        if add_provider_from_sidebar(
             &target_ui,
             &target_backend,
             name_row.text().to_string(),
@@ -385,7 +397,7 @@ fn show_provider_setup(ui: &Rc<WindowUi>, backend: &Rc<Backend>, external_only: 
                 files: false,
             },
         ) {
-            target_dialog.close();
+            dialog.close();
         }
     });
 
