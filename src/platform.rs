@@ -77,6 +77,10 @@ impl AppPaths {
         self.cache_dir.join("ollama.log")
     }
 
+    pub fn app_log_path(&self) -> PathBuf {
+        self.cache_dir.join("moose.log")
+    }
+
     pub fn ollama_download_cache_dir(&self) -> PathBuf {
         self.cache_dir.join("ollama-downloads")
     }

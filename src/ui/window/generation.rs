@@ -301,6 +301,7 @@ pub(super) fn start(
             sync_controls(&ui, &backend);
             conversation_list::refresh(&ui, &backend);
             if let Some(error) = error {
+                crate::logging::record("ERROR", "generation.failed", &error);
                 ui.toast_overlay
                     .add_toast(adw::Toast::new(&format!("Generation failed: {error}")));
             }

@@ -3,6 +3,7 @@ pub mod chat;
 pub mod conversations;
 pub mod core;
 pub mod error;
+pub mod logging;
 pub mod models;
 pub mod ollama;
 pub mod platform;
