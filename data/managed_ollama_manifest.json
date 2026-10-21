@@ -1,15 +1,15 @@
 {
-  "version": "v0.24.0",
+  "version": "v0.40.6",
   "assets": {
     "amd64": {
-      "url": "https://github.com/ollama/ollama/releases/download/v0.24.0/ollama-linux-amd64.tar.zst",
-      "sha256": "15c5f8d66ba06e0d3b4719df8868612dbd66e14e82760929bb3552e1657cdcdb",
-      "size_bytes": 1198635318
+      "url": "https://github.com/ollama/ollama/releases/download/v0.40.6/ollama-linux-amd64.tar.zst",
+      "sha256": "c164ab8b1b28e2a247c29719b8e404c423c5b83ae64c3ab4e59d50c7ff7fc5e0",
+      "size_bytes": 1438364593
     },
     "arm64": {
-      "url": "https://github.com/ollama/ollama/releases/download/v0.24.0/ollama-linux-arm64.tar.zst",
-      "sha256": "6e9a3ce5f64e93312902e39c420ec336255f078a368ca25e99b339d08a6dfa4b",
-      "size_bytes": 1323731537
+      "url": "https://github.com/ollama/ollama/releases/download/v0.40.6/ollama-linux-arm64.tar.zst",
+      "sha256": "0a279d9428ad17b06fdb7dddf3b059b2c148433585fa3b30676a102fc459bb9f",
+      "size_bytes": 1560414226
     }
   }
 }
