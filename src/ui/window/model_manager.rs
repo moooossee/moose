@@ -20,6 +20,7 @@ pub(super) struct ModelManager {
     pull_panel: gtk::Box,
     pull_title: gtk::Label,
     pull_status: gtk::Label,
+    pull_copy_button: gtk::Button,
     pull_progress: gtk::ProgressBar,
     pull_progress_label: gtk::Label,
     model_list: gtk::ListBox,
@@ -1528,11 +1529,19 @@ pub(super) fn build() -> ModelManager {
 
     let pull_status = gtk::Label::builder()
         .label("Preparing download")
+        .selectable(true)
+        .wrap_mode(gtk::pango::WrapMode::WordChar)
         .halign(Align::Start)
         .xalign(0.0)
         .wrap(true)
         .build();
     pull_status.add_css_class("dim-label");
+    let pull_copy_button = icon_button("edit-copy-symbolic", "Copy Details");
+    pull_copy_button.set_visible(false);
+    let copy_status = pull_status.clone();
+    pull_copy_button
+        .connect_clicked(move |_| copy_status.clipboard().set_text(&copy_status.text()));
+    pull_header.append(&pull_copy_button);
 
     let pull_progress = gtk::ProgressBar::builder()
         .hexpand(true)
@@ -1630,6 +1639,7 @@ pub(super) fn build() -> ModelManager {
         pull_panel,
         pull_title,
         pull_status,
+        pull_copy_button,
         pull_progress,
         pull_progress_label,
         model_list,
@@ -1661,6 +1671,7 @@ pub(super) fn set_unavailable(manager: &ModelManager, title: &str, description: 
 
 pub(super) fn clear_download_job(manager: &ModelManager) {
     manager.pull_panel.set_visible(false);
+    manager.pull_copy_button.set_visible(false);
     manager.pull_cancel_button.set_sensitive(false);
     manager.pull_progress.set_fraction(0.0);
     manager.pull_progress_label.set_label("");
@@ -1728,6 +1739,7 @@ pub(super) fn set_models(
 }
 
 pub(super) fn set_pull_started(manager: &ModelManager, model: &str) {
+    manager.pull_copy_button.set_visible(false);
     manager.pull_panel.set_visible(true);
     manager.pull_button.set_sensitive(false);
     manager.refresh_button.set_sensitive(false);
@@ -1773,6 +1785,7 @@ pub(super) fn set_pull_progress(
 }
 
 pub(super) fn set_pull_finished(manager: &ModelManager, title: &str, status: &str, fraction: f64) {
+    manager.pull_copy_button.set_visible(true);
     manager.pull_panel.set_visible(true);
     manager.pull_title.set_label(title);
     manager.pull_status.set_label(status);
@@ -1784,6 +1797,7 @@ pub(super) fn set_pull_finished(manager: &ModelManager, title: &str, status: &st
 }
 
 pub(super) fn set_delete_started(manager: &ModelManager, model: &str) {
+    manager.pull_copy_button.set_visible(false);
     manager.pull_panel.set_visible(true);
     manager.pull_button.set_sensitive(false);
     manager.refresh_button.set_sensitive(false);
@@ -1800,6 +1814,7 @@ pub(super) fn set_delete_finished(
     status: &str,
     fraction: f64,
 ) {
+    manager.pull_copy_button.set_visible(true);
     manager.pull_panel.set_visible(true);
     manager.pull_title.set_label(title);
     manager.pull_status.set_label(status);
