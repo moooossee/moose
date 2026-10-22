@@ -14,6 +14,8 @@ use super::{
     widgets::{composer_button, icon_button, string_list_factory},
 };
 
+mod bubble;
+
 pub(super) struct Chat {
     pub(super) root: gtk::Box,
     pub(super) messages: gtk::Box,
@@ -452,15 +454,10 @@ pub(super) fn append_message(
         role_label.set_justify(gtk::Justification::Right);
         markdown_view::constrain_width(&content_view, 72);
 
-        let bubble = gtk::Box::builder()
-            .orientation(Orientation::Vertical)
-            .halign(Align::End)
-            .hexpand(false)
-            .build();
+        let bubble = bubble::new(&content_view);
         bubble.add_css_class("moose-message-user-bubble");
         role_label.add_css_class("moose-message-user-meta");
         content_view.add_css_class("moose-message-user-content");
-        bubble.append(&content_view);
         row.append(&role_label);
         row.append(&bubble);
     } else {

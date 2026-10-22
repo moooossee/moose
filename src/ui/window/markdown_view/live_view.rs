@@ -1,6 +1,6 @@
 use gtk::prelude::*;
 
-use super::{render, text_view::MarkdownTextView};
+use super::{render, table_view::TableView, text_view::MarkdownTextView};
 use crate::ui::window::{chat_scroll::ChatScroll, code_view};
 
 pub(in crate::ui::window) struct LiveContent {
@@ -102,6 +102,13 @@ fn sync_widget(target: &gtk::Widget, source: &gtk::Widget) -> bool {
     target.set_halign(source.halign());
     target.set_hexpand(source.hexpands());
     if let (Some(target), Some(source)) = (
+        target.downcast_ref::<TableView>(),
+        source.downcast_ref::<TableView>(),
+    ) {
+        target.sync_source(source);
+        sync_box(target.content(), source.content());
+        target.queue_resize();
+    } else if let (Some(target), Some(source)) = (
         target.downcast_ref::<MarkdownTextView>(),
         source.downcast_ref::<MarkdownTextView>(),
     ) {

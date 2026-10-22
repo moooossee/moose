@@ -400,14 +400,25 @@ popover.moose-provider-popover > contents {
   margin: 6px 0;
 }
 
+.moose-table-block {
+  margin: 4px 0;
+}
+
 .moose-markdown-table-scroll {
   background-color: transparent;
-  margin: 4px 0;
 }
 
 .moose-markdown-table {
   border: 1px solid @borders;
-  border-radius: 8px;
+  border-radius: 0 0 8px 8px;
+}
+
+.moose-table-header {
+  background-color: alpha(@window_fg_color, 0.06);
+  border: 1px solid @borders;
+  border-bottom: 0;
+  border-radius: 8px 8px 0 0;
+  padding: 3px 5px 3px 10px;
 }
 
 .moose-markdown-table-cell {
@@ -436,11 +447,13 @@ popover.moose-provider-popover > contents {
   padding: 3px 5px 3px 10px;
 }
 
-.moose-code-language {
+.moose-code-language,
+.moose-table-title {
   font-size: 0.78em;
 }
 
-.moose-code-copy {
+.moose-code-copy,
+.moose-table-copy {
   border-radius: 6px;
   min-height: 28px;
   min-width: 28px;
