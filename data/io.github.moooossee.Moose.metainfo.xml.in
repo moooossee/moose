@@ -65,6 +65,14 @@
   </screenshots>
   <content_rating type="oars-1.1" />
   <releases>
+    <release version="0.7.0" date="2026-10-22" type="stable">
+      <url type="details">https://github.com/moooossee/moose/releases/tag/v0.7.0</url>
+      <description>
+        <p>You can now check for updates, update or repair the Ollama installation managed by Moose right from Preferences. Your models and chats stay put. This release comes with Ollama 0.40.6, lets you pick up interrupted engine downloads and brings back the previous installation if an update fails.</p>
+        <p>We've tidied up the setup screens for local and cloud providers. If something goes wrong, you can view and copy Moose and Ollama logs from Diagnostics, or copy the details of a model download or deletion. If a model needs a newer Ollama version, Moose offers to update its managed installation and try the download again.</p>
+        <p>Tables now fit better in chats and have a button to copy them as Markdown. We also fixed chat bubble sizing. When selecting a long passage, you can drag toward the edge of the chat to scroll and keep selecting.</p>
+      </description>
+    </release>
     <release version="0.6.5" date="2026-10-20" type="stable">
       <url type="details">https://github.com/moooossee/moose/releases/tag/v0.6.5</url>
       <description>
