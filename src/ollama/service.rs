@@ -245,16 +245,43 @@ impl ManagedOllamaService {
             return Ok(());
         }
 
+        self.prepare_runtime_paths()?;
+        let process_lock = acquire_process_lock(&self.config.home_dir).inspect_err(|error| {
+            self.fail_from_error(error);
+        })?;
+        self.recover_installation().inspect_err(|error| {
+            self.fail_from_error(error);
+        })?;
+        self.start_with_process_lock(process_lock)
+    }
+
+    pub(super) fn recover_installation(&self) -> Result<()> {
+        let paths = AppPaths::from_base_dirs(
+            self.config.home_dir.clone(),
+            self.config.cache_dir.clone(),
+            self.config.config_dir.clone(),
+        );
+        super::manager::transaction::recover(&paths)
+    }
+
+    pub(super) fn stop_for_update(&mut self) -> Result<File> {
+        self.check_shutdown()?;
+        self.prepare_runtime_paths()?;
+        let lock = match self.process_lock.take() {
+            Some(lock) => lock,
+            None => acquire_process_lock(&self.config.home_dir)?,
+        };
+        self.shutdown();
+        Ok(lock)
+    }
+
+    pub(super) fn start_with_process_lock(&mut self, process_lock: File) -> Result<()> {
+        self.check_shutdown()?;
         if !self.config.binary_path.is_file() {
             let error = MooseError::ManagedOllamaBinaryMissing(self.config.binary_path.clone());
             self.fail_from_error(&error);
             return Err(error);
         }
-
-        self.prepare_runtime_paths()?;
-        let process_lock = acquire_process_lock(&self.config.home_dir).inspect_err(|error| {
-            self.fail_from_error(error);
-        })?;
         ensure_port_available(&self.config.host).inspect_err(|error| {
             self.fail_from_error(error);
         })?;
@@ -280,6 +307,11 @@ impl ManagedOllamaService {
                 self.child = Some(child);
                 self.process_lock = Some(process_lock);
                 self.state = ManagedOllamaServiceState::Starting;
+                crate::logging::record(
+                    "INFO",
+                    "ollama.start",
+                    &format!("Starting managed Ollama at {}", self.config.base_url),
+                );
                 Ok(())
             }
             Err(error) => {
@@ -418,6 +450,7 @@ impl ManagedOllamaService {
     }
 
     fn fail_from_error(&mut self, error: &MooseError) {
+        crate::logging::record("ERROR", "ollama.service", &error.to_string());
         self.state = ManagedOllamaServiceState::Failed(error.to_string());
     }
 }
@@ -534,7 +567,7 @@ fn recent_log_excerpt(path: &Path, line_count: usize) -> Option<String> {
     Some(lines.into_iter().rev().collect::<Vec<_>>().join(" | "))
 }
 
-fn acquire_process_lock(home_dir: &Path) -> Result<File> {
+pub(super) fn acquire_process_lock(home_dir: &Path) -> Result<File> {
     let mut options = OpenOptions::new();
     options.create(true).truncate(false).read(true).write(true);
     #[cfg(unix)]

@@ -9,8 +9,7 @@ use adw::prelude::*;
 use crate::{
     error::Result,
     ollama::{
-        OllamaClient, OllamaModel,
-        manager::{ManagedOllamaInstallProgress, ManagedOllamaInstallStatus, ManagedOllamaManager},
+        OllamaClient, OllamaModel, manager::ManagedOllamaInstallProgress,
         service::ManagedOllamaConfig,
     },
     platform::AppPaths,
@@ -24,17 +23,8 @@ use super::{
     Backend, MANAGED_OLLAMA_READY_TIMEOUT, ManagedOllamaHandle, WindowUi, apply_provider_state,
     conversation_list, model_actions::format_download_size, model_manager,
     provider_change_is_blocked, provider_controls, reset_active_conversation, set_models,
-    show_chat, show_error, widgets,
+    show_chat, widgets,
 };
-
-#[derive(Clone)]
-struct ManagedInstallControls {
-    dialog: adw::Dialog,
-    progress: gtk::ProgressBar,
-    status: gtk::Label,
-    install_button: gtk::Button,
-    close_button: gtk::Button,
-}
 
 #[derive(Clone)]
 struct ManagedConfigurationControls {
@@ -45,249 +35,16 @@ struct ManagedConfigurationControls {
     close_button: gtk::Button,
 }
 
-enum ManagedOllamaInstallUiEvent {
-    Progress(ManagedOllamaInstallProgress),
-    Installed,
-    Failed(String),
-}
-
 enum ManagedOllamaStartUiEvent {
     Ready(Vec<OllamaModel>),
     Failed(String),
 }
 
 pub(super) fn show_dialog(ui: &Rc<WindowUi>, backend: &Rc<Backend>) {
-    if provider_change_is_blocked(ui, backend) {
-        return;
-    }
-
-    let manager = match ManagedOllamaManager::new(backend.paths.clone()) {
-        Ok(manager) => manager,
-        Err(error) => {
-            show_error(&ui.window, "Install Ollama", &error);
-            return;
-        }
-    };
-
-    match manager.status() {
-        Ok(ManagedOllamaInstallStatus::Installed { .. }) => {
-            show_configuration_dialog(ui, backend);
-        }
-        Ok(ManagedOllamaInstallStatus::NotInstalled) => {
-            show_install_dialog(ui, backend, manager);
-        }
-        Err(error) => {
-            show_error(&ui.window, "Install Ollama", &error);
-        }
-    }
+    super::managed_runtime::show_dialog(ui, backend, None);
 }
 
-fn show_install_dialog(ui: &Rc<WindowUi>, backend: &Rc<Backend>, manager: ManagedOllamaManager) {
-    let dialog = adw::Dialog::builder()
-        .title("Install Ollama")
-        .content_width(500)
-        .content_height(440)
-        .build();
-    let header_bar = adw::HeaderBar::builder()
-        .show_start_title_buttons(false)
-        .show_end_title_buttons(false)
-        .build();
-    let title = adw::WindowTitle::new("Install Ollama", "Managed by Moose");
-    header_bar.set_title_widget(Some(&title));
-
-    let close_button = widgets::icon_button("window-close-symbolic", "Close");
-    let target_dialog = dialog.clone();
-    close_button.connect_clicked(move |_| {
-        target_dialog.close();
-    });
-    header_bar.pack_end(&close_button);
-
-    let content = gtk::Box::builder()
-        .orientation(gtk::Orientation::Vertical)
-        .spacing(18)
-        .hexpand(true)
-        .vexpand(true)
-        .build();
-    content.add_css_class("moose-install-content");
-
-    let overview_group = adw::PreferencesGroup::builder()
-        .title("Managed Ollama")
-        .description("Moose installs Ollama in app data, separate from any system Ollama.")
-        .build();
-    overview_group.add(&install_detail_row(
-        "software-update-available-symbolic",
-        "Official Release",
-        "Downloaded from Ollama releases",
-    ));
-    overview_group.add(&install_detail_row(
-        "folder-symbolic",
-        "Private App Data",
-        "Models and runtime files stay with Moose",
-    ));
-    overview_group.add(&install_detail_row(
-        "network-server-symbolic",
-        "Port Setup Next",
-        "After installation, choose the managed port",
-    ));
-
-    let progress = gtk::ProgressBar::builder()
-        .pulse_step(0.08)
-        .show_text(false)
-        .build();
-    progress.add_css_class("moose-pull-progress");
-
-    let status = gtk::Label::builder()
-        .label("Ready to install Ollama")
-        .wrap(true)
-        .wrap_mode(gtk::pango::WrapMode::WordChar)
-        .halign(gtk::Align::Start)
-        .xalign(0.0)
-        .build();
-    status.add_css_class("dim-label");
-
-    let progress_box = gtk::Box::builder()
-        .orientation(gtk::Orientation::Vertical)
-        .spacing(10)
-        .build();
-    progress_box.add_css_class("moose-install-progress");
-    progress_box.append(&status);
-    progress_box.append(&progress);
-
-    let progress_group = adw::PreferencesGroup::builder().title("Progress").build();
-    progress_group.add(&progress_box);
-
-    let install_button = gtk::Button::with_label("Install Ollama");
-    install_button.add_css_class("suggested-action");
-
-    let actions = gtk::Box::builder()
-        .orientation(gtk::Orientation::Horizontal)
-        .spacing(8)
-        .halign(gtk::Align::End)
-        .build();
-    actions.append(&install_button);
-
-    content.append(&overview_group);
-    content.append(&progress_group);
-    content.append(&actions);
-
-    let toolbar_view = adw::ToolbarView::builder()
-        .top_bar_style(adw::ToolbarStyle::Flat)
-        .content(&content)
-        .build();
-    toolbar_view.add_top_bar(&header_bar);
-    dialog.set_child(Some(&toolbar_view));
-
-    let controls = ManagedInstallControls {
-        dialog: dialog.clone(),
-        progress,
-        status,
-        install_button: install_button.clone(),
-        close_button,
-    };
-
-    let target_ui = Rc::clone(ui);
-    let target_backend = Rc::clone(backend);
-    let target_controls = controls.clone();
-    install_button.connect_clicked(move |_| {
-        start_managed_ollama_install(
-            manager.clone(),
-            &target_controls,
-            &target_ui,
-            &target_backend,
-        );
-    });
-
-    dialog.present(Some(&ui.window));
-}
-
-fn install_detail_row(icon_name: &str, title: &str, subtitle: &str) -> adw::ActionRow {
-    let row = adw::ActionRow::builder()
-        .title(title)
-        .subtitle(subtitle)
-        .subtitle_lines(2)
-        .build();
-    let icon = gtk::Image::from_icon_name(icon_name);
-    icon.set_pixel_size(20);
-    icon.add_css_class("dim-label");
-    row.add_prefix(&icon);
-    row
-}
-
-fn start_managed_ollama_install(
-    manager: ManagedOllamaManager,
-    controls: &ManagedInstallControls,
-    ui: &Rc<WindowUi>,
-    backend: &Rc<Backend>,
-) {
-    controls.install_button.set_sensitive(false);
-    controls.install_button.set_label("Installing");
-    controls.close_button.set_sensitive(false);
-    controls.progress.set_fraction(0.0);
-    controls.status.set_label("Downloading Ollama");
-
-    let (sender, receiver) = mpsc::channel();
-    backend.runtime.spawn(async move {
-        let progress_sender = sender.clone();
-        match manager
-            .install(move |progress| {
-                let _ = progress_sender.send(ManagedOllamaInstallUiEvent::Progress(progress));
-            })
-            .await
-        {
-            Ok(()) => {
-                let _ = sender.send(ManagedOllamaInstallUiEvent::Installed);
-            }
-            Err(error) => {
-                let _ = sender.send(ManagedOllamaInstallUiEvent::Failed(error.to_string()));
-            }
-        }
-    });
-
-    let target_controls = controls.clone();
-    let target_ui = Rc::clone(ui);
-    let target_backend = Rc::clone(backend);
-    gtk::glib::timeout_add_local(Duration::from_millis(80), move || {
-        loop {
-            match receiver.try_recv() {
-                Ok(ManagedOllamaInstallUiEvent::Progress(event)) => {
-                    apply_install_progress(
-                        &target_controls.progress,
-                        &target_controls.status,
-                        &event,
-                    );
-                }
-                Ok(ManagedOllamaInstallUiEvent::Installed) => {
-                    target_controls.progress.set_fraction(1.0);
-                    target_controls.status.set_label("Ollama installed");
-                    target_controls.dialog.close();
-                    show_configuration_dialog(&target_ui, &target_backend);
-                    return gtk::glib::ControlFlow::Break;
-                }
-                Ok(ManagedOllamaInstallUiEvent::Failed(error)) => {
-                    target_controls.close_button.set_sensitive(true);
-                    target_controls.install_button.set_label("Retry");
-                    target_controls.install_button.set_sensitive(true);
-                    target_controls.status.set_label(&error);
-                    target_controls.progress.set_fraction(0.0);
-                    return gtk::glib::ControlFlow::Break;
-                }
-                Err(mpsc::TryRecvError::Empty) => return gtk::glib::ControlFlow::Continue,
-                Err(mpsc::TryRecvError::Disconnected) => {
-                    target_controls.close_button.set_sensitive(true);
-                    target_controls.install_button.set_label("Retry");
-                    target_controls.install_button.set_sensitive(true);
-                    target_controls
-                        .status
-                        .set_label("Installation stopped before completion");
-                    target_controls.progress.set_fraction(0.0);
-                    return gtk::glib::ControlFlow::Break;
-                }
-            }
-        }
-    });
-}
-
-fn apply_install_progress(
+pub(super) fn apply_install_progress(
     progress_bar: &gtk::ProgressBar,
     status: &gtk::Label,
     progress: &ManagedOllamaInstallProgress,
@@ -302,8 +59,9 @@ fn apply_install_progress(
             total_bytes,
         } => {
             if let Some(total_bytes) = total_bytes.as_ref().copied().filter(|total| *total > 0) {
-                progress_bar
-                    .set_fraction((*downloaded_bytes as f64 / total_bytes as f64).clamp(0.0, 0.7));
+                progress_bar.set_fraction(
+                    (0.7 * *downloaded_bytes as f64 / total_bytes as f64).clamp(0.0, 0.7),
+                );
             } else {
                 progress_bar.pulse();
             }
@@ -324,6 +82,14 @@ fn apply_install_progress(
             progress_bar.set_fraction(0.94);
             status.set_label("Installing Ollama");
         }
+        ManagedOllamaInstallProgress::Starting => {
+            progress_bar.set_fraction(0.97);
+            status.set_label("Checking the new Ollama server");
+        }
+        ManagedOllamaInstallProgress::Restoring => {
+            progress_bar.pulse();
+            status.set_label("Restoring the previous installation");
+        }
         ManagedOllamaInstallProgress::Installed { version } => {
             progress_bar.set_fraction(1.0);
             status.set_label(&format!("Ollama {version} installed"));
@@ -342,7 +108,7 @@ fn download_status_text(downloaded_bytes: u64, total_bytes: Option<u64>) -> Stri
     }
 }
 
-fn show_configuration_dialog(ui: &Rc<WindowUi>, backend: &Rc<Backend>) {
+pub(super) fn show_configuration_dialog(ui: &Rc<WindowUi>, backend: &Rc<Backend>) {
     if provider_change_is_blocked(ui, backend) {
         return;
     }
@@ -398,7 +164,7 @@ fn show_configuration_dialog(ui: &Rc<WindowUi>, backend: &Rc<Backend>) {
         .build();
     let settings_group = adw::PreferencesGroup::builder()
         .title("Instance Settings")
-        .description("Port 11435 is recommended. Port 11434 is reserved for external Ollama.")
+        .description("Moose selects an available port starting at 11435, skipping ports already assigned to managed connections. Port 11434 is reserved for external Ollama.")
         .build();
     settings_group.add(&name_row);
     settings_group.add(&host_row);

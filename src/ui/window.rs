@@ -48,9 +48,11 @@ mod code_view;
 mod conversation_export;
 mod conversation_list;
 mod custom_provider;
+mod diagnostics;
 mod first_run;
 mod generation;
 mod managed_install;
+mod managed_runtime;
 mod markdown_live;
 mod markdown_view;
 mod math_syntax;
@@ -236,9 +238,11 @@ pub fn build(app: &adw::Application) -> adw::ApplicationWindow {
                 show_first_run_guide(&ui);
             }
             conversation_list::refresh(&ui, &backend);
+            managed_runtime::notify_update_available(&ui, &backend);
         }
         Err(error) => {
             ui.provider_status.set_text("Storage Error");
+            crate::logging::record("ERROR", "storage.open", &error.to_string());
             ui.send_button.set_sensitive(false);
             ui.stop_button.set_sensitive(false);
             ui.refresh_button.set_sensitive(false);
@@ -265,6 +269,7 @@ struct Backend {
     settings: Option<gio::Settings>,
     network_policy: NetworkPolicy,
     credential_operation: Cell<bool>,
+    runtime_install: RefCell<Option<crate::ollama::update::InstallCancellation>>,
     model_load_revision: Cell<u64>,
     selected_models: RefCell<HashMap<String, String>>,
     shortcuts: RefCell<HashMap<String, String>>,
@@ -438,6 +443,7 @@ impl Backend {
             settings,
             network_policy,
             credential_operation: Cell::new(false),
+            runtime_install: RefCell::new(None),
             model_load_revision: Cell::new(0),
             selected_models: RefCell::new(selected_models),
             shortcuts: RefCell::new(shortcuts),
@@ -496,6 +502,9 @@ impl Backend {
     }
 
     fn shutdown(&self) {
+        if let Some(cancellation) = self.runtime_install.borrow().as_ref() {
+            cancellation.cancel();
+        }
         if !self.managed_shutdown.request() {
             return;
         }
@@ -995,6 +1004,9 @@ fn save_managed_gpu_acceleration(
 }
 
 fn provider_change_is_blocked(ui: &Rc<WindowUi>, backend: &Rc<Backend>) -> bool {
+    if runtime_install_is_active(ui, backend) {
+        return true;
+    }
     if backend.credential_operation.get() {
         ui.toast_overlay
             .add_toast(adw::Toast::new("Finish the keyring operation first"));
@@ -1071,6 +1083,9 @@ fn reset_active_conversation(ui: &WindowUi, backend: &Backend) {
 }
 
 fn refresh_models(ui: &Rc<WindowUi>, backend: &Rc<Backend>) {
+    if runtime_install_is_active(ui, backend) {
+        return;
+    }
     if backend.credential_operation.get() {
         return;
     }
@@ -1225,6 +1240,7 @@ fn refresh_models(ui: &Rc<WindowUi>, backend: &Rc<Backend>) {
                 gtk::glib::ControlFlow::Break
             }
             Ok(ModelLoadEvent::Failed(error)) => {
+                crate::logging::record("ERROR", "models.load", &error);
                 target_ui.refresh_button.set_sensitive(true);
                 target_ui.model_manager.refresh_button.set_sensitive(true);
                 target_ui.provider_status.set_text("Error");
@@ -1288,6 +1304,9 @@ fn submit_message(
     backend: &Rc<Backend>,
     submission: message_actions::Submission,
 ) -> bool {
+    if runtime_install_is_active(ui, backend) {
+        return false;
+    }
     if backend.credential_operation.get() {
         ui.toast_overlay
             .add_toast(adw::Toast::new("Finish the keyring operation first"));
@@ -2292,14 +2311,18 @@ fn update_provider_summary(ui: &WindowUi, provider: &Provider) {
 }
 
 fn show_error(parent: &impl IsA<gtk::Widget>, heading: &str, error: &dyn std::error::Error) {
-    let dialog = adw::AlertDialog::builder()
-        .heading(heading)
-        .body(error.to_string())
-        .close_response("ok")
-        .default_response("ok")
-        .build();
-    dialog.add_response("ok", "OK");
-    dialog.present(Some(parent));
+    diagnostics::show_error(parent, heading, &error.to_string());
+}
+
+fn runtime_install_is_active(ui: &WindowUi, backend: &Backend) -> bool {
+    if backend.runtime_install.borrow().is_some() {
+        ui.toast_overlay.add_toast(adw::Toast::new(
+            "Wait for the Ollama installation to finish or cancel it.",
+        ));
+        true
+    } else {
+        false
+    }
 }
 
 fn install_chat_css() {

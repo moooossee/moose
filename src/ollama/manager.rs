@@ -8,17 +8,19 @@ use std::{
 #[cfg(unix)]
 use std::os::unix::{fs as unix_fs, fs::PermissionsExt};
 
-use futures_util::StreamExt;
 use serde::{Deserialize, Serialize};
-use sha2::{Digest, Sha256};
 use tar::EntryType;
-use tokio::{fs as async_fs, io::AsyncWriteExt};
 
 use crate::{
     core::{new_id, utc_now},
     error::{MooseError, Result},
     platform::AppPaths,
 };
+
+mod download;
+pub(super) mod transaction;
+
+use super::update::InstallCancellation;
 
 const BUNDLED_MANAGED_OLLAMA_MANIFEST: &str =
     include_str!("../../data/managed_ollama_manifest.json");
@@ -32,13 +34,13 @@ pub struct ManagedOllamaManager {
     manifest: ManagedOllamaManifest,
 }
 
-#[derive(Clone, Debug, Deserialize, Eq, PartialEq)]
+#[derive(Clone, Debug, Deserialize, Serialize, Eq, PartialEq)]
 pub struct ManagedOllamaManifest {
     pub version: String,
     pub assets: BTreeMap<String, ManagedOllamaAsset>,
 }
 
-#[derive(Clone, Debug, Deserialize, Eq, PartialEq)]
+#[derive(Clone, Debug, Deserialize, Serialize, Eq, PartialEq)]
 pub struct ManagedOllamaAsset {
     pub url: String,
     pub sha256: String,
@@ -72,6 +74,8 @@ pub enum ManagedOllamaInstallProgress {
     },
     Extracting,
     Installing,
+    Starting,
+    Restoring,
     Installed {
         version: String,
     },
@@ -94,7 +98,10 @@ impl ManagedOllamaManager {
     pub fn with_manifest(paths: AppPaths, manifest: ManagedOllamaManifest) -> Result<Self> {
         manifest.validate()?;
         let client = reqwest::Client::builder()
-            .user_agent("moose-managed-ollama-installer")
+            .user_agent(concat!("Moose/", env!("CARGO_PKG_VERSION")))
+            .https_only(true)
+            .connect_timeout(std::time::Duration::from_secs(20))
+            .read_timeout(std::time::Duration::from_secs(60))
             .build()?;
         Ok(Self {
             paths,
@@ -132,143 +139,126 @@ impl ManagedOllamaManager {
         Ok(Some(metadata.version))
     }
 
-    pub fn uninstall(&self) -> Result<()> {
-        remove_path_if_exists(&self.paths.ollama_installation_dir())
+    pub fn installed_manifest(&self) -> Result<Option<ManagedOllamaManifest>> {
+        if !self.metadata_path().is_file() {
+            return Ok(None);
+        }
+        let metadata: ManagedOllamaInstallationMetadata =
+            serde_json::from_slice(&fs::read(self.metadata_path())?)?;
+        let manifest = ManagedOllamaManifest {
+            version: metadata.version,
+            assets: BTreeMap::from([(
+                metadata.architecture,
+                ManagedOllamaAsset {
+                    url: metadata.source_url,
+                    sha256: metadata.sha256,
+                    size_bytes: None,
+                },
+            )]),
+        };
+        manifest.validate()?;
+        Ok(Some(manifest))
     }
 
-    pub async fn install<F>(&self, mut on_progress: F) -> Result<()>
+    pub async fn prepare<F>(
+        &self,
+        cancellation: &InstallCancellation,
+        on_progress: &mut F,
+    ) -> Result<PreparedInstallation>
     where
         F: FnMut(ManagedOllamaInstallProgress) + Send,
     {
+        self.paths.create_all()?;
+        let lock = transaction::lock_installation(&self.paths)?;
+        if transaction::is_pending(&self.paths) && !transaction::finish_committed(&self.paths)? {
+            let _process_lock = super::service::acquire_process_lock(self.paths.data_dir())?;
+            transaction::recover(&self.paths)?;
+        }
+        for entry in fs::read_dir(self.paths.data_dir())? {
+            let entry = entry?;
+            let name = entry.file_name();
+            if name
+                .to_str()
+                .and_then(|name| name.strip_prefix(".ollama-install-"))
+                .is_some_and(|id| uuid::Uuid::parse_str(id).is_ok())
+            {
+                remove_path_if_exists(&entry.path())?;
+            }
+        }
+        cancellation.check()?;
         let architecture = ManagedOllamaArchitecture::current()?;
         let asset = self.manifest.asset_for_architecture(architecture)?.clone();
-        self.prepare_directories()?;
-        let archive_path = self.archive_download_path(architecture);
-
-        let result = async {
-            on_progress(ManagedOllamaInstallProgress::DownloadStarted {
-                total_bytes: asset.size_bytes,
-            });
-            let (downloaded_bytes, actual_sha256) = self
-                .download_asset(&asset, &archive_path, &mut on_progress)
-                .await?;
-            on_progress(ManagedOllamaInstallProgress::Verifying { downloaded_bytes });
-            verify_download(&asset, downloaded_bytes, &actual_sha256)?;
-            on_progress(ManagedOllamaInstallProgress::Extracting);
-            self.install_archive(&archive_path, architecture, &asset, &mut on_progress)
-        }
-        .await;
-
-        let cleanup_result = remove_path_if_exists(&archive_path);
-        result.and(cleanup_result)
-    }
-
-    fn prepare_directories(&self) -> Result<()> {
-        self.paths.create_all()?;
         fs::create_dir_all(self.paths.ollama_download_cache_dir())?;
         fs::create_dir_all(self.paths.ollama_models_dir())?;
-        Ok(())
-    }
-
-    async fn download_asset<F>(
-        &self,
-        asset: &ManagedOllamaAsset,
-        archive_path: &Path,
-        on_progress: &mut F,
-    ) -> Result<(u64, String)>
-    where
-        F: FnMut(ManagedOllamaInstallProgress) + Send,
-    {
-        let response = self
-            .client
-            .get(&asset.url)
-            .send()
-            .await
-            .map_err(|error| MooseError::ManagedOllamaDownloadFailed(error.to_string()))?;
-
-        if !response.status().is_success() {
-            return Err(MooseError::ManagedOllamaDownloadFailed(format!(
-                "HTTP {} while downloading {}",
-                response.status(),
-                asset.url
-            )));
-        }
-
-        let total_bytes = response.content_length().or(asset.size_bytes);
-        let mut stream = response.bytes_stream();
-        let mut file = async_fs::File::create(archive_path).await?;
-        let mut hasher = Sha256::new();
-        let mut downloaded_bytes = 0_u64;
-
-        while let Some(chunk) = stream.next().await {
-            let chunk = chunk
-                .map_err(|error| MooseError::ManagedOllamaDownloadFailed(error.to_string()))?;
-            file.write_all(&chunk).await?;
-            hasher.update(&chunk);
-            downloaded_bytes += u64::try_from(chunk.len())?;
-            on_progress(ManagedOllamaInstallProgress::Downloading {
-                downloaded_bytes,
-                total_bytes,
-            });
-        }
-
-        file.flush().await?;
-        Ok((downloaded_bytes, hex_digest(hasher.finalize().as_slice())))
-    }
-
-    fn install_archive<F>(
-        &self,
-        archive_path: &Path,
-        architecture: ManagedOllamaArchitecture,
-        asset: &ManagedOllamaAsset,
-        on_progress: &mut F,
-    ) -> Result<()>
-    where
-        F: FnMut(ManagedOllamaInstallProgress) + Send,
-    {
-        let staging_dir = self.staging_installation_dir();
-        remove_path_if_exists(&staging_dir)?;
-        fs::create_dir_all(&staging_dir)?;
-
-        let result = (|| {
-            extract_zstd_tar(archive_path, &staging_dir)?;
-            let binary_path = staging_dir.join(OLLAMA_BINARY_RELATIVE_PATH);
-            ensure_executable_binary(&binary_path)?;
-            write_installation_metadata(&staging_dir, &self.manifest.version, architecture, asset)?;
-            on_progress(ManagedOllamaInstallProgress::Installing);
-            replace_installation(&staging_dir, &self.paths.ollama_installation_dir())?;
-            on_progress(ManagedOllamaInstallProgress::Installed {
-                version: self.manifest.version.clone(),
-            });
-            Ok(())
-        })();
-
-        if result.is_err() {
-            let _ = remove_path_if_exists(&staging_dir);
-        }
-
-        result
-    }
-
-    fn archive_download_path(&self, architecture: ManagedOllamaArchitecture) -> PathBuf {
-        self.paths.ollama_download_cache_dir().join(format!(
-            "ollama-{}-{}-{}.tar.zst.download",
-            self.manifest.version,
+        let archive_path = self.paths.ollama_download_cache_dir().join(format!(
+            "ollama-{}-{}.tar.zst.download",
             architecture.as_str(),
-            new_id()
-        ))
-    }
-
-    fn staging_installation_dir(&self) -> PathBuf {
-        self.paths
-            .data_dir()
-            .join(format!(".ollama-install-{}", new_id()))
+            asset.sha256
+        ));
+        on_progress(ManagedOllamaInstallProgress::DownloadStarted {
+            total_bytes: asset.size_bytes,
+        });
+        let (size, digest) = download::download_asset(
+            &self.client,
+            &asset,
+            &archive_path,
+            cancellation,
+            on_progress,
+        )
+        .await?;
+        on_progress(ManagedOllamaInstallProgress::Verifying {
+            downloaded_bytes: size,
+        });
+        if let Err(error) = verify_download(&asset, size, &digest) {
+            let _ = remove_path_if_exists(&archive_path);
+            return Err(error);
+        }
+        cancellation.check()?;
+        on_progress(ManagedOllamaInstallProgress::Extracting);
+        let prepared = PreparedInstallation {
+            paths: self.paths.clone(),
+            staging_dir: self
+                .paths
+                .data_dir()
+                .join(format!(".ollama-install-{}", new_id())),
+            _lock: lock,
+        };
+        let version = self.manifest.version.clone();
+        let cancellation = cancellation.clone();
+        tokio::task::spawn_blocking(move || -> Result<PreparedInstallation> {
+            fs::create_dir_all(&prepared.staging_dir)?;
+            extract_zstd_tar(&archive_path, &prepared.staging_dir, &cancellation)?;
+            cancellation.check()?;
+            ensure_executable_binary(&prepared.staging_dir.join(OLLAMA_BINARY_RELATIVE_PATH))?;
+            write_installation_metadata(&prepared.staging_dir, &version, architecture, &asset)?;
+            sync_installation(&prepared.staging_dir)?;
+            Ok(prepared)
+        })
+        .await
+        .map_err(|error| MooseError::ManagedOllamaUpdate(error.to_string()))?
     }
 
     fn metadata_path(&self) -> PathBuf {
         self.paths
             .ollama_installation_dir()
             .join(INSTALLATION_METADATA_FILE)
+    }
+
+    pub(super) fn clear_completed_download(&self) {
+        let Ok(architecture) = ManagedOllamaArchitecture::current() else {
+            return;
+        };
+        let Ok(asset) = self.manifest.asset_for_architecture(architecture) else {
+            return;
+        };
+        let path = self.paths.ollama_download_cache_dir().join(format!(
+            "ollama-{}-{}.tar.zst.download",
+            architecture.as_str(),
+            asset.sha256
+        ));
+        if let Err(error) = remove_path_if_exists(&path) {
+            crate::logging::record("WARN", "ollama.download_cleanup", &error.to_string());
+        }
     }
 }
 
@@ -286,27 +276,24 @@ impl ManagedOllamaManifest {
     }
 
     pub fn validate(&self) -> Result<()> {
-        if self.version.trim().is_empty() || !self.version.starts_with('v') {
+        if !self.version.starts_with('v')
+            || super::releases::RuntimeVersion::parse(&self.version).is_none()
+        {
             return Err(MooseError::ManagedOllamaManifestInvalid(
                 "version must be a fixed release tag beginning with v".to_string(),
             ));
         }
 
-        for key in self.assets.keys() {
-            ManagedOllamaArchitecture::from_manifest_key(key)?;
+        if self.assets.is_empty() {
+            return Err(MooseError::ManagedOllamaManifestInvalid(
+                "no supported packages".into(),
+            ));
         }
-
-        for architecture in [
-            ManagedOllamaArchitecture::Amd64,
-            ManagedOllamaArchitecture::Arm64,
-        ] {
-            let asset = self.assets.get(architecture.as_str()).ok_or_else(|| {
-                MooseError::ManagedOllamaManifestInvalid(format!(
-                    "missing asset for {}",
-                    architecture.as_str()
-                ))
-            })?;
-            asset.validate(&self.version, architecture)?;
+        for (key, asset) in &self.assets {
+            asset.validate(
+                &self.version,
+                ManagedOllamaArchitecture::from_manifest_key(key)?,
+            )?;
         }
 
         Ok(())
@@ -335,6 +322,9 @@ impl ManagedOllamaAsset {
 
         if url.scheme() != "https"
             || url.host_str() != Some("github.com")
+            || !url.username().is_empty()
+            || url.password().is_some()
+            || url.port().is_some()
             || url.path() != expected_path
             || url.query().is_some()
             || url.fragment().is_some()
@@ -421,7 +411,11 @@ fn verify_download(asset: &ManagedOllamaAsset, downloaded_bytes: u64, actual: &s
     Ok(())
 }
 
-fn extract_zstd_tar(archive_path: &Path, destination: &Path) -> Result<()> {
+fn extract_zstd_tar(
+    archive_path: &Path,
+    destination: &Path,
+    cancellation: &InstallCancellation,
+) -> Result<()> {
     let file = File::open(archive_path).map_err(|error| {
         extraction_failed(format!(
             "could not open archive {}: {error}",
@@ -431,10 +425,14 @@ fn extract_zstd_tar(archive_path: &Path, destination: &Path) -> Result<()> {
     let decoder = zstd::stream::read::Decoder::new(file)
         .map_err(|error| extraction_failed(format!("could not decode zstd archive: {error}")))?;
     let mut archive = tar::Archive::new(decoder);
-    extract_tar_archive(&mut archive, destination)
+    extract_tar_archive(&mut archive, destination, cancellation)
 }
 
-fn extract_tar_archive<R: Read>(archive: &mut tar::Archive<R>, destination: &Path) -> Result<()> {
+fn extract_tar_archive<R: Read>(
+    archive: &mut tar::Archive<R>,
+    destination: &Path,
+    cancellation: &InstallCancellation,
+) -> Result<()> {
     fs::create_dir_all(destination).map_err(|error| {
         extraction_failed(format!(
             "could not create extraction directory {}: {error}",
@@ -454,6 +452,7 @@ fn extract_tar_archive<R: Read>(archive: &mut tar::Archive<R>, destination: &Pat
         .entries()
         .map_err(|error| extraction_failed(format!("could not read archive entries: {error}")))?
     {
+        cancellation.check()?;
         let mut entry = entry
             .map_err(|error| extraction_failed(format!("could not read archive entry: {error}")))?;
         let entry_type = entry.header().entry_type();
@@ -480,7 +479,8 @@ fn extract_tar_archive<R: Read>(archive: &mut tar::Archive<R>, destination: &Pat
             ensure_directory_without_symlinks(&output_path)?;
             set_unix_mode(&output_path, entry.header().mode().ok());
         } else if entry_type.is_file() {
-            extract_file_entry(&mut entry, &output_path)?;
+            transaction::check_disk_space(&destination, entry.size())?;
+            extract_file_entry(&mut entry, &output_path, cancellation)?;
         } else if entry_type.is_symlink() {
             extract_symlink_entry(&mut entry, &output_path)?;
         } else if entry_type.is_hard_link() {
@@ -497,7 +497,11 @@ fn extract_tar_archive<R: Read>(archive: &mut tar::Archive<R>, destination: &Pat
     Ok(())
 }
 
-fn extract_file_entry<R: Read>(entry: &mut tar::Entry<'_, R>, output_path: &Path) -> Result<()> {
+fn extract_file_entry<R: Read>(
+    entry: &mut tar::Entry<'_, R>,
+    output_path: &Path,
+    cancellation: &InstallCancellation,
+) -> Result<()> {
     let parent = output_path
         .parent()
         .ok_or_else(|| extraction_failed("archive entry has no parent directory"))?;
@@ -515,8 +519,16 @@ fn extract_file_entry<R: Read>(entry: &mut tar::Entry<'_, R>, output_path: &Path
                 output_path.display()
             ))
         })?;
-    io::copy(entry, &mut output)
-        .map_err(|error| extraction_failed(format!("could not write file entry: {error}")))?;
+    let mut buffer = [0_u8; 128 * 1024];
+    loop {
+        cancellation.check()?;
+        let read = entry.read(&mut buffer)?;
+        if read == 0 {
+            break;
+        }
+        std::io::Write::write_all(&mut output, &buffer[..read])?;
+    }
+    output.sync_all()?;
     set_unix_mode(output_path, mode);
     Ok(())
 }
@@ -688,36 +700,24 @@ fn write_installation_metadata(
         installed_at: utc_now(),
     };
     let metadata = serde_json::to_string_pretty(&metadata)?;
-    fs::write(staging_dir.join(INSTALLATION_METADATA_FILE), metadata)?;
+    let mut file = OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(staging_dir.join(INSTALLATION_METADATA_FILE))?;
+    std::io::Write::write_all(&mut file, metadata.as_bytes())?;
+    file.sync_all()?;
     Ok(())
 }
 
-fn replace_installation(staging_dir: &Path, installation_dir: &Path) -> Result<()> {
-    let backup_dir = installation_dir
-        .parent()
-        .ok_or_else(|| {
-            MooseError::ManagedOllamaExtractionFailed("installation path has no parent".to_string())
-        })?
-        .join(format!(".ollama-installation-backup-{}", new_id()));
-
-    remove_path_if_exists(&backup_dir)?;
-
-    if path_exists(installation_dir) {
-        fs::rename(installation_dir, &backup_dir)?;
-    }
-
-    match fs::rename(staging_dir, installation_dir) {
-        Ok(()) => {
-            remove_path_if_exists(&backup_dir)?;
-            Ok(())
-        }
-        Err(error) => {
-            if path_exists(&backup_dir) {
-                let _ = fs::rename(&backup_dir, installation_dir);
-            }
-            Err(MooseError::Io(error))
+fn sync_installation(directory: &Path) -> Result<()> {
+    for entry in fs::read_dir(directory)? {
+        let entry = entry?;
+        if entry.file_type()?.is_dir() {
+            sync_installation(&entry.path())?;
         }
     }
+    File::open(directory)?.sync_all()?;
+    Ok(())
 }
 
 fn ensure_executable_binary(binary_path: &Path) -> Result<()> {
@@ -776,4 +776,24 @@ fn hex_digest(bytes: &[u8]) -> String {
 
 fn extraction_failed(message: impl Into<String>) -> MooseError {
     MooseError::ManagedOllamaExtractionFailed(message.into())
+}
+
+pub struct PreparedInstallation {
+    paths: AppPaths,
+    staging_dir: PathBuf,
+    _lock: File,
+}
+
+impl PreparedInstallation {
+    pub(super) fn activate(&self) -> Result<transaction::InstallationTransaction> {
+        transaction::InstallationTransaction::begin(&self.paths, &self.staging_dir)
+    }
+}
+
+impl Drop for PreparedInstallation {
+    fn drop(&mut self) {
+        if let Err(error) = remove_path_if_exists(&self.staging_dir) {
+            crate::logging::record("WARN", "ollama.staging_cleanup", &error.to_string());
+        }
+    }
 }

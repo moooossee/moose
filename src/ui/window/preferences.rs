@@ -277,6 +277,9 @@ pub(super) fn dialog(
     shortcuts_page.add(&shortcuts_group);
 
     dialog.add(&provider_page);
+    dialog.add(&super::managed_runtime::preferences_page(
+        &dialog, ui, backend,
+    ));
     dialog.add(&shortcuts_page);
     dialog.add(&privacy_page);
 

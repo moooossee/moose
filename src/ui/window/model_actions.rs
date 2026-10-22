@@ -217,7 +217,7 @@ pub(super) fn show_download_jobs_dialog(
         list.set_selection_mode(gtk::SelectionMode::None);
         list.add_css_class("moose-model-list");
         for job in &jobs {
-            list.append(&download_job_row(job));
+            list.append(&download_job_row(job, ui, backend, &provider));
         }
 
         gtk::ScrolledWindow::builder()
@@ -287,15 +287,30 @@ fn confirm_download_history_clear(
     alert.present(Some(parent));
 }
 
-fn download_job_row(job: &DownloadJob) -> adw::ActionRow {
+fn download_job_row(
+    job: &DownloadJob,
+    ui: &Rc<WindowUi>,
+    backend: &Rc<Backend>,
+    provider: &Provider,
+) -> adw::ActionRow {
     let row = adw::ActionRow::builder()
         .title(&job.model_name)
         .subtitle(download_job_subtitle(job))
+        .use_markup(false)
         .subtitle_lines(3)
         .build();
     row.add_css_class("moose-model-row-item");
     row.set_tooltip_text(Some(&job.model_name));
     row.add_suffix(&download_job_status_label(&job.status));
+    if let Some(error) = job.error_message.as_ref().filter(|error| !error.is_empty()) {
+        row.set_activatable(true);
+        let ui = Rc::clone(ui);
+        let backend = Rc::clone(backend);
+        let provider = provider.clone();
+        let model = job.model_name.clone();
+        let error = error.clone();
+        row.connect_activated(move |_| show_pull_error(&ui, &backend, &provider, &model, &error));
+    }
     row
 }
 
@@ -420,6 +435,7 @@ fn start_model_pull(ui: &Rc<WindowUi>, backend: &Rc<Backend>, model: String) {
         );
         return;
     };
+    let pull_provider = provider.clone();
     let provider_id = provider.id.clone();
     let job = match backend.download_job_repository.create(NewDownloadJob {
         provider_id,
@@ -434,7 +450,6 @@ fn start_model_pull(ui: &Rc<WindowUi>, backend: &Rc<Backend>, model: String) {
                 &format!("Download job could not be saved: {error}"),
                 0.0,
             );
-            model_manager::clear_download_job(&ui.model_manager);
             ui.toast_overlay.add_toast(adw::Toast::new(&format!(
                 "Download job could not be saved: {error}"
             )));
@@ -460,6 +475,12 @@ fn start_model_pull(ui: &Rc<WindowUi>, backend: &Rc<Backend>, model: String) {
                     return;
                 }
             };
+        let health = client.health().await;
+        crate::logging::record(
+            "INFO",
+            "model.download",
+            &format!("Model: {target_model}; server: {}", health.message),
+        );
         let progress_sender = sender.clone();
         let result = client
             .pull_model(&target_model, |progress| {
@@ -472,7 +493,11 @@ fn start_model_pull(ui: &Rc<WindowUi>, backend: &Rc<Backend>, model: String) {
                 let _ = sender.send(ModelPullUiEvent::Done);
             }
             Err(error) => {
-                let _ = sender.send(ModelPullUiEvent::Failed(error.to_string()));
+                let details = format!(
+                    "Model: {target_model}\nServer: {}\n\n{error}",
+                    health.message
+                );
+                let _ = sender.send(ModelPullUiEvent::Failed(details));
             }
         }
     });
@@ -544,10 +569,43 @@ fn start_model_pull(ui: &Rc<WindowUi>, backend: &Rc<Backend>, model: String) {
                         &error,
                         0.0,
                     );
-                    model_manager::clear_download_job(&target_ui.model_manager);
-                    target_ui
-                        .toast_overlay
-                        .add_toast(adw::Toast::new(&format!("Model download failed: {error}")));
+                    crate::logging::record(
+                        "ERROR",
+                        "model.download",
+                        &format!(
+                            "Provider: {} at {}\n{error}",
+                            pull_provider.name, pull_provider.base_url
+                        ),
+                    );
+                    let toast = adw::Toast::builder()
+                        .title("Model download failed")
+                        .button_label("Details")
+                        .timeout(0)
+                        .build();
+                    let detail_ui = Rc::clone(&target_ui);
+                    let detail_backend = Rc::clone(&target_backend);
+                    let detail_provider = pull_provider.clone();
+                    let detail_model = model.clone();
+                    let detail_error = error.clone();
+                    toast.connect_button_clicked(move |_| {
+                        show_pull_error(
+                            &detail_ui,
+                            &detail_backend,
+                            &detail_provider,
+                            &detail_model,
+                            &detail_error,
+                        )
+                    });
+                    target_ui.toast_overlay.add_toast(toast);
+                    if crate::ollama::requires_ollama_update(&error) {
+                        show_pull_error(
+                            &target_ui,
+                            &target_backend,
+                            &pull_provider,
+                            &model,
+                            &error,
+                        );
+                    }
                     return gtk::glib::ControlFlow::Break;
                 }
                 Err(mpsc::TryRecvError::Empty) => return gtk::glib::ControlFlow::Continue,
@@ -568,7 +626,6 @@ fn start_model_pull(ui: &Rc<WindowUi>, backend: &Rc<Backend>, model: String) {
                             "The model download stopped before completion.",
                             0.0,
                         );
-                        model_manager::clear_download_job(&target_ui.model_manager);
                     }
                     return gtk::glib::ControlFlow::Break;
                 }
@@ -739,10 +796,7 @@ fn start_model_delete(ui: &Rc<WindowUi>, backend: &Rc<Backend>, model: String) {
                     &error,
                     0.0,
                 );
-                model_manager::clear_download_job(&target_ui.model_manager);
-                target_ui
-                    .toast_overlay
-                    .add_toast(adw::Toast::new(&format!("Model deletion failed: {error}")));
+                super::diagnostics::show_error(&target_ui.window, "Model Deletion Failed", &error);
                 gtk::glib::ControlFlow::Break
             }
             Err(mpsc::TryRecvError::Empty) => gtk::glib::ControlFlow::Continue,
@@ -763,7 +817,7 @@ fn start_model_delete(ui: &Rc<WindowUi>, backend: &Rc<Backend>, model: String) {
 }
 
 fn can_manage_models(ui: &Rc<WindowUi>, backend: &Rc<Backend>) -> bool {
-    if backend.credential_operation.get() {
+    if super::runtime_install_is_active(ui, backend) || backend.credential_operation.get() {
         return false;
     }
     let Some(provider) = require_active_provider(ui, backend) else {
@@ -794,4 +848,45 @@ fn provider_is_local(provider: &Provider) -> bool {
             matches!(host, "localhost" | "127.0.0.1" | "::1")
         })
         .unwrap_or(false)
+}
+
+fn show_pull_error(
+    ui: &Rc<WindowUi>,
+    backend: &Rc<Backend>,
+    provider: &Provider,
+    model: &str,
+    error: &str,
+) {
+    let needs_update = crate::ollama::requires_ollama_update(error);
+    let details = format!(
+        "Moose {}\nModel: {model}\nProvider: {}\nAddress: {}\n\n{error}",
+        env!("CARGO_PKG_VERSION"),
+        provider.name,
+        crate::logging::redact(&provider.base_url)
+    );
+    let dialog = super::diagnostics::details_dialog(
+        if needs_update {
+            "Ollama Update Required"
+        } else {
+            "Model Download Failed"
+        },
+        &details,
+    );
+    if needs_update && provider.is_managed {
+        dialog
+            .set_body("Update the Ollama engine managed by Moose, then retry this model download.");
+        dialog.add_response("update", "Update Ollama and Retry");
+        dialog.set_response_appearance("update", adw::ResponseAppearance::Suggested);
+        let ui = Rc::clone(ui);
+        let backend = Rc::clone(backend);
+        let retry = (provider.id.clone(), model.to_string());
+        dialog.connect_response(Some("update"), move |_, _| {
+            super::managed_runtime::show_dialog(&ui, &backend, Some(retry.clone()));
+        });
+    } else if needs_update {
+        dialog.set_body(
+            "Update Ollama on this provider's server, restart that server, and retry the download.",
+        );
+    }
+    dialog.present(Some(&ui.window));
 }

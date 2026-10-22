@@ -91,6 +91,12 @@ pub enum MooseError {
     ProviderNotConfigured,
     #[error("invalid Ollama response: {0}")]
     InvalidOllamaResponse(String),
+    #[error("Ollama must be updated to download this model: {0}")]
+    OllamaUpdateRequired(String),
+    #[error("managed Ollama update failed: {0}")]
+    ManagedOllamaUpdate(String),
+    #[error("managed Ollama installation was cancelled")]
+    ManagedOllamaCancelled,
     #[error("managed Ollama does not support architecture {0}")]
     ManagedOllamaUnsupportedArchitecture(String),
     #[error("managed Ollama manifest is invalid: {0}")]

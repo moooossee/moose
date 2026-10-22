@@ -4,7 +4,9 @@ use futures_util::StreamExt;
 use serde::{Deserialize, Serialize};
 
 pub mod manager;
+pub mod releases;
 pub mod service;
+pub mod update;
 
 use crate::{
     chat::{ChatRequest, ChatStreamEvent, ThinkingValue},
@@ -444,7 +446,7 @@ pub fn parse_pull_stream_line(line: &str) -> Result<Option<OllamaPullProgress>> 
             .as_str()
             .filter(|message| !message.trim().is_empty())
             .unwrap_or("Ollama returned an invalid model download error");
-        return Err(MooseError::InvalidOllamaResponse(message.to_string()));
+        return Err(pull_error(message));
     }
     let response: PullLine = serde_json::from_value(value)?;
     let status = response.status.trim().to_string();
@@ -467,7 +469,24 @@ async fn response_error(response: reqwest::Response) -> MooseError {
     let status = response.status();
     let body = response.text().await.unwrap_or_default();
     let message = parse_error_body(&body).unwrap_or_else(|| status.to_string());
+    if requires_ollama_update(&message) {
+        return MooseError::OllamaUpdateRequired(format!("HTTP {status}: {message}"));
+    }
     MooseError::HttpStatus { status, message }
+}
+
+pub fn requires_ollama_update(message: &str) -> bool {
+    let message = message.to_ascii_lowercase();
+    message.contains("requires a newer version of ollama")
+        || message.contains("ollama must be updated to download this model")
+}
+
+fn pull_error(message: &str) -> MooseError {
+    if requires_ollama_update(message) {
+        MooseError::OllamaUpdateRequired(message.to_string())
+    } else {
+        MooseError::InvalidOllamaResponse(message.to_string())
+    }
 }
 
 fn parse_error_body(body: &str) -> Option<String> {
