@@ -89,6 +89,7 @@ impl MarkdownTextView {
             .build();
         view.imp().measure_content_width.set(true);
         view.set_width_chars(1, 120);
+        view.add_css_class("inline");
         view.add_css_class("moose-markdown-text");
         view.buffer().set_enable_undo(false);
         view.buffer().connect_changed(glib::clone!(
