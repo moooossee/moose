@@ -791,7 +791,7 @@ fn bind_actions(
     let target_ui = Rc::clone(ui);
     let target_backend = Rc::clone(backend);
     ui.first_run_guide.connect_button.connect_clicked(move |_| {
-        show_connect_external_dialog(&target_ui, &target_backend);
+        provider_controls::show_add_provider_dialog(&target_ui, &target_backend);
     });
 }
 

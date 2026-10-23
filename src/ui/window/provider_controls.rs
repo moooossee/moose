@@ -192,7 +192,7 @@ fn provider_add_row() -> gtk::ListBoxRow {
     row
 }
 
-fn show_add_provider_dialog(ui: &Rc<WindowUi>, backend: &Rc<Backend>) {
+pub(super) fn show_add_provider_dialog(ui: &Rc<WindowUi>, backend: &Rc<Backend>) {
     show_provider_setup(ui, backend);
 }
 
