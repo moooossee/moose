@@ -64,8 +64,13 @@ install_data(
 )
 
 install_data(
+  'data/icons/moose-globe-symbolic.svg',
+  install_dir: join_paths(datadir, 'icons', 'hicolor', 'scalable', 'actions')
+)
+
+install_data(
   'data/io.github.moooossee.Moose.css',
   install_dir: styledir
 )
 
-gnome.post_install(glib_compile_schemas: true)
+gnome.post_install(glib_compile_schemas: true, gtk_update_icon_cache: true)

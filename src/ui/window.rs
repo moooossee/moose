@@ -59,6 +59,7 @@ mod math_syntax;
 mod math_view;
 mod message_actions;
 mod model_actions;
+mod model_download;
 mod model_manager;
 mod preferences;
 mod privacy;
@@ -641,11 +642,10 @@ fn bind_actions(
         refresh_models(&target_ui, &target_backend);
     });
 
-    let parent = window.clone();
     let target_ui = Rc::clone(ui);
     let target_backend = Rc::clone(backend);
     ui.model_manager.pull_button.connect_clicked(move |_| {
-        model_actions::show_pull_dialog(&parent, &target_ui, &target_backend);
+        model_download::show_dialog(&target_ui, &target_backend, "");
     });
 
     let parent = window.clone();
@@ -669,16 +669,11 @@ fn bind_actions(
                     )));
                 }
                 target_ui.refresh_button.set_sensitive(true);
-                model_manager::set_pull_finished(
-                    &target_ui.model_manager,
-                    "Download Cancelled",
-                    "The model download was cancelled.",
-                    0.0,
-                );
-                model_manager::clear_download_job(&target_ui.model_manager);
+                model_manager::finish_pull(&target_ui.model_manager);
                 target_ui
                     .toast_overlay
                     .add_toast(adw::Toast::new("Model download cancelled"));
+                refresh_models(&target_ui, &target_backend);
             }
         });
 
@@ -848,6 +843,10 @@ fn run_shortcut_action(action: &str, ui: &Rc<WindowUi>, backend: &Rc<Backend>) -
 }
 
 fn new_conversation_action(ui: &Rc<WindowUi>, backend: &Rc<Backend>) {
+    new_conversation_with_model(ui, backend, None);
+}
+
+fn new_conversation_with_model(ui: &Rc<WindowUi>, backend: &Rc<Backend>, model: Option<&str>) {
     show_chat(ui);
     if let Err(error) = workspace::save(ui, backend) {
         ui.toast_overlay.add_toast(adw::Toast::new(&format!(
@@ -861,6 +860,11 @@ fn new_conversation_action(ui: &Rc<WindowUi>, backend: &Rc<Backend>) {
             workspace::restore(ui, backend).ok();
             generation::sync_controls(ui, backend);
             restore_selected_provider_model(ui, backend);
+            if let Some(model) = model
+                && select_model_by_name(ui, model)
+            {
+                save_selected_model(ui, backend, model.to_string());
+            }
             reasoning::refresh(ui, backend);
             update_profile_indicator(ui, backend, None).ok();
             show_chat_welcome(ui);
@@ -1083,6 +1087,14 @@ fn reset_active_conversation(ui: &WindowUi, backend: &Backend) {
 }
 
 fn refresh_models(ui: &Rc<WindowUi>, backend: &Rc<Backend>) {
+    refresh_models_with_callback(ui, backend, None);
+}
+
+fn refresh_models_with_callback(
+    ui: &Rc<WindowUi>,
+    backend: &Rc<Backend>,
+    mut on_loaded: Option<Box<dyn FnOnce()>>,
+) {
     if runtime_install_is_active(ui, backend) {
         return;
     }
@@ -1237,6 +1249,9 @@ fn refresh_models(ui: &Rc<WindowUi>, backend: &Rc<Backend>) {
                     target_ui.toast_overlay.add_toast(adw::Toast::new(&warning));
                 }
                 set_models(&target_ui, &target_backend, models);
+                if let Some(on_loaded) = on_loaded.take() {
+                    on_loaded();
+                }
                 gtk::glib::ControlFlow::Break
             }
             Ok(ModelLoadEvent::Failed(error)) => {
@@ -2121,6 +2136,13 @@ fn render_model_manager(ui: &Rc<WindowUi>, backend: &Rc<Backend>, query: &str) {
     let on_delete = Rc::new(move |model: String| {
         model_actions::confirm_model_delete(&target_parent, &target_ui, &target_backend, model);
     });
+    let weak_ui = Rc::downgrade(ui);
+    let weak_backend = Rc::downgrade(backend);
+    let on_add = Rc::new(move |model: String| {
+        if let (Some(ui), Some(backend)) = (weak_ui.upgrade(), weak_backend.upgrade()) {
+            model_download::show_dialog(&ui, &backend, &model);
+        }
+    });
     model_manager::set_models(
         &ui.model_manager,
         &ui.window,
@@ -2128,6 +2150,7 @@ fn render_model_manager(ui: &Rc<WindowUi>, backend: &Rc<Backend>, query: &str) {
         query,
         on_pull,
         on_delete,
+        on_add,
     );
 }
 

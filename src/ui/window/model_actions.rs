@@ -8,14 +8,16 @@ use adw::prelude::*;
 
 use crate::{
     APPLICATION_ID,
-    models::{DownloadJob, DownloadJobStatus, NewDownloadJob},
+    models::{
+        DownloadJob, DownloadJobStatus, NewDownloadJob, hugging_face_repository, model_names_match,
+    },
     ollama::OllamaPullProgress,
-    providers::{Provider, validate_model_name},
+    providers::{Provider, ProviderKind, validate_model_name},
 };
 
 use super::{
-    ActiveModelPull, Backend, WindowUi, model_manager, prepared_provider_client, refresh_models,
-    require_active_provider, show_model_manager, widgets,
+    ActiveModelPull, Backend, WindowUi, model_download, model_manager, prepared_provider_client,
+    refresh_models, require_active_provider, show_model_manager, widgets,
 };
 
 enum ModelPullUiEvent {
@@ -27,56 +29,6 @@ enum ModelPullUiEvent {
 enum ModelDeleteUiEvent {
     Done,
     Failed(String),
-}
-
-pub(super) fn show_pull_dialog(
-    parent: &adw::ApplicationWindow,
-    ui: &Rc<WindowUi>,
-    backend: &Rc<Backend>,
-) {
-    if !can_manage_models(ui, backend) {
-        return;
-    }
-    if backend.active_model_pull.borrow().is_some() {
-        ui.toast_overlay
-            .add_toast(adw::Toast::new("A model download is already running"));
-        return;
-    }
-
-    let model_row = adw::EntryRow::builder().title("Model Name").build();
-    let group = adw::PreferencesGroup::new();
-    group.add(&model_row);
-
-    let dialog = adw::AlertDialog::builder()
-        .heading("Pull Model")
-        .body("Enter an Ollama model name, such as llama3.2:latest.")
-        .extra_child(&group)
-        .close_response("cancel")
-        .default_response("pull")
-        .build();
-    dialog.add_response("cancel", "Cancel");
-    dialog.add_response("pull", "Download");
-    dialog.set_response_appearance("pull", adw::ResponseAppearance::Suggested);
-
-    let target_parent = parent.clone();
-    let target_ui = Rc::clone(ui);
-    let target_backend = Rc::clone(backend);
-    dialog.connect_response(Some("pull"), move |_, _| {
-        let model_text = model_row.text().to_string();
-        let model = match validate_model_name(&model_text) {
-            Ok(model) => model,
-            Err(_) => {
-                target_ui
-                    .toast_overlay
-                    .add_toast(adw::Toast::new("Model name is invalid"));
-                return;
-            }
-        };
-
-        request_model_pull(&target_parent, &target_ui, &target_backend, model);
-    });
-
-    dialog.present(Some(parent));
 }
 
 pub(super) fn request_model_pull(
@@ -133,8 +85,15 @@ fn confirm_remote_model_pull(
 
     let target_ui = Rc::clone(ui);
     let target_backend = Rc::clone(backend);
+    let provider_id = provider.id.clone();
     dialog.connect_response(Some("download"), move |_, _| {
-        start_model_pull(&target_ui, &target_backend, model.clone());
+        if active_provider_matches(&target_backend, &provider_id) {
+            start_model_pull(&target_ui, &target_backend, model.clone());
+        } else {
+            target_ui.toast_overlay.add_toast(adw::Toast::new(
+                "The connection changed. Try downloading the model again.",
+            ));
+        }
     });
 
     dialog.present(Some(parent));
@@ -404,7 +363,7 @@ pub(super) fn format_download_size(size_bytes: u64) -> String {
     }
 }
 
-fn start_model_pull(ui: &Rc<WindowUi>, backend: &Rc<Backend>, model: String) {
+pub(super) fn start_model_pull(ui: &Rc<WindowUi>, backend: &Rc<Backend>, model: String) {
     if !can_manage_models(ui, backend) {
         return;
     }
@@ -427,12 +386,7 @@ fn start_model_pull(ui: &Rc<WindowUi>, backend: &Rc<Backend>, model: String) {
 
     let Some(provider) = require_active_provider(ui, backend) else {
         ui.refresh_button.set_sensitive(true);
-        model_manager::set_pull_finished(
-            &ui.model_manager,
-            "Download Failed",
-            "Create or connect an Ollama instance first.",
-            0.0,
-        );
+        model_manager::finish_pull(&ui.model_manager);
         return;
     };
     let pull_provider = provider.clone();
@@ -444,12 +398,7 @@ fn start_model_pull(ui: &Rc<WindowUi>, backend: &Rc<Backend>, model: String) {
         Ok(job) => job,
         Err(error) => {
             ui.refresh_button.set_sensitive(true);
-            model_manager::set_pull_finished(
-                &ui.model_manager,
-                "Download Failed",
-                &format!("Download job could not be saved: {error}"),
-                0.0,
-            );
+            model_manager::finish_pull(&ui.model_manager);
             ui.toast_overlay.add_toast(adw::Toast::new(&format!(
                 "Download job could not be saved: {error}"
             )));
@@ -510,6 +459,14 @@ fn start_model_pull(ui: &Rc<WindowUi>, backend: &Rc<Backend>, model: String) {
     let target_backend = Rc::clone(backend);
     let mut tracking_failed = false;
     gtk::glib::timeout_add_local(Duration::from_millis(80), move || {
+        if target_backend
+            .active_model_pull
+            .borrow()
+            .as_ref()
+            .is_none_or(|active| active.id != pull_id)
+        {
+            return gtk::glib::ControlFlow::Break;
+        }
         loop {
             match receiver.try_recv() {
                 Ok(ModelPullUiEvent::Progress(progress)) => {
@@ -537,17 +494,33 @@ fn start_model_pull(ui: &Rc<WindowUi>, backend: &Rc<Backend>, model: String) {
                         )));
                     }
                     target_ui.refresh_button.set_sensitive(true);
-                    model_manager::set_pull_finished(
-                        &target_ui.model_manager,
-                        "Download Complete",
-                        &format!("{model} is ready to use."),
-                        1.0,
+                    model_manager::finish_pull(&target_ui.model_manager);
+                    let toast = adw::Toast::builder()
+                        .title("Model download complete")
+                        .timeout(10)
+                        .build();
+                    target_ui.toast_overlay.add_toast(toast.clone());
+                    let weak_ui = Rc::downgrade(&target_ui);
+                    let weak_backend = Rc::downgrade(&target_backend);
+                    let provider_id = pull_provider.id.clone();
+                    let downloaded_model = model.clone();
+                    super::refresh_models_with_callback(
+                        &target_ui,
+                        &target_backend,
+                        Some(Box::new(move || {
+                            if let (Some(ui), Some(backend)) =
+                                (weak_ui.upgrade(), weak_backend.upgrade())
+                            {
+                                add_download_chat_action(
+                                    &ui,
+                                    &backend,
+                                    &provider_id,
+                                    &downloaded_model,
+                                    &toast,
+                                );
+                            }
+                        })),
                     );
-                    model_manager::clear_download_job(&target_ui.model_manager);
-                    target_ui
-                        .toast_overlay
-                        .add_toast(adw::Toast::new("Model download complete"));
-                    refresh_models(&target_ui, &target_backend);
                     return gtk::glib::ControlFlow::Break;
                 }
                 Ok(ModelPullUiEvent::Failed(error)) => {
@@ -563,12 +536,7 @@ fn start_model_pull(ui: &Rc<WindowUi>, backend: &Rc<Backend>, model: String) {
                         )));
                     }
                     target_ui.refresh_button.set_sensitive(true);
-                    model_manager::set_pull_finished(
-                        &target_ui.model_manager,
-                        "Download Failed",
-                        &error,
-                        0.0,
-                    );
+                    model_manager::finish_pull(&target_ui.model_manager);
                     crate::logging::record(
                         "ERROR",
                         "model.download",
@@ -580,7 +548,7 @@ fn start_model_pull(ui: &Rc<WindowUi>, backend: &Rc<Backend>, model: String) {
                     let toast = adw::Toast::builder()
                         .title("Model download failed")
                         .button_label("Details")
-                        .timeout(0)
+                        .timeout(10)
                         .build();
                     let detail_ui = Rc::clone(&target_ui);
                     let detail_backend = Rc::clone(&target_backend);
@@ -620,12 +588,10 @@ fn start_model_pull(ui: &Rc<WindowUi>, backend: &Rc<Backend>, model: String) {
                             )));
                         }
                         target_ui.refresh_button.set_sensitive(true);
-                        model_manager::set_pull_finished(
-                            &target_ui.model_manager,
-                            "Download Stopped",
-                            "The model download stopped before completion.",
-                            0.0,
-                        );
+                        model_manager::finish_pull(&target_ui.model_manager);
+                        target_ui
+                            .toast_overlay
+                            .add_toast(adw::Toast::new("Model download stopped before completion"));
                     }
                     return gtk::glib::ControlFlow::Break;
                 }
@@ -816,14 +782,14 @@ fn start_model_delete(ui: &Rc<WindowUi>, backend: &Rc<Backend>, model: String) {
     });
 }
 
-fn can_manage_models(ui: &Rc<WindowUi>, backend: &Rc<Backend>) -> bool {
+pub(super) fn can_manage_models(ui: &Rc<WindowUi>, backend: &Rc<Backend>) -> bool {
     if super::runtime_install_is_active(ui, backend) || backend.credential_operation.get() {
         return false;
     }
     let Some(provider) = require_active_provider(ui, backend) else {
         return false;
     };
-    if provider.kind.requires_key() {
+    if provider.kind != ProviderKind::Ollama {
         ui.toast_overlay.add_toast(adw::Toast::new("Cloud models are managed by the provider. Refresh the model list to see available models."));
         return false;
     }
@@ -833,6 +799,45 @@ fn can_manage_models(ui: &Rc<WindowUi>, backend: &Rc<Backend>) -> bool {
         return false;
     }
     true
+}
+
+fn add_download_chat_action(
+    ui: &Rc<WindowUi>,
+    backend: &Rc<Backend>,
+    provider_id: &str,
+    model: &str,
+    toast: &adw::Toast,
+) {
+    let installed = ui
+        .installed_models
+        .borrow()
+        .iter()
+        .find(|installed| installed.supports_chat && model_names_match(&installed.name, model))
+        .map(|installed| installed.name.clone());
+    if let Some(model) = installed {
+        toast.set_button_label(Some("New Chat"));
+        let weak_ui = Rc::downgrade(ui);
+        let weak_backend = Rc::downgrade(backend);
+        let provider_id = provider_id.to_string();
+        toast.connect_button_clicked(move |_| {
+            let (Some(ui), Some(backend)) = (weak_ui.upgrade(), weak_backend.upgrade()) else {
+                return;
+            };
+            if active_provider_matches(&backend, &provider_id)
+                && ui.model_names.borrow().iter().any(|name| name == &model)
+            {
+                super::new_conversation_with_model(&ui, &backend, Some(&model));
+            } else {
+                ui.toast_overlay.add_toast(adw::Toast::new(
+                    "Select the original connection and refresh its models to start a chat.",
+                ));
+            }
+        });
+    }
+}
+
+fn active_provider_matches(backend: &Backend, provider_id: &str) -> bool {
+    super::active_provider(backend).is_some_and(|provider| provider.id == provider_id)
 }
 
 fn provider_is_local(provider: &Provider) -> bool {
@@ -887,6 +892,38 @@ fn show_pull_error(
         dialog.set_body(
             "Update Ollama on this provider's server, restart that server, and retry the download.",
         );
+    } else {
+        if hugging_face_repository(model).is_some() {
+            let error = error.to_ascii_lowercase();
+            dialog.set_body(if error.contains("401")
+                || error.contains("403")
+                || error.contains("unauthorized")
+                || error.contains("forbidden")
+            {
+                "Check repository access. Private Hugging Face models require the Ollama instance's SSH key to be added to your Hugging Face account."
+            } else {
+                "Check the repository and variant. The model must be a GGUF supported by your Ollama version."
+            });
+        } else {
+            dialog.set_body("Check the model name and connection, then try again.");
+        }
+        dialog.add_response("edit", "Edit and Retry");
+        dialog.set_response_appearance("edit", adw::ResponseAppearance::Suggested);
+        let weak_ui = Rc::downgrade(ui);
+        let weak_backend = Rc::downgrade(backend);
+        let provider_id = provider.id.clone();
+        let model = model.to_string();
+        dialog.connect_response(Some("edit"), move |_, _| {
+            if let (Some(ui), Some(backend)) = (weak_ui.upgrade(), weak_backend.upgrade()) {
+                if active_provider_matches(&backend, &provider_id) {
+                    model_download::show_dialog(&ui, &backend, &model);
+                } else {
+                    ui.toast_overlay.add_toast(adw::Toast::new(
+                        "Select the original connection before retrying this download.",
+                    ));
+                }
+            }
+        });
     }
     dialog.present(Some(&ui.window));
 }

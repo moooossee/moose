@@ -809,7 +809,7 @@ popover.moose-provider-popover > contents {
 
 .moose-model-search {
   min-height: 38px;
-  min-width: 320px;
+  min-width: 200px;
 }
 
 .moose-model-section {

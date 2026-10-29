@@ -12,6 +12,13 @@ pub fn run() -> gtk::glib::ExitCode {
         .flags(gio::ApplicationFlags::empty())
         .build();
 
+    app.connect_startup(|_| {
+        if let Some(display) = gtk::gdk::Display::default() {
+            gtk::IconTheme::for_display(&display)
+                .add_search_path(concat!(env!("CARGO_MANIFEST_DIR"), "/data/icons"));
+        }
+    });
+
     app.connect_activate(|app| {
         if let Some(window) = app.active_window() {
             window.present();

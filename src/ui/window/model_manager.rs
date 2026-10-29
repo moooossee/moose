@@ -4,6 +4,7 @@ use std::rc::Rc;
 
 use crate::{
     APPLICATION_ID,
+    models::{ModelDownload, hugging_face_repository, model_names_match},
     ollama::{OllamaModel, OllamaPullProgress},
 };
 
@@ -1445,7 +1446,7 @@ pub(super) fn build() -> ModelManager {
     let header = gtk::Box::builder()
         .orientation(Orientation::Vertical)
         .spacing(12)
-        .halign(Align::Center)
+        .halign(Align::Fill)
         .hexpand(true)
         .build();
     header.add_css_class("moose-model-manager-header");
@@ -1469,8 +1470,11 @@ pub(super) fn build() -> ModelManager {
         .halign(Align::Center)
         .build();
 
-    let pull_button = icon_button("folder-download-symbolic", "Pull Model");
-    pull_button.add_css_class("suggested-action");
+    let pull_button = gtk::Button::builder()
+        .label("Download Model…")
+        .tooltip_text("Download a model from Ollama or Hugging Face")
+        .css_classes(["suggested-action"])
+        .build();
     pull_button.set_sensitive(false);
 
     let download_jobs_button = icon_button("view-list-symbolic", "Download Jobs");
@@ -1484,16 +1488,20 @@ pub(super) fn build() -> ModelManager {
     actions.append(&pull_button);
 
     let search_entry = gtk::SearchEntry::builder()
-        .placeholder_text("Search Models")
-        .halign(Align::Center)
+        .placeholder_text("Search models or paste a model link")
+        .hexpand(true)
         .build();
-    search_entry.set_size_request(420, -1);
     search_entry.set_sensitive(false);
     search_entry.add_css_class("moose-model-search");
 
     header.append(&title_row);
     header.append(&actions);
-    header.append(&search_entry);
+    let search_clamp = adw::Clamp::builder()
+        .maximum_size(480)
+        .tightening_threshold(320)
+        .child(&search_entry)
+        .build();
+    header.append(&search_clamp);
 
     let installed_label = section_label("Installed Models");
     installed_label.add_css_class("moose-model-section");
@@ -1673,8 +1681,16 @@ pub(super) fn clear_download_job(manager: &ModelManager) {
     manager.pull_panel.set_visible(false);
     manager.pull_copy_button.set_visible(false);
     manager.pull_cancel_button.set_sensitive(false);
+    manager.pull_title.set_label("Downloading Model");
+    manager.pull_status.set_label("");
     manager.pull_progress.set_fraction(0.0);
     manager.pull_progress_label.set_label("");
+}
+
+pub(super) fn finish_pull(manager: &ModelManager) {
+    clear_download_job(manager);
+    manager.pull_button.set_sensitive(true);
+    manager.refresh_button.set_sensitive(true);
 }
 
 pub(super) fn set_models(
@@ -1684,16 +1700,28 @@ pub(super) fn set_models(
     query: &str,
     on_pull: Rc<dyn Fn(String)>,
     on_delete: Rc<dyn Fn(String)>,
+    on_add: Rc<dyn Fn(String)>,
 ) {
     clear_model_lists(manager);
     manager.pull_button.set_sensitive(true);
     manager.refresh_button.set_sensitive(true);
     manager.search_entry.set_sensitive(true);
 
+    let download_reference = ModelDownload::parse(query).ok().filter(|reference| {
+        reference.hugging_face_repository.is_some()
+            || query.contains(':')
+            || query.contains('/')
+            || query.trim().starts_with("ollama ")
+    });
     let query = query.trim().to_ascii_lowercase();
     let filtered_models = models
         .iter()
-        .filter(|model| model_matches_query(model, &query))
+        .filter(|model| {
+            model_matches_query(model, &query)
+                || download_reference
+                    .as_ref()
+                    .is_some_and(|reference| model_names_match(&model.name, &reference.name))
+        })
         .collect::<Vec<_>>();
 
     if filtered_models.is_empty() {
@@ -1707,7 +1735,7 @@ pub(super) fn set_models(
         for model in filtered_models {
             manager
                 .model_list
-                .append(&model_row(model, Rc::clone(&on_delete)));
+                .append(&model_row(parent, model, Rc::clone(&on_delete)));
         }
     }
 
@@ -1721,9 +1749,17 @@ pub(super) fn set_models(
         .collect::<Vec<_>>();
 
     if filtered_available.is_empty() {
-        manager
-            .available_model_list
-            .append(&empty_row("No available matches"));
+        if let Some(reference) = download_reference
+            .filter(|reference| !model_is_installed(&reference.name, &installed_names))
+        {
+            manager
+                .available_model_list
+                .append(&download_reference_row(reference, on_add));
+        } else {
+            manager
+                .available_model_list
+                .append(&empty_row("No available matches"));
+        }
     } else {
         for family in filtered_available {
             manager.available_model_list.append(&model_family_row(
@@ -1784,18 +1820,6 @@ pub(super) fn set_pull_progress(
     }
 }
 
-pub(super) fn set_pull_finished(manager: &ModelManager, title: &str, status: &str, fraction: f64) {
-    manager.pull_copy_button.set_visible(true);
-    manager.pull_panel.set_visible(true);
-    manager.pull_title.set_label(title);
-    manager.pull_status.set_label(status);
-    manager.pull_progress.set_fraction(fraction.clamp(0.0, 1.0));
-    manager.pull_progress_label.set_label("");
-    manager.pull_cancel_button.set_sensitive(false);
-    manager.pull_button.set_sensitive(true);
-    manager.refresh_button.set_sensitive(true);
-}
-
 pub(super) fn set_delete_started(manager: &ModelManager, model: &str) {
     manager.pull_copy_button.set_visible(false);
     manager.pull_panel.set_visible(true);
@@ -1844,11 +1868,17 @@ fn empty_row(title: &str) -> adw::ActionRow {
     row
 }
 
-fn model_row(model: &OllamaModel, on_delete: Rc<dyn Fn(String)>) -> adw::ActionRow {
+fn model_row(
+    parent: &adw::ApplicationWindow,
+    model: &OllamaModel,
+    on_delete: Rc<dyn Fn(String)>,
+) -> adw::ActionRow {
     let row = adw::ActionRow::builder()
         .title(&model.name)
+        .title_lines(2)
         .subtitle(model_subtitle(model))
         .subtitle_lines(2)
+        .use_markup(false)
         .build();
     row.add_css_class("moose-model-row-item");
     row.set_tooltip_text(Some(&model.name));
@@ -1865,6 +1895,22 @@ fn model_row(model: &OllamaModel, on_delete: Rc<dyn Fn(String)>) -> adw::ActionR
     meta.append(&pill_label(&format_size(model.size_bytes)));
     row.add_suffix(&meta);
 
+    if let Some(repository) = hugging_face_repository(&model.name) {
+        let open_button = icon_button("moose-globe-symbolic", "Open on Hugging Face");
+        let url = format!("https://huggingface.co/{repository}");
+        let parent = parent.downgrade();
+        open_button.connect_clicked(move |_| {
+            if let Some(parent) = parent.upgrade() {
+                gtk::UriLauncher::new(&url).launch(
+                    Some(&parent),
+                    None::<&gio::Cancellable>,
+                    |_| {},
+                );
+            }
+        });
+        row.add_suffix(&open_button);
+    }
+
     let delete_button = icon_button("user-trash-symbolic", &format!("Delete {}", model.name));
     delete_button.add_css_class("destructive-action");
     let model_name = model.name.clone();
@@ -1872,6 +1918,25 @@ fn model_row(model: &OllamaModel, on_delete: Rc<dyn Fn(String)>) -> adw::ActionR
         on_delete(model_name.clone());
     });
     row.add_suffix(&delete_button);
+    row
+}
+
+fn download_reference_row(reference: ModelDownload, on_add: Rc<dyn Fn(String)>) -> adw::ActionRow {
+    let row = adw::ActionRow::builder()
+        .title(if reference.hugging_face_repository.is_some() {
+            "Download from Hugging Face"
+        } else {
+            "Download Model"
+        })
+        .subtitle(&reference.name)
+        .subtitle_lines(2)
+        .use_markup(false)
+        .activatable(true)
+        .build();
+    row.add_css_class("moose-model-row-item");
+    row.add_prefix(&gtk::Image::from_icon_name("folder-download-symbolic"));
+    row.add_suffix(&gtk::Image::from_icon_name("go-next-symbolic"));
+    row.connect_activated(move |_| on_add(reference.name.clone()));
     row
 }
 
@@ -1949,7 +2014,7 @@ fn show_model_family_dialog(
     let title = adw::WindowTitle::new(family.title, family.subtitle);
     header_bar.set_title_widget(Some(&title));
 
-    let ollama_button = icon_button("web-browser-symbolic", "Open on Ollama");
+    let ollama_button = icon_button("moose-globe-symbolic", "Open on Ollama");
     let ollama_url = format!("https://ollama.com/library/{}", family.id);
     let target_parent = parent.clone();
     ollama_button.connect_clicked(move |_| {
@@ -2124,7 +2189,9 @@ fn model_variant_row(
 }
 
 fn model_is_installed(model_name: &str, installed_names: &[&str]) -> bool {
-    installed_names.contains(&model_name)
+    installed_names
+        .iter()
+        .any(|installed| model_names_match(model_name, installed))
 }
 
 fn pill_label(text: &str) -> gtk::Label {
@@ -2139,6 +2206,10 @@ fn pill_label(text: &str) -> gtk::Label {
 
 fn model_subtitle(model: &OllamaModel) -> String {
     let mut parts = Vec::new();
+
+    if hugging_face_repository(&model.name).is_some() {
+        parts.push("Hugging Face".to_string());
+    }
 
     if let Some(family) = model.family.as_deref().filter(|value| !value.is_empty()) {
         parts.push(family.to_string());
@@ -2212,6 +2283,8 @@ fn model_matches_query(model: &OllamaModel, query: &str) -> bool {
     }
 
     contains_query(&model.name, query)
+        || (hugging_face_repository(&model.name).is_some()
+            && contains_query("hugging face huggingface hf.co", query))
         || model
             .family
             .as_deref()

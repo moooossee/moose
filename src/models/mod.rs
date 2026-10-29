@@ -8,6 +8,10 @@ use crate::{
     providers::validate_model_name,
 };
 
+mod reference;
+
+pub use reference::{ModelDownload, hugging_face_repository, model_names_match};
+
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum DownloadJobStatus {
