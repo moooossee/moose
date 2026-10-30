@@ -308,9 +308,9 @@ mod tests {
     #[test]
     fn new_providers_send_chat_completion_requests() {
         for (kind, model) in [
-            (ProviderKind::OpenRouter, "anthropic/claude-sonnet-4"),
-            (ProviderKind::Nvidia, "meta/llama-3.1-8b-instruct"),
-            (ProviderKind::Cloudflare, "@cf/meta/llama-3.1-8b-instruct"),
+            (ProviderKind::OpenRouter, "openrouter/free"),
+            (ProviderKind::Nvidia, "nvidia/nemotron-3.5-lightning-30b-a3b"),
+            (ProviderKind::Cloudflare, "@cf/meta/llama-4-scout-17b-16e-instruct"),
         ] {
             let body = request(kind, &chat_request(model)).unwrap();
             assert_eq!(body["model"], model);
