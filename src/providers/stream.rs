@@ -115,6 +115,7 @@ fn parse(kind: ProviderKind, data: &[u8]) -> Result<Vec<ChatStreamEvent>> {
             ProviderKind::Groq
                 | ProviderKind::Mistral
                 | ProviderKind::DeepSeek
+                | ProviderKind::OpenRouter
                 | ProviderKind::Nvidia
                 | ProviderKind::Cloudflare
                 | ProviderKind::Custom
@@ -157,12 +158,16 @@ fn parse(kind: ProviderKind, data: &[u8]) -> Result<Vec<ChatStreamEvent>> {
         ProviderKind::Groq
         | ProviderKind::Mistral
         | ProviderKind::DeepSeek
+        | ProviderKind::OpenRouter
         | ProviderKind::Nvidia
         | ProviderKind::Cloudflare
         | ProviderKind::Custom => {
             if let Some(choice) = v["choices"].as_array().and_then(|c| c.first()) {
                 match kind {
-                    ProviderKind::Nvidia | ProviderKind::Cloudflare | ProviderKind::Custom => {
+                    ProviderKind::OpenRouter
+                    | ProviderKind::Nvidia
+                    | ProviderKind::Cloudflare
+                    | ProviderKind::Custom => {
                         content_tokens(&mut out, &choice["delta"]["content"], false);
                         let reasoning = choice["delta"]
                             .get("reasoning_content")
@@ -244,6 +249,7 @@ mod tests {
     #[test]
     fn new_providers_decode_fragmented_content_and_reasoning() {
         for (kind, reasoning_key) in [
+            (ProviderKind::OpenRouter, "reasoning"),
             (ProviderKind::Nvidia, "reasoning_content"),
             (ProviderKind::Cloudflare, "reasoning"),
         ] {
@@ -270,7 +276,11 @@ mod tests {
 
     #[test]
     fn new_providers_accept_the_done_marker() {
-        for kind in [ProviderKind::Nvidia, ProviderKind::Cloudflare] {
+        for kind in [
+            ProviderKind::OpenRouter,
+            ProviderKind::Nvidia,
+            ProviderKind::Cloudflare,
+        ] {
             let mut decoder = Decoder::new(kind);
             assert_eq!(
                 decoder.push(b"data: [DONE]\n\n").unwrap(),
@@ -281,7 +291,11 @@ mod tests {
 
     #[test]
     fn new_providers_reject_incomplete_and_filtered_answers() {
-        for kind in [ProviderKind::Nvidia, ProviderKind::Cloudflare] {
+        for kind in [
+            ProviderKind::OpenRouter,
+            ProviderKind::Nvidia,
+            ProviderKind::Cloudflare,
+        ] {
             for reason in ["length", "content_filter", "tool_calls"] {
                 let value = json!({"choices":[{"delta":{},"finish_reason":reason}]});
                 assert!(parse(kind, value.to_string().as_bytes()).is_err());

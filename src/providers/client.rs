@@ -218,10 +218,11 @@ impl ProviderClient {
         let Transport::Cloud(client) = &self.transport else {
             unreachable!()
         };
-        if matches!(
+if matches!(
             self.provider.kind,
             ProviderKind::Mistral
                 | ProviderKind::DeepSeek
+                | ProviderKind::OpenRouter
                 | ProviderKind::Cloudflare
                 | ProviderKind::Nvidia
                 | ProviderKind::Custom
@@ -242,6 +243,7 @@ impl ProviderClient {
             ProviderKind::Groq
             | ProviderKind::Mistral
             | ProviderKind::DeepSeek
+            | ProviderKind::OpenRouter
             | ProviderKind::Nvidia
             | ProviderKind::Cloudflare
             | ProviderKind::Custom => self.endpoint("chat/completions")?,
@@ -415,11 +417,43 @@ impl ProviderClient {
             let data = self.mistral_model(model).await?;
             return Ok(data["capabilities"]["vision"].as_bool() == Some(true));
         }
-        if self.provider.kind == ProviderKind::Cloudflare {
+if self.provider.kind == ProviderKind::Cloudflare {
             let data = self.cloudflare_model(model).await?;
             return Ok(model_vision(&data));
         }
+        if self.provider.kind == ProviderKind::OpenRouter {
+            let data = self.openrouter_model(model).await?;
+            return Ok(model_vision(&data));
+        }
         Ok(wire::supports_images(self.provider.kind, model))
+    }
+
+    async fn openrouter_model(&self, model: &str) -> Result<Value> {
+        self.check()?;
+        let model = validate_model_id(model)?;
+        let Transport::Cloud(client) = &self.transport else {
+            unreachable!()
+        };
+        let response = client
+            .get(self.endpoint("models")?)
+            .timeout(Duration::from_secs(30))
+            .send()
+            .await
+            .map_err(network_error)?;
+        let data = response_json(response).await?;
+        let Some(list) = data["data"].as_array() else {
+            return Err(MooseError::ProviderResponse(
+                "The provider returned invalid model capabilities.".into(),
+            ));
+        };
+        list.iter()
+            .find(|entry| entry["id"].as_str() == Some(model.as_str()))
+            .cloned()
+            .ok_or_else(|| {
+                MooseError::ProviderResponse(
+                    "The provider returned invalid model capabilities.".into(),
+                )
+            })
     }
 
     pub async fn thinking_values(&self, model: &str) -> Result<Vec<ThinkingValue>> {
@@ -448,6 +482,22 @@ impl ProviderClient {
                 }
             }
             return Ok(Vec::new());
+        }
+        if self.provider.kind == ProviderKind::OpenRouter {
+            let data = self.openrouter_model(model).await?;
+            if data["supported_parameters"]
+                .as_array()
+                .is_some_and(|params| {
+                    params
+                        .iter()
+                        .any(|p| p == "reasoning" || p == "include_reasoning")
+                })
+            {
+                return Ok(["none", "low", "medium", "high"]
+                    .map(|s| ThinkingValue::Level(s.into()))
+                    .to_vec());
+            }
+            return Ok(wire::thinking_values(self.provider.kind, model));
         }
         Ok(wire::thinking_values(self.provider.kind, model))
     }
@@ -675,9 +725,19 @@ fn parse_models(kind: ProviderKind, data: &Value, custom: bool) -> Result<Vec<Ol
         {
             continue;
         }
+let has_or_modalities =
+            kind == ProviderKind::OpenRouter && item["architecture"]["output_modalities"].is_array();
+        if has_or_modalities
+            && !item["architecture"]["output_modalities"]
+                .as_array()
+                .is_some_and(|modalities| modalities.iter().any(|m| m == "text"))
+        {
+            continue;
+        }
         if !custom
             && kind != ProviderKind::Mistral
             && !has_cf_task
+            && !has_or_modalities
             && [
                 "embedding",
                 "whisper",
