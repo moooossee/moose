@@ -23,6 +23,7 @@ pub use crate::ollama::service::{
 };
 
 pub const DEFAULT_OLLAMA_BASE_URL: &str = "http://127.0.0.1:11434/api";
+pub const OPENROUTER_BASE_URL: &str = "https://openrouter.ai/api/v1";
 pub const NVIDIA_BASE_URL: &str = "https://integrate.api.nvidia.com/v1";
 pub const CLOUDFLARE_API_HOST: &str = "api.cloudflare.com";
 const CLOUDFLARE_ACCOUNT_ID_LEN: usize = 32;
@@ -37,6 +38,7 @@ pub enum ProviderKind {
     Gemini,
     Mistral,
     DeepSeek,
+    OpenRouter,
     Nvidia,
     Cloudflare,
     Custom,
@@ -53,6 +55,7 @@ impl ProviderKind {
             Self::Gemini => "gemini",
             Self::Mistral => "mistral",
             Self::DeepSeek => "deepseek",
+            Self::OpenRouter => "openrouter",
             Self::Nvidia => "nvidia",
             Self::Cloudflare => "cloudflare",
             Self::Custom => "custom",
@@ -69,6 +72,7 @@ impl ProviderKind {
             "gemini" => Ok(Self::Gemini),
             "mistral" => Ok(Self::Mistral),
             "deepseek" => Ok(Self::DeepSeek),
+            "openrouter" => Ok(Self::OpenRouter),
             "nvidia" => Ok(Self::Nvidia),
             "cloudflare" => Ok(Self::Cloudflare),
             "custom" => Ok(Self::Custom),
@@ -78,8 +82,9 @@ impl ProviderKind {
         }
     }
 
-    pub const CLOUD: [Self; 10] = [
+    pub const CLOUD: [Self; 11] = [
         Self::OllamaCloud,
+        Self::OpenRouter,
         Self::Groq,
         Self::OpenAi,
         Self::Anthropic,
@@ -101,6 +106,7 @@ impl ProviderKind {
             Self::Gemini => "Google Gemini",
             Self::Mistral => "Mistral AI",
             Self::DeepSeek => "DeepSeek",
+            Self::OpenRouter => "OpenRouter",
             Self::Nvidia => "NVIDIA NIM",
             Self::Cloudflare => "Cloudflare Workers AI",
             Self::Custom => "Custom Provider",
@@ -119,6 +125,7 @@ impl ProviderKind {
             Self::Gemini => Some("https://generativelanguage.googleapis.com/v1beta"),
             Self::Mistral => Some("https://api.mistral.ai/v1"),
             Self::DeepSeek => Some("https://api.deepseek.com"),
+            Self::OpenRouter => Some(OPENROUTER_BASE_URL),
             Self::Nvidia => Some(NVIDIA_BASE_URL),
             Self::Cloudflare | Self::Custom => None,
         }
