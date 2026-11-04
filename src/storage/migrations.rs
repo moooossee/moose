@@ -45,6 +45,12 @@ const MIGRATIONS: &[(i64, &str)] = &[
         14,
         include_str!("../../migrations/0014_nvidia_cloudflare_providers.sql"),
     ),
+    (15, include_str!("../../migrations/0015_chat_tools.sql")),
+    (16, include_str!("../../migrations/0016_web_tools.sql")),
+    (
+        17,
+        include_str!("../../migrations/0017_web_permissions.sql"),
+    ),
 ];
 
 pub fn run_migrations(connection: &mut Connection) -> Result<()> {

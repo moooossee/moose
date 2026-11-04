@@ -134,3 +134,51 @@ pub async fn delete(provider: &Provider) -> Result<()> {
         .await
         .map_err(|_| MooseError::CredentialStoreUnavailable)
 }
+
+fn web_attributes() -> HashMap<&'static str, &'static str> {
+    HashMap::from([
+        ("application", APPLICATION_ID),
+        ("purpose", "web-search"),
+        ("destination", "https://api.search.brave.com"),
+    ])
+}
+
+pub async fn save_web_key(key: &ApiKey) -> Result<()> {
+    let _guard = STORE_LOCK.lock().await;
+    open()
+        .await?
+        .create_item(
+            "Moose · Brave Search API key",
+            &web_attributes(),
+            key.0.clone(),
+            true,
+        )
+        .await
+        .map_err(|_| MooseError::CredentialStoreUnavailable)
+}
+
+pub async fn load_web_key() -> Result<ApiKey> {
+    let _guard = STORE_LOCK.lock().await;
+    let keyring = open().await?;
+    let items = keyring
+        .search_items(&web_attributes())
+        .await
+        .map_err(|_| MooseError::CredentialStoreUnavailable)?;
+    let secret = items
+        .first()
+        .ok_or(MooseError::MissingApiKey)?
+        .secret()
+        .await
+        .map_err(|_| MooseError::CredentialStoreUnavailable)?;
+    validate(secret.as_bytes())?;
+    Ok(ApiKey(secret))
+}
+
+pub async fn delete_web_key() -> Result<()> {
+    let _guard = STORE_LOCK.lock().await;
+    open()
+        .await?
+        .delete(&web_attributes())
+        .await
+        .map_err(|_| MooseError::CredentialStoreUnavailable)
+}

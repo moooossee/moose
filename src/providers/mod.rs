@@ -43,6 +43,10 @@ pub enum ProviderKind {
 }
 
 impl ProviderKind {
+    pub const fn supports_tool_calling(self) -> bool {
+        matches!(self, Self::Ollama | Self::OllamaCloud)
+    }
+
     pub const fn as_str(&self) -> &'static str {
         match self {
             Self::Ollama => "ollama",
