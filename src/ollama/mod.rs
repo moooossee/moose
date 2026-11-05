@@ -105,10 +105,13 @@ struct ChatLine {
     #[serde(default)]
     done: bool,
     error: Option<String>,
+    done_reason: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
 struct ChatLineMessage {
+    #[serde(default)]
+    tool_calls: Vec<crate::tools::ToolCall>,
     #[serde(default)]
     thinking: String,
     #[serde(default)]
@@ -234,7 +237,7 @@ impl OllamaClient {
 
     pub async fn stream_chat<F>(&self, mut request: ChatRequest, mut on_event: F) -> Result<()>
     where
-        F: FnMut(ChatStreamEvent) + Send,
+        F: FnMut(ChatStreamEvent) -> Result<()> + Send,
     {
         request.model = validate_model_name(&request.model)?;
         let response = self
@@ -252,7 +255,7 @@ impl OllamaClient {
         self.stream_lines(response, |line| {
             for event in parse_chat_stream_events(line)? {
                 completed |= matches!(event, ChatStreamEvent::Done);
-                on_event(event);
+                on_event(event)?;
             }
             Ok(completed)
         })
@@ -266,6 +269,14 @@ impl OllamaClient {
     }
 
     pub async fn supports_vision(&self, model: &str) -> Result<bool> {
+        self.supports_capability(model, "vision").await
+    }
+
+    pub async fn supports_tools(&self, model: &str) -> Result<bool> {
+        self.supports_capability(model, "tools").await
+    }
+
+    async fn supports_capability(&self, model: &str, capability: &str) -> Result<bool> {
         let response = self
             .client
             .post(self.endpoint("show")?)
@@ -282,13 +293,13 @@ impl OllamaClient {
             .and_then(serde_json::Value::as_array)
             .ok_or_else(|| {
                 MooseError::InvalidOllamaResponse(
-                    "Model capabilities are unavailable. Update Ollama to check image support."
+                    "Model capabilities are unavailable. Update Ollama to check model support."
                         .into(),
                 )
             })?;
         Ok(capabilities
             .iter()
-            .any(|value| value.as_str() == Some("vision")))
+            .any(|value| value.as_str() == Some(capability)))
     }
 
     pub async fn thinking_values(&self, model: &str) -> Result<Vec<ThinkingValue>> {
@@ -420,6 +431,11 @@ pub fn parse_chat_stream_events(line: &str) -> Result<Vec<ChatStreamEvent>> {
     if let Some(error) = response.error {
         return Err(MooseError::InvalidOllamaResponse(error));
     }
+    if response.done && response.done_reason.as_deref() == Some("length") {
+        return Err(MooseError::ProviderResponse(
+            "The model reached its response limit. Try a shorter request or a larger context window.".into(),
+        ));
+    }
     let mut events = Vec::new();
     if let Some(message) = response.message {
         if !message.thinking.is_empty() {
@@ -428,6 +444,12 @@ pub fn parse_chat_stream_events(line: &str) -> Result<Vec<ChatStreamEvent>> {
         if !message.content.is_empty() {
             events.push(ChatStreamEvent::Token(message.content));
         }
+        events.extend(
+            message
+                .tool_calls
+                .into_iter()
+                .map(ChatStreamEvent::ToolCall),
+        );
     }
     if response.done {
         events.push(ChatStreamEvent::Done);

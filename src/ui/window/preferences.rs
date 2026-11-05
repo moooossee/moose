@@ -281,6 +281,7 @@ pub(super) fn dialog(
         &dialog, ui, backend,
     ));
     dialog.add(&shortcuts_page);
+    dialog.add(&super::web_tools::preferences_page(&dialog, ui, backend));
     dialog.add(&privacy_page);
 
     let target_dialog = dialog.clone();

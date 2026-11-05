@@ -7,6 +7,8 @@ pub(super) struct Context {
     pub(super) conversation_id: String,
     pub(super) model: String,
     reasoning: String,
+    tools: Vec<crate::tools::ToolExecution>,
+    tool_notice: String,
     started: Option<Instant>,
     pub(super) finished: Option<Instant>,
     reasoning_started: Option<Instant>,
@@ -42,6 +44,8 @@ impl Context {
 
     fn details(&self) -> MessageDetails {
         MessageDetails {
+            tools: self.tools.clone(),
+            tool_notice: self.tool_notice.clone(),
             model: self.model.clone(),
             reasoning: self.reasoning.clone(),
             reasoning_ms: self.reasoning_ms(),
@@ -73,6 +77,7 @@ pub(super) fn sync_controls(ui: &WindowUi, backend: &Backend) {
         "Send Message"
     }));
     update_send_button(ui);
+    composer_commands::refresh(ui, backend);
 }
 
 pub(super) fn bind(ui: &Rc<WindowUi>, backend: &Rc<Backend>) {
@@ -123,11 +128,19 @@ pub(super) fn persist(backend: &Backend, status: &str) -> Result<()> {
     let Some(id) = backend.active_assistant_message_id.borrow().clone() else {
         return Ok(());
     };
+    let mut details = backend.generation_context.borrow().details();
+    if status != "streaming" {
+        for tool in &mut details.tools {
+            if tool.status == crate::tools::ToolStatus::Running {
+                tool.status = crate::tools::ToolStatus::Cancelled;
+            }
+        }
+    }
     backend.conversation_repository.save_response(
         &id,
         &backend.active_assistant_content.borrow(),
         status,
-        &backend.generation_context.borrow().details(),
+        &details,
     )
 }
 
@@ -154,6 +167,7 @@ fn update_live(ui: &WindowUi, backend: &Backend) {
             (context.elapsed_ms() / 1000) as u64,
             context.reasoning_ms(),
         );
+        chat_view::update_tool_activity(live, &context.tools, &context.tool_notice);
     }
 }
 
@@ -166,6 +180,7 @@ pub(super) fn start(
     model: String,
     request: ChatRequest,
     assistant: Message,
+    web: Option<crate::tools::web::WebConfig>,
     clear_draft: bool,
 ) {
     let assistant_id = assistant.id.clone();
@@ -193,21 +208,26 @@ pub(super) fn start(
     let managed_ollama = Arc::clone(&backend.managed_ollama);
     let managed_gpu = backend.managed_gpu.borrow().clone();
     let policy = backend.network_policy.clone();
+    let web = web.map(|config| crate::tools::web::WebSession::new(config, policy.clone()));
     let handle = backend.runtime.spawn(async move {
         let result = async {
             let client =
                 prepared_provider_client(paths, managed_ollama, managed_gpu, provider, policy)
                     .await?;
-            client
-                .stream_chat(request, |event| {
-                    let event = match event {
-                        ChatStreamEvent::Token(token) => ChatUiEvent::Token(token),
-                        ChatStreamEvent::Thinking(token) => ChatUiEvent::Thinking(token),
-                        ChatStreamEvent::Done => ChatUiEvent::Done,
-                    };
-                    let _ = sender.send(event);
-                })
-                .await
+            crate::chat::runner::run(&client, request, web, |event| {
+                use crate::chat::runner::ResponseEvent;
+                let event = match event {
+                    ResponseEvent::Token(token) => ChatUiEvent::Token(token),
+                    ResponseEvent::Thinking(token) => ChatUiEvent::Thinking(token),
+                    ResponseEvent::Tool(tool) => ChatUiEvent::Tool(tool),
+                    ResponseEvent::Notice(notice) => ChatUiEvent::ToolNotice(notice),
+                    ResponseEvent::Done => ChatUiEvent::Done,
+                };
+                sender
+                    .send(event)
+                    .map_err(|_| MooseError::ProviderRequest("The conversation was closed.".into()))
+            })
+            .await
         }
         .await;
         if let Err(error) = result {
@@ -228,6 +248,19 @@ pub(super) fn start(
         let mut end = None;
         for _ in 0..512 {
             match receiver.try_recv() {
+                Ok(ChatUiEvent::Tool(tool)) => {
+                    let mut context = backend.generation_context.borrow_mut();
+                    if let Some(previous) =
+                        context.tools.iter_mut().find(|entry| entry.id == tool.id)
+                    {
+                        *previous = tool;
+                    } else {
+                        context.tools.push(tool);
+                    }
+                }
+                Ok(ChatUiEvent::ToolNotice(notice)) => {
+                    backend.generation_context.borrow_mut().tool_notice = notice;
+                }
                 Ok(ChatUiEvent::Token(token)) => {
                     if !token.is_empty() {
                         let mut context = backend.generation_context.borrow_mut();
@@ -285,7 +318,9 @@ pub(super) fn start(
                             &context.reasoning,
                             (context.elapsed_ms() / 1000) as u64,
                             context.reasoning_ms(),
+                            &context.tools,
                         );
+                        chat_view::update_tool_activity(live, &context.tools, &context.tool_notice);
                     }
                     ui.toast_overlay.add_toast(adw::Toast::new(&format!(
                         "Response could not be saved: {error}"

@@ -4,6 +4,10 @@ use rusqlite::{OptionalExtension, params};
 
 #[derive(Clone, Debug, Default, serde::Serialize)]
 pub struct MessageDetails {
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub tools: Vec<crate::tools::ToolExecution>,
+    #[serde(skip_serializing_if = "String::is_empty")]
+    pub tool_notice: String,
     pub model: String,
     pub reasoning: String,
     pub reasoning_ms: i64,
@@ -84,7 +88,11 @@ impl ConversationRepository {
     }
 
     pub fn message_details(&self, message_id: &str) -> Result<Option<MessageDetails>> {
-        Ok(self.connection.query_row("SELECT model, reasoning, reasoning_ms, elapsed_ms FROM message_details WHERE message_id = ?1", [message_id], |row| Ok(MessageDetails {model: row.get(0)?, reasoning: row.get(1)?, reasoning_ms: row.get(2)?, elapsed_ms: row.get(3)?})).optional()?)
+        let mut details = self.connection.query_row("SELECT model, reasoning, reasoning_ms, elapsed_ms FROM message_details WHERE message_id = ?1", [message_id], |row| Ok(MessageDetails {model: row.get(0)?, reasoning: row.get(1)?, reasoning_ms: row.get(2)?, elapsed_ms: row.get(3)?, ..Default::default()})).optional()?;
+        if let Some(details) = &mut details {
+            (details.tools, details.tool_notice) = self.tool_activity(message_id)?;
+        }
+        Ok(details)
     }
 
     pub fn save_response(
@@ -97,6 +105,13 @@ impl ConversationRepository {
         let transaction = self.connection.unchecked_transaction()?;
         transaction.execute("UPDATE messages SET content = ?2, status = ?3, completed_at = CASE WHEN ?3 = 'streaming' THEN NULL ELSE ?4 END WHERE id = ?1", params![message_id, content, status, utc_now()])?;
         transaction.execute("INSERT INTO message_details VALUES (?1, ?2, ?3, ?4, ?5) ON CONFLICT(message_id) DO UPDATE SET model = excluded.model, reasoning = excluded.reasoning, reasoning_ms = excluded.reasoning_ms, elapsed_ms = excluded.elapsed_ms", params![message_id, details.model, details.reasoning, details.reasoning_ms, details.elapsed_ms])?;
+        if !details.tools.is_empty() || !details.tool_notice.is_empty() {
+            transaction.execute(
+                "INSERT INTO message_tool_activity (message_id, calls, notice) VALUES (?1, ?2, ?3)
+                 ON CONFLICT(message_id) DO UPDATE SET calls = excluded.calls, notice = excluded.notice",
+                params![message_id, serde_json::to_string(&details.tools)?, details.tool_notice],
+            )?;
+        }
         transaction.execute("UPDATE conversations SET updated_at = ?2 WHERE id = (SELECT conversation_id FROM messages WHERE id = ?1)", params![message_id, utc_now()])?;
         transaction.commit()?;
         Ok(())

@@ -17,6 +17,8 @@ mod branches;
 
 #[path = "attachment_repository.rs"]
 mod attachments;
+#[path = "tool_repository.rs"]
+mod tools;
 #[path = "conversation_workspace.rs"]
 mod workspace;
 pub use workspace::MessageDetails;

@@ -45,6 +45,7 @@ mod chat_view;
 mod chat_welcome;
 mod cloud_setup;
 mod code_view;
+mod composer_commands;
 mod conversation_export;
 mod conversation_list;
 mod custom_provider;
@@ -68,6 +69,7 @@ mod reasoning;
 mod shortcuts;
 mod sidebar;
 mod streaming_text;
+mod web_tools;
 mod widgets;
 mod workspace;
 
@@ -181,6 +183,7 @@ fn build_ui(app: &adw::Application) -> Rc<WindowUi> {
         draft_label: chat.draft_label,
         thinking_picker: chat.thinking_picker,
         attachments: chat.attachments,
+        commands: chat.commands,
         generation_banner,
         restoring_draft: Cell::new(false),
         draft_source: RefCell::new(None),
@@ -224,6 +227,7 @@ pub fn build(app: &adw::Application) -> adw::ApplicationWindow {
             reasoning::bind(&ui, &backend);
             attachments::bind(&ui, &backend);
             generation::bind(&ui, &backend);
+            composer_commands::bind(&ui, &backend);
             if let Err(error) = backend
                 .conversation_repository
                 .recover_interrupted_responses()
@@ -324,6 +328,7 @@ struct WindowUi {
     draft_label: gtk::Label,
     thinking_picker: gtk::DropDown,
     attachments: attachments::Controls,
+    commands: composer_commands::Controls,
     generation_banner: adw::Banner,
     restoring_draft: Cell<bool>,
     draft_source: RefCell<Option<gtk::glib::SourceId>>,
@@ -351,6 +356,8 @@ enum ModelLoadEvent {
 }
 
 enum ChatUiEvent {
+    Tool(crate::tools::ToolExecution),
+    ToolNotice(String),
     Thinking(String),
     Token(String),
     Done,
@@ -370,6 +377,8 @@ enum AssistantMessageEnd {
 
 #[derive(Clone, Debug, PartialEq)]
 struct ChatSettingsValues {
+    calculator: bool,
+    web: bool,
     profile_id: Option<String>,
     preferred_model: Option<String>,
     temperature: f64,
@@ -800,6 +809,14 @@ fn bind_global_shortcuts(ui: &Rc<WindowUi>, backend: &Rc<Backend>) {
             return gtk::glib::Propagation::Proceed;
         }
 
+        if composer_commands::is_composing(&target_ui) {
+            return gtk::glib::Propagation::Proceed;
+        }
+
+        if composer_commands::handle_key(&target_ui, &target_backend, key, state) {
+            return gtk::glib::Propagation::Stop;
+        }
+
         let Some(action) = shortcut_action_for_event(&target_backend, key, state) else {
             return gtk::glib::Propagation::Proceed;
         };
@@ -1095,6 +1112,7 @@ fn refresh_models_with_callback(
     backend: &Rc<Backend>,
     mut on_loaded: Option<Box<dyn FnOnce()>>,
 ) {
+    composer_commands::refresh(ui, backend);
     if runtime_install_is_active(ui, backend) {
         return;
     }
@@ -1300,6 +1318,9 @@ fn managed_ready_status(acceleration: Option<ManagedOllamaAcceleration>) -> Stri
 }
 
 fn send_message(ui: &Rc<WindowUi>, backend: &Rc<Backend>) {
+    if composer_commands::is_composing(ui) || composer_commands::submit(ui, backend) {
+        return;
+    }
     let mut prompt = prompt_text(&ui.entry).trim().to_string();
     if prompt.is_empty() && ui.attachments.count.get() > 0 {
         prompt = if ui.attachments.has_images.get() {
@@ -1386,7 +1407,7 @@ fn submit_message(
             return false;
         }
     };
-    let (prompt, history) = match backend
+    let (prompt, mut history) = match backend
         .conversation_repository
         .list_messages(&conversation_id)
         .and_then(|history| submission.prepare(&history))
@@ -1399,6 +1420,15 @@ fn submit_message(
             return false;
         }
     };
+    if let Err(error) = backend.conversation_repository.include_tool_context(
+        &mut history,
+        settings.context_messages.saturating_sub(1) as usize,
+    ) {
+        ui.toast_overlay.add_toast(adw::Toast::new(&format!(
+            "Tool history could not be loaded: {error}"
+        )));
+        return false;
+    }
     let (request_messages, sources) = match attachments::prepare(
         ui,
         backend,
@@ -1418,6 +1448,12 @@ fn submit_message(
     };
     let mut options = chat_options(&settings);
     if options.num_ctx.is_none()
+        && settings.web
+        && provider.kind == crate::providers::ProviderKind::Ollama
+    {
+        options.num_ctx = Some(8192);
+    }
+    if options.num_ctx.is_none()
         && (!sources.is_empty()
             || request_messages
                 .iter()
@@ -1436,7 +1472,29 @@ fn submit_message(
             }
         };
     request.think = reasoning::selected_for_model(ui, &model);
+    if settings.calculator && provider.kind.supports_tool_calling() {
+        request.tools.push(crate::tools::calculator());
+    }
+    let web = if settings.web && provider.kind.supports_tool_calling() {
+        if backend.network_policy.local_only() {
+            ui.toast_overlay.add_toast(adw::Toast::new("Web is blocked by Local Only. Turn off Web in Chat Settings or Local Only in Preferences → Privacy."));
+            return false;
+        }
+        match backend.repository.web_config() {
+            Ok(config) => {
+                request.tools.extend(config.definitions());
+                Some(config)
+            }
+            Err(error) => {
+                show_error(&ui.window, "Web settings could not be loaded", &error);
+                return false;
+            }
+        }
+    } else {
+        None
+    };
     let pending = PendingChat {
+        web,
         provider,
         conversation_id,
         model,
@@ -1450,6 +1508,7 @@ fn submit_message(
 }
 
 struct PendingChat {
+    web: Option<crate::tools::web::WebConfig>,
     provider: Provider,
     conversation_id: String,
     model: String,
@@ -1461,7 +1520,29 @@ struct PendingChat {
 }
 
 fn start_prepared_chat(ui: &Rc<WindowUi>, backend: &Rc<Backend>, pending: PendingChat) -> bool {
+    web_tools::authorize(ui, backend, pending)
+}
+
+fn start_authorized_chat(ui: &Rc<WindowUi>, backend: &Rc<Backend>, pending: PendingChat) -> bool {
+    if let Some(config) = &pending.web {
+        let allowed = !backend.network_policy.local_only()
+            && backend
+                .repository
+                .web_config()
+                .is_ok_and(|current| current == *config)
+            && backend
+                .conversation_repository
+                .web_permission(&pending.conversation_id, config)
+                .unwrap_or(false);
+        if !allowed {
+            ui.toast_overlay.add_toast(adw::Toast::new(
+                "Web settings changed. Review Chat Settings and send your message again.",
+            ));
+            return false;
+        }
+    }
     let PendingChat {
+        web,
         provider,
         conversation_id,
         model,
@@ -1532,6 +1613,7 @@ fn start_prepared_chat(ui: &Rc<WindowUi>, backend: &Rc<Backend>, pending: Pendin
         model,
         request,
         assistant,
+        web,
         matches!(submission, message_actions::Submission::New(_)),
     );
     true
@@ -1618,10 +1700,17 @@ fn create_empty_conversation(backend: &Backend) -> Result<String> {
 }
 
 fn load_chat_settings(backend: &Backend, conversation_id: &str) -> Result<ChatSettingsValues> {
-    backend
+    let mut settings = backend
         .conversation_repository
         .latest_generation_settings(conversation_id)
-        .map(ChatSettingsValues::from)
+        .map(ChatSettingsValues::from)?;
+    settings.calculator = backend
+        .conversation_repository
+        .calculator_enabled(conversation_id)?;
+    settings.web = backend
+        .conversation_repository
+        .web_enabled(conversation_id)?;
+    Ok(settings)
 }
 
 fn save_chat_settings(
@@ -1629,9 +1718,8 @@ fn save_chat_settings(
     conversation_id: &str,
     values: ChatSettingsValues,
 ) -> Result<()> {
-    backend
-        .conversation_repository
-        .create_generation_settings(NewGenerationSettings {
+    backend.conversation_repository.save_chat_configuration(
+        NewGenerationSettings {
             conversation_id: Some(conversation_id.to_string()),
             profile_id: values.profile_id,
             model: values.preferred_model,
@@ -1642,7 +1730,10 @@ fn save_chat_settings(
             num_ctx: values.num_ctx,
             context_messages: Some(values.context_messages),
             system_prompt: non_empty_string(values.system_prompt),
-        })?;
+        },
+        values.calculator,
+        values.web,
+    )?;
     Ok(())
 }
 
@@ -1654,6 +1745,8 @@ fn non_empty_string(value: String) -> Option<String> {
 impl From<Option<GenerationSettings>> for ChatSettingsValues {
     fn from(settings: Option<GenerationSettings>) -> Self {
         settings.map_or_else(Self::default, |settings| Self {
+            calculator: false,
+            web: false,
             profile_id: settings.profile_id,
             preferred_model: settings.model,
             temperature: settings.temperature.unwrap_or(DEFAULT_TEMPERATURE),
@@ -1673,6 +1766,8 @@ impl From<Option<GenerationSettings>> for ChatSettingsValues {
 impl Default for ChatSettingsValues {
     fn default() -> Self {
         Self {
+            calculator: false,
+            web: false,
             profile_id: None,
             preferred_model: None,
             temperature: DEFAULT_TEMPERATURE,
@@ -1866,6 +1961,7 @@ async fn generate_model_title(
             if let ChatStreamEvent::Token(token) = event {
                 response.push_str(&token);
             }
+            Ok(())
         })
         .await?;
     parse_generated_title(&response)
@@ -2019,11 +2115,29 @@ fn prompt_is_ready(entry: &gtk::TextView) -> bool {
 }
 
 fn update_send_button(ui: &WindowUi) {
-    let can_send = selected_model(&ui.model_picker, &ui.model_names).is_some()
-        && (prompt_is_ready(&ui.entry) || ui.attachments.count.get() > 0)
-        && attachments::can_send(ui)
-        && !ui.stop_button.is_sensitive();
+    let choosing_command = ui.commands.menu.reveals_child();
+    let command = composer_commands::can_apply(ui);
+    let can_send = (if choosing_command {
+        command
+    } else {
+        selected_model(&ui.model_picker, &ui.model_names).is_some()
+            && (prompt_is_ready(&ui.entry) || ui.attachments.count.get() > 0)
+            && attachments::can_send(ui)
+    }) && !ui.stop_button.is_sensitive()
+        && !composer_commands::is_composing(ui);
     ui.send_button.set_sensitive(can_send);
+    ui.send_button.set_icon_name(if choosing_command {
+        "object-select-symbolic"
+    } else {
+        "go-up-symbolic"
+    });
+    if !ui.stop_button.is_sensitive() {
+        ui.send_button.set_tooltip_text(Some(if choosing_command {
+            "Apply Tool Command (Enter)"
+        } else {
+            "Send Message (Enter)"
+        }));
+    }
 }
 
 fn selected_model(

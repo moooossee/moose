@@ -80,6 +80,7 @@ pub(super) fn restore(ui: &WindowUi, backend: &Backend) -> Result<()> {
         .transpose()?
         .unwrap_or_default();
     ui.restoring_draft.set(true);
+    composer_commands::reset(ui);
     ui.entry.buffer().set_text(&draft);
     ui.restoring_draft.set(false);
     ui.draft_label
@@ -89,6 +90,7 @@ pub(super) fn restore(ui: &WindowUi, backend: &Backend) -> Result<()> {
     }
     attachments::refresh(ui, backend);
     update_send_button(ui);
+    composer_commands::refresh(ui, backend);
     Ok(())
 }
 

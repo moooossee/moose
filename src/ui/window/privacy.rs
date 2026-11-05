@@ -21,7 +21,7 @@ pub(super) fn settings_group(ui: &Rc<WindowUi>, backend: &Rc<Backend>) -> adw::P
     let row = adw::SwitchRow::builder()
         .title("Local Only")
         .subtitle(
-            "Only use Ollama managed by Moose. Cloud and external Ollama connections are blocked.",
+            "Only use Ollama managed by Moose. Web tools, cloud and external Ollama connections are blocked.",
         )
         .active(backend.network_policy.local_only())
         .build();
@@ -39,6 +39,7 @@ pub(super) fn settings_group(ui: &Rc<WindowUi>, backend: &Rc<Backend>) -> adw::P
         match backend.repository.set_local_only(enabled) {
             Ok(()) => {
                 backend.network_policy.set_local_only(enabled);
+                super::composer_commands::refresh(&ui, &backend);
                 ui.attachments.capabilities.borrow_mut().clear();
                 ui.thinking_state.borrow_mut().cache.clear();
                 refresh_models(&ui, &backend);
@@ -140,7 +141,6 @@ pub(super) fn conversation_group(
     let button = gtk::Button::with_label("Reset");
     button.set_valign(gtk::Align::Center);
     button.set_tooltip_text(Some("Reset Permissions in All Chats"));
-    button.add_css_class("moose-settings-secondary-action");
     let row = adw::ActionRow::builder()
         .title("Provider Sharing Permissions")
         .subtitle(format!(
@@ -200,7 +200,7 @@ pub(super) fn authorize(ui: &Rc<WindowUi>, backend: &Rc<Backend>, pending: Pendi
         }
     };
 
-    let description = format!(
+    let mut description = format!(
         "Send this conversation's context to {} at {}?\n\nThis request includes {} messages (including instructions and history), {} images and {} document excerpts. The provider processes this content under its own data policy.\n\nPermission is saved for this chat. Choose the options below to allow sharing in all chats with this provider and server. Messages and files have separate permissions. You can reset them in Preferences → Privacy or Chat Settings.",
         pending.provider.name,
         pending.provider.base_url,
@@ -208,6 +208,17 @@ pub(super) fn authorize(ui: &Rc<WindowUi>, backend: &Rc<Backend>, pending: Pendi
         images,
         pending.sources.len()
     );
+    if pending
+        .request
+        .tools
+        .iter()
+        .any(|tool| tool.function.name == crate::tools::CALCULATOR)
+    {
+        description.push_str("\n\nCalculator runs on this device. Its results are also sent to this provider to complete the response.");
+    }
+    if pending.web.is_some() {
+        description.push_str("\n\nWeb results and page excerpts are also sent to this provider. Web access requires separate permission, which can be remembered for all chats in Preferences → Web.");
+    }
     let dialog = adw::Dialog::builder()
         .title(if permissions.messages && includes_files {
             "Share Files with Provider?"

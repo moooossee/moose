@@ -11,6 +11,7 @@ pub mod profiles;
 pub mod providers;
 pub mod runtime;
 pub mod storage;
+pub mod tools;
 
 #[cfg(feature = "gui")]
 pub mod ui;

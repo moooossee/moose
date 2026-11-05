@@ -136,6 +136,14 @@ fn parse(kind: ProviderKind, data: &[u8]) -> Result<Vec<ChatStreamEvent>> {
         ProviderKind::OllamaCloud => {
             token(&mut out, &v["message"]["thinking"], true);
             token(&mut out, &v["message"]["content"], false);
+            if let Some(calls) = v["message"]
+                .get("tool_calls")
+                .filter(|value| !value.is_null())
+            {
+                let calls = serde_json::from_value::<Vec<crate::tools::ToolCall>>(calls.clone())
+                    .map_err(|_| invalid())?;
+                out.extend(calls.into_iter().map(ChatStreamEvent::ToolCall));
+            }
             if v["done"].as_bool() == Some(true) {
                 if v["done_reason"] == "length" {
                     return Err(incomplete());

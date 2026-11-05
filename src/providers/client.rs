@@ -207,13 +207,23 @@ impl ProviderClient {
 
     pub async fn stream_chat<F>(&self, mut request: ChatRequest, mut on_event: F) -> Result<()>
     where
-        F: FnMut(ChatStreamEvent) + Send,
+        F: FnMut(ChatStreamEvent) -> Result<()> + Send,
     {
         self.check()?;
         let kind = self.provider.api_kind();
+        if !request.tools.is_empty() && !kind.supports_tool_calling() {
+            return Err(MooseError::ProviderRequest(
+                "Tools are not supported by this provider yet.".into(),
+            ));
+        }
         request.model = kind.validate_model_id(&request.model)?;
         if let Transport::Ollama(client) = &self.transport {
-            return client.stream_chat(request, on_event).await;
+            return client
+                .stream_chat(request, |event| {
+                    self.check()?;
+                    on_event(event)
+                })
+                .await;
         }
         let Transport::Cloud(client) = &self.transport else {
             unreachable!()
@@ -267,7 +277,7 @@ impl ProviderClient {
         check_status(&response)?;
         let mut stream = response.bytes_stream();
         let mut decoder = Decoder::new(kind);
-        let mut received_text = false;
+        let mut received_output = false;
         loop {
             self.check()?;
             let chunk = tokio::time::timeout(STREAM_TIMEOUT, stream.next())
@@ -279,19 +289,22 @@ impl ProviderClient {
                 None => (decoder.finish()?, true),
             };
             for event in events {
-                if matches!(event, ChatStreamEvent::Token(_)) {
-                    received_text = true;
+                if matches!(
+                    event,
+                    ChatStreamEvent::Token(_) | ChatStreamEvent::ToolCall(_)
+                ) {
+                    received_output = true;
                 }
                 if matches!(event, ChatStreamEvent::Done) {
-                    if !received_text {
+                    if !received_output {
                         return Err(MooseError::ProviderResponse(
                             "The model returned no text. Select a model that supports chat.".into(),
                         ));
                     }
-                    on_event(event);
+                    on_event(event)?;
                     return Ok(());
                 }
-                on_event(event);
+                on_event(event)?;
             }
             if eof {
                 return Err(MooseError::ProviderResponse(
@@ -314,6 +327,22 @@ impl ProviderClient {
             .await
             .map_err(network_error)?;
         response_json(response).await
+    }
+
+    pub async fn supports_tools(&self, model: &str) -> Result<bool> {
+        self.check()?;
+        let supported = match &self.transport {
+            Transport::Ollama(client) => client.supports_tools(model).await?,
+            Transport::Cloud(_) if self.provider.kind == ProviderKind::OllamaCloud => {
+                let data = self.ollama_capabilities(model).await?;
+                data["capabilities"]
+                    .as_array()
+                    .is_some_and(|values| values.iter().any(|value| value == "tools"))
+            }
+            _ => false,
+        };
+        self.check()?;
+        Ok(supported)
     }
 
     async fn mistral_model(&self, model: &str) -> Result<Value> {

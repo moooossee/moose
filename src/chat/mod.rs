@@ -4,6 +4,9 @@ use crate::conversations::{Message, MessageRole, MessageStatus};
 use crate::providers::validate_model_id;
 
 use crate::error::{MooseError, Result};
+use crate::tools::{ToolCall, ToolDefinition};
+
+pub mod runner;
 
 pub enum ChatSubmission {
     New(String),
@@ -61,6 +64,12 @@ pub enum ChatRole {
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct ChatMessage {
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub thinking: String,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub tool_calls: Vec<ToolCall>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub tool_name: Option<String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub images: Vec<String>,
     pub role: ChatRole,
@@ -92,6 +101,8 @@ impl ThinkingValue {
 
 #[derive(Clone, Debug, PartialEq, Serialize)]
 pub struct ChatRequest {
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub tools: Vec<ToolDefinition>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub think: Option<ThinkingValue>,
     pub model: String,
@@ -119,6 +130,7 @@ pub struct ChatOptions {
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum ChatStreamEvent {
+    ToolCall(ToolCall),
     Thinking(String),
     Token(String),
     Done,
@@ -127,6 +139,9 @@ pub enum ChatStreamEvent {
 impl ChatMessage {
     pub fn system(content: impl Into<String>) -> Self {
         Self {
+            thinking: String::new(),
+            tool_calls: Vec::new(),
+            tool_name: None,
             images: Vec::new(),
             role: ChatRole::System,
             content: content.into(),
@@ -135,6 +150,9 @@ impl ChatMessage {
 
     pub fn user(content: impl Into<String>) -> Self {
         Self {
+            thinking: String::new(),
+            tool_calls: Vec::new(),
+            tool_name: None,
             images: Vec::new(),
             role: ChatRole::User,
             content: content.into(),
@@ -143,9 +161,20 @@ impl ChatMessage {
 
     pub fn assistant(content: impl Into<String>) -> Self {
         Self {
+            thinking: String::new(),
+            tool_calls: Vec::new(),
+            tool_name: None,
             images: Vec::new(),
             role: ChatRole::Assistant,
             content: content.into(),
+        }
+    }
+
+    pub fn tool(name: impl Into<String>, content: impl Into<String>) -> Self {
+        Self {
+            role: ChatRole::Tool,
+            tool_name: Some(name.into()),
+            ..Self::assistant(content)
         }
     }
 }
@@ -153,6 +182,7 @@ impl ChatMessage {
 impl ChatRequest {
     pub fn streaming(model: impl AsRef<str>, messages: Vec<ChatMessage>) -> Result<Self> {
         Ok(Self {
+            tools: Vec::new(),
             think: None,
             model: validate_model_id(model.as_ref())?,
             messages,

@@ -5,6 +5,7 @@ mod migrations;
 mod privacy;
 mod profile_repository;
 mod provider_repository;
+mod web_settings_repository;
 
 pub use connection::{open_database, open_in_memory_database};
 pub use conversation_repository::{ConversationRepository, MessageDetails};

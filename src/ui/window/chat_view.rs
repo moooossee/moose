@@ -1,4 +1,4 @@
-use std::cell::Cell;
+use std::cell::{Cell, RefCell};
 
 use adw::prelude::*;
 use gtk::{Align, Orientation, glib::DateTime};
@@ -33,6 +33,7 @@ pub(super) struct Chat {
     pub(super) draft_label: gtk::Label,
     pub(super) thinking_picker: gtk::DropDown,
     pub(super) attachments: super::attachments::Controls,
+    pub(super) commands: super::composer_commands::Controls,
 }
 
 pub(super) struct StreamingMessage {
@@ -43,6 +44,12 @@ pub(super) struct StreamingMessage {
     reasoning: gtk::Expander,
     reasoning_text: gtk::TextBuffer,
     reasoning_length: Cell<usize>,
+    tools: gtk::Expander,
+    tools_buffer: gtk::TextBuffer,
+    tools_text: RefCell<String>,
+    tool_notice: gtk::Label,
+    web_sources: gtk::Expander,
+    web_sources_box: gtk::Box,
 }
 
 pub(super) fn build() -> Chat {
@@ -117,6 +124,8 @@ pub(super) fn build() -> Chat {
         .margin_top(8)
         .margin_bottom(12)
         .build();
+    let commands = super::composer_commands::build();
+    composer_area.append(&commands.menu);
 
     let entry_buffer = gtk::TextBuffer::new(None);
     let entry = gtk::TextView::builder()
@@ -163,6 +172,7 @@ pub(super) fn build() -> Chat {
 
     let stop_button = composer_button("media-playback-stop-symbolic", "Stop Response");
     let send_button = composer_button("go-up-symbolic", "Send Message (Enter)");
+    send_button.set_focus_on_click(false);
     send_button.add_css_class("moose-send-button");
     stop_button.add_css_class("moose-stop-button");
     send_button.set_sensitive(false);
@@ -180,7 +190,7 @@ pub(super) fn build() -> Chat {
     action_stack.add_named(&send_button, Some("send"));
     action_stack.add_named(&stop_button, Some("stop"));
     let hint = gtk::Label::builder()
-        .label("Enter to send · Shift+Enter for a new line")
+        .label("/ for tools · Enter to send · Shift+Enter for a new line")
         .xalign(0.0)
         .width_chars(1)
         .hexpand(true)
@@ -255,7 +265,7 @@ pub(super) fn build() -> Chat {
         let text = if running {
             "Responding… You can keep writing"
         } else {
-            "Enter to send · Shift+Enter for a new line"
+            "/ for tools · Enter to send · Shift+Enter for a new line"
         };
         hint.set_label(text);
         hint.set_tooltip_text(Some(text));
@@ -333,6 +343,7 @@ pub(super) fn build() -> Chat {
         .sync_create()
         .build();
     composer.append(&attachment_section);
+    composer.append(&commands.active);
     composer.append(&entry_overlay);
     composer.append(&composer_actions);
     let attachment_status = gtk::Box::new(Orientation::Horizontal, 8);
@@ -396,6 +407,7 @@ pub(super) fn build() -> Chat {
         draft_label,
         thinking_picker,
         attachments,
+        commands,
     }
 }
 
@@ -512,6 +524,12 @@ pub(super) fn append_streaming_message(
     thinking_label.add_css_class("moose-thinking-label");
     let (reasoning, reasoning_text) = reasoning_section();
     reasoning.set_visible(false);
+    let (tools, tools_buffer) = reasoning_section();
+    tools.set_label(Some("Tools"));
+    tools.set_visible(false);
+    let tool_notice = tool_notice_label("");
+    tool_notice.set_visible(false);
+    let (web_sources, web_sources_box) = web_sources_section();
 
     let content = LiveMarkdown::new();
     content.widget().set_visible(false);
@@ -531,7 +549,10 @@ pub(super) fn append_streaming_message(
     header.append(&thinking_indicator);
     row.append(&header);
     row.append(&reasoning);
+    row.append(&tools);
+    row.append(&tool_notice);
     row.append(content.widget());
+    row.append(&web_sources);
     messages.append(&row);
 
     StreamingMessage {
@@ -542,6 +563,12 @@ pub(super) fn append_streaming_message(
         reasoning,
         reasoning_text,
         reasoning_length: Cell::new(0),
+        tools,
+        tools_buffer,
+        tools_text: RefCell::new(String::new()),
+        tool_notice,
+        web_sources,
+        web_sources_box,
     }
 }
 
@@ -589,11 +616,155 @@ pub(super) fn finish_streaming_message(
     reasoning: &str,
     elapsed: u64,
     reasoning_ms: i64,
+    tools: &[crate::tools::ToolExecution],
 ) {
     update_streaming_message(message, content, reasoning, elapsed, reasoning_ms);
     message.content.finish(content);
     message.spinner.stop();
     message.indicator.set_visible(false);
+    fill_web_sources(&message.web_sources, &message.web_sources_box, tools);
+}
+
+pub(super) fn update_tool_activity(
+    message: &StreamingMessage,
+    tools: &[crate::tools::ToolExecution],
+    notice: &str,
+) {
+    let text = tool_activity_text(tools);
+    if *message.tools_text.borrow() != text {
+        message.tools_buffer.set_text(&text);
+        *message.tools_text.borrow_mut() = text;
+    }
+    message.tools.set_visible(!tools.is_empty());
+    message.tools.set_label(Some(&tool_activity_label(tools)));
+    if let Some(tool) = tools
+        .iter()
+        .find(|tool| tool.status == crate::tools::ToolStatus::Running)
+    {
+        message.status.set_text(tool.running_label());
+    }
+    message.tool_notice.set_visible(!notice.is_empty());
+    if message.tool_notice.text().as_str() != notice {
+        message.tool_notice.set_text(notice);
+    }
+}
+
+fn tool_activity_label(tools: &[crate::tools::ToolExecution]) -> String {
+    if let Some(tool) = tools
+        .iter()
+        .find(|tool| tool.status == crate::tools::ToolStatus::Running)
+    {
+        tool.running_label().into()
+    } else if tools
+        .iter()
+        .any(|tool| tool.status == crate::tools::ToolStatus::Failed)
+    {
+        "Tools · Check results".into()
+    } else if tools.len() > 1 {
+        format!("Tools · {} actions", tools.len())
+    } else {
+        tools
+            .first()
+            .map(|tool| tool.label())
+            .unwrap_or("Tools")
+            .into()
+    }
+}
+
+fn web_sources_section() -> (gtk::Expander, gtk::Box) {
+    let content = gtk::Box::builder()
+        .orientation(Orientation::Vertical)
+        .spacing(10)
+        .margin_top(8)
+        .build();
+    let expander = gtk::Expander::builder()
+        .label("Web Sources")
+        .child(&content)
+        .visible(false)
+        .build();
+    (expander, content)
+}
+
+fn fill_web_sources(
+    expander: &gtk::Expander,
+    content: &gtk::Box,
+    tools: &[crate::tools::ToolExecution],
+) {
+    while let Some(child) = content.first_child() {
+        content.remove(&child);
+    }
+    let sources = crate::tools::web::sources(tools);
+    expander.set_visible(!sources.is_empty());
+    expander.set_label(Some(&format!("Web Sources · {}", sources.len())));
+    for source in sources {
+        let row = gtk::Box::builder()
+            .orientation(Orientation::Vertical)
+            .spacing(2)
+            .build();
+        let link =
+            gtk::LinkButton::with_label(&source.url, &format!("[{}] {}", source.id, source.title));
+        link.set_halign(Align::Start);
+        link.set_tooltip_text(Some(&source.url));
+        if let Some(label) = link.child().and_downcast::<gtk::Label>() {
+            label.set_wrap(true);
+            label.set_wrap_mode(gtk::pango::WrapMode::WordChar);
+            label.set_xalign(0.0);
+            label.set_max_width_chars(64);
+        }
+        let domain = url::Url::parse(&source.url)
+            .ok()
+            .and_then(|url| url.host_str().map(str::to_string))
+            .unwrap_or_default();
+        let state = if source.page_read {
+            if source.truncated {
+                "Page read · excerpt"
+            } else {
+                "Page read"
+            }
+        } else {
+            "Search snippet"
+        };
+        let meta = gtk::Label::builder()
+            .label(format!("{domain} · {state}"))
+            .xalign(0.0)
+            .wrap(true)
+            .selectable(true)
+            .build();
+        meta.set_tooltip_text(Some(&format!("Retrieved {}", source.retrieved_at)));
+        meta.add_css_class("dim-label");
+        meta.add_css_class("caption");
+        row.append(&link);
+        row.append(&meta);
+        if !source.content.is_empty() {
+            let (excerpt, buffer) = reasoning_section();
+            excerpt.set_label(Some("View source text"));
+            buffer.set_text(&source.content);
+            row.append(&excerpt);
+        }
+        content.append(&row);
+    }
+}
+
+fn tool_activity_text(tools: &[crate::tools::ToolExecution]) -> String {
+    tools
+        .iter()
+        .map(crate::tools::ToolExecution::summary)
+        .collect::<Vec<_>>()
+        .join("\n\n")
+}
+
+fn tool_notice_label(notice: &str) -> gtk::Label {
+    let label = gtk::Label::builder()
+        .label(notice)
+        .width_chars(1)
+        .hexpand(true)
+        .xalign(0.0)
+        .wrap(true)
+        .wrap_mode(gtk::pango::WrapMode::WordChar)
+        .build();
+    label.add_css_class("caption");
+    label.add_css_class("dim-label");
+    label
 }
 
 fn reasoning_section() -> (gtk::Expander, gtk::TextBuffer) {
@@ -626,6 +797,20 @@ fn reasoning_section() -> (gtk::Expander, gtk::TextBuffer) {
 }
 
 pub(super) fn append_details(row: &gtk::Box, details: &crate::storage::MessageDetails) {
+    if details.tools.iter().any(|tool| !tool.sources.is_empty()) {
+        let (expander, content) = web_sources_section();
+        fill_web_sources(&expander, &content, &details.tools);
+        row.append(&expander);
+    }
+    if !details.tools.is_empty() {
+        let (expander, buffer) = reasoning_section();
+        expander.set_label(Some(&tool_activity_label(&details.tools)));
+        buffer.set_text(&tool_activity_text(&details.tools));
+        row.insert_child_after(&expander, row.first_child().as_ref());
+    }
+    if !details.tool_notice.is_empty() {
+        row.append(&tool_notice_label(&details.tool_notice));
+    }
     if !details.reasoning.is_empty() {
         let (expander, buffer) = reasoning_section();
         buffer.set_text(&details.reasoning);

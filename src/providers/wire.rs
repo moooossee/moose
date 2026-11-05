@@ -261,15 +261,12 @@ mod tests {
 
     fn chat_request(model: &str) -> ChatRequest {
         ChatRequest {
+            tools: Vec::new(),
             think: None,
             model: model.into(),
             messages: vec![
                 ChatMessage::system("Be helpful."),
-                ChatMessage {
-                    role: ChatRole::User,
-                    content: "Hello".into(),
-                    images: Vec::new(),
-                },
+                ChatMessage::user("Hello"),
             ],
             stream: true,
             format: None,
