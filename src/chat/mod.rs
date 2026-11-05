@@ -6,6 +6,7 @@ use crate::providers::validate_model_id;
 use crate::error::{MooseError, Result};
 use crate::tools::{ToolCall, ToolDefinition};
 
+pub mod context;
 pub mod runner;
 
 pub enum ChatSubmission {
@@ -133,6 +134,7 @@ pub enum ChatStreamEvent {
     ToolCall(ToolCall),
     Thinking(String),
     Token(String),
+    ResponseLimit,
     Done,
 }
 
@@ -239,18 +241,6 @@ pub fn build_conversation_context(
     context_limit: usize,
     system_prompt: Option<&str>,
 ) -> Vec<ChatMessage> {
-    let context_limit = context_limit.max(1);
-    let historical_limit = context_limit.saturating_sub(1);
-    let mut historical_messages = history
-        .iter()
-        .filter_map(chat_message_from_stored_message)
-        .collect::<Vec<_>>();
-
-    if historical_messages.len() > historical_limit {
-        historical_messages =
-            historical_messages.split_off(historical_messages.len() - historical_limit);
-    }
-
     let mut messages = Vec::new();
     if let Some(system_prompt) = system_prompt
         .map(str::trim)
@@ -258,21 +248,12 @@ pub fn build_conversation_context(
     {
         messages.push(ChatMessage::system(system_prompt));
     }
-    messages.extend(historical_messages);
+    for [user, assistant] in context::recent_exchanges(history, context_limit) {
+        messages.push(ChatMessage::user(&user.content));
+        messages.push(ChatMessage::assistant(&assistant.content));
+    }
     messages.push(ChatMessage::user(current_prompt));
     messages
-}
-
-fn chat_message_from_stored_message(message: &Message) -> Option<ChatMessage> {
-    if message.content.trim().is_empty() || matches!(message.status, MessageStatus::Streaming) {
-        return None;
-    }
-
-    match message.role {
-        MessageRole::User => Some(ChatMessage::user(message.content.clone())),
-        MessageRole::Assistant => Some(ChatMessage::assistant(message.content.clone())),
-        MessageRole::System | MessageRole::Tool => None,
-    }
 }
 
 #[cfg(test)]

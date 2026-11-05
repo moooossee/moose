@@ -61,6 +61,7 @@ pub enum MessageRole {
 pub enum MessageStatus {
     Streaming,
     Complete,
+    Incomplete,
     Cancelled,
     Failed,
 }
@@ -196,13 +197,17 @@ impl MessageStatus {
         match self {
             Self::Streaming => "streaming",
             Self::Complete => "complete",
+            Self::Incomplete => "incomplete",
             Self::Cancelled => "cancelled",
             Self::Failed => "failed",
         }
     }
 
     pub const fn is_finished(&self) -> bool {
-        matches!(self, Self::Complete | Self::Cancelled | Self::Failed)
+        matches!(
+            self,
+            Self::Complete | Self::Incomplete | Self::Cancelled | Self::Failed
+        )
     }
 }
 
@@ -219,6 +224,7 @@ impl FromStr for MessageStatus {
         match value {
             "streaming" => Ok(Self::Streaming),
             "complete" => Ok(Self::Complete),
+            "incomplete" => Ok(Self::Incomplete),
             "cancelled" => Ok(Self::Cancelled),
             "failed" => Ok(Self::Failed),
             _ => Err(MooseError::InvalidMessageStatus),
@@ -387,6 +393,7 @@ fn invalid_text_character(character: char) -> bool {
 fn message_preview(message: &Message) -> String {
     match message.status {
         MessageStatus::Streaming => "Generating response...".to_string(),
+        MessageStatus::Incomplete => "Response incomplete".to_string(),
         MessageStatus::Cancelled => "Generation cancelled".to_string(),
         MessageStatus::Failed => "Generation failed".to_string(),
         MessageStatus::Complete => compact_preview(&message.content),

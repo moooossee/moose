@@ -139,7 +139,8 @@ pub(super) fn dialog(
     temperature_row.set_value(values.temperature);
     let context_messages_row = adw::SpinRow::with_range(1.0, MAX_CONTEXT_MESSAGE_LIMIT as f64, 1.0);
     context_messages_row.set_title("Context Messages");
-    context_messages_row.set_subtitle("Recent messages included with each request");
+    context_messages_row
+        .set_subtitle("Maximum recent messages, keeping questions and answers together");
     context_messages_row.set_subtitle_lines(2);
     context_messages_row.set_digits(0);
     context_messages_row.set_numeric(true);
@@ -279,7 +280,9 @@ pub(super) fn dialog(
 
     let advanced_group = adw::PreferencesGroup::builder()
         .title("Ollama Options")
-        .description("Leave empty to use the model defaults.")
+        .description(
+            "Context Window defaults to 16,384 tokens. Other empty fields use the model defaults.",
+        )
         .build();
     let top_p_row = optional_entry("Top P", "Probability-based token selection", values.top_p);
     let top_k_row = optional_entry("Top K", "Maximum token choices per step", values.top_k);
@@ -288,10 +291,12 @@ pub(super) fn dialog(
         "Fixed seed for more reproducible responses",
         values.seed,
     );
+    let default_context_window = (provider_kind == Some(ProviderKind::Ollama))
+        .then_some(crate::ollama::DEFAULT_CONTEXT_WINDOW);
     let num_ctx_row = optional_entry(
         "Context Window",
-        "Ollama token context size; larger values use more memory",
-        values.num_ctx,
+        "Defaults to 16,384 tokens. Larger values use more memory.",
+        values.num_ctx.or(default_context_window),
     );
     advanced_group.add(&top_p_row);
     advanced_group.add(&top_k_row);
@@ -436,7 +441,11 @@ pub(super) fn dialog(
         target_top_p_row.set_text("");
         target_top_k_row.set_text("");
         target_seed_row.set_text("");
-        target_num_ctx_row.set_text("");
+        target_num_ctx_row.set_text(
+            &default_context_window
+                .map(|value| value.to_string())
+                .unwrap_or_default(),
+        );
         target_calculator_row.set_active(false);
         target_web_row.set_active(false);
         if let Some(overlay) = target_toast_overlay.upgrade() {
@@ -597,7 +606,7 @@ fn settings_guide() -> adw::NavigationPage {
         ),
         (
             "Context Messages",
-            "Limits the number of recent user and assistant messages sent to the model, including your next message. Older messages stay in the chat but may be left out of the request.",
+            "Sets the maximum number of recent user and assistant messages sent to the model, including your next message. Questions and answers stay together. With Ollama, Moose also estimates their size and leaves out older exchanges when needed to make room for reasoning and the response. All messages stay saved in the chat.",
         ),
     ] {
         conversation_group.add(&parameter_explanation(title, description));
@@ -606,7 +615,7 @@ fn settings_guide() -> adw::NavigationPage {
 
     let ollama_group = adw::PreferencesGroup::builder()
         .title("Ollama Options")
-        .description("Available with Ollama. Leave empty to use the model defaults.")
+        .description("Available with Ollama. Context Window defaults to 16,384 tokens; other empty fields use the model defaults.")
         .build();
     for (title, description) in [
         (
@@ -623,7 +632,7 @@ fn settings_guide() -> adw::NavigationPage {
         ),
         (
             "Context Window",
-            "Sets Ollama’s context size in tokens. Larger values allow more context but may use more memory and be slower. This is separate from the number of recent messages.",
+            "Sets Ollama’s context size in tokens, shared by the conversation, reasoning, and response. Moose uses 16,384 when this field is empty. Up to half the window, capped at 8,192 tokens, is reserved for reasoning and the response, with an additional safety margin. Text and image sizes are estimates, so very long responses can still reach the limit. Larger windows use more memory; Moose does not increase this setting automatically.",
         ),
     ] {
         ollama_group.add(&parameter_explanation(title, description));
@@ -959,7 +968,7 @@ fn values_from_controls(
         top_p: parse_optional_probability(&controls.top_p_row, "Top P")?,
         top_k: parse_optional_non_negative_i64(&controls.top_k_row, "Top K")?,
         seed: parse_optional_i64(&controls.seed_row, "Seed")?,
-        num_ctx: parse_optional_non_negative_i64(&controls.num_ctx_row, "Context Window")?,
+        num_ctx: parse_optional_positive_i64(&controls.num_ctx_row, "Context Window")?,
         context_messages: controls.context_messages_row.value().round() as i64,
         system_prompt: buffer_text(&controls.prompt_buffer),
     })
@@ -1002,6 +1011,18 @@ fn parse_optional_f64(
         Ok(Some(value))
     } else {
         Err(format!("{field} must be 0 or greater"))
+    }
+}
+
+fn parse_optional_positive_i64(
+    row: &adw::EntryRow,
+    field: &str,
+) -> std::result::Result<Option<i64>, String> {
+    let value = parse_optional_i64(row, field)?;
+    if value.is_some_and(|value| value <= 0) {
+        Err(format!("{field} must be greater than 0"))
+    } else {
+        Ok(value)
     }
 }
 

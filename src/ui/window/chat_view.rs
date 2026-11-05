@@ -6,6 +6,7 @@ use gtk::{Align, Orientation, glib::DateTime};
 use crate::{
     APPLICATION_ID,
     conversations::{Message, MessageRole, MessageStatus},
+    error::MooseError,
 };
 
 use super::{
@@ -904,6 +905,9 @@ fn stored_message_content(message: &Message) -> String {
             "Generating response...".to_string()
         }
         MessageStatus::Cancelled => message_content_with_state(message, "Generation cancelled"),
+        MessageStatus::Incomplete => {
+            message_content_with_state(message, &MooseError::ResponseLimit.to_string())
+        }
         MessageStatus::Failed => message_content_with_state(message, "Generation failed"),
         _ => message.content.clone(),
     }

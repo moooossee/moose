@@ -268,7 +268,7 @@ impl ConversationRepository {
                  FROM active_messages
                  WHERE conversation_id = ?1
                    AND role IN ('user', 'assistant')
-                   AND status IN ('complete', 'cancelled', 'failed')
+                   AND status IN ('complete', 'incomplete', 'cancelled', 'failed')
                    AND trim(content, char(9) || char(10) || char(13) || ' ') <> ''
                  ORDER BY depth DESC
                  LIMIT ?2

@@ -231,7 +231,11 @@ pub(super) fn start(
         }
         .await;
         if let Err(error) = result {
-            let _ = sender.send(ChatUiEvent::Failed(error.to_string()));
+            let event = match error {
+                MooseError::ResponseLimit => ChatUiEvent::Incomplete,
+                error => ChatUiEvent::Failed(error.to_string()),
+            };
+            let _ = sender.send(event);
         }
     });
     *backend.active_generation.borrow_mut() = Some(handle);
@@ -285,6 +289,10 @@ pub(super) fn start(
                     end = Some((AssistantMessageEnd::Complete, None));
                     break;
                 }
+                Ok(ChatUiEvent::Incomplete) => {
+                    end = Some((AssistantMessageEnd::Incomplete, None));
+                    break;
+                }
                 Ok(ChatUiEvent::Failed(error)) => {
                     end = Some((AssistantMessageEnd::Failed, Some(error)));
                     break;
@@ -301,6 +309,7 @@ pub(super) fn start(
         }
         if let Some((status, error)) = end {
             let completed = matches!(status, AssistantMessageEnd::Complete);
+            let incomplete = matches!(status, AssistantMessageEnd::Incomplete);
             if completed && backend.active_assistant_content.borrow().trim().is_empty() {
                 *backend.active_assistant_content.borrow_mut() = "No response generated.".into();
             }
@@ -340,7 +349,19 @@ pub(super) fn start(
                 ui.toast_overlay
                     .add_toast(adw::Toast::new(&format!("Generation failed: {error}")));
             }
-            notify(&ui, &backend, &conversation_id, completed);
+            if incomplete {
+                let notice = MooseError::ResponseLimit.to_string();
+                crate::logging::record("WARN", "generation.incomplete", &notice);
+                ui.toast_overlay.add_toast(adw::Toast::new(&notice));
+            }
+            let title = if completed {
+                "Response ready"
+            } else if incomplete {
+                "Response incomplete"
+            } else {
+                "Response interrupted"
+            };
+            notify(&ui, &backend, &conversation_id, title);
             return gtk::glib::ControlFlow::Break;
         }
         update_live(&ui, &backend);
@@ -365,12 +386,7 @@ pub(super) fn start(
     });
 }
 
-fn notify(ui: &Rc<WindowUi>, backend: &Rc<Backend>, conversation_id: &str, completed: bool) {
-    let title = if completed {
-        "Response ready"
-    } else {
-        "Response interrupted"
-    };
+fn notify(ui: &Rc<WindowUi>, backend: &Rc<Backend>, conversation_id: &str, title: &str) {
     if !is_visible(backend) || ui.content_stack.visible_child_name().as_deref() != Some("chat") {
         let toast = adw::Toast::builder()
             .title(title)

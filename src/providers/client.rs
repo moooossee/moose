@@ -289,6 +289,9 @@ impl ProviderClient {
                 None => (decoder.finish()?, true),
             };
             for event in events {
+                if matches!(event, ChatStreamEvent::ResponseLimit) {
+                    return Err(MooseError::ResponseLimit);
+                }
                 if matches!(
                     event,
                     ChatStreamEvent::Token(_) | ChatStreamEvent::ToolCall(_)

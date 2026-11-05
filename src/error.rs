@@ -20,6 +20,8 @@ pub enum MooseError {
     LocalOnly,
     #[error("invalid provider response: {0}")]
     ProviderResponse(String),
+    #[error("Response incomplete: the model reached its generation limit.")]
+    ResponseLimit,
     #[error("{0}")]
     ProviderRequest(String),
     #[error("{0}")]

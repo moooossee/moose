@@ -51,6 +51,10 @@ const MIGRATIONS: &[(i64, &str)] = &[
         17,
         include_str!("../../migrations/0017_web_permissions.sql"),
     ),
+    (
+        18,
+        include_str!("../../migrations/0018_incomplete_responses.sql"),
+    ),
 ];
 
 pub fn run_migrations(connection: &mut Connection) -> Result<()> {
@@ -75,7 +79,7 @@ pub fn run_migrations(connection: &mut Connection) -> Result<()> {
             continue;
         }
 
-        let rebuilds_parent = matches!(*version, 9 | 11 | 13 | 14);
+        let rebuilds_parent = matches!(*version, 9 | 11 | 13 | 14 | 18);
         if rebuilds_parent {
             connection.pragma_update(None, "foreign_keys", "OFF")?;
         }

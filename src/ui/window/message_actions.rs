@@ -262,7 +262,7 @@ fn append_toolbar(row: &gtk::Box, message: &Message, versions: Option<&Vec<Strin
     } else if message.role == MessageRole::Assistant && message.status.is_finished() {
         let retry = matches!(
             message.status,
-            MessageStatus::Failed | MessageStatus::Cancelled
+            MessageStatus::Incomplete | MessageStatus::Failed | MessageStatus::Cancelled
         );
         let button = action_button(
             "view-refresh-symbolic",

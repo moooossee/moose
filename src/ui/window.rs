@@ -360,6 +360,7 @@ enum ChatUiEvent {
     ToolNotice(String),
     Thinking(String),
     Token(String),
+    Incomplete,
     Done,
     Failed(String),
 }
@@ -371,6 +372,7 @@ enum TitleUiEvent {
 
 enum AssistantMessageEnd {
     Complete,
+    Incomplete,
     Cancelled,
     Failed,
 }
@@ -1391,7 +1393,7 @@ fn submit_message(
             return false;
         }
     };
-    let settings = match load_chat_settings(backend, &conversation_id) {
+    let mut settings = match load_chat_settings(backend, &conversation_id) {
         Ok(settings) => settings,
         Err(error) => {
             ui.toast_overlay.add_toast(adw::Toast::new(&format!(
@@ -1400,6 +1402,9 @@ fn submit_message(
             return false;
         }
     };
+    if provider.kind == ProviderKind::Ollama {
+        settings.num_ctx = Some(crate::ollama::effective_context_window(settings.num_ctx));
+    }
     let model = match request_model(ui, &settings) {
         Ok(model) => model,
         Err(message) => {
@@ -1429,48 +1434,17 @@ fn submit_message(
         )));
         return false;
     }
-    let (request_messages, sources) = match attachments::prepare(
-        ui,
-        backend,
-        &conversation_id,
-        &submission,
-        &prompt,
-        &history,
-        &settings,
-        &model,
-    ) {
-        Ok(result) => result,
+    let options = chat_options(&settings);
+    let mut request = match ChatRequest::streaming_with_options(model.clone(), Vec::new(), options)
+    {
+        Ok(request) => request,
         Err(error) => {
-            ui.toast_overlay
-                .add_toast(adw::Toast::new(&error.to_string()));
+            ui.toast_overlay.add_toast(adw::Toast::new(&format!(
+                "Message could not be sent: {error}"
+            )));
             return false;
         }
     };
-    let mut options = chat_options(&settings);
-    if options.num_ctx.is_none()
-        && settings.web
-        && provider.kind == crate::providers::ProviderKind::Ollama
-    {
-        options.num_ctx = Some(8192);
-    }
-    if options.num_ctx.is_none()
-        && (!sources.is_empty()
-            || request_messages
-                .iter()
-                .any(|message| !message.images.is_empty()))
-    {
-        options.num_ctx = Some(4096);
-    }
-    let mut request =
-        match ChatRequest::streaming_with_options(model.clone(), request_messages, options) {
-            Ok(request) => request,
-            Err(error) => {
-                ui.toast_overlay.add_toast(adw::Toast::new(&format!(
-                    "Message could not be sent: {error}"
-                )));
-                return false;
-            }
-        };
     request.think = reasoning::selected_for_model(ui, &model);
     if settings.calculator && provider.kind.supports_tool_calling() {
         request.tools.push(crate::tools::calculator());
@@ -1493,6 +1467,31 @@ fn submit_message(
     } else {
         None
     };
+    let (request_messages, sources) = match attachments::prepare(
+        ui,
+        backend,
+        &conversation_id,
+        &submission,
+        &prompt,
+        &history,
+        &settings,
+        &request,
+    ) {
+        Ok(result) => result,
+        Err(error) => {
+            ui.toast_overlay
+                .add_toast(adw::Toast::new(&error.to_string()));
+            return false;
+        }
+    };
+    request.messages = request_messages;
+    if provider.kind == ProviderKind::Ollama {
+        if let Err(error) = crate::chat::runner::fit_context(&mut request) {
+            ui.toast_overlay
+                .add_toast(adw::Toast::new(&error.to_string()));
+            return false;
+        }
+    }
     let pending = PendingChat {
         web,
         provider,
@@ -1753,7 +1752,7 @@ impl From<Option<GenerationSettings>> for ChatSettingsValues {
             top_p: settings.top_p,
             top_k: settings.top_k,
             seed: settings.seed,
-            num_ctx: settings.num_ctx,
+            num_ctx: settings.num_ctx.filter(|value| *value > 0),
             context_messages: settings
                 .context_messages
                 .unwrap_or(DEFAULT_CONTEXT_MESSAGE_LIMIT)
@@ -2067,6 +2066,7 @@ fn numbered_conversation_title(
 fn persist_active_assistant_message(backend: &Backend, end: AssistantMessageEnd) -> Result<()> {
     let status = match end {
         AssistantMessageEnd::Complete => "complete",
+        AssistantMessageEnd::Incomplete => "incomplete",
         AssistantMessageEnd::Cancelled => "cancelled",
         AssistantMessageEnd::Failed => "failed",
     };

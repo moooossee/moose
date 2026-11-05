@@ -136,6 +136,10 @@ fn parse(kind: ProviderKind, data: &[u8]) -> Result<Vec<ChatStreamEvent>> {
         ProviderKind::OllamaCloud => {
             token(&mut out, &v["message"]["thinking"], true);
             token(&mut out, &v["message"]["content"], false);
+            if v["done"].as_bool() == Some(true) && v["done_reason"] == "length" {
+                out.push(ChatStreamEvent::ResponseLimit);
+                return Ok(out);
+            }
             if let Some(calls) = v["message"]
                 .get("tool_calls")
                 .filter(|value| !value.is_null())
@@ -145,9 +149,6 @@ fn parse(kind: ProviderKind, data: &[u8]) -> Result<Vec<ChatStreamEvent>> {
                 out.extend(calls.into_iter().map(ChatStreamEvent::ToolCall));
             }
             if v["done"].as_bool() == Some(true) {
-                if v["done_reason"] == "length" {
-                    return Err(incomplete());
-                }
                 out.push(ChatStreamEvent::Done);
             }
         }

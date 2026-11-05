@@ -14,6 +14,14 @@ use crate::{
     providers::{validate_base_url, validate_model_name},
 };
 
+pub const DEFAULT_CONTEXT_WINDOW: i64 = 16_384;
+
+pub fn effective_context_window(value: Option<i64>) -> i64 {
+    value
+        .filter(|value| *value > 0)
+        .unwrap_or(DEFAULT_CONTEXT_WINDOW)
+}
+
 #[derive(Clone)]
 pub struct OllamaClient {
     client: reqwest::Client,
@@ -240,6 +248,9 @@ impl OllamaClient {
         F: FnMut(ChatStreamEvent) -> Result<()> + Send,
     {
         request.model = validate_model_name(&request.model)?;
+        let options = request.options.get_or_insert_with(Default::default);
+        options.num_ctx = Some(effective_context_window(options.num_ctx));
+        crate::chat::context::fit_request(&mut request)?;
         let response = self
             .client
             .post(self.endpoint("chat")?)
@@ -254,6 +265,9 @@ impl OllamaClient {
         let mut completed = false;
         self.stream_lines(response, |line| {
             for event in parse_chat_stream_events(line)? {
+                if matches!(event, ChatStreamEvent::ResponseLimit) {
+                    return Err(MooseError::ResponseLimit);
+                }
                 completed |= matches!(event, ChatStreamEvent::Done);
                 on_event(event)?;
             }
@@ -431,11 +445,7 @@ pub fn parse_chat_stream_events(line: &str) -> Result<Vec<ChatStreamEvent>> {
     if let Some(error) = response.error {
         return Err(MooseError::InvalidOllamaResponse(error));
     }
-    if response.done && response.done_reason.as_deref() == Some("length") {
-        return Err(MooseError::ProviderResponse(
-            "The model reached its response limit. Try a shorter request or a larger context window.".into(),
-        ));
-    }
+    let limited = response.done && response.done_reason.as_deref() == Some("length");
     let mut events = Vec::new();
     if let Some(message) = response.message {
         if !message.thinking.is_empty() {
@@ -444,15 +454,21 @@ pub fn parse_chat_stream_events(line: &str) -> Result<Vec<ChatStreamEvent>> {
         if !message.content.is_empty() {
             events.push(ChatStreamEvent::Token(message.content));
         }
-        events.extend(
-            message
-                .tool_calls
-                .into_iter()
-                .map(ChatStreamEvent::ToolCall),
-        );
+        if !limited {
+            events.extend(
+                message
+                    .tool_calls
+                    .into_iter()
+                    .map(ChatStreamEvent::ToolCall),
+            );
+        }
     }
     if response.done {
-        events.push(ChatStreamEvent::Done);
+        events.push(if limited {
+            ChatStreamEvent::ResponseLimit
+        } else {
+            ChatStreamEvent::Done
+        });
     }
     Ok(events)
 }

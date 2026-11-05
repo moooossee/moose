@@ -5,9 +5,9 @@ use gtk::gio;
 use serde::Serialize;
 
 use crate::{
-    conversations::{Conversation, Message},
+    conversations::{Conversation, Message, MessageStatus},
     core::utc_now,
-    error::Result,
+    error::{MooseError, Result},
     providers::Provider,
 };
 
@@ -299,6 +299,10 @@ fn text(data: &ExportData) -> String {
 }
 
 fn append_references(output: &mut String, data: &ExportData, message: &Message) {
+    if message.status == MessageStatus::Incomplete {
+        output.push_str(&MooseError::ResponseLimit.to_string());
+        output.push_str("\n\n");
+    }
     if let Some(details) = data.details.get(&message.id) {
         if !details.tool_notice.is_empty() {
             output.push_str(&details.tool_notice);

@@ -251,7 +251,9 @@ impl MarkdownTextView {
         }
 
         layout.set_attributes(Some(&attributes));
-        let (width, height) = layout.pixel_size();
+        let (width, _) = layout.pixel_size();
+        let (_, height) = layout.size();
+        let height = pango::units_to_double(height).round() as i32;
         (if empty { margins } else { width + margins }, height)
     }
 
