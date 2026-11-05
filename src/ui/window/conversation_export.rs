@@ -299,6 +299,40 @@ fn text(data: &ExportData) -> String {
 }
 
 fn append_references(output: &mut String, data: &ExportData, message: &Message) {
+    if let Some(details) = data.details.get(&message.id) {
+        if !details.tool_notice.is_empty() {
+            output.push_str(&details.tool_notice);
+            output.push_str("\n\n");
+        }
+        for tool in &details.tools {
+            output.push_str(&format!("{}:\n{}\n\n", tool.label(), tool.summary()));
+        }
+        for source in crate::tools::web::sources(&details.tools) {
+            output.push_str(&format!(
+                "Web source [{}]: {}\n{}\n{} · Retrieved {}{}\n\n",
+                source.id,
+                source.title,
+                source.url,
+                if source.page_read {
+                    "Page read"
+                } else {
+                    "Search snippet"
+                },
+                source.retrieved_at,
+                if source.truncated {
+                    " · Excerpt truncated"
+                } else {
+                    ""
+                }
+            ));
+            for line in source.content.lines() {
+                output.push_str("> ");
+                output.push_str(line);
+                output.push('\n');
+            }
+            output.push('\n');
+        }
+    }
     if let Some(assets) = data.attachments.get(&message.id) {
         for asset in assets {
             output.push_str(&format!(
@@ -327,7 +361,7 @@ fn append_references(output: &mut String, data: &ExportData, message: &Message) 
 
 fn json(data: &ExportData) -> Result<String> {
     let document = ExportDocument {
-        version: 3,
+        version: 4,
         assets: &data.assets,
         exported_at: &data.exported_at,
         conversation: ExportConversation {

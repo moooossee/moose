@@ -135,6 +135,7 @@ impl ConversationRepository {
             source.conversation_id = conversation.id.clone();
             let copied = self.insert_message(source, parent_id.as_deref())?;
             self.connection.execute("INSERT INTO message_details SELECT ?1, model, reasoning, reasoning_ms, elapsed_ms FROM message_details WHERE message_id = ?2", params![copied.id, original_id])?;
+            self.connection.execute("INSERT INTO message_tool_activity SELECT ?1, calls, notice FROM message_tool_activity WHERE message_id = ?2", params![copied.id, original_id])?;
             self.connection.execute("INSERT INTO message_assets SELECT ?1, asset_id, position FROM message_assets WHERE message_id = ?2", params![copied.id, original_id])?;
             self.connection.execute("INSERT INTO response_sources SELECT ?1, number, asset_id, name, page, content FROM response_sources WHERE message_id = ?2", params![copied.id, original_id])?;
             parent_id = Some(copied.id);
@@ -144,6 +145,7 @@ impl ConversationRepository {
         }
         self.connection.execute("INSERT INTO conversation_thinking SELECT ?1, model, value FROM conversation_thinking WHERE conversation_id = ?2", params![conversation.id, message.conversation_id])?;
         self.connection.execute("INSERT INTO conversation_library SELECT ?1, enabled FROM conversation_library WHERE conversation_id = ?2", params![conversation.id, message.conversation_id])?;
+        self.connection.execute("INSERT INTO conversation_tools (conversation_id, calculator, web) SELECT ?1, calculator, web FROM conversation_tools WHERE conversation_id = ?2", params![conversation.id, message.conversation_id])?;
         if let Some(settings) = self.latest_generation_settings(&message.conversation_id)? {
             self.create_generation_settings(NewGenerationSettings {
                 conversation_id: Some(conversation.id.clone()),
