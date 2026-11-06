@@ -30,7 +30,7 @@ flatpak install flathub io.github.moooossee.Moose
 - **Rework a conversation.** Edit a message, retry an answer, or continue from an earlier message while keeping previous versions.
 - **Come back later.** Drafts save automatically, and you can export your chats whenever you need them.
 - **Choose your connection.** Use Ollama managed by Moose, an existing Ollama instance,
-  Ollama Cloud, Groq, OpenAI, Anthropic Claude, or Google Gemini.
+  Ollama Cloud, OpenRouter, Groq, OpenAI, Anthropic Claude, or Google Gemini.
 - **Protect your API keys.** Save cloud credentials securely in your desktop keyring.
 - **Control what you share.** Local Only mode blocks remote inference, and remote
   chats ask permission before sharing messages or files.

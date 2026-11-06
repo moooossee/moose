@@ -55,6 +55,10 @@ const MIGRATIONS: &[(i64, &str)] = &[
         18,
         include_str!("../../migrations/0018_incomplete_responses.sql"),
     ),
+    (
+        19,
+        include_str!("../../migrations/0019_openrouter_provider.sql"),
+    ),
 ];
 
 pub fn run_migrations(connection: &mut Connection) -> Result<()> {
@@ -79,7 +83,7 @@ pub fn run_migrations(connection: &mut Connection) -> Result<()> {
             continue;
         }
 
-        let rebuilds_parent = matches!(*version, 9 | 11 | 13 | 14 | 18);
+        let rebuilds_parent = matches!(*version, 9 | 11 | 13 | 14 | 18 | 19);
         if rebuilds_parent {
             connection.pragma_update(None, "foreign_keys", "OFF")?;
         }
