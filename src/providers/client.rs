@@ -142,6 +142,9 @@ impl ProviderClient {
             }
             unreachable!();
         };
+        if self.provider.kind == ProviderKind::OpenRouter {
+            verify_openrouter_key(client, self.endpoint("key")?).await?;
+        }
         let kind = self.provider.api_kind();
         let path = match kind {
             ProviderKind::OllamaCloud => "tags",
@@ -232,6 +235,7 @@ impl ProviderClient {
             self.provider.kind,
             ProviderKind::Mistral
                 | ProviderKind::DeepSeek
+                | ProviderKind::OpenRouter
                 | ProviderKind::Cloudflare
                 | ProviderKind::Nvidia
                 | ProviderKind::Custom
@@ -252,6 +256,7 @@ impl ProviderClient {
             ProviderKind::Groq
             | ProviderKind::Mistral
             | ProviderKind::DeepSeek
+            | ProviderKind::OpenRouter
             | ProviderKind::Nvidia
             | ProviderKind::Cloudflare
             | ProviderKind::Custom => self.endpoint("chat/completions")?,
@@ -451,7 +456,39 @@ impl ProviderClient {
             let data = self.cloudflare_model(model).await?;
             return Ok(model_vision(&data));
         }
+        if self.provider.kind == ProviderKind::OpenRouter {
+            let data = self.openrouter_model(model).await?;
+            return Ok(model_vision(&data));
+        }
         Ok(wire::supports_images(self.provider.kind, model))
+    }
+
+    async fn openrouter_model(&self, model: &str) -> Result<Value> {
+        self.check()?;
+        let model = validate_model_id(model)?;
+        let Transport::Cloud(client) = &self.transport else {
+            unreachable!()
+        };
+        let response = client
+            .get(self.endpoint("models")?)
+            .timeout(Duration::from_secs(30))
+            .send()
+            .await
+            .map_err(network_error)?;
+        let data = response_json(response).await?;
+        let Some(list) = data["data"].as_array() else {
+            return Err(MooseError::ProviderResponse(
+                "The provider returned invalid model capabilities.".into(),
+            ));
+        };
+        list.iter()
+            .find(|entry| entry["id"].as_str() == Some(model.as_str()))
+            .cloned()
+            .ok_or_else(|| {
+                MooseError::ProviderResponse(
+                    "The provider returned invalid model capabilities.".into(),
+                )
+            })
     }
 
     pub async fn thinking_values(&self, model: &str) -> Result<Vec<ThinkingValue>> {
@@ -480,6 +517,10 @@ impl ProviderClient {
                 }
             }
             return Ok(Vec::new());
+        }
+        if self.provider.kind == ProviderKind::OpenRouter {
+            let data = self.openrouter_model(model).await?;
+            return Ok(openrouter_thinking_values(&data));
         }
         Ok(wire::thinking_values(self.provider.kind, model))
     }
@@ -515,6 +556,50 @@ impl ProviderClient {
         };
         Ok(reqwest::Url::parse(&format!("{base}/{path}"))?)
     }
+}
+
+async fn verify_openrouter_key(client: &Client, endpoint: reqwest::Url) -> Result<()> {
+    let response = client
+        .get(endpoint)
+        .timeout(Duration::from_secs(30))
+        .send()
+        .await
+        .map_err(network_error)?;
+    response_json(response).await?;
+    Ok(())
+}
+
+fn openrouter_thinking_values(data: &Value) -> Vec<ThinkingValue> {
+    let Some(reasoning) = data.get("reasoning").filter(|value| value.is_object()) else {
+        return Vec::new();
+    };
+    let mandatory = reasoning["mandatory"].as_bool() == Some(true);
+    let mut values = match reasoning.get("supported_efforts") {
+        Some(Value::Array(efforts)) => efforts
+            .iter()
+            .filter_map(Value::as_str)
+            .filter(|effort| !effort.is_empty() && (!mandatory || *effort != "none"))
+            .map(|effort| ThinkingValue::Level(effort.into()))
+            .collect::<Vec<_>>(),
+        Some(Value::Null) => ["none", "minimal", "low", "medium", "high", "xhigh", "max"]
+            .into_iter()
+            .filter(|effort| !mandatory || *effort != "none")
+            .map(|effort| ThinkingValue::Level(effort.into()))
+            .collect(),
+        _ => Vec::new(),
+    };
+    if !mandatory {
+        if values.is_empty() {
+            values.push(ThinkingValue::Enabled(true));
+        }
+        if !values
+            .iter()
+            .any(|value| matches!(value, ThinkingValue::Level(level) if level == "none"))
+        {
+            values.insert(0, ThinkingValue::Enabled(false));
+        }
+    }
+    values
 }
 
 fn http_client(provider: &Provider, key: Option<&credentials::ApiKey>) -> Result<Client> {
@@ -707,9 +792,19 @@ fn parse_models(kind: ProviderKind, data: &Value, custom: bool) -> Result<Vec<Ol
         {
             continue;
         }
+        let has_or_modalities = kind == ProviderKind::OpenRouter
+            && item["architecture"]["output_modalities"].is_array();
+        if has_or_modalities
+            && !item["architecture"]["output_modalities"]
+                .as_array()
+                .is_some_and(|modalities| modalities.iter().any(|m| m == "text"))
+        {
+            continue;
+        }
         if !custom
             && kind != ProviderKind::Mistral
             && !has_cf_task
+            && !has_or_modalities
             && [
                 "embedding",
                 "whisper",

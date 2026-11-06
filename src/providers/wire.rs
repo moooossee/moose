@@ -39,6 +39,7 @@ pub(super) fn request(kind: ProviderKind, request: &ChatRequest) -> Result<Value
         ProviderKind::Groq
         | ProviderKind::Mistral
         | ProviderKind::DeepSeek
+        | ProviderKind::OpenRouter
         | ProviderKind::Nvidia
         | ProviderKind::Cloudflare
         | ProviderKind::Custom => chat_completions(kind, request),
@@ -83,7 +84,10 @@ fn chat_completions(kind: ProviderKind, request: &ChatRequest) -> Result<Value> 
                     "Images are only supported in user messages for this provider.".into(),
                 ));
             }
-            let mut content = vec![json!({"type":"text","text":message.content})];
+            let mut content = Vec::new();
+            if !message.content.is_empty() {
+                content.push(json!({"type":"text","text":message.content}));
+            }
             for image in &message.images {
                 content.push(json!({"type":"image_url","image_url":{"url":format!("data:{};base64,{image}",image_mime(image)?)}}));
             }
@@ -108,7 +112,15 @@ fn chat_completions(kind: ProviderKind, request: &ChatRequest) -> Result<Value> 
             value["top_p"] = json!(p);
         }
     }
-    if let Some(ThinkingValue::Level(effort)) = &request.think {
+    if kind == ProviderKind::OpenRouter {
+        match &request.think {
+            Some(ThinkingValue::Level(effort)) => value["reasoning"] = json!({"effort":effort}),
+            Some(ThinkingValue::Enabled(enabled)) => {
+                value["reasoning"] = json!({"enabled":enabled})
+            }
+            None => {}
+        }
+    } else if let Some(ThinkingValue::Level(effort)) = &request.think {
         value["reasoning_effort"] = json!(effort);
     }
     if kind == ProviderKind::DeepSeek && request.think.is_some() {
@@ -281,8 +293,15 @@ mod tests {
     #[test]
     fn new_providers_send_chat_completion_requests() {
         for (kind, model) in [
-            (ProviderKind::Nvidia, "meta/llama-3.1-8b-instruct"),
-            (ProviderKind::Cloudflare, "@cf/meta/llama-3.1-8b-instruct"),
+            (ProviderKind::OpenRouter, "openrouter/free"),
+            (
+                ProviderKind::Nvidia,
+                "nvidia/nemotron-3.5-lightning-30b-a3b",
+            ),
+            (
+                ProviderKind::Cloudflare,
+                "@cf/meta/llama-4-scout-17b-16e-instruct",
+            ),
         ] {
             let body = request(kind, &chat_request(model)).unwrap();
             assert_eq!(body["model"], model);
@@ -304,7 +323,11 @@ mod tests {
 
     #[test]
     fn new_providers_encode_user_images_and_reject_assistant_images() {
-        for kind in [ProviderKind::Nvidia, ProviderKind::Cloudflare] {
+        for kind in [
+            ProviderKind::OpenRouter,
+            ProviderKind::Nvidia,
+            ProviderKind::Cloudflare,
+        ] {
             let mut chat = chat_request("vision-model");
             chat.messages[1].images.push("iVBORexample".into());
             let body = request(kind, &chat).unwrap();
@@ -322,7 +345,11 @@ mod tests {
 
     #[test]
     fn new_providers_reject_unsupported_tool_messages() {
-        for kind in [ProviderKind::Nvidia, ProviderKind::Cloudflare] {
+        for kind in [
+            ProviderKind::OpenRouter,
+            ProviderKind::Nvidia,
+            ProviderKind::Cloudflare,
+        ] {
             let mut chat = chat_request("chat-model");
             chat.messages[1].role = ChatRole::Tool;
             assert!(request(kind, &chat).is_err());

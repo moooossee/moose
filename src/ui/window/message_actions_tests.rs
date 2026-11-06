@@ -72,6 +72,7 @@ fn test_backend(base_url: String) -> Rc<Backend> {
         settings: None,
         network_policy: crate::providers::policy::NetworkPolicy::new(false),
         credential_operation: std::cell::Cell::new(false),
+        runtime_install: std::cell::RefCell::new(None),
         model_load_revision: std::cell::Cell::new(0),
         selected_models: std::cell::RefCell::new(HashMap::new()),
         shortcuts: std::cell::RefCell::new(HashMap::new()),
