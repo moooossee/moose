@@ -84,11 +84,16 @@ fn apply(ui: &WindowUi, backend: &Backend, model: &str, values: Vec<ThinkingValu
             None
         }
     };
-    let index = saved
-        .as_ref()
-        .and_then(|saved| values.iter().position(|value| value == saved))
-        .map(|index| index as u32 + 1)
-        .unwrap_or(0);
+    let index = match saved {
+        Some(Some(saved)) => values.iter().position(|value| value == &saved),
+        Some(None) => None,
+        None => values.iter().position(|value| {
+            matches!(value, ThinkingValue::Enabled(false))
+                || matches!(value, ThinkingValue::Level(level) if level == "none")
+        }),
+    }
+    .map(|index| index as u32 + 1)
+    .unwrap_or(0);
     {
         let mut state = ui.thinking_state.borrow_mut();
         state.restoring = true;

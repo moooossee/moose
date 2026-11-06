@@ -159,6 +159,11 @@ fn parse(kind: ProviderKind, data: &[u8]) -> Result<Vec<ChatStreamEvent>> {
             }
             "response.reasoning_summary_text.delta" => token(&mut out, &v["delta"], true),
             "response.completed" => out.push(ChatStreamEvent::Done),
+            "response.incomplete"
+                if v["response"]["incomplete_details"]["reason"] == "max_output_tokens" =>
+            {
+                out.push(ChatStreamEvent::ResponseLimit);
+            }
             "response.failed" | "response.incomplete" | "response.cancelled" => {
                 return Err(incomplete());
             }
@@ -198,6 +203,7 @@ fn parse(kind: ProviderKind, data: &[u8]) -> Result<Vec<ChatStreamEvent>> {
                 }
                 match choice["finish_reason"].as_str() {
                     Some("stop") => out.push(ChatStreamEvent::Done),
+                    Some("length") => out.push(ChatStreamEvent::ResponseLimit),
                     Some("content_filter") => return Err(blocked()),
                     Some(_) => return Err(incomplete()),
                     None => {}
@@ -213,13 +219,11 @@ fn parse(kind: ProviderKind, data: &[u8]) -> Result<Vec<ChatStreamEvent>> {
                 token(&mut out, &v["delta"]["text"], false);
                 token(&mut out, &v["delta"]["thinking"], true);
             }
-            "message_delta" => {
-                if let Some("max_tokens" | "tool_use" | "pause_turn") =
-                    v["delta"]["stop_reason"].as_str()
-                {
-                    return Err(incomplete());
-                }
-            }
+            "message_delta" => match v["delta"]["stop_reason"].as_str() {
+                Some("max_tokens") => out.push(ChatStreamEvent::ResponseLimit),
+                Some("tool_use" | "pause_turn") => return Err(incomplete()),
+                _ => {}
+            },
             "message_stop" => out.push(ChatStreamEvent::Done),
             _ => {}
         },
@@ -239,7 +243,7 @@ fn parse(kind: ProviderKind, data: &[u8]) -> Result<Vec<ChatStreamEvent>> {
                 }
                 match candidate["finishReason"].as_str() {
                     Some("STOP") => out.push(ChatStreamEvent::Done),
-                    Some("MAX_TOKENS") => return Err(incomplete()),
+                    Some("MAX_TOKENS") => out.push(ChatStreamEvent::ResponseLimit),
                     Some("FINISH_REASON_UNSPECIFIED") | None => {}
                     Some(_) => return Err(blocked()),
                 }

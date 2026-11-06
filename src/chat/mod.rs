@@ -9,10 +9,13 @@ use crate::tools::{ToolCall, ToolDefinition};
 pub mod context;
 pub mod runner;
 
+pub const CONTINUE_PROMPT: &str = "Continue the previous response from where it stopped. Do not repeat what is already written. Preserve its language, style and continuity.";
+
 pub enum ChatSubmission {
     New(String),
     Edit { id: String, content: String },
     Regenerate(String),
+    Continue(String),
 }
 
 impl ChatSubmission {
@@ -44,6 +47,20 @@ impl ChatSubmission {
                     return Err(MooseError::InvalidMessageRole);
                 }
                 (history[user_index].content.as_str(), user_index)
+            }
+            Self::Continue(id) => {
+                let index = history
+                    .iter()
+                    .position(|message| message.id == *id)
+                    .ok_or(MooseError::MessageNotFound)?;
+                let message = &history[index];
+                if message.role != MessageRole::Assistant
+                    || !message.status.is_finished()
+                    || message.content.trim().is_empty()
+                {
+                    return Err(MooseError::InvalidMessageRole);
+                }
+                (CONTINUE_PROMPT, index + 1)
             }
         };
         let content = crate::conversations::validate_message_content(
@@ -127,6 +144,8 @@ pub struct ChatOptions {
     pub seed: Option<i64>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub num_ctx: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub num_predict: Option<i64>,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -208,6 +227,7 @@ impl ChatRequest {
                 top_k: None,
                 seed: None,
                 num_ctx: None,
+                num_predict: None,
             },
         )
     }
@@ -232,6 +252,7 @@ impl ChatOptions {
             && self.top_k.is_none()
             && self.seed.is_none()
             && self.num_ctx.is_none()
+            && self.num_predict.is_none()
     }
 }
 

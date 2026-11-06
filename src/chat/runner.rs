@@ -97,14 +97,6 @@ pub fn context_overhead(request: &ChatRequest) -> Result<usize> {
     Ok(overhead.saturating_add(web))
 }
 
-pub fn fit_context(request: &mut ChatRequest) -> Result<()> {
-    let Some(context_window) = request.options.as_ref().and_then(|options| options.num_ctx) else {
-        return Ok(());
-    };
-    let overhead = context_overhead(request)?;
-    super::context::ContextBudget::new(Some(context_window)).fit(&mut request.messages, overhead)
-}
-
 fn web_instruction(request: &ChatRequest) -> Option<String> {
     request.tools.iter().any(|tool| {
         matches!(
@@ -130,12 +122,48 @@ where
     let mut bytes_used: usize = 0;
     let mut previous_text = false;
     let mut previous_thinking = false;
+    let output_limit = request
+        .options
+        .as_ref()
+        .and_then(|options| options.num_predict);
     for round in 0..=MAX_ROUNDS {
+        let source_bytes = |request: &ChatRequest| {
+            request
+                .messages
+                .iter()
+                .filter(|message| message.role == ChatRole::Tool)
+                .map(|message| message.content.len())
+                .sum::<usize>()
+        };
+        if let Some(options) = request.options.as_mut() {
+            options.num_predict = output_limit;
+        }
+        let before = source_bytes(&request);
+        let context_exhausted = match client.prepare_chat(&mut request).await {
+            Ok(()) => source_bytes(&request) < before,
+            Err(MooseError::ContextTooLarge) => true,
+            Err(error) => return Err(error),
+        };
+        if context_exhausted {
+            request.tools.clear();
+            add_instruction(
+                &mut request,
+                "The context budget for tools is exhausted. Answer using the available excerpts, which may have been shortened. Do not request more tools or claim to have read omitted text.",
+            );
+            if let Some(options) = request.options.as_mut() {
+                options.num_predict = output_limit;
+            }
+            client.prepare_chat(&mut request).await?;
+            on_event(ResponseEvent::Notice(
+                "The context budget for tools was reached. Answering with the available context."
+                    .into(),
+            ))?;
+        }
         let mut assistant = ChatMessage::assistant("");
         let mut first_token = true;
         let mut first_thinking = true;
         client
-            .stream_chat(request.clone(), |event| {
+            .stream_prepared_chat(request.clone(), |event| {
                 match event {
                     ChatStreamEvent::Thinking(value) => {
                         bytes_used = bytes_used.saturating_add(value.len());
@@ -234,9 +262,7 @@ fn add_instruction(request: &mut ChatRequest, instruction: &str) {
 
 fn check_budget(bytes: usize) -> Result<()> {
     if bytes > MAX_RESPONSE_BYTES {
-        return Err(MooseError::ProviderResponse(
-            "The tool response exceeded its size limit. Try a shorter request.".into(),
-        ));
+        return Err(MooseError::ResponseLimit);
     }
     Ok(())
 }

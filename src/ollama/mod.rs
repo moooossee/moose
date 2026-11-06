@@ -114,6 +114,8 @@ struct ChatLine {
     done: bool,
     error: Option<String>,
     done_reason: Option<String>,
+    prompt_eval_count: Option<usize>,
+    eval_count: Option<usize>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -243,18 +245,147 @@ impl OllamaClient {
         Ok(())
     }
 
-    pub async fn stream_chat<F>(&self, mut request: ChatRequest, mut on_event: F) -> Result<()>
+    pub async fn stream_chat<F>(&self, mut request: ChatRequest, on_event: F) -> Result<()>
     where
         F: FnMut(ChatStreamEvent) -> Result<()> + Send,
     {
+        self.prepare_chat(&mut request).await?;
+        self.stream_prepared_chat(request, on_event).await
+    }
+
+    pub(crate) async fn prepare_chat(&self, request: &mut ChatRequest) -> Result<()> {
+        use crate::chat::context;
+
         request.model = validate_model_name(&request.model)?;
         let options = request.options.get_or_insert_with(Default::default);
-        options.num_ctx = Some(effective_context_window(options.num_ctx));
-        crate::chat::context::fit_request(&mut request)?;
+        let mut window = effective_context_window(options.num_ctx) as usize;
+        options.num_ctx = Some(window as i64);
+        let requested_limit = options
+            .num_predict
+            .filter(|limit| *limit > 0)
+            .map(|limit| limit as usize);
+        loop {
+            let input_tokens = match self.count_input_tokens(request).await {
+                Ok(tokens) => tokens,
+                Err(error) => {
+                    let message = match &error {
+                        MooseError::HttpStatus { message, .. }
+                        | MooseError::InvalidOllamaResponse(message) => {
+                            message.to_ascii_lowercase()
+                        }
+                        _ => return Err(error),
+                    };
+                    if !((message.contains("prompt") || message.contains("input"))
+                        && message.contains("context")
+                        && (message.contains("exceed")
+                            || message.contains("too long")
+                            || message.contains("longer than")))
+                    {
+                        return Err(error);
+                    }
+                    if !context::shrink_request(request, (window / 4).max(128))? {
+                        return Err(context::context_too_large());
+                    }
+                    continue;
+                }
+            };
+            window = self.running_context_window(&request.model, window).await?;
+            let margin = (window / 100).clamp(32, 256);
+            let available = window.saturating_sub(input_tokens.saturating_add(margin));
+            let reserve = requested_limit
+                .unwrap_or_else(|| context::response_reserve(window))
+                .min(context::response_reserve(window));
+            if available < reserve && context::shrink_request(request, reserve - available)? {
+                continue;
+            }
+            if available == 0 {
+                return Err(context::context_too_large());
+            }
+            let limit = requested_limit.map_or(available, |limit| limit.min(available));
+            let options = request.options.get_or_insert_with(Default::default);
+            options.num_ctx = Some(window as i64);
+            options.num_predict = Some(limit as i64);
+            crate::logging::record(
+                "INFO",
+                "chat.context",
+                &format!(
+                    "context_tokens={window} input_tokens={input_tokens} output_limit={limit}"
+                ),
+            );
+            return Ok(());
+        }
+    }
+
+    async fn count_input_tokens(&self, request: &ChatRequest) -> Result<usize> {
+        let mut body = serde_json::to_value(request)?;
+        body["stream"] = false.into();
+        body["truncate"] = false.into();
+        body["shift"] = false.into();
+        body["keep_alive"] = 300.into();
+        body["options"]["num_predict"] = 1.into();
         let response = self
             .client
             .post(self.endpoint("chat")?)
-            .json(&request)
+            .json(&body)
+            .send()
+            .await?;
+        if !response.status().is_success() {
+            return Err(response_error(response).await);
+        }
+        let response: ChatLine = response.json().await?;
+        if let Some(error) = response.error {
+            return Err(MooseError::InvalidOllamaResponse(error));
+        }
+        if !response.done || response.eval_count.is_none_or(|tokens| tokens > 1) {
+            return Err(MooseError::InvalidOllamaResponse(
+                "Ollama did not respect the token counting limit. Update Ollama and try again."
+                    .into(),
+            ));
+        }
+        response
+            .prompt_eval_count
+            .filter(|tokens| *tokens > 0)
+            .ok_or_else(|| {
+                MooseError::InvalidOllamaResponse(
+                    "Ollama did not report the input token count. Update Ollama and try again."
+                        .into(),
+                )
+            })
+    }
+
+    async fn running_context_window(&self, model: &str, configured: usize) -> Result<usize> {
+        let response: serde_json::Value = serde_json::from_str(&self.get_text("ps").await?)?;
+        Ok(response["models"]
+            .as_array()
+            .and_then(|models| {
+                models.iter().find(|running| {
+                    running["name"].as_str().is_some_and(|name| {
+                        name.trim_end_matches(":latest") == model.trim_end_matches(":latest")
+                    })
+                })
+            })
+            .and_then(|running| running["context_length"].as_u64())
+            .and_then(|window| usize::try_from(window).ok())
+            .filter(|window| *window > 0)
+            .map_or(configured, |window| configured.min(window)))
+    }
+
+    pub(crate) async fn stream_prepared_chat<F>(
+        &self,
+        request: ChatRequest,
+        mut on_event: F,
+    ) -> Result<()>
+    where
+        F: FnMut(ChatStreamEvent) -> Result<()> + Send,
+    {
+        let mut body = serde_json::to_value(&request)?;
+        body["keep_alive"] = serde_json::json!(300);
+        body["truncate"] = false.into();
+        body["shift"] = false.into();
+        let response = self
+            .client
+            .post(self.endpoint("chat")?)
+            .json(&body)
             .send()
             .await?;
 

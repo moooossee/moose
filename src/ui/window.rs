@@ -13,7 +13,10 @@ use serde::Deserialize;
 
 use crate::{
     APPLICATION_ID, APPLICATION_NAME,
-    chat::{ChatMessage, ChatOptions, ChatRequest, ChatStreamEvent, build_conversation_context},
+    chat::{
+        ChatMessage, ChatOptions, ChatRequest, ChatStreamEvent, ThinkingValue,
+        build_conversation_context,
+    },
     conversations::{
         ConversationTitleUpdate, DEFAULT_CONTEXT_MESSAGE_LIMIT, DEFAULT_CONVERSATION_TITLE,
         DEFAULT_TEMPERATURE, GenerationSettings, MAX_CONTEXT_MESSAGE_LIMIT, NewConversation,
@@ -359,11 +362,6 @@ enum ChatUiEvent {
     Failed(String),
 }
 
-enum TitleUiEvent {
-    Generated(String),
-    Failed,
-}
-
 enum AssistantMessageEnd {
     Complete,
     Incomplete,
@@ -466,6 +464,7 @@ impl Backend {
     }
 
     fn cancel_generation(&self) -> Result<bool> {
+        self.generation_context.borrow_mut().cancel_title();
         let was_active = if let Some(handle) = self.active_generation.borrow_mut().take() {
             handle.abort();
             true
@@ -1405,9 +1404,8 @@ fn submit_message(
             return false;
         }
     };
-    if provider.kind == ProviderKind::Ollama {
-        settings.num_ctx = Some(crate::ollama::effective_context_window(settings.num_ctx));
-    }
+    settings.num_ctx = (provider.kind == ProviderKind::Ollama)
+        .then(|| crate::ollama::effective_context_window(settings.num_ctx));
     let model = match request_model(ui, &settings) {
         Ok(model) => model,
         Err(message) => {
@@ -1449,10 +1447,11 @@ fn submit_message(
         }
     };
     request.think = reasoning::selected_for_model(ui, &model);
-    if settings.calculator && provider.kind.supports_tool_calling() {
+    let continuing = prompt == crate::chat::CONTINUE_PROMPT;
+    if !continuing && settings.calculator && provider.kind.supports_tool_calling() {
         request.tools.push(crate::tools::calculator());
     }
-    let web = if settings.web && provider.kind.supports_tool_calling() {
+    let web = if !continuing && settings.web && provider.kind.supports_tool_calling() {
         if backend.network_policy.local_only() {
             ui.toast_overlay.add_toast(adw::Toast::new("Web is blocked by Local Only. Turn off Web in Chat Settings or Local Only in Preferences → Privacy."));
             return false;
@@ -1488,13 +1487,6 @@ fn submit_message(
         }
     };
     request.messages = request_messages;
-    if provider.kind == ProviderKind::Ollama {
-        if let Err(error) = crate::chat::runner::fit_context(&mut request) {
-            ui.toast_overlay
-                .add_toast(adw::Toast::new(&error.to_string()));
-            return false;
-        }
-    }
     let pending = PendingChat {
         web,
         provider,
@@ -1588,15 +1580,6 @@ fn start_authorized_chat(ui: &Rc<WindowUi>, backend: &Rc<Backend>, pending: Pend
         }
     };
     conversation_list::refresh(ui, backend);
-    if should_generate_title {
-        generate_conversation_title(
-            ui,
-            backend,
-            conversation_id.clone(),
-            prompt.clone(),
-            model.clone(),
-        );
-    }
     generation::start(
         ui,
         backend,
@@ -1607,6 +1590,7 @@ fn start_authorized_chat(ui: &Rc<WindowUi>, backend: &Rc<Backend>, pending: Pend
         assistant,
         web,
         matches!(submission, message_actions::Submission::New(_)),
+        should_generate_title.then_some(prompt),
     );
     true
 }
@@ -1639,6 +1623,7 @@ fn chat_options(settings: &ChatSettingsValues) -> ChatOptions {
         top_k: settings.top_k,
         seed: settings.seed,
         num_ctx: settings.num_ctx,
+        num_predict: None,
     }
 }
 
@@ -1878,41 +1863,48 @@ fn should_generate_conversation_title(backend: &Backend, conversation_id: &str) 
 fn generate_conversation_title(
     ui: &Rc<WindowUi>,
     backend: &Rc<Backend>,
+    provider: Provider,
     conversation_id: String,
     prompt: String,
     fallback_model: String,
+    context_window: Option<i64>,
 ) {
     let (sender, receiver) = mpsc::channel();
-    let Some(provider) = active_provider(backend) else {
-        return;
-    };
+    let fallback_title = truncate_title(&prompt.split_whitespace().collect::<Vec<_>>().join(" "));
     let paths = backend.paths.clone();
     let managed_ollama = Arc::clone(&backend.managed_ollama);
     let managed_gpu = backend.managed_gpu.borrow().clone();
     let policy = backend.network_policy.clone();
-    backend.runtime.spawn(async move {
-        let result = async {
+    backend.generation_context.borrow_mut().cancel_title();
+    let handle = backend.runtime.spawn(async move {
+        let result = tokio::time::timeout(Duration::from_secs(10), async {
             let client =
                 prepared_provider_client(paths, managed_ollama, managed_gpu, provider, policy)
                     .await?;
-            generate_model_title(client, &fallback_model, &prompt).await
-        }
-        .await;
-        let event = match result {
-            Ok(title) => TitleUiEvent::Generated(title),
+            generate_model_title(client, &fallback_model, &prompt, context_window).await
+        })
+        .await
+        .unwrap_or_else(|_| {
+            Err(MooseError::ProviderRequest(
+                "Title generation timed out.".into(),
+            ))
+        });
+        let title = match result {
+            Ok(title) => title,
             Err(error) => {
                 crate::logging::record("WARN", "conversation.title.generate", &error.to_string());
-                TitleUiEvent::Failed
+                fallback_title
             }
         };
-        let _ = sender.send(event);
+        let _ = sender.send(title);
     });
+    backend.generation_context.borrow_mut().title_generation = Some(handle);
 
     let target_ui = Rc::clone(ui);
     let target_backend = Rc::clone(backend);
     gtk::glib::timeout_add_local(Duration::from_millis(80), move || {
         match receiver.try_recv() {
-            Ok(TitleUiEvent::Generated(title)) => {
+            Ok(title) => {
                 let _ = apply_generated_conversation_title(
                     &target_ui,
                     &target_backend,
@@ -1921,9 +1913,7 @@ fn generate_conversation_title(
                 );
                 gtk::glib::ControlFlow::Break
             }
-            Ok(TitleUiEvent::Failed) | Err(mpsc::TryRecvError::Disconnected) => {
-                gtk::glib::ControlFlow::Break
-            }
+            Err(mpsc::TryRecvError::Disconnected) => gtk::glib::ControlFlow::Break,
             Err(mpsc::TryRecvError::Empty) => gtk::glib::ControlFlow::Continue,
         }
     });
@@ -1933,7 +1923,10 @@ async fn generate_model_title(
     client: ProviderClient,
     fallback_model: &str,
     prompt: &str,
+    context_window: Option<i64>,
 ) -> Result<String> {
+    let mut prompt = prompt.to_string();
+    crate::chat::context::trim_text(&mut prompt, 512);
     let mut request = ChatRequest::streaming_with_temperature(
         fallback_model,
         vec![
@@ -1944,6 +1937,21 @@ async fn generate_model_title(
         ],
         0.2,
     )?;
+    let options = request.options.get_or_insert_with(Default::default);
+    options.num_ctx = context_window;
+    options.num_predict = Some(128);
+    let thinking = client
+        .thinking_values(fallback_model)
+        .await
+        .unwrap_or_default();
+    request.think = [
+        ThinkingValue::Enabled(false),
+        ThinkingValue::Level("none".into()),
+        ThinkingValue::Level("minimal".into()),
+        ThinkingValue::Level("low".into()),
+    ]
+    .into_iter()
+    .find(|value| thinking.contains(value));
     request.format = Some("json".to_string());
     match request_generated_title(&client, request.clone(), true).await {
         Ok(title) => return Ok(title),

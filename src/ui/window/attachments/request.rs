@@ -3,7 +3,10 @@ use crate::{
     attachments::{Asset, MAX_IMAGE_BYTES, Source},
     chat::{
         ChatRole, ChatSubmission,
-        context::{ContextBudget, estimate_message_tokens, estimate_text_tokens, recent_exchanges},
+        context::{
+            ContextBudget, estimate_message_tokens, estimate_text_tokens, recent_exchanges,
+            trim_text,
+        },
     },
     conversations::Message,
 };
@@ -21,10 +24,23 @@ pub(in crate::ui::window) fn prepare(
     if ui.attachments.busy.get() > 0 {
         return Err(error("Wait for your files to finish importing"));
     }
+    if prompt == crate::chat::CONTINUE_PROMPT {
+        return Ok((
+            crate::chat::context::continuation_messages(
+                history,
+                &settings.system_prompt,
+                request,
+                crate::chat::runner::context_overhead(request)?,
+                usize::try_from(settings.context_messages).unwrap_or(20),
+            )?,
+            Vec::new(),
+        ));
+    }
     let repository = &backend.conversation_repository;
     let assets = match submission {
         ChatSubmission::New(_) => repository.draft_assets(conversation)?,
         ChatSubmission::Edit { id, .. } => repository.message_assets(id)?,
+        ChatSubmission::Continue(_) => Vec::new(),
         ChatSubmission::Regenerate(id) => {
             let messages = repository.list_messages(conversation)?;
             let index = messages
@@ -108,7 +124,7 @@ pub(in crate::ui::window) fn prepare(
             if allowance < 40 {
                 continue;
             }
-            trim_excerpt(&mut source.content, allowance);
+            trim_text(&mut source.content, allowance);
             if source.content.trim().is_empty() {
                 continue;
             }
@@ -217,27 +233,6 @@ fn reference_excerpt(number: usize, name: &str, page: i64, content: &str) -> Str
     format!(
         "\n[{number}] {name} — page {page}\n<document_excerpt>\n{content}\n</document_excerpt>\n"
     )
-}
-
-fn trim_excerpt(content: &mut String, tokens: usize) {
-    if estimate_text_tokens(content) <= tokens {
-        return;
-    }
-    let boundaries = content
-        .char_indices()
-        .map(|(index, _)| index)
-        .chain(std::iter::once(content.len()))
-        .collect::<Vec<_>>();
-    let available = tokens.saturating_sub(estimate_text_tokens("…"));
-    let end = boundaries.partition_point(|&end| estimate_text_tokens(&content[..end]) <= available);
-    let mut boundary = boundaries[end.saturating_sub(1)];
-    if let Some(word_end) = content[..boundary].rfind(char::is_whitespace) {
-        if word_end >= boundary / 2 {
-            boundary = word_end;
-        }
-    }
-    content.truncate(boundary);
-    content.push('…');
 }
 
 fn document_context_error() -> MooseError {

@@ -15,7 +15,7 @@ use super::{
 };
 
 pub(super) fn bind(ui: &Rc<WindowUi>, backend: &Rc<Backend>) {
-    for name in ["edit", "regenerate", "version", "fork"] {
+    for name in ["edit", "regenerate", "continue", "version", "fork"] {
         let action = gio::SimpleAction::new(name, Some(glib::VariantTy::STRING));
         let weak_ui = Rc::downgrade(ui);
         let weak_backend = Rc::downgrade(backend);
@@ -36,6 +36,10 @@ pub(super) fn bind(ui: &Rc<WindowUi>, backend: &Rc<Backend>) {
                     submit_message(&ui, &backend, Submission::Regenerate(id.to_string()));
                     Ok(())
                 }
+                "continue" => {
+                    submit_message(&ui, &backend, Submission::Continue(id.to_string()));
+                    Ok(())
+                }
                 "version" => select_version(&ui, &backend, id),
                 _ => fork(&ui, &backend, id),
             };
@@ -52,7 +56,7 @@ pub(super) fn bind(ui: &Rc<WindowUi>, backend: &Rc<Backend>) {
 }
 
 pub(super) fn set_enabled(ui: &WindowUi, enabled: bool) {
-    for name in ["edit", "regenerate", "version", "fork"] {
+    for name in ["edit", "regenerate", "continue", "version", "fork"] {
         if let Some(action) = ui
             .message_action_group
             .lookup_action(name)
@@ -283,6 +287,21 @@ fn append_toolbar(row: &gtk::Box, message: &Message, versions: Option<&Vec<Strin
             ));
         }
         toolbar.append(&button);
+        if message.status == MessageStatus::Incomplete && !message.content.trim().is_empty() {
+            let button = action_button(
+                "media-playback-start-symbolic",
+                "Continue Response",
+                "continue",
+                &message.id,
+            );
+            button.set_child(Some(
+                &adw::ButtonContent::builder()
+                    .icon_name("media-playback-start-symbolic")
+                    .label("Continue")
+                    .build(),
+            ));
+            toolbar.append(&button);
+        }
     }
     if let Some(versions) = versions
         && let Some(index) = versions.iter().position(|id| *id == message.id)
@@ -315,6 +334,15 @@ fn append_toolbar(row: &gtk::Box, message: &Message, versions: Option<&Vec<Strin
         toolbar.append(&next);
     }
     let menu = gio::Menu::new();
+    if message.role == MessageRole::Assistant
+        && message.status.is_finished()
+        && message.status != MessageStatus::Incomplete
+        && !message.content.trim().is_empty()
+    {
+        let item = gio::MenuItem::new(Some("Continue Response"), None);
+        item.set_action_and_target_value(Some("message.continue"), Some(&message.id.to_variant()));
+        menu.append_item(&item);
+    }
     let item = gio::MenuItem::new(Some("Continue in New Chat"), None);
     item.set_action_and_target_value(Some("message.fork"), Some(&message.id.to_variant()));
     menu.append_item(&item);

@@ -24,6 +24,10 @@ pub enum MooseError {
     ResponseLimit,
     #[error("{0}")]
     ProviderRequest(String),
+    #[error(
+        "The current message, instructions, attachments or tool results leave too little room for a response. Shorten the message, use fewer attachments, or increase Context Window in Chat Settings."
+    )]
+    ContextTooLarge,
     #[error("{0}")]
     Attachment(String),
     #[error("I/O failed: {0}")]

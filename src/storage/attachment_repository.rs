@@ -361,6 +361,7 @@ impl ConversationRepository {
                 exchange
             }
             crate::chat::ChatSubmission::Regenerate(id) => self.regenerate_message_inner(id)?,
+            crate::chat::ChatSubmission::Continue(id) => self.continue_message_inner(id, prompt)?,
         };
         if exchange.0.conversation_id != conversation {
             return Err(MooseError::MessageNotFound);

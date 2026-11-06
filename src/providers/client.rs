@@ -208,7 +208,27 @@ impl ProviderClient {
         ))
     }
 
-    pub async fn stream_chat<F>(&self, mut request: ChatRequest, mut on_event: F) -> Result<()>
+    pub async fn stream_chat<F>(&self, mut request: ChatRequest, on_event: F) -> Result<()>
+    where
+        F: FnMut(ChatStreamEvent) -> Result<()> + Send,
+    {
+        self.prepare_chat(&mut request).await?;
+        self.stream_prepared_chat(request, on_event).await
+    }
+
+    pub(crate) async fn prepare_chat(&self, request: &mut ChatRequest) -> Result<()> {
+        self.check()?;
+        if let Transport::Ollama(client) = &self.transport {
+            client.prepare_chat(request).await?;
+        }
+        self.check()
+    }
+
+    pub(crate) async fn stream_prepared_chat<F>(
+        &self,
+        mut request: ChatRequest,
+        mut on_event: F,
+    ) -> Result<()>
     where
         F: FnMut(ChatStreamEvent) -> Result<()> + Send,
     {
@@ -222,7 +242,7 @@ impl ProviderClient {
         request.model = kind.validate_model_id(&request.model)?;
         if let Transport::Ollama(client) = &self.transport {
             return client
-                .stream_chat(request, |event| {
+                .stream_prepared_chat(request, |event| {
                     self.check()?;
                     on_event(event)
                 })

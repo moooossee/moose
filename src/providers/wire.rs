@@ -33,7 +33,7 @@ fn role(message: &ChatMessage) -> Result<&'static str> {
 }
 
 pub(super) fn request(kind: ProviderKind, request: &ChatRequest) -> Result<Value> {
-    match kind {
+    let mut value = match kind {
         ProviderKind::Ollama | ProviderKind::OllamaCloud => Ok(serde_json::to_value(request)?),
         ProviderKind::OpenAi => openai(request),
         ProviderKind::Groq
@@ -45,7 +45,22 @@ pub(super) fn request(kind: ProviderKind, request: &ChatRequest) -> Result<Value
         | ProviderKind::Custom => chat_completions(kind, request),
         ProviderKind::Anthropic => anthropic(request),
         ProviderKind::Gemini => gemini(request),
+    }?;
+    if let Some(limit) = request
+        .options
+        .as_ref()
+        .and_then(|options| options.num_predict)
+        .filter(|limit| *limit > 0)
+    {
+        match kind {
+            ProviderKind::Ollama | ProviderKind::OllamaCloud => {}
+            ProviderKind::OpenAi => value["max_output_tokens"] = json!(limit),
+            ProviderKind::Gemini => value["generationConfig"]["maxOutputTokens"] = json!(limit),
+            ProviderKind::Groq => value["max_completion_tokens"] = json!(limit),
+            _ => value["max_tokens"] = json!(limit),
+        }
     }
+    Ok(value)
 }
 
 fn openai(request: &ChatRequest) -> Result<Value> {

@@ -88,6 +88,30 @@ impl ConversationRepository {
         Ok((user, assistant))
     }
 
+    pub(super) fn continue_message_inner(
+        &self,
+        id: &str,
+        prompt: &str,
+    ) -> Result<(Message, Message)> {
+        let original = self.require_active_message(id)?;
+        if original.role != MessageRole::Assistant
+            || !original.status.is_finished()
+            || original.content.trim().is_empty()
+        {
+            return Err(MooseError::InvalidMessageRole);
+        }
+        self.deselect_siblings(&original.conversation_id, Some(id))?;
+        let user = self.insert_message(
+            NewMessage::user(&original.conversation_id, prompt).into_message()?,
+            Some(id),
+        )?;
+        let assistant = self.insert_message(
+            NewMessage::assistant_streaming(&original.conversation_id).into_message()?,
+            Some(&user.id),
+        )?;
+        Ok((user, assistant))
+    }
+
     pub fn select_message_version(&self, id: &str) -> Result<()> {
         let transaction = self.connection.unchecked_transaction()?;
         let message = self.get_message_required(id)?;

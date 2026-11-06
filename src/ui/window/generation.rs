@@ -16,9 +16,16 @@ pub(super) struct Context {
     checkpoint: Option<Instant>,
     save_error_shown: bool,
     pub(super) pending_status: Option<&'static str>,
+    pub(super) title_generation: Option<tokio::task::JoinHandle<()>>,
 }
 
 impl Context {
+    pub(super) fn cancel_title(&mut self) {
+        if let Some(handle) = self.title_generation.take() {
+            handle.abort();
+        }
+    }
+
     fn elapsed_ms(&self) -> i64 {
         self.started
             .map(|start| {
@@ -182,13 +189,17 @@ pub(super) fn start(
     assistant: Message,
     web: Option<crate::tools::web::WebConfig>,
     clear_draft: bool,
+    mut title_prompt: Option<String>,
 ) {
+    backend.generation_context.borrow_mut().cancel_title();
+    let title_provider = provider.clone();
+    let title_context = request.options.as_ref().and_then(|options| options.num_ctx);
     let assistant_id = assistant.id.clone();
     *backend.active_assistant_message_id.borrow_mut() = Some(assistant_id.clone());
     backend.active_assistant_content.borrow_mut().clear();
     *backend.generation_context.borrow_mut() = Context {
         conversation_id: conversation_id.clone(),
-        model,
+        model: model.clone(),
         started: Some(Instant::now()),
         checkpoint: Some(Instant::now()),
         ..Context::default()
@@ -362,6 +373,20 @@ pub(super) fn start(
                 "Response interrupted"
             };
             notify(&ui, &backend, &conversation_id, title);
+            if saved
+                && (completed || incomplete)
+                && let Some(prompt) = title_prompt.take()
+            {
+                generate_conversation_title(
+                    &ui,
+                    &backend,
+                    title_provider.clone(),
+                    conversation_id.clone(),
+                    prompt,
+                    model.clone(),
+                    title_context,
+                );
+            }
             return gtk::glib::ControlFlow::Break;
         }
         update_live(&ui, &backend);

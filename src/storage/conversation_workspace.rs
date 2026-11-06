@@ -56,7 +56,7 @@ impl ConversationRepository {
         &self,
         conversation_id: &str,
         model: &str,
-    ) -> Result<Option<ThinkingValue>> {
+    ) -> Result<Option<Option<ThinkingValue>>> {
         let value: Option<String> = self
             .connection
             .query_row(
@@ -76,14 +76,7 @@ impl ConversationRepository {
         model: &str,
         value: Option<&ThinkingValue>,
     ) -> Result<()> {
-        if let Some(value) = value {
-            self.connection.execute("INSERT INTO conversation_thinking VALUES (?1, ?2, ?3) ON CONFLICT(conversation_id, model) DO UPDATE SET value = excluded.value", params![conversation_id, model, serde_json::to_string(value)?])?;
-        } else {
-            self.connection.execute(
-                "DELETE FROM conversation_thinking WHERE conversation_id = ?1 AND model = ?2",
-                params![conversation_id, model],
-            )?;
-        }
+        self.connection.execute("INSERT INTO conversation_thinking VALUES (?1, ?2, ?3) ON CONFLICT(conversation_id, model) DO UPDATE SET value = excluded.value", params![conversation_id, model, serde_json::to_string(&value)?])?;
         Ok(())
     }
 
