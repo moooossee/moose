@@ -6,10 +6,8 @@
 .moose-sidebar,
 .moose-sidebar-header,
 .moose-sidebar-content,
-.moose-sidebar-footer,
 .moose-sidebar-scroll,
-.moose-conversation-list,
-.moose-provider-list {
+.moose-conversation-list {
   background-color: @sidebar_bg_color;
 }
 
@@ -17,12 +15,15 @@
   font-weight: 600;
 }
 
+.moose-provider-title {
+  font-weight: 400;
+}
+
 .moose-sidebar-header {
   padding: 6px 7px 5px 9px;
 }
 
-.moose-header-button,
-.moose-provider-button {
+.moose-header-button {
   border-radius: 6px;
   min-height: 30px;
   min-width: 30px;
@@ -236,119 +237,6 @@
 .moose-conversation-spinner {
   margin-right: 8px;
   opacity: 0.68;
-}
-
-.moose-sidebar-footer {
-  padding: 4px 6px 5px 6px;
-}
-
-.moose-provider-list {
-  padding: 0;
-}
-
-.moose-provider-popover {
-  background-color: transparent;
-}
-
-popover.moose-provider-popover > contents {
-  background-color: @window_bg_color;
-  border-radius: 12px;
-  padding: 0;
-}
-
-.moose-provider-popover-content {
-  background-color: transparent;
-}
-
-.moose-provider-switch-list {
-  background-color: @window_bg_color;
-  border-radius: 12px;
-  padding: 6px;
-}
-
-.moose-provider-switch-list row {
-  background-color: transparent;
-  border-radius: 6px;
-}
-
-.moose-provider-switch-list row:hover {
-  background-color: alpha(@window_fg_color, 0.045);
-}
-
-.moose-provider-list row {
-  background-color: transparent;
-  border-radius: 7px;
-}
-
-.moose-provider-list row:hover {
-  background-color: alpha(@window_fg_color, 0.045);
-}
-
-.moose-provider-row {
-  min-height: 38px;
-  padding: 0 4px;
-}
-
-.moose-provider-switch-row {
-  background-color: transparent;
-  min-height: 48px;
-  padding: 0;
-}
-
-.moose-provider-add-row {
-  background-color: transparent;
-  min-height: 42px;
-  padding: 0;
-}
-
-.moose-provider-switch-title {
-  font-size: 0.98em;
-  font-weight: 400;
-  letter-spacing: 0;
-}
-
-.moose-provider-switch-subtitle {
-  font-size: 0.82em;
-}
-
-.moose-provider-icon {
-  -gtk-icon-size: 16px;
-  opacity: 0.62;
-}
-
-.moose-provider-status {
-  font-size: 0.74em;
-  margin: 0 4px;
-  opacity: 0.62;
-  padding: 0;
-}
-
-.moose-provider-active-icon {
-  color: @window_fg_color;
-  opacity: 0.6;
-}
-
-.moose-provider-add-icon {
-  -gtk-icon-size: 16px;
-  opacity: 0.72;
-}
-
-.moose-provider-add-label {
-  color: @window_fg_color;
-  font-size: 0.94em;
-  font-weight: 500;
-  letter-spacing: 0;
-}
-
-.moose-provider-delete-button {
-  min-height: 30px;
-  min-width: 30px;
-  opacity: 0.72;
-  padding: 0;
-}
-
-.moose-provider-delete-button:hover {
-  opacity: 1;
 }
 
 .moose-chat-column {

@@ -1,20 +1,15 @@
 use adw::prelude::*;
 use gtk::{Align, Orientation, PolicyType};
 
+use super::{provider_controls, widgets::icon_button};
 use crate::APPLICATION_NAME;
-use crate::providers::MANAGED_OLLAMA_BASE_URL;
-
-use super::widgets::{icon_button, status_label};
 
 pub(super) struct Sidebar {
     pub(super) root: adw::ToolbarView,
     pub(super) new_chat_button: gtk::Button,
     pub(super) model_manager_button: gtk::Button,
     pub(super) files_button: gtk::Button,
-    pub(super) provider_row: adw::ActionRow,
-    pub(super) provider_status: gtk::Label,
-    pub(super) provider_switch_button: gtk::Button,
-    pub(super) refresh_button: gtk::Button,
+    pub(super) provider_switcher: provider_controls::Switcher,
     pub(super) search_entry: gtk::SearchEntry,
     pub(super) archived_button: gtk::ToggleButton,
     pub(super) conversation_list: gtk::ListBox,
@@ -54,31 +49,6 @@ pub(super) fn build() -> Sidebar {
     header_bar.append(&files_button);
     header_bar.append(&model_manager_button);
     header_bar.append(&new_chat_button);
-
-    let provider_group = gtk::ListBox::new();
-    provider_group.add_css_class("moose-provider-list");
-    provider_group.set_selection_mode(gtk::SelectionMode::None);
-
-    let provider_status = status_label("Checking");
-    provider_status.add_css_class("moose-provider-status");
-    let provider_switch_button = icon_button("pan-down-symbolic", "Switch Provider");
-    provider_switch_button.add_css_class("moose-provider-button");
-    let refresh_button = icon_button("view-refresh-symbolic", "Refresh Models");
-    refresh_button.add_css_class("moose-provider-button");
-    let provider_row = adw::ActionRow::builder()
-        .title("Managed Ollama")
-        .title_lines(1)
-        .subtitle_lines(1)
-        .build();
-    let provider_icon = gtk::Image::from_icon_name("computer-symbolic");
-    provider_icon.add_css_class("moose-provider-icon");
-    provider_row.set_tooltip_text(Some(MANAGED_OLLAMA_BASE_URL));
-    provider_row.add_css_class("moose-provider-row");
-    provider_row.add_prefix(&provider_icon);
-    provider_row.add_suffix(&provider_status);
-    provider_row.add_suffix(&provider_switch_button);
-    provider_row.add_suffix(&refresh_button);
-    provider_group.append(&provider_row);
 
     let search_entry = gtk::SearchEntry::builder()
         .placeholder_text("Search chats")
@@ -132,12 +102,16 @@ pub(super) fn build() -> Sidebar {
     content.append(&chats_label);
     content.append(&scrolled);
 
+    let provider_switcher = provider_controls::Switcher::new();
     let footer = gtk::Box::builder()
         .orientation(Orientation::Vertical)
-        .spacing(0)
+        .spacing(2)
+        .margin_top(6)
+        .margin_bottom(6)
+        .margin_start(6)
+        .margin_end(6)
         .build();
-    footer.add_css_class("moose-sidebar-footer");
-    footer.append(&provider_group);
+    footer.append(&provider_switcher.button);
 
     root.add_top_bar(&header_bar);
     root.set_content(Some(&content));
@@ -148,10 +122,7 @@ pub(super) fn build() -> Sidebar {
         new_chat_button,
         model_manager_button,
         files_button,
-        provider_row,
-        provider_status,
-        provider_switch_button,
-        refresh_button,
+        provider_switcher,
         search_entry,
         archived_button,
         conversation_list,

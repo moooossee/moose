@@ -76,7 +76,7 @@ mod workspace;
 use provider_controls::show_connect_external_dialog;
 
 const CHAT_CSS: &str = include_str!("../../data/io.github.moooossee.Moose.css");
-const TITLE_SYSTEM_PROMPT: &str = "You are an assistant that generates short chat titles based on the prompt. If you want to, you can add a single emoji. Format the response as a single JSON object.";
+const TITLE_SYSTEM_PROMPT: &str = "Generate a short, descriptive chat title in the user's language. Summarize the topic without answering the prompt. Use at most 30 characters.";
 const TITLE_MAX_CHARS: usize = 30;
 const SETTINGS_SELECTED_MODELS: &str = "selected-models";
 const SETTINGS_MANAGED_GPU_ACCELERATION: &str = "managed-gpu-acceleration";
@@ -161,10 +161,7 @@ fn build_ui(app: &adw::Application) -> Rc<WindowUi> {
         model_manager_button: sidebar.model_manager_button,
         files,
         files_button: sidebar.files_button,
-        provider_row: sidebar.provider_row,
-        provider_status: sidebar.provider_status,
-        provider_switch_button: sidebar.provider_switch_button,
-        refresh_button: sidebar.refresh_button,
+        provider_switcher: sidebar.provider_switcher,
         conversation_search_entry: sidebar.search_entry,
         archived_conversations_button: sidebar.archived_button,
         model_picker: chat.model_picker,
@@ -246,11 +243,11 @@ pub fn build(app: &adw::Application) -> adw::ApplicationWindow {
             managed_runtime::notify_update_available(&ui, &backend);
         }
         Err(error) => {
-            ui.provider_status.set_text("Storage Error");
+            ui.provider_switcher.set_status("Storage Error");
             crate::logging::record("ERROR", "storage.open", &error.to_string());
             ui.send_button.set_sensitive(false);
             ui.stop_button.set_sensitive(false);
-            ui.refresh_button.set_sensitive(false);
+            ui.provider_switcher.refresh_button.set_sensitive(false);
             ui.model_manager.refresh_button.set_sensitive(false);
             ui.model_manager.download_jobs_button.set_sensitive(false);
             ui.toast_overlay
@@ -306,10 +303,7 @@ struct WindowUi {
     model_manager_button: gtk::Button,
     files: attachments::library::Library,
     files_button: gtk::Button,
-    provider_row: adw::ActionRow,
-    provider_status: gtk::Label,
-    provider_switch_button: gtk::Button,
-    refresh_button: gtk::Button,
+    provider_switcher: provider_controls::Switcher,
     conversation_search_entry: gtk::SearchEntry,
     archived_conversations_button: gtk::ToggleButton,
     model_picker: gtk::DropDown,
@@ -608,6 +602,13 @@ fn bind_actions(
 ) {
     let target_ui = Rc::clone(ui);
     let target_backend = Rc::clone(backend);
+    ui.content_stack
+        .connect_visible_child_name_notify(move |_| {
+            update_window_title(&target_ui, &target_backend);
+        });
+
+    let target_ui = Rc::clone(ui);
+    let target_backend = Rc::clone(backend);
     new_chat_button.connect_clicked(move |_| {
         new_conversation_action(&target_ui, &target_backend);
     });
@@ -616,12 +617,6 @@ fn bind_actions(
     let target_backend = Rc::clone(backend);
     model_manager_button.connect_clicked(move |_| {
         show_model_manager_action(&target_ui, &target_backend);
-    });
-
-    let target_ui = Rc::clone(ui);
-    let target_backend = Rc::clone(backend);
-    ui.refresh_button.connect_clicked(move |_| {
-        refresh_models(&target_ui, &target_backend);
     });
 
     let target_ui = Rc::clone(ui);
@@ -641,11 +636,7 @@ fn bind_actions(
             conversation_list::refresh(&target_ui, &target_backend);
         });
 
-    let target_ui = Rc::clone(ui);
-    let target_backend = Rc::clone(backend);
-    ui.provider_switch_button.connect_clicked(move |button| {
-        provider_controls::show_switcher(button, &target_ui, &target_backend);
-    });
+    provider_controls::bind_switcher(ui, backend);
 
     let target_ui = Rc::clone(ui);
     let target_backend = Rc::clone(backend);
@@ -679,7 +670,10 @@ fn bind_actions(
                         "Download job could not be saved: {error}"
                     )));
                 }
-                target_ui.refresh_button.set_sensitive(true);
+                target_ui
+                    .provider_switcher
+                    .refresh_button
+                    .set_sensitive(true);
                 model_manager::finish_pull(&target_ui.model_manager);
                 target_ui
                     .toast_overlay
@@ -1151,12 +1145,12 @@ fn refresh_models_with_callback(
     };
     let requested_provider_id = provider.id.clone();
     let provider_is_managed = provider.is_managed;
-    ui.provider_status.set_text(if provider.is_managed {
+    ui.provider_switcher.set_status(if provider.is_managed {
         "Starting"
     } else {
         "Checking"
     });
-    ui.refresh_button.set_sensitive(false);
+    ui.provider_switcher.refresh_button.set_sensitive(false);
     ui.model_manager.refresh_button.set_sensitive(false);
     set_model_picker(ui, Vec::new(), None);
     set_installed_models(ui, backend, Vec::new());
@@ -1236,7 +1230,10 @@ fn refresh_models_with_callback(
                 verified,
                 warning,
             }) => {
-                target_ui.refresh_button.set_sensitive(true);
+                target_ui
+                    .provider_switcher
+                    .refresh_button
+                    .set_sensitive(true);
                 target_ui.model_manager.refresh_button.set_sensitive(true);
                 let provider_status = if available {
                     if provider_is_managed {
@@ -1249,7 +1246,7 @@ fn refresh_models_with_callback(
                 } else {
                     "Disconnected".to_string()
                 };
-                target_ui.provider_status.set_text(&provider_status);
+                target_ui.provider_switcher.set_status(&provider_status);
                 if !available {
                     if !provider_is_managed {
                         target_ui
@@ -1276,9 +1273,12 @@ fn refresh_models_with_callback(
             }
             Ok(ModelLoadEvent::Failed(error)) => {
                 crate::logging::record("ERROR", "models.load", &error);
-                target_ui.refresh_button.set_sensitive(true);
+                target_ui
+                    .provider_switcher
+                    .refresh_button
+                    .set_sensitive(true);
                 target_ui.model_manager.refresh_button.set_sensitive(true);
-                target_ui.provider_status.set_text("Error");
+                target_ui.provider_switcher.set_status("Error");
                 target_ui
                     .toast_overlay
                     .add_toast(adw::Toast::new(&format!("Model list failed: {error}")));
@@ -1293,9 +1293,12 @@ fn refresh_models_with_callback(
             }
             Err(mpsc::TryRecvError::Empty) => gtk::glib::ControlFlow::Continue,
             Err(mpsc::TryRecvError::Disconnected) => {
-                target_ui.refresh_button.set_sensitive(true);
+                target_ui
+                    .provider_switcher
+                    .refresh_button
+                    .set_sensitive(true);
                 target_ui.model_manager.refresh_button.set_sensitive(true);
-                target_ui.provider_status.set_text("Disconnected");
+                target_ui.provider_switcher.set_status("Disconnected");
                 set_model_picker(&target_ui, Vec::new(), None);
                 set_installed_models(&target_ui, &target_backend, Vec::new());
                 model_manager::set_unavailable(
@@ -1586,23 +1589,13 @@ fn start_authorized_chat(ui: &Rc<WindowUi>, backend: &Rc<Backend>, pending: Pend
     };
     conversation_list::refresh(ui, backend);
     if should_generate_title {
-        if provider.is_remote() {
-            let title = prompt
-                .split_whitespace()
-                .take(8)
-                .collect::<Vec<_>>()
-                .join(" ");
-            let title: String = title.chars().take(60).collect();
-            let _ = apply_generated_conversation_title(ui, backend, &conversation_id, &title);
-        } else {
-            generate_conversation_title(
-                ui,
-                backend,
-                conversation_id.clone(),
-                prompt.clone(),
-                model.clone(),
-            );
-        }
+        generate_conversation_title(
+            ui,
+            backend,
+            conversation_id.clone(),
+            prompt.clone(),
+            model.clone(),
+        );
     }
     generation::start(
         ui,
@@ -1805,6 +1798,7 @@ fn load_conversation(ui: &WindowUi, backend: &Backend, conversation_id: &str) ->
     apply_preferred_model_selection(ui, backend, conversation_id)?;
     let settings = load_chat_settings(backend, conversation_id)?;
     update_profile_indicator(ui, backend, settings.profile_id.as_deref())?;
+    update_window_title(ui, backend);
 
     Ok(())
 }
@@ -1878,14 +1872,7 @@ fn should_generate_conversation_title(backend: &Backend, conversation_id: &str) 
         return Ok(false);
     };
 
-    if !conversation.title.starts_with(DEFAULT_CONVERSATION_TITLE) {
-        return Ok(false);
-    }
-
-    Ok(backend
-        .conversation_repository
-        .list_messages(conversation_id)?
-        .is_empty())
+    Ok(conversation.title == DEFAULT_CONVERSATION_TITLE)
 }
 
 fn generate_conversation_title(
@@ -1904,16 +1891,20 @@ fn generate_conversation_title(
     let managed_gpu = backend.managed_gpu.borrow().clone();
     let policy = backend.network_policy.clone();
     backend.runtime.spawn(async move {
-        let event =
-            match prepared_provider_client(paths, managed_ollama, managed_gpu, provider, policy)
-                .await
-            {
-                Ok(client) => match generate_model_title(client, &fallback_model, &prompt).await {
-                    Ok(title) => TitleUiEvent::Generated(title),
-                    Err(_) => TitleUiEvent::Failed,
-                },
-                Err(_) => TitleUiEvent::Failed,
-            };
+        let result = async {
+            let client =
+                prepared_provider_client(paths, managed_ollama, managed_gpu, provider, policy)
+                    .await?;
+            generate_model_title(client, &fallback_model, &prompt).await
+        }
+        .await;
+        let event = match result {
+            Ok(title) => TitleUiEvent::Generated(title),
+            Err(error) => {
+                crate::logging::record("WARN", "conversation.title.generate", &error.to_string());
+                TitleUiEvent::Failed
+            }
+        };
         let _ = sender.send(event);
     });
 
@@ -1954,6 +1945,24 @@ async fn generate_model_title(
         0.2,
     )?;
     request.format = Some("json".to_string());
+    match request_generated_title(&client, request.clone(), true).await {
+        Ok(title) => return Ok(title),
+        Err(MooseError::Json(_) | MooseError::InvalidConversationTitle) => {}
+        Err(MooseError::HttpStatus { status, .. }) if matches!(status.as_u16(), 400 | 422) => {}
+        Err(error) => return Err(error),
+    }
+    request.format = None;
+    request.messages = vec![ChatMessage::user(format!(
+        "{TITLE_SYSTEM_PROMPT} Return only the title as one line of plain text.\n\nPrompt:\n{prompt}"
+    ))];
+    request_generated_title(&client, request, false).await
+}
+
+async fn request_generated_title(
+    client: &ProviderClient,
+    request: ChatRequest,
+    structured: bool,
+) -> Result<String> {
     let mut response = String::new();
     client
         .stream_chat(request, |event| {
@@ -1963,10 +1972,13 @@ async fn generate_model_title(
             Ok(())
         })
         .await?;
-    parse_generated_title(&response)
+    parse_generated_title(&response, structured)
 }
 
-fn parse_generated_title(response: &str) -> Result<String> {
+fn parse_generated_title(response: &str, structured: bool) -> Result<String> {
+    let response = response
+        .rsplit_once("</think>")
+        .map_or(response, |(_, title)| title);
     let trimmed = response.trim();
     let json = if trimmed.starts_with('{') && trimmed.ends_with('}') {
         trimmed
@@ -1975,12 +1987,15 @@ fn parse_generated_title(response: &str) -> Result<String> {
     } else {
         trimmed
     };
-    let generated: GeneratedTitle = serde_json::from_str(json)?;
-    let title = generated
-        .title
-        .split_whitespace()
-        .collect::<Vec<_>>()
-        .join(" ");
+    let title = match serde_json::from_str::<GeneratedTitle>(json) {
+        Ok(generated) => generated.title,
+        Err(error) if structured || json.starts_with('{') => return Err(error.into()),
+        Err(_) if trimmed.lines().count() == 1 => {
+            trimmed.trim_matches(['"', '\'', '`']).to_string()
+        }
+        Err(_) => return Err(MooseError::InvalidConversationTitle),
+    };
+    let title = title.split_whitespace().collect::<Vec<_>>().join(" ");
     let title = title.trim();
     if title.is_empty() {
         return Err(crate::error::MooseError::InvalidConversationTitle);
@@ -2012,7 +2027,7 @@ fn apply_generated_conversation_title(
         return Ok(());
     };
 
-    if !conversation.title.starts_with(DEFAULT_CONVERSATION_TITLE) {
+    if conversation.title != DEFAULT_CONVERSATION_TITLE {
         return Ok(());
     }
 
@@ -2366,6 +2381,16 @@ fn show_no_models_state(ui: &Rc<WindowUi>, backend: &Rc<Backend>) {
     show_chat(ui);
 }
 
+fn update_window_title(ui: &WindowUi, backend: &Backend) {
+    let title = (ui.content_stack.visible_child_name().as_deref() == Some("chat"))
+        .then(|| backend.active_conversation_id.borrow().clone())
+        .flatten()
+        .and_then(|id| backend.conversation_repository.get(&id).ok().flatten())
+        .map(|conversation| conversation.title);
+    ui.window
+        .set_title(Some(title.as_deref().unwrap_or(APPLICATION_NAME)));
+}
+
 fn show_chat(ui: &WindowUi) {
     ui.root_stack.set_visible_child_name("app");
     ui.files_button
@@ -2416,7 +2441,7 @@ fn apply_provider_state(ui: &WindowUi, provider: &Option<Provider>) {
     match provider {
         Some(provider) => {
             update_provider_summary(ui, provider);
-            ui.refresh_button.set_sensitive(true);
+            ui.provider_switcher.refresh_button.set_sensitive(true);
             ui.model_manager.refresh_button.set_sensitive(true);
             let local_models = provider.kind == ProviderKind::Ollama;
             ui.model_manager_button.set_visible(local_models);
@@ -2427,11 +2452,9 @@ fn apply_provider_state(ui: &WindowUi, provider: &Option<Provider>) {
             update_send_button(ui);
         }
         None => {
-            ui.provider_row.set_title("No Instance");
-            ui.provider_row.set_subtitle("");
-            ui.provider_row.set_tooltip_text(None);
-            ui.provider_status.set_text("Not Set");
-            ui.refresh_button.set_sensitive(false);
+            ui.provider_switcher.set_provider(None);
+            ui.provider_switcher.set_status("Not Set");
+            ui.provider_switcher.refresh_button.set_sensitive(false);
             ui.model_manager.refresh_button.set_sensitive(false);
             ui.model_manager.pull_button.set_sensitive(false);
             ui.model_manager.download_jobs_button.set_sensitive(false);
@@ -2442,9 +2465,7 @@ fn apply_provider_state(ui: &WindowUi, provider: &Option<Provider>) {
 }
 
 fn update_provider_summary(ui: &WindowUi, provider: &Provider) {
-    ui.provider_row.set_title(&provider.name);
-    ui.provider_row.set_tooltip_text(Some(&provider.base_url));
-    ui.provider_row.set_subtitle(provider.location_label());
+    ui.provider_switcher.set_provider(Some(provider));
 }
 
 fn show_error(parent: &impl IsA<gtk::Widget>, heading: &str, error: &dyn std::error::Error) {

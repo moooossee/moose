@@ -601,7 +601,7 @@ pub(super) fn edit_key(ui: &Rc<WindowUi>, backend: &Rc<Backend>, provider: Provi
                         if removed {
                             set_model_picker(&ui, Vec::new(), None);
                             set_installed_models(&ui, &backend, Vec::new());
-                            ui.provider_status.set_text("API Key Required");
+                            ui.provider_switcher.set_status("API Key Required");
                         } else {
                             refresh_models(&ui, &backend);
                         }

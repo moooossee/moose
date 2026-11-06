@@ -381,11 +381,11 @@ pub(super) fn start_model_pull(ui: &Rc<WindowUi>, backend: &Rc<Backend>, model: 
 
     show_model_manager(ui);
     super::generation::sync_controls(ui, backend);
-    ui.refresh_button.set_sensitive(false);
+    ui.provider_switcher.refresh_button.set_sensitive(false);
     model_manager::set_pull_started(&ui.model_manager, &model);
 
     let Some(provider) = require_active_provider(ui, backend) else {
-        ui.refresh_button.set_sensitive(true);
+        ui.provider_switcher.refresh_button.set_sensitive(true);
         model_manager::finish_pull(&ui.model_manager);
         return;
     };
@@ -397,7 +397,7 @@ pub(super) fn start_model_pull(ui: &Rc<WindowUi>, backend: &Rc<Backend>, model: 
     }) {
         Ok(job) => job,
         Err(error) => {
-            ui.refresh_button.set_sensitive(true);
+            ui.provider_switcher.refresh_button.set_sensitive(true);
             model_manager::finish_pull(&ui.model_manager);
             ui.toast_overlay.add_toast(adw::Toast::new(&format!(
                 "Download job could not be saved: {error}"
@@ -493,7 +493,10 @@ pub(super) fn start_model_pull(ui: &Rc<WindowUi>, backend: &Rc<Backend>, model: 
                             "Download job could not be saved: {error}"
                         )));
                     }
-                    target_ui.refresh_button.set_sensitive(true);
+                    target_ui
+                        .provider_switcher
+                        .refresh_button
+                        .set_sensitive(true);
                     model_manager::finish_pull(&target_ui.model_manager);
                     let toast = adw::Toast::builder()
                         .title("Model download complete")
@@ -535,7 +538,10 @@ pub(super) fn start_model_pull(ui: &Rc<WindowUi>, backend: &Rc<Backend>, model: 
                             "Download job could not be saved: {save_error}"
                         )));
                     }
-                    target_ui.refresh_button.set_sensitive(true);
+                    target_ui
+                        .provider_switcher
+                        .refresh_button
+                        .set_sensitive(true);
                     model_manager::finish_pull(&target_ui.model_manager);
                     crate::logging::record(
                         "ERROR",
@@ -587,7 +593,10 @@ pub(super) fn start_model_pull(ui: &Rc<WindowUi>, backend: &Rc<Backend>, model: 
                                 "Download job could not be saved: {error}"
                             )));
                         }
-                        target_ui.refresh_button.set_sensitive(true);
+                        target_ui
+                            .provider_switcher
+                            .refresh_button
+                            .set_sensitive(true);
                         model_manager::finish_pull(&target_ui.model_manager);
                         target_ui
                             .toast_overlay
@@ -692,13 +701,13 @@ fn start_model_delete(ui: &Rc<WindowUi>, backend: &Rc<Backend>, model: String) {
 
     show_model_manager(ui);
     super::generation::sync_controls(ui, backend);
-    ui.refresh_button.set_sensitive(false);
+    ui.provider_switcher.refresh_button.set_sensitive(false);
     model_manager::set_delete_started(&ui.model_manager, &model);
 
     let (sender, receiver) = mpsc::channel();
     let target_model = model.clone();
     let Some(provider) = require_active_provider(ui, backend) else {
-        ui.refresh_button.set_sensitive(true);
+        ui.provider_switcher.refresh_button.set_sensitive(true);
         model_manager::set_delete_finished(
             &ui.model_manager,
             "Delete Failed",
@@ -739,7 +748,10 @@ fn start_model_delete(ui: &Rc<WindowUi>, backend: &Rc<Backend>, model: String) {
         match receiver.try_recv() {
             Ok(ModelDeleteUiEvent::Done) => {
                 target_backend.finish_model_delete();
-                target_ui.refresh_button.set_sensitive(true);
+                target_ui
+                    .provider_switcher
+                    .refresh_button
+                    .set_sensitive(true);
                 model_manager::set_delete_finished(
                     &target_ui.model_manager,
                     "Model Deleted",
@@ -755,7 +767,10 @@ fn start_model_delete(ui: &Rc<WindowUi>, backend: &Rc<Backend>, model: String) {
             }
             Ok(ModelDeleteUiEvent::Failed(error)) => {
                 target_backend.finish_model_delete();
-                target_ui.refresh_button.set_sensitive(true);
+                target_ui
+                    .provider_switcher
+                    .refresh_button
+                    .set_sensitive(true);
                 model_manager::set_delete_finished(
                     &target_ui.model_manager,
                     "Delete Failed",
@@ -768,7 +783,10 @@ fn start_model_delete(ui: &Rc<WindowUi>, backend: &Rc<Backend>, model: String) {
             Err(mpsc::TryRecvError::Empty) => gtk::glib::ControlFlow::Continue,
             Err(mpsc::TryRecvError::Disconnected) => {
                 target_backend.finish_model_delete();
-                target_ui.refresh_button.set_sensitive(true);
+                target_ui
+                    .provider_switcher
+                    .refresh_button
+                    .set_sensitive(true);
                 model_manager::set_delete_finished(
                     &target_ui.model_manager,
                     "Delete Stopped",

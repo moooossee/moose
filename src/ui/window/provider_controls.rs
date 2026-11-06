@@ -10,13 +10,219 @@ use crate::providers::{
 
 use super::{
     Backend, WindowUi, active_provider, apply_active_provider, clear_active_provider,
-    managed_install, provider_change_is_blocked, show_chat, show_error, widgets,
+    managed_install, provider_change_is_blocked, refresh_models, show_chat, show_error, widgets,
 };
 
-pub(super) fn show_switcher(anchor: &gtk::Button, ui: &Rc<WindowUi>, backend: &Rc<Backend>) {
+pub(super) struct Switcher {
+    pub(super) button: gtk::MenuButton,
+    pub(super) refresh_button: gtk::Button,
+    title: gtk::Label,
+    status: gtk::Label,
+    icon: gtk::Image,
+    popover: gtk::Popover,
+    list: gtk::ListBox,
+    placeholder: gtk::Label,
+    add_button: gtk::Button,
+}
+
+impl Switcher {
+    pub(super) fn new() -> Self {
+        let title = gtk::Label::builder()
+            .label("Select Provider")
+            .xalign(0.0)
+            .ellipsize(pango::EllipsizeMode::End)
+            .single_line_mode(true)
+            .hexpand(true)
+            .css_classes(["moose-provider-title"])
+            .build();
+        let status = gtk::Label::builder()
+            .label("Not Set")
+            .xalign(0.0)
+            .ellipsize(pango::EllipsizeMode::End)
+            .single_line_mode(true)
+            .hexpand(true)
+            .css_classes(["caption", "dim-label"])
+            .build();
+        let labels = gtk::Box::builder()
+            .orientation(Orientation::Vertical)
+            .spacing(2)
+            .hexpand(true)
+            .valign(Align::Center)
+            .build();
+        labels.append(&title);
+        labels.append(&status);
+        let icon = gtk::Image::from_icon_name("network-server-symbolic");
+        icon.add_css_class("dim-label");
+        let button_content = gtk::Box::new(Orientation::Horizontal, 8);
+        button_content.append(&icon);
+        button_content.append(&labels);
+
+        let button = gtk::MenuButton::builder()
+            .child(&button_content)
+            .direction(gtk::ArrowType::Up)
+            .always_show_arrow(true)
+            .can_shrink(true)
+            .hexpand(true)
+            .tooltip_text("Switch Provider")
+            .css_classes(["flat"])
+            .build();
+        button.update_property(&[gtk::accessible::Property::Label("Switch Provider")]);
+
+        let heading = gtk::Label::builder()
+            .label("Providers")
+            .xalign(0.0)
+            .hexpand(true)
+            .css_classes(["heading"])
+            .build();
+        let refresh_button = widgets::icon_button("view-refresh-symbolic", "Refresh Models");
+        let header = gtk::Box::builder()
+            .orientation(Orientation::Horizontal)
+            .spacing(12)
+            .margin_start(6)
+            .build();
+        header.append(&heading);
+        header.append(&refresh_button);
+
+        let placeholder = gtk::Label::builder()
+            .label("No providers added")
+            .wrap(true)
+            .margin_top(24)
+            .margin_bottom(24)
+            .margin_start(12)
+            .margin_end(12)
+            .css_classes(["dim-label"])
+            .build();
+        let list = gtk::ListBox::builder()
+            .selection_mode(gtk::SelectionMode::None)
+            .activate_on_single_click(true)
+            .css_classes(["boxed-list"])
+            .build();
+        list.set_placeholder(Some(&placeholder));
+        let scrolled = gtk::ScrolledWindow::builder()
+            .hscrollbar_policy(gtk::PolicyType::Never)
+            .vscrollbar_policy(gtk::PolicyType::Automatic)
+            .max_content_height(360)
+            .propagate_natural_height(true)
+            .child(&list)
+            .build();
+
+        let add_button = gtk::Button::builder()
+            .child(
+                &adw::ButtonContent::builder()
+                    .icon_name("list-add-symbolic")
+                    .label("Add Provider…")
+                    .halign(Align::Start)
+                    .build(),
+            )
+            .css_classes(["flat"])
+            .build();
+        let content = gtk::Box::builder()
+            .orientation(Orientation::Vertical)
+            .spacing(12)
+            .width_request(360)
+            .margin_top(6)
+            .margin_bottom(6)
+            .margin_start(6)
+            .margin_end(6)
+            .build();
+        content.append(&header);
+        content.append(&scrolled);
+        content.append(&gtk::Separator::new(Orientation::Horizontal));
+        content.append(&add_button);
+
+        let popover = gtk::Popover::builder()
+            .halign(Align::Start)
+            .child(&content)
+            .build();
+        popover.set_offset(6, 0);
+        button.set_popover(Some(&popover));
+
+        Self {
+            button,
+            refresh_button,
+            title,
+            status,
+            icon,
+            popover,
+            list,
+            placeholder,
+            add_button,
+        }
+    }
+
+    pub(super) fn set_status(&self, status: &str) {
+        self.status.set_label(status);
+        self.button
+            .update_property(&[gtk::accessible::Property::Description(status)]);
+    }
+
+    pub(super) fn set_provider(&self, provider: Option<&Provider>) {
+        if let Some(provider) = provider {
+            self.title.set_label(&provider.name);
+            self.icon.set_icon_name(Some(provider_icon_name(provider)));
+            self.button.set_tooltip_text(Some(&format!(
+                "Switch Provider\n{}\n{}\n{}",
+                provider.name,
+                provider.location_label(),
+                provider.base_url
+            )));
+            self.button
+                .update_property(&[gtk::accessible::Property::Label(&format!(
+                    "Switch Provider: {}",
+                    provider.name
+                ))]);
+        } else {
+            self.title.set_label("Select Provider");
+            self.icon.set_icon_name(Some("network-server-symbolic"));
+            self.button
+                .set_tooltip_text(Some("Add or Select a Provider"));
+            self.button
+                .update_property(&[gtk::accessible::Property::Label("Select Provider")]);
+        }
+    }
+}
+
+pub(super) fn bind_switcher(ui: &Rc<WindowUi>, backend: &Rc<Backend>) {
+    let target_ui = Rc::downgrade(ui);
+    let target_backend = Rc::clone(backend);
+    ui.provider_switcher.popover.connect_show(move |_| {
+        if let Some(ui) = target_ui.upgrade() {
+            populate_switcher(&ui, &target_backend);
+        }
+    });
+
+    let target_ui = Rc::downgrade(ui);
+    let target_backend = Rc::clone(backend);
+    ui.provider_switcher.add_button.connect_clicked(move |_| {
+        if let Some(ui) = target_ui.upgrade() {
+            ui.provider_switcher.button.popdown();
+            show_add_provider_dialog(&ui, &target_backend);
+        }
+    });
+
+    let target_ui = Rc::downgrade(ui);
+    let target_backend = Rc::clone(backend);
+    ui.provider_switcher
+        .refresh_button
+        .connect_clicked(move |_| {
+            if let Some(ui) = target_ui.upgrade() {
+                ui.provider_switcher.button.popdown();
+                refresh_models(&ui, &target_backend);
+            }
+        });
+}
+
+fn populate_switcher(ui: &Rc<WindowUi>, backend: &Rc<Backend>) {
+    let switcher = &ui.provider_switcher;
+    switcher.list.remove_all();
+    switcher.placeholder.set_label("No providers added");
+
     let providers = match backend.repository.list() {
         Ok(providers) => providers,
         Err(error) => {
+            switcher
+                .placeholder
+                .set_label("Providers could not be loaded");
             ui.toast_overlay.add_toast(adw::Toast::new(&format!(
                 "Providers could not be loaded: {error}"
             )));
@@ -24,172 +230,88 @@ pub(super) fn show_switcher(anchor: &gtk::Button, ui: &Rc<WindowUi>, backend: &R
         }
     };
 
-    let popover = gtk::Popover::builder()
-        .autohide(true)
-        .has_arrow(false)
-        .build();
-    popover.add_css_class("moose-provider-popover");
-    popover.set_parent(anchor);
-
-    let content = gtk::Box::builder()
-        .orientation(Orientation::Vertical)
-        .spacing(0)
-        .build();
-    content.add_css_class("moose-provider-popover-content");
-    content.set_size_request(300, -1);
-
-    let list = gtk::ListBox::new();
-    list.set_selection_mode(gtk::SelectionMode::None);
-    list.set_activate_on_single_click(true);
-    list.add_css_class("moose-provider-list");
-    list.add_css_class("moose-provider-switch-list");
-
     let active_provider_id = active_provider(backend).map(|provider| provider.id);
-    let mut provider_ids = Vec::new();
+    let mut group: Option<gtk::CheckButton> = None;
     for provider in providers {
-        let row = provider_switch_row(
-            &provider,
-            active_provider_id
-                .as_deref()
-                .is_some_and(|id| id == provider.id.as_str()),
-        );
-        provider_ids.push(provider.id.clone());
+        let row = provider_switch_row(&provider);
+        let check = gtk::CheckButton::builder().valign(Align::Center).build();
+        check.set_group(group.as_ref());
+        check.set_active(active_provider_id.as_deref() == Some(provider.id.as_str()));
+        check.update_property(&[gtk::accessible::Property::Label(&provider.name)]);
+        if group.is_none() {
+            group = Some(check.clone());
+        }
+        row.add_suffix(&check);
+        row.set_activatable_widget(Some(&check));
+
+        let provider_id = provider.id.clone();
+        let target_ui = Rc::downgrade(ui);
+        let target_backend = Rc::clone(backend);
+        check.connect_toggled(move |check| {
+            if check.is_active()
+                && let Some(ui) = target_ui.upgrade()
+            {
+                ui.provider_switcher.button.popdown();
+                activate_provider(&ui, &target_backend, &provider_id);
+            }
+        });
+
+        let target_popover = switcher.popover.downgrade();
+        check.connect_activate(move |_| {
+            if let Some(popover) = target_popover.upgrade() {
+                popover.popdown();
+            }
+        });
 
         let delete_button =
-            widgets::icon_button("user-trash-symbolic", &format!("Delete {}", provider.name));
-        delete_button.add_css_class("destructive-action");
-        delete_button.add_css_class("moose-provider-delete-button");
+            widgets::icon_button("user-trash-symbolic", &format!("Delete {}…", provider.name));
+        delete_button.set_valign(Align::Center);
         let provider_id = provider.id.clone();
-        let target_ui = Rc::clone(ui);
+        let target_ui = Rc::downgrade(ui);
         let target_backend = Rc::clone(backend);
-        let target_popover = popover.clone();
         delete_button.connect_clicked(move |_| {
-            target_popover.popdown();
-            confirm_provider_delete(&target_ui, &target_backend, &provider_id);
+            if let Some(ui) = target_ui.upgrade() {
+                ui.provider_switcher.button.popdown();
+                confirm_provider_delete(&ui, &target_backend, &provider_id);
+            }
         });
-        if let Some(content) = row
-            .child()
-            .and_then(|child| child.downcast::<gtk::Box>().ok())
-        {
-            content.append(&delete_button);
-        }
-        list.append(&row);
+        row.add_suffix(&delete_button);
+        switcher.list.append(&row);
     }
-
-    let add_row = provider_add_row();
-    list.append(&add_row);
-
-    let provider_ids = Rc::new(provider_ids);
-    let target_ui = Rc::clone(ui);
-    let target_backend = Rc::clone(backend);
-    let target_popover = popover.clone();
-    list.connect_row_activated(move |_, row| {
-        let Ok(index) = usize::try_from(row.index()) else {
-            return;
-        };
-
-        target_popover.popdown();
-        if let Some(provider_id) = provider_ids.get(index) {
-            activate_provider(&target_ui, &target_backend, provider_id);
-        } else if index == provider_ids.len() {
-            show_add_provider_dialog(&target_ui, &target_backend);
-        }
-    });
-
-    content.append(&list);
-    popover.set_child(Some(&content));
-    popover.popup();
 }
 
-fn provider_switch_row(provider: &Provider, is_active: bool) -> gtk::ListBoxRow {
-    let row = gtk::ListBoxRow::new();
-    row.add_css_class("moose-provider-switch-row");
-    row.set_tooltip_text(Some(&provider.base_url));
-
-    let content = gtk::Box::builder()
-        .orientation(Orientation::Horizontal)
-        .spacing(8)
-        .margin_top(7)
-        .margin_bottom(7)
-        .margin_start(9)
-        .margin_end(6)
+fn provider_switch_row(provider: &Provider) -> adw::ActionRow {
+    let subtitle = if provider.kind == ProviderKind::Ollama {
+        provider.location_label().to_string()
+    } else {
+        format!("{} · {}", provider.kind.label(), provider.location_label())
+    };
+    let row = adw::ActionRow::builder()
+        .title(&provider.name)
+        .subtitle(subtitle)
+        .title_lines(1)
+        .subtitle_lines(2)
+        .use_markup(false)
         .build();
+    row.set_tooltip_text(Some(&format!(
+        "{}\n{}\n{}",
+        provider.name,
+        provider.location_label(),
+        provider.base_url
+    )));
 
-    let labels = gtk::Box::builder()
-        .orientation(Orientation::Vertical)
-        .spacing(1)
-        .hexpand(true)
-        .valign(Align::Center)
-        .build();
-
-    let title = gtk::Label::builder()
-        .label(&provider.name)
-        .halign(Align::Start)
-        .hexpand(true)
-        .xalign(0.0)
-        .build();
-    title.set_ellipsize(pango::EllipsizeMode::End);
-    title.add_css_class("moose-provider-switch-title");
-    labels.append(&title);
-
-    let subtitle = gtk::Label::builder()
-        .label(format!(
-            "{} · {}",
-            provider.kind.label(),
-            provider.location_label()
-        ))
-        .halign(Align::Start)
-        .hexpand(true)
-        .xalign(0.0)
-        .build();
-    subtitle.set_ellipsize(pango::EllipsizeMode::End);
-    subtitle.add_css_class("dim-label");
-    subtitle.add_css_class("moose-provider-switch-subtitle");
-    labels.append(&subtitle);
-
-    content.append(&labels);
-
-    if is_active {
-        let active_icon = gtk::Image::from_icon_name("object-select-symbolic");
-        active_icon.set_tooltip_text(Some("Active Provider"));
-        active_icon.add_css_class("moose-provider-active-icon");
-        content.append(&active_icon);
-    }
-
-    row.set_child(Some(&content));
+    let icon = gtk::Image::from_icon_name(provider_icon_name(provider));
+    icon.add_css_class("dim-label");
+    row.add_prefix(&icon);
     row
 }
 
-fn provider_add_row() -> gtk::ListBoxRow {
-    let row = gtk::ListBoxRow::new();
-    row.add_css_class("moose-provider-add-row");
-    row.set_tooltip_text(Some("Add Provider"));
-
-    let content = gtk::Box::builder()
-        .orientation(Orientation::Horizontal)
-        .spacing(8)
-        .margin_top(8)
-        .margin_bottom(8)
-        .margin_start(9)
-        .margin_end(9)
-        .valign(Align::Center)
-        .build();
-
-    let icon = gtk::Image::from_icon_name("list-add-symbolic");
-    icon.add_css_class("moose-provider-add-icon");
-
-    let label = gtk::Label::builder()
-        .label("Add Provider")
-        .halign(Align::Start)
-        .hexpand(true)
-        .xalign(0.0)
-        .build();
-    label.add_css_class("moose-provider-add-label");
-
-    content.append(&icon);
-    content.append(&label);
-    row.set_child(Some(&content));
-    row
+fn provider_icon_name(provider: &Provider) -> &'static str {
+    if provider.is_managed {
+        "computer-symbolic"
+    } else {
+        "network-server-symbolic"
+    }
 }
 
 pub(super) fn show_add_provider_dialog(ui: &Rc<WindowUi>, backend: &Rc<Backend>) {

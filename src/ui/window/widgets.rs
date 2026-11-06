@@ -189,13 +189,3 @@ pub(super) fn section_label(text: &str) -> gtk::Label {
     label.add_css_class("heading");
     label
 }
-
-pub(super) fn status_label(text: &str) -> gtk::Label {
-    let label = gtk::Label::builder()
-        .label(text)
-        .halign(Align::Center)
-        .valign(Align::Center)
-        .build();
-    label.add_css_class("dim-label");
-    label
-}

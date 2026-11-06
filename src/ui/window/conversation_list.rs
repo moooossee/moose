@@ -14,6 +14,7 @@ use super::{
 };
 
 pub(super) fn refresh(ui: &Rc<WindowUi>, backend: &Rc<Backend>) {
+    super::update_window_title(ui, backend);
     let query = ui.conversation_search_entry.text().to_string();
     let include_archived = ui.archived_conversations_button.is_active();
     match backend

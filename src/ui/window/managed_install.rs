@@ -308,7 +308,7 @@ fn start_managed_ollama_after_configuration(
                         );
                         target_controls.progress.set_fraction(1.0);
                         target_controls.status.set_label("Managed Ollama is ready");
-                        target_ui.provider_status.set_text("Ready");
+                        target_ui.provider_switcher.set_status("Ready");
                         target_ui
                             .toast_overlay
                             .add_toast(adw::Toast::new("Managed instance ready"));
