@@ -19,11 +19,11 @@ const MAX_SOURCE_BYTES: usize = 24000;
 #[serde(rename_all = "snake_case")]
 pub enum SearchProvider {
     #[default]
+    #[serde(rename = "duckduckgo")]
+    DuckDuckGo,
     LinksOnly,
     Brave,
     Searxng,
-    #[serde(rename = "duckduckgo")]
-    DuckDuckGo,
 }
 
 #[derive(Clone, Debug, Default, Eq, PartialEq, Serialize, Deserialize)]

@@ -120,16 +120,16 @@ pub(super) fn preferences_page(
     let provider = adw::ComboRow::builder()
         .title("Search Provider")
         .model(&gtk::StringList::new(&[
+            "DuckDuckGo",
             "Links Only",
             "Brave Search",
             "SearXNG",
-            "DuckDuckGo",
         ]))
         .selected(match config.provider {
-            SearchProvider::LinksOnly => 0,
-            SearchProvider::Brave => 1,
-            SearchProvider::Searxng => 2,
-            SearchProvider::DuckDuckGo => 3,
+            SearchProvider::DuckDuckGo => 0,
+            SearchProvider::LinksOnly => 1,
+            SearchProvider::Brave => 2,
+            SearchProvider::Searxng => 3,
         })
         .build();
     let endpoint = adw::EntryRow::builder()
@@ -174,11 +174,11 @@ pub(super) fn preferences_page(
         let signup = signup.clone();
         let duckduckgo_hint = duckduckgo_hint.clone();
         move |row: &adw::ComboRow| {
-            endpoint.set_visible(row.selected() == 2);
-            hint.set_visible(row.selected() == 2);
-            key_row.set_visible(row.selected() == 1);
-            signup.set_visible(row.selected() == 1);
-            duckduckgo_hint.set_visible(row.selected() == 3);
+            endpoint.set_visible(row.selected() == 3);
+            hint.set_visible(row.selected() == 3);
+            key_row.set_visible(row.selected() == 2);
+            signup.set_visible(row.selected() == 2);
+            duckduckgo_hint.set_visible(row.selected() == 0);
         }
     };
     update_visibility(&provider);
@@ -283,10 +283,10 @@ fn remember_permission_row(active: bool) -> adw::SwitchRow {
 fn selected_config(provider: &adw::ComboRow, endpoint: &adw::EntryRow) -> WebConfig {
     WebConfig {
         provider: match provider.selected() {
-            1 => SearchProvider::Brave,
-            2 => SearchProvider::Searxng,
-            3 => SearchProvider::DuckDuckGo,
-            _ => SearchProvider::LinksOnly,
+            1 => SearchProvider::LinksOnly,
+            2 => SearchProvider::Brave,
+            3 => SearchProvider::Searxng,
+            _ => SearchProvider::DuckDuckGo,
         },
         endpoint: endpoint.text().trim().to_string(),
     }
