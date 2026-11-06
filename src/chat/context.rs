@@ -130,17 +130,15 @@ pub fn shrink_request(request: &mut ChatRequest, excess: usize) -> Result<bool> 
     }
     if request.messages.last().is_some_and(|message| {
         message.role == ChatRole::User && message.content == super::CONTINUE_PROMPT
-    }) {
-        if let Some(assistant) = request.messages[current + 1..]
-            .iter_mut()
-            .find(|message| message.role == ChatRole::Assistant)
-        {
-            let tokens = estimate_text_tokens(&assistant.content);
-            let available = tokens.saturating_sub(excess.max(tokens / 4).max(128));
-            if available >= 256 {
-                assistant.content = continuation_excerpt(&assistant.content, available)?;
-                return Ok(true);
-            }
+    }) && let Some(assistant) = request.messages[current + 1..]
+        .iter_mut()
+        .find(|message| message.role == ChatRole::Assistant)
+    {
+        let tokens = estimate_text_tokens(&assistant.content);
+        let available = tokens.saturating_sub(excess.max(tokens / 4).max(128));
+        if available >= 256 {
+            assistant.content = continuation_excerpt(&assistant.content, available)?;
+            return Ok(true);
         }
     }
     Ok(false)
@@ -272,10 +270,10 @@ pub fn trim_text(content: &mut String, tokens: usize) {
         .collect::<Vec<_>>();
     let end = boundaries.partition_point(|&end| estimate_text_tokens(&content[..end]) <= available);
     let mut boundary = boundaries[end.saturating_sub(1)];
-    if let Some(word_end) = content[..boundary].rfind(char::is_whitespace) {
-        if word_end >= boundary / 2 {
-            boundary = word_end;
-        }
+    if let Some(word_end) = content[..boundary].rfind(char::is_whitespace)
+        && word_end >= boundary / 2
+    {
+        boundary = word_end;
     }
     content.truncate(boundary);
     if tokens >= estimate_text_tokens("…") {
