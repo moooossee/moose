@@ -84,7 +84,6 @@ const TITLE_MAX_CHARS: usize = 30;
 const SETTINGS_SELECTED_MODELS: &str = "selected-models";
 const SETTINGS_MANAGED_GPU_ACCELERATION: &str = "managed-gpu-acceleration";
 const MANAGED_OLLAMA_READY_TIMEOUT: Duration = Duration::from_secs(20);
-const STARTER_MODEL: &str = "llama3.2:1b";
 
 type ManagedOllamaHandle = Arc<tokio::sync::Mutex<ManagedOllamaService>>;
 
@@ -686,8 +685,87 @@ fn bind_actions(
     ui.model_manager
         .search_entry
         .connect_search_changed(move |entry| {
+            if target_ui.model_manager.changing_filters.get() {
+                return;
+            }
             let query = entry.text().to_string();
             render_model_manager(&target_ui, &target_backend, &query);
+        });
+
+    for (control, property) in [
+        (
+            ui.model_manager
+                .task_filter
+                .clone()
+                .upcast::<gtk::glib::Object>(),
+            "active",
+        ),
+        (
+            ui.model_manager
+                .preference_filter
+                .clone()
+                .upcast::<gtk::glib::Object>(),
+            "selected",
+        ),
+        (
+            ui.model_manager
+                .download_filter
+                .clone()
+                .upcast::<gtk::glib::Object>(),
+            "selected",
+        ),
+        (
+            ui.model_manager
+                .images_filter
+                .clone()
+                .upcast::<gtk::glib::Object>(),
+            "active",
+        ),
+        (
+            ui.model_manager
+                .tools_filter
+                .clone()
+                .upcast::<gtk::glib::Object>(),
+            "active",
+        ),
+        (
+            ui.model_manager
+                .multilingual_filter
+                .clone()
+                .upcast::<gtk::glib::Object>(),
+            "active",
+        ),
+    ] {
+        let weak_ui = Rc::downgrade(ui);
+        let weak_backend = Rc::downgrade(backend);
+        control.connect_notify_local(Some(property), move |_, _| {
+            let (Some(ui), Some(backend)) = (weak_ui.upgrade(), weak_backend.upgrade()) else {
+                return;
+            };
+            if !ui.model_manager.changing_filters.get() {
+                render_model_manager(&ui, &backend, &ui.model_manager.search_entry.text());
+            }
+        });
+    }
+    let weak_ui = Rc::downgrade(ui);
+    let weak_backend = Rc::downgrade(backend);
+    ui.model_manager
+        .reset_filters_button
+        .connect_clicked(move |_| {
+            let (Some(ui), Some(backend)) = (weak_ui.upgrade(), weak_backend.upgrade()) else {
+                return;
+            };
+            let manager = &ui.model_manager;
+            manager.changing_filters.set(true);
+            manager.search_entry.set_text("");
+            manager.task_filter.set_active_name(Some("all"));
+            manager.preference_filter.set_selected(0);
+            manager.download_filter.set_selected(0);
+            manager.images_filter.set_active(false);
+            manager.tools_filter.set_active(false);
+            manager.multilingual_filter.set_active(false);
+            manager.changing_filters.set(false);
+            render_model_manager(&ui, &backend, "");
         });
 
     let target_ui = Rc::clone(ui);
@@ -2280,6 +2358,31 @@ fn render_model_manager(ui: &Rc<WindowUi>, backend: &Rc<Backend>, query: &str) {
             model_download::show_dialog(&ui, &backend, &model);
         }
     });
+    let weak_ui = Rc::downgrade(ui);
+    let weak_backend = Rc::downgrade(backend);
+    let provider_id = active_provider(backend).map(|provider| provider.id);
+    let on_use = Rc::new(move |model: String| {
+        let (Some(ui), Some(backend)) = (weak_ui.upgrade(), weak_backend.upgrade()) else {
+            return;
+        };
+        if active_provider(&backend).map(|provider| provider.id) != provider_id {
+            ui.toast_overlay.add_toast(adw::Toast::new(
+                "The connection changed. Select a model again.",
+            ));
+            return;
+        }
+        let installed = ui
+            .installed_models
+            .borrow()
+            .iter()
+            .find(|installed| {
+                installed.supports_chat && crate::models::model_names_match(&installed.name, &model)
+            })
+            .map(|installed| installed.name.clone());
+        if let Some(model) = installed {
+            new_conversation_with_model(&ui, &backend, Some(&model));
+        }
+    });
     model_manager::set_models(
         &ui.model_manager,
         &ui.window,
@@ -2288,6 +2391,8 @@ fn render_model_manager(ui: &Rc<WindowUi>, backend: &Rc<Backend>, query: &str) {
         on_pull,
         on_delete,
         on_add,
+        on_use,
+        active_provider(backend).is_some_and(|provider| provider.is_managed),
     );
 }
 
@@ -2348,14 +2453,14 @@ fn show_no_models_state(ui: &Rc<WindowUi>, backend: &Rc<Backend>) {
     }
     chat_view::set_empty_state(
         &ui.chat_status_page,
-        "No Models Installed",
-        "Download Llama 3.2 1B to start, or browse the model library.",
+        "Choose Your First Model",
+        "Find a model for everyday questions, coding, images, or documents.",
     );
 
-    let download_button = gtk::Button::with_label("Download Llama 3.2 1B");
+    let download_button = gtk::Button::with_label("Find a Model");
     download_button.add_css_class("suggested-action");
     download_button.add_css_class("moose-empty-action");
-    let browse_button = gtk::Button::with_label("Browse Models");
+    let browse_button = gtk::Button::with_label("Add a Model by Name or Link…");
     browse_button.add_css_class("flat");
     browse_button.add_css_class("moose-empty-action");
 
@@ -2367,21 +2472,15 @@ fn show_no_models_state(ui: &Rc<WindowUi>, backend: &Rc<Backend>) {
     actions.append(&download_button);
     actions.append(&browse_button);
 
-    let target_parent = ui.window.clone();
     let target_ui = Rc::clone(ui);
-    let target_backend = Rc::clone(backend);
     download_button.connect_clicked(move |_| {
-        model_actions::request_model_pull(
-            &target_parent,
-            &target_ui,
-            &target_backend,
-            STARTER_MODEL.to_string(),
-        );
+        show_model_manager(&target_ui);
     });
 
     let target_ui = Rc::clone(ui);
+    let target_backend = Rc::clone(backend);
     browse_button.connect_clicked(move |_| {
-        show_model_manager(&target_ui);
+        model_download::show_dialog(&target_ui, &target_backend, "");
     });
 
     ui.chat_status_page.set_child(Some(&actions));

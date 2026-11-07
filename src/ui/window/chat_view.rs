@@ -155,11 +155,15 @@ pub(super) fn build() -> Chat {
 
     let entry_placeholder = gtk::Label::builder()
         .can_target(false)
-        .halign(Align::Start)
-        .label("Ask anything…")
+        .halign(Align::Fill)
+        .label("Ask anything, or type / for tools")
+        .margin_end(18)
         .margin_start(18)
         .margin_top(16)
         .valign(Align::Start)
+        .wrap(true)
+        .wrap_mode(gtk::pango::WrapMode::WordChar)
+        .xalign(0.0)
         .build();
     entry_placeholder.add_css_class("dim-label");
     entry_placeholder.add_css_class("moose-composer-placeholder");
@@ -191,7 +195,7 @@ pub(super) fn build() -> Chat {
     action_stack.add_named(&send_button, Some("send"));
     action_stack.add_named(&stop_button, Some("stop"));
     let hint = gtk::Label::builder()
-        .label("/ for tools · Enter to send · Shift+Enter for a new line")
+        .label("Enter to send · Shift+Enter for a new line")
         .xalign(0.0)
         .width_chars(1)
         .hexpand(true)
@@ -257,7 +261,7 @@ pub(super) fn build() -> Chat {
         } else if running {
             "Write your next message…"
         } else {
-            "Ask anything…"
+            "Ask anything, or type / for tools"
         });
         if !running && stop.has_focus() {
             entry.grab_focus();
@@ -266,7 +270,7 @@ pub(super) fn build() -> Chat {
         let text = if running {
             "Responding… You can keep writing"
         } else {
-            "/ for tools · Enter to send · Shift+Enter for a new line"
+            "Enter to send · Shift+Enter for a new line"
         };
         hint.set_label(text);
         hint.set_tooltip_text(Some(text));

@@ -1,6 +1,6 @@
 use adw::prelude::*;
 use gtk::{Align, Orientation, PolicyType, gio};
-use std::rc::Rc;
+use std::{cell::Cell, rc::Rc};
 
 use crate::{
     APPLICATION_ID,
@@ -8,7 +8,12 @@ use crate::{
     ollama::{OllamaModel, OllamaPullProgress},
 };
 
-use super::widgets::{icon_button, section_label};
+use super::widgets::icon_button;
+
+mod discovery;
+mod requirements;
+
+use discovery::{Candidate, Filters, MemoryBudget, Preference, Task};
 
 #[derive(Clone)]
 pub(super) struct ModelManager {
@@ -17,13 +22,27 @@ pub(super) struct ModelManager {
     pub(super) download_jobs_button: gtk::Button,
     pub(super) refresh_button: gtk::Button,
     pub(super) search_entry: gtk::SearchEntry,
+    pub(super) task_filter: adw::ToggleGroup,
+    pub(super) preference_filter: adw::ComboRow,
+    pub(super) download_filter: adw::ComboRow,
+    pub(super) images_filter: adw::SwitchRow,
+    pub(super) tools_filter: adw::SwitchRow,
+    pub(super) multilingual_filter: adw::SwitchRow,
+    pub(super) reset_filters_button: gtk::Button,
+    pub(super) changing_filters: Rc<Cell<bool>>,
     pub(super) pull_cancel_button: gtk::Button,
+    busy: Rc<Cell<bool>>,
+    filters_box: gtk::Box,
+    filters_button: gtk::MenuButton,
+    installed_group: adw::PreferencesGroup,
+    memory_hint: gtk::Label,
+    scroll: gtk::ScrolledWindow,
     pull_panel: gtk::Box,
-    pull_title: gtk::Label,
+    pull_row: adw::ActionRow,
+    pull_activity: gtk::Stack,
+    pull_icon: gtk::Image,
     pull_status: gtk::Label,
-    pull_copy_button: gtk::Button,
     pull_progress: gtk::ProgressBar,
-    pull_progress_label: gtk::Label,
     model_list: gtk::ListBox,
     available_model_list: gtk::ListBox,
     status_page: adw::StatusPage,
@@ -44,6 +63,14 @@ struct ModelVariant {
     title: &'static str,
     description: &'static str,
     tags: &'static [&'static str],
+    download_bytes: u64,
+}
+
+#[derive(Clone)]
+struct ModelActions {
+    download: Rc<dyn Fn(String)>,
+    use_model: Rc<dyn Fn(String)>,
+    download_control: gtk::Button,
 }
 
 const MODEL_FAMILIES: &[ModelFamily] = &[
@@ -59,18 +86,21 @@ const MODEL_FAMILIES: &[ModelFamily] = &[
                 title: "8B",
                 description: "Recommended local default for everyday chat.",
                 tags: &["recommended", "chat", "tools"],
+                download_bytes: 4_920_753_328,
             },
             ModelVariant {
                 name: "llama3.1:70b",
                 title: "70B",
                 description: "Larger model for stronger reasoning and writing.",
                 tags: &["large", "chat", "tools"],
+                download_bytes: 42_520_412_561,
             },
             ModelVariant {
                 name: "llama3.1:405b",
                 title: "405B",
                 description: "Very large model for high-memory systems.",
                 tags: &["very large", "chat"],
+                download_bytes: 243_069_625_106,
             },
         ],
     },
@@ -86,12 +116,14 @@ const MODEL_FAMILIES: &[ModelFamily] = &[
                 title: "1B",
                 description: "Very small and fast for quick responses.",
                 tags: &["tiny", "fast", "chat"],
+                download_bytes: 1_321_098_329,
             },
             ModelVariant {
                 name: "llama3.2:3b",
                 title: "3B",
                 description: "Small but more capable than 1B.",
                 tags: &["recommended", "small", "chat"],
+                download_bytes: 2_019_393_189,
             },
         ],
     },
@@ -107,12 +139,14 @@ const MODEL_FAMILIES: &[ModelFamily] = &[
                 title: "70B",
                 description: "Default Llama 3.3 70B tag.",
                 tags: &["recommended", "large", "chat", "tools"],
+                download_bytes: 42_520_413_916,
             },
             ModelVariant {
                 name: "llama3.3:70b-instruct-q4_K_M",
                 title: "70B Q4",
                 description: "Quantized instruction variant for large local systems.",
                 tags: &["large", "q4", "chat"],
+                download_bytes: 42_520_413_916,
             },
         ],
     },
@@ -128,18 +162,21 @@ const MODEL_FAMILIES: &[ModelFamily] = &[
                 title: "8B",
                 description: "Classic local Llama 3 baseline.",
                 tags: &["popular", "chat"],
+                download_bytes: 4_661_224_676,
             },
             ModelVariant {
                 name: "llama3:8b-instruct-q4_K_M",
                 title: "8B Q4",
                 description: "Quantized instruct variant.",
                 tags: &["q4", "chat"],
+                download_bytes: 4_920_747_238,
             },
             ModelVariant {
                 name: "llama3:70b",
                 title: "70B",
                 description: "Large Llama 3 variant.",
                 tags: &["large", "chat"],
+                download_bytes: 39_969_745_349,
             },
         ],
     },
@@ -155,36 +192,42 @@ const MODEL_FAMILIES: &[ModelFamily] = &[
                 title: "1.5B",
                 description: "Tiny reasoning distill for light machines.",
                 tags: &["tiny", "reasoning"],
+                download_bytes: 1_117_322_768,
             },
             ModelVariant {
                 name: "deepseek-r1:7b",
                 title: "7B",
                 description: "Popular local reasoning default.",
                 tags: &["recommended", "reasoning", "chat"],
+                download_bytes: 4_683_075_440,
             },
             ModelVariant {
                 name: "deepseek-r1:8b",
                 title: "8B",
                 description: "Qwen3-based refreshed distill.",
                 tags: &["reasoning", "chat"],
+                download_bytes: 5_225_376_047,
             },
             ModelVariant {
                 name: "deepseek-r1:14b",
                 title: "14B",
                 description: "Stronger reasoning on mid-range hardware.",
                 tags: &["medium", "reasoning"],
+                download_bytes: 8_988_112_209,
             },
             ModelVariant {
                 name: "deepseek-r1:32b",
                 title: "32B",
                 description: "High quality reasoning for large local setups.",
                 tags: &["large", "reasoning"],
+                download_bytes: 19_851_337_809,
             },
             ModelVariant {
                 name: "deepseek-r1:70b",
                 title: "70B",
                 description: "Large reasoning model for high-memory systems.",
                 tags: &["large", "reasoning"],
+                download_bytes: 42_520_397_873,
             },
         ],
     },
@@ -200,30 +243,35 @@ const MODEL_FAMILIES: &[ModelFamily] = &[
                 title: "270M",
                 description: "Very small instruction model.",
                 tags: &["tiny", "fast"],
+                download_bytes: 291_554_930,
             },
             ModelVariant {
                 name: "gemma3:1b",
                 title: "1B",
                 description: "Small and responsive local chat.",
                 tags: &["small", "chat"],
+                download_bytes: 806_067_407,
             },
             ModelVariant {
                 name: "gemma3:4b",
                 title: "4B",
                 description: "Recommended local balance for Gemma.",
                 tags: &["recommended", "chat", "vision"],
+                download_bytes: 3_350_272_403,
             },
             ModelVariant {
                 name: "gemma3:12b",
                 title: "12B",
                 description: "Better quality for machines with more memory.",
                 tags: &["medium", "chat", "vision"],
+                download_bytes: 8_164_039_732,
             },
             ModelVariant {
                 name: "gemma3:27b",
                 title: "27B",
                 description: "Large Gemma model for stronger answers.",
                 tags: &["large", "chat", "vision"],
+                download_bytes: 17_413_409_652,
             },
         ],
     },
@@ -239,18 +287,21 @@ const MODEL_FAMILIES: &[ModelFamily] = &[
                 title: "E2B",
                 description: "Smaller efficient Gemma 3n variant.",
                 tags: &["small", "efficient"],
+                download_bytes: 7_836_324_540,
             },
             ModelVariant {
                 name: "gemma3n:e4b",
                 title: "E4B",
                 description: "More capable efficient Gemma 3n variant.",
                 tags: &["recommended", "small", "efficient"],
+                download_bytes: 9_768_581_852,
             },
             ModelVariant {
                 name: "gemma3n:e4b-it-q4_K_M",
                 title: "E4B IT Q4",
                 description: "Quantized instruction-tuned tag.",
                 tags: &["q4", "chat"],
+                download_bytes: 9_768_581_852,
             },
         ],
     },
@@ -266,18 +317,21 @@ const MODEL_FAMILIES: &[ModelFamily] = &[
                 title: "2B",
                 description: "Small Gemma 2 model.",
                 tags: &["small", "chat"],
+                download_bytes: 1_629_518_495,
             },
             ModelVariant {
                 name: "gemma2:9b",
                 title: "9B",
                 description: "Balanced Gemma 2 model.",
                 tags: &["recommended", "chat"],
+                download_bytes: 5_443_152_417,
             },
             ModelVariant {
                 name: "gemma2:27b",
                 title: "27B",
                 description: "Large Gemma 2 model.",
                 tags: &["large", "chat"],
+                download_bytes: 15_628_387_458,
             },
         ],
     },
@@ -293,30 +347,35 @@ const MODEL_FAMILIES: &[ModelFamily] = &[
                 title: "E2B",
                 description: "Compact expert variant for lighter local use.",
                 tags: &["small", "chat"],
+                download_bytes: 4_587_156_505,
             },
             ModelVariant {
                 name: "gemma4:e4b",
                 title: "E4B",
                 description: "Small expert variant with more capacity.",
                 tags: &["small", "chat"],
+                download_bytes: 6_583_656_505,
             },
             ModelVariant {
                 name: "gemma4:12b",
                 title: "12B",
                 description: "Mid-sized Gemma 4 model for chat and image understanding.",
                 tags: &["recommended", "medium", "chat", "vision"],
+                download_bytes: 8_021_618_941,
             },
             ModelVariant {
                 name: "gemma4:26b",
                 title: "26B",
                 description: "Larger instruction model.",
                 tags: &["large", "chat"],
+                download_bytes: 18_731_025_629,
             },
             ModelVariant {
                 name: "gemma4:31b",
                 title: "31B",
                 description: "Large Gemma 4 variant for strong quality.",
                 tags: &["large", "chat"],
+                download_bytes: 20_385_458_234,
             },
         ],
     },
@@ -332,18 +391,21 @@ const MODEL_FAMILIES: &[ModelFamily] = &[
                 title: "4B",
                 description: "Small translation model.",
                 tags: &["recommended", "translation"],
+                download_bytes: 3_298_875_707,
             },
             ModelVariant {
                 name: "translategemma:12b",
                 title: "12B",
                 description: "Medium translation model.",
                 tags: &["translation", "medium"],
+                download_bytes: 8_109_827_612,
             },
             ModelVariant {
                 name: "translategemma:27b",
                 title: "27B",
                 description: "Large translation model.",
                 tags: &["translation", "large"],
+                download_bytes: 17_358_650_268,
             },
         ],
     },
@@ -359,12 +421,14 @@ const MODEL_FAMILIES: &[ModelFamily] = &[
                 title: "4B",
                 description: "Small specialized medical model.",
                 tags: &["specialized", "vision"],
+                download_bytes: 3_338_942_556,
             },
             ModelVariant {
                 name: "medgemma:27b",
                 title: "27B",
                 description: "Large specialized medical model.",
                 tags: &["large", "specialized"],
+                download_bytes: 17_397_224_125,
             },
         ],
     },
@@ -380,42 +444,49 @@ const MODEL_FAMILIES: &[ModelFamily] = &[
                 title: "0.5B",
                 description: "Tiny multilingual model.",
                 tags: &["tiny", "fast"],
+                download_bytes: 397_821_319,
             },
             ModelVariant {
                 name: "qwen2.5:1.5b",
                 title: "1.5B",
                 description: "Small multilingual chat.",
                 tags: &["small", "chat"],
+                download_bytes: 986_061_892,
             },
             ModelVariant {
                 name: "qwen2.5:3b",
                 title: "3B",
                 description: "Lightweight everyday chat.",
                 tags: &["small", "chat"],
+                download_bytes: 1_929_912_432,
             },
             ModelVariant {
                 name: "qwen2.5:7b",
                 title: "7B",
                 description: "Recommended local default.",
                 tags: &["recommended", "chat", "tools"],
+                download_bytes: 4_683_087_332,
             },
             ModelVariant {
                 name: "qwen2.5:14b",
                 title: "14B",
                 description: "Stronger multilingual answers.",
                 tags: &["medium", "chat"],
+                download_bytes: 8_988_124_069,
             },
             ModelVariant {
                 name: "qwen2.5:32b",
                 title: "32B",
                 description: "Large local model for better quality.",
                 tags: &["large", "chat"],
+                download_bytes: 19_851_349_669,
             },
             ModelVariant {
                 name: "qwen2.5:72b",
                 title: "72B",
                 description: "Very large multilingual model.",
                 tags: &["very large", "chat"],
+                download_bytes: 47_415_724_625,
             },
         ],
     },
@@ -431,42 +502,49 @@ const MODEL_FAMILIES: &[ModelFamily] = &[
                 title: "0.6B",
                 description: "Tiny Qwen 3 chat.",
                 tags: &["tiny", "fast"],
+                download_bytes: 522_653_767,
             },
             ModelVariant {
                 name: "qwen3:1.7b",
                 title: "1.7B",
                 description: "Small reasoning model.",
                 tags: &["small", "thinking"],
+                download_bytes: 1_359_293_444,
             },
             ModelVariant {
                 name: "qwen3:4b",
                 title: "4B",
                 description: "Recommended small reasoning model.",
                 tags: &["recommended", "thinking"],
+                download_bytes: 2_497_293_931,
             },
             ModelVariant {
                 name: "qwen3:8b",
                 title: "8B",
                 description: "Balanced reasoning and chat.",
                 tags: &["chat", "thinking"],
+                download_bytes: 5_225_388_164,
             },
             ModelVariant {
                 name: "qwen3:14b",
                 title: "14B",
                 description: "Stronger reasoning on mid-range hardware.",
                 tags: &["medium", "thinking"],
+                download_bytes: 9_276_198_565,
             },
             ModelVariant {
                 name: "qwen3:30b-a3b",
                 title: "30B A3B",
                 description: "Mixture-of-experts model with active 3B path.",
                 tags: &["moe", "thinking"],
+                download_bytes: 18_556_699_314,
             },
             ModelVariant {
                 name: "qwen3:32b",
                 title: "32B",
                 description: "Large dense Qwen 3 model.",
                 tags: &["large", "thinking"],
+                download_bytes: 20_201_253_829,
             },
         ],
     },
@@ -482,36 +560,42 @@ const MODEL_FAMILIES: &[ModelFamily] = &[
                 title: "0.8B",
                 description: "Tiny fast model.",
                 tags: &["tiny", "fast"],
+                download_bytes: 1_322_069_277,
             },
             ModelVariant {
                 name: "qwen3.5:2b",
                 title: "2B",
                 description: "Small general model.",
                 tags: &["small", "chat"],
+                download_bytes: 2_683_396_812,
             },
             ModelVariant {
                 name: "qwen3.5:4b",
                 title: "4B",
                 description: "Practical recent Qwen model for local chat.",
                 tags: &["recommended", "chat"],
+                download_bytes: 3_324_173_934,
             },
             ModelVariant {
                 name: "qwen3.5:9b",
                 title: "9B",
                 description: "Stronger recent Qwen model for local systems.",
                 tags: &["chat", "thinking"],
+                download_bytes: 6_550_825_550,
             },
             ModelVariant {
                 name: "qwen3.5:27b",
                 title: "27B",
                 description: "Large dense model with coding variants.",
                 tags: &["large", "coding"],
+                download_bytes: 17_478_556_591,
             },
             ModelVariant {
                 name: "qwen3.5:35b-a3b",
                 title: "35B A3B",
                 description: "Mixture-of-experts model for larger local setups.",
                 tags: &["moe", "coding"],
+                download_bytes: 22_069_592_181,
             },
         ],
     },
@@ -527,24 +611,28 @@ const MODEL_FAMILIES: &[ModelFamily] = &[
                 title: "27B",
                 description: "Dense recent Qwen model.",
                 tags: &["large", "chat", "thinking"],
+                download_bytes: 17_769_076_933,
             },
             ModelVariant {
                 name: "qwen3.6:27b-q4_K_M",
                 title: "27B Q4",
                 description: "Quantized dense recent Qwen model.",
                 tags: &["q4", "coding", "thinking"],
+                download_bytes: 17_420_432_475,
             },
             ModelVariant {
                 name: "qwen3.6:35b-a3b",
                 title: "35B A3B",
                 description: "Mixture-of-experts recent Qwen model.",
                 tags: &["moe", "coding", "thinking"],
+                download_bytes: 22_621_314_381,
             },
             ModelVariant {
                 name: "qwen3.6:35b-a3b-q4_K_M",
                 title: "35B A3B Q4",
                 description: "Quantized MoE variant.",
                 tags: &["q4", "moe", "coding"],
+                download_bytes: 23_938_333_577,
             },
         ],
     },
@@ -559,6 +647,7 @@ const MODEL_FAMILIES: &[ModelFamily] = &[
             title: "27B",
             description: "Large Qwen model with image support and reasoning.",
             tags: &["recommended", "large", "vision", "thinking"],
+            download_bytes: 17_741_872_154,
         }],
     },
     ModelFamily {
@@ -573,12 +662,14 @@ const MODEL_FAMILIES: &[ModelFamily] = &[
                 title: "20B",
                 description: "Recommended local GPT OSS variant.",
                 tags: &["recommended", "chat"],
+                download_bytes: 13_793_441_566,
             },
             ModelVariant {
                 name: "gpt-oss:120b",
                 title: "120B",
                 description: "Very large GPT OSS variant.",
                 tags: &["very large", "chat"],
+                download_bytes: 65_369_819_583,
             },
         ],
     },
@@ -594,12 +685,14 @@ const MODEL_FAMILIES: &[ModelFamily] = &[
                 title: "7B",
                 description: "Default Mistral local chat model.",
                 tags: &["recommended", "chat"],
+                download_bytes: 4_372_824_384,
             },
             ModelVariant {
                 name: "mistral:7b-instruct-v0.3-q4_K_M",
                 title: "7B Instruct v0.3 Q4",
                 description: "Quantized instruction variant.",
                 tags: &["instruct", "q4", "chat"],
+                download_bytes: 4_372_824_384,
             },
         ],
     },
@@ -615,12 +708,14 @@ const MODEL_FAMILIES: &[ModelFamily] = &[
                 title: "12B",
                 description: "Default Mistral Nemo model.",
                 tags: &["recommended", "medium", "chat"],
+                download_bytes: 7_071_713_227,
             },
             ModelVariant {
                 name: "mistral-nemo:12b-instruct-2407-q4_K_M",
                 title: "12B Q4",
                 description: "Quantized instruction variant.",
                 tags: &["q4", "chat"],
+                download_bytes: 7_477_217_229,
             },
         ],
     },
@@ -636,18 +731,21 @@ const MODEL_FAMILIES: &[ModelFamily] = &[
                 title: "22B",
                 description: "Earlier Mistral Small tag.",
                 tags: &["large", "chat"],
+                download_bytes: 12_569_172_141,
             },
             ModelVariant {
                 name: "mistral-small:24b",
                 title: "24B",
                 description: "Newer Mistral Small tag.",
                 tags: &["recommended", "large", "chat"],
+                download_bytes: 14_333_921_662,
             },
             ModelVariant {
                 name: "mistral-small:24b-instruct-2501-q4_K_M",
                 title: "24B Q4",
                 description: "Quantized instruction variant.",
                 tags: &["q4", "chat"],
+                download_bytes: 14_333_921_662,
             },
         ],
     },
@@ -663,12 +761,14 @@ const MODEL_FAMILIES: &[ModelFamily] = &[
                 title: "24B",
                 description: "Default 24B instruction model.",
                 tags: &["large", "chat"],
+                download_bytes: 15_177_384_862,
             },
             ModelVariant {
                 name: "mistral-small3.2:24b-instruct-2506-q4_K_M",
                 title: "24B Q4",
                 description: "Quantized instruction variant.",
                 tags: &["large", "q4", "chat"],
+                download_bytes: 15_177_384_862,
             },
         ],
     },
@@ -684,12 +784,14 @@ const MODEL_FAMILIES: &[ModelFamily] = &[
                 title: "128B",
                 description: "Default Mistral Medium 3.5 tag.",
                 tags: &["very large", "chat"],
+                download_bytes: 80_241_475_099,
             },
             ModelVariant {
                 name: "mistral-medium-3.5:128b-q4_K_M",
                 title: "128B Q4",
                 description: "Quantized large Mistral Medium tag.",
                 tags: &["q4", "very large"],
+                download_bytes: 80_241_475_099,
             },
         ],
     },
@@ -705,18 +807,21 @@ const MODEL_FAMILIES: &[ModelFamily] = &[
                 title: "3B",
                 description: "Small edge-friendly model.",
                 tags: &["small", "fast"],
+                download_bytes: 2_953_840_808,
             },
             ModelVariant {
                 name: "ministral-3:8b",
                 title: "8B",
                 description: "Balanced local Ministral model.",
                 tags: &["recommended", "chat"],
+                download_bytes: 6_022_236_616,
             },
             ModelVariant {
                 name: "ministral-3:14b",
                 title: "14B",
                 description: "Stronger local Ministral model.",
                 tags: &["medium", "chat"],
+                download_bytes: 9_082_537_546,
             },
         ],
     },
@@ -731,6 +836,7 @@ const MODEL_FAMILIES: &[ModelFamily] = &[
             title: "30B",
             description: "Large local model with image understanding and reasoning support.",
             tags: &["recommended", "large", "vision", "thinking"],
+            download_bytes: 18_157_010_252,
         }],
     },
     ModelFamily {
@@ -745,12 +851,14 @@ const MODEL_FAMILIES: &[ModelFamily] = &[
                 title: "3B",
                 description: "Small model for multilingual chat and document summaries.",
                 tags: &["small", "chat", "documents", "thinking"],
+                download_bytes: 2_244_023_965,
             },
             ModelVariant {
                 name: "granite4.2:8b",
                 title: "8B",
                 description: "Recommended variant for document questions and everyday chat.",
                 tags: &["recommended", "chat", "documents", "thinking"],
+                download_bytes: 5_347_929_757,
             },
         ],
     },
@@ -766,12 +874,14 @@ const MODEL_FAMILIES: &[ModelFamily] = &[
                 title: "14B",
                 description: "Default Phi 4 model.",
                 tags: &["recommended", "chat"],
+                download_bytes: 9_053_116_391,
             },
             ModelVariant {
                 name: "phi4:14b-q4_K_M",
                 title: "14B Q4",
                 description: "Quantized Phi 4 variant.",
                 tags: &["q4", "chat"],
+                download_bytes: 9_053_116_391,
             },
         ],
     },
@@ -786,6 +896,7 @@ const MODEL_FAMILIES: &[ModelFamily] = &[
             title: "3.8B",
             description: "Small local model for multilingual chat and practical reasoning.",
             tags: &["recommended", "small", "chat", "reasoning"],
+            download_bytes: 2_491_876_774,
         }],
     },
     ModelFamily {
@@ -800,18 +911,21 @@ const MODEL_FAMILIES: &[ModelFamily] = &[
                 title: "14B",
                 description: "Default Phi 4 reasoning model.",
                 tags: &["recommended", "reasoning"],
+                download_bytes: 11_117_503_233,
             },
             ModelVariant {
                 name: "phi4-reasoning:14b-q4_K_M",
                 title: "14B Q4",
                 description: "Quantized reasoning variant.",
                 tags: &["q4", "reasoning"],
+                download_bytes: 11_117_503_233,
             },
             ModelVariant {
                 name: "phi4-reasoning:plus",
                 title: "Plus",
                 description: "Reasoning-plus variant.",
                 tags: &["reasoning", "chat"],
+                download_bytes: 11_117_503_233,
             },
         ],
     },
@@ -827,12 +941,14 @@ const MODEL_FAMILIES: &[ModelFamily] = &[
                 title: "3.8B",
                 description: "Small Phi 3 mini model.",
                 tags: &["small", "chat"],
+                download_bytes: 2_176_178_913,
             },
             ModelVariant {
                 name: "phi3:14b",
                 title: "14B",
                 description: "Medium Phi 3 model.",
                 tags: &["medium", "chat"],
+                download_bytes: 7_897_127_458,
             },
         ],
     },
@@ -848,24 +964,28 @@ const MODEL_FAMILIES: &[ModelFamily] = &[
                 title: "1.5B",
                 description: "Small code model.",
                 tags: &["small", "coding"],
+                download_bytes: 986_062_089,
             },
             ModelVariant {
                 name: "qwen2.5-coder:7b",
                 title: "7B",
                 description: "Recommended local coding model.",
                 tags: &["recommended", "coding"],
+                download_bytes: 4_683_087_561,
             },
             ModelVariant {
                 name: "qwen2.5-coder:14b",
                 title: "14B",
                 description: "Stronger coding model.",
                 tags: &["medium", "coding"],
+                download_bytes: 8_988_124_298,
             },
             ModelVariant {
                 name: "qwen2.5-coder:32b",
                 title: "32B",
                 description: "Large coding model.",
                 tags: &["large", "coding"],
+                download_bytes: 19_851_349_898,
             },
         ],
     },
@@ -881,18 +1001,21 @@ const MODEL_FAMILIES: &[ModelFamily] = &[
                 title: "30B A3B",
                 description: "Default local Qwen 3 Coder tag.",
                 tags: &["recommended", "coding", "moe"],
+                download_bytes: 18_556_700_761,
             },
             ModelVariant {
                 name: "qwen3-coder:30b-a3b-q4_K_M",
                 title: "30B A3B Q4",
                 description: "Quantized local coding variant.",
                 tags: &["q4", "coding", "moe"],
+                download_bytes: 18_556_700_761,
             },
             ModelVariant {
                 name: "qwen3-coder:480b",
                 title: "480B A35B",
                 description: "Very large Qwen coding model.",
                 tags: &["very large", "coding", "moe"],
+                download_bytes: 290_058_836_445,
             },
         ],
     },
@@ -908,12 +1031,14 @@ const MODEL_FAMILIES: &[ModelFamily] = &[
                 title: "Q4",
                 description: "Quantized local coding tag.",
                 tags: &["recommended", "q4", "coding"],
+                download_bytes: 51_741_611_823,
             },
             ModelVariant {
                 name: "qwen3-coder-next:q8_0",
                 title: "Q8",
                 description: "Higher precision local coding tag.",
                 tags: &["q8", "coding"],
+                download_bytes: 84_812_676_525,
             },
         ],
     },
@@ -928,6 +1053,7 @@ const MODEL_FAMILIES: &[ModelFamily] = &[
             title: "8B",
             description: "Local coding model for programming and technical questions.",
             tags: &["recommended", "coding", "math"],
+            download_bytes: 5_114_440_677,
         }],
     },
     ModelFamily {
@@ -941,6 +1067,7 @@ const MODEL_FAMILIES: &[ModelFamily] = &[
             title: "24B",
             description: "Coding-focused model for systems with more available memory.",
             tags: &["recommended", "large", "coding", "vision"],
+            download_bytes: 15_177_374_099,
         }],
     },
     ModelFamily {
@@ -955,18 +1082,21 @@ const MODEL_FAMILIES: &[ModelFamily] = &[
                 title: "1.3B",
                 description: "Small code model.",
                 tags: &["small", "coding"],
+                download_bytes: 776_080_839,
             },
             ModelVariant {
                 name: "deepseek-coder:6.7b",
                 title: "6.7B",
                 description: "Balanced local code model.",
                 tags: &["recommended", "coding"],
+                download_bytes: 3_827_834_503,
             },
             ModelVariant {
                 name: "deepseek-coder:33b",
                 title: "33B",
                 description: "Large code model.",
                 tags: &["large", "coding"],
+                download_bytes: 18_819_456_424,
             },
         ],
     },
@@ -982,18 +1112,21 @@ const MODEL_FAMILIES: &[ModelFamily] = &[
                 title: "3B",
                 description: "Small code model.",
                 tags: &["small", "coding"],
+                download_bytes: 1_709_901_728,
             },
             ModelVariant {
                 name: "starcoder2:7b",
                 title: "7B",
                 description: "Balanced code model.",
                 tags: &["recommended", "coding"],
+                download_bytes: 4_042_813_088,
             },
             ModelVariant {
                 name: "starcoder2:15b",
                 title: "15B",
                 description: "Larger code model.",
                 tags: &["medium", "coding"],
+                download_bytes: 9_065_413_313,
             },
         ],
     },
@@ -1009,12 +1142,14 @@ const MODEL_FAMILIES: &[ModelFamily] = &[
                 title: "2B",
                 description: "Small code completion model.",
                 tags: &["small", "coding"],
+                download_bytes: 1_551_198_417,
             },
             ModelVariant {
                 name: "codegemma:7b",
                 title: "7B",
                 description: "Recommended CodeGemma local tag.",
                 tags: &["recommended", "coding"],
+                download_bytes: 5_011_852_809,
             },
         ],
     },
@@ -1030,18 +1165,21 @@ const MODEL_FAMILIES: &[ModelFamily] = &[
                 title: "7B",
                 description: "Small coding model.",
                 tags: &["small", "coding"],
+                download_bytes: 3_825_910_662,
             },
             ModelVariant {
                 name: "codellama:13b",
                 title: "13B",
                 description: "Medium coding model.",
                 tags: &["medium", "coding"],
+                download_bytes: 7_365_960_935,
             },
             ModelVariant {
                 name: "codellama:34b",
                 title: "34B",
                 description: "Large coding model.",
                 tags: &["large", "coding"],
+                download_bytes: 19_052_049_085,
             },
         ],
     },
@@ -1057,12 +1195,14 @@ const MODEL_FAMILIES: &[ModelFamily] = &[
                 title: "11B",
                 description: "Smaller vision-capable Llama model.",
                 tags: &["vision", "medium"],
+                download_bytes: 7_816_589_186,
             },
             ModelVariant {
                 name: "llama3.2-vision:90b",
                 title: "90B",
                 description: "Large vision-capable Llama model.",
                 tags: &["vision", "large"],
+                download_bytes: 54_622_563_330,
             },
         ],
     },
@@ -1078,24 +1218,28 @@ const MODEL_FAMILIES: &[ModelFamily] = &[
                 title: "2B",
                 description: "Small vision-language variant.",
                 tags: &["small", "vision"],
+                download_bytes: 1_889_508_332,
             },
             ModelVariant {
                 name: "qwen3-vl:4b",
                 title: "4B",
                 description: "Compact vision-language model.",
                 tags: &["small", "vision"],
+                download_bytes: 3_336_619_180,
             },
             ModelVariant {
                 name: "qwen3-vl:8b",
                 title: "8B",
                 description: "Balanced vision-language model.",
                 tags: &["vision", "thinking"],
+                download_bytes: 6_190_971_699,
             },
             ModelVariant {
                 name: "qwen3-vl:30b-a3b",
                 title: "30B A3B",
                 description: "Larger mixture-of-experts vision model.",
                 tags: &["vision", "moe"],
+                download_bytes: 19_595_398_707,
             },
         ],
     },
@@ -1111,18 +1255,21 @@ const MODEL_FAMILIES: &[ModelFamily] = &[
                 title: "3B",
                 description: "Small vision-language model.",
                 tags: &["small", "vision"],
+                download_bytes: 3_200_627_168,
             },
             ModelVariant {
                 name: "qwen2.5vl:7b",
                 title: "7B",
                 description: "Recommended local vision-language model.",
                 tags: &["recommended", "vision"],
+                download_bytes: 5_969_245_856,
             },
             ModelVariant {
                 name: "qwen2.5vl:32b",
                 title: "32B",
                 description: "Large vision-language model.",
                 tags: &["large", "vision"],
+                download_bytes: 21_159_310_657,
             },
         ],
     },
@@ -1138,18 +1285,21 @@ const MODEL_FAMILIES: &[ModelFamily] = &[
                 title: "7B",
                 description: "Small LLaVA vision model.",
                 tags: &["recommended", "vision"],
+                download_bytes: 4_733_363_377,
             },
             ModelVariant {
                 name: "llava:13b",
                 title: "13B",
                 description: "Medium LLaVA vision model.",
                 tags: &["medium", "vision"],
+                download_bytes: 8_011_256_494,
             },
             ModelVariant {
                 name: "llava:34b",
                 title: "34B",
                 description: "Large LLaVA vision model.",
                 tags: &["large", "vision"],
+                download_bytes: 20_166_497_526,
             },
         ],
     },
@@ -1164,6 +1314,7 @@ const MODEL_FAMILIES: &[ModelFamily] = &[
             title: "8B",
             description: "Default MiniCPM-V local tag.",
             tags: &["recommended", "vision"],
+            download_bytes: 5_473_838_466,
         }],
     },
     ModelFamily {
@@ -1177,6 +1328,7 @@ const MODEL_FAMILIES: &[ModelFamily] = &[
             title: "1B",
             description: "Lightweight model for image questions and visual understanding.",
             tags: &["recommended", "small", "vision"],
+            download_bytes: 1_637_848_812,
         }],
     },
     ModelFamily {
@@ -1190,6 +1342,7 @@ const MODEL_FAMILIES: &[ModelFamily] = &[
             title: "9B",
             description: "Balanced local model for chat and image understanding.",
             tags: &["recommended", "chat", "vision"],
+            download_bytes: 6_550_813_657,
         }],
     },
     ModelFamily {
@@ -1204,18 +1357,21 @@ const MODEL_FAMILIES: &[ModelFamily] = &[
                 title: "7B",
                 description: "Small OLMo 2 model.",
                 tags: &["small", "open"],
+                download_bytes: 4_472_032_405,
             },
             ModelVariant {
                 name: "olmo2:13b",
                 title: "13B",
                 description: "Recommended OLMo 2 model.",
                 tags: &["recommended", "open"],
+                download_bytes: 8_354_361_686,
             },
             ModelVariant {
                 name: "olmo2:13b-1124-instruct-q4_K_M",
                 title: "13B Q4",
                 description: "Quantized instruction tag.",
                 tags: &["q4", "chat"],
+                download_bytes: 8_354_361_686,
             },
         ],
     },
@@ -1231,12 +1387,14 @@ const MODEL_FAMILIES: &[ModelFamily] = &[
                 title: "8x7B",
                 description: "Classic Mixtral MoE model.",
                 tags: &["moe", "chat"],
+                download_bytes: 26_443_602_516,
             },
             ModelVariant {
                 name: "mixtral:8x22b",
                 title: "8x22B",
                 description: "Large Mixtral MoE model.",
                 tags: &["large", "moe"],
+                download_bytes: 79_521_279_497,
             },
         ],
     },
@@ -1251,6 +1409,7 @@ const MODEL_FAMILIES: &[ModelFamily] = &[
             title: "30B A3B Q4",
             description: "Quantized model for local coding and reasoning with lower memory use.",
             tags: &["recommended", "large", "q4", "coding", "thinking"],
+            download_bytes: 19_019_270_897,
         }],
     },
     ModelFamily {
@@ -1265,12 +1424,14 @@ const MODEL_FAMILIES: &[ModelFamily] = &[
                 title: "32B",
                 description: "Default QwQ reasoning model.",
                 tags: &["recommended", "reasoning"],
+                download_bytes: 19_851_349_657,
             },
             ModelVariant {
                 name: "qwq:32b-q4_K_M",
                 title: "32B Q4",
                 description: "Quantized QwQ reasoning tag.",
                 tags: &["q4", "thinking"],
+                download_bytes: 19_851_349_657,
             },
         ],
     },
@@ -1286,12 +1447,14 @@ const MODEL_FAMILIES: &[ModelFamily] = &[
                 title: "671B",
                 description: "Default very large DeepSeek V3 tag.",
                 tags: &["very large", "moe"],
+                download_bytes: 404_430_200_769,
             },
             ModelVariant {
                 name: "deepseek-v3:671b-q4_K_M",
                 title: "671B Q4",
                 description: "Quantized very large DeepSeek V3 tag.",
                 tags: &["q4", "very large"],
+                download_bytes: 404_430_200_769,
             },
         ],
     },
@@ -1306,6 +1469,7 @@ const MODEL_FAMILIES: &[ModelFamily] = &[
             title: "33B A3B Q4",
             description: "Quantized Laguna XS 2.1 model for local programming assistance.",
             tags: &["recommended", "large", "q4", "coding", "thinking"],
+            download_bytes: 20_274_303_147,
         }],
     },
     ModelFamily {
@@ -1320,12 +1484,14 @@ const MODEL_FAMILIES: &[ModelFamily] = &[
                 title: "Q4",
                 description: "Quantized Laguna XS.2 tag.",
                 tags: &["recommended", "q4", "coding"],
+                download_bytes: 23_098_061_820,
             },
             ModelVariant {
                 name: "laguna-xs.2:q8_0",
                 title: "Q8",
                 description: "Higher precision Laguna XS.2 tag.",
                 tags: &["q8", "coding"],
+                download_bytes: 37_486_621_690,
             },
         ],
     },
@@ -1341,12 +1507,14 @@ const MODEL_FAMILIES: &[ModelFamily] = &[
                 title: "24B A2B",
                 description: "Default efficient LFM2 tag.",
                 tags: &["recommended", "moe"],
+                download_bytes: 14_415_742_358,
             },
             ModelVariant {
                 name: "lfm2:24b-q4_K_M",
                 title: "24B Q4",
                 description: "Quantized LFM2 variant.",
                 tags: &["q4", "chat"],
+                download_bytes: 14_415_742_358,
             },
         ],
     },
@@ -1361,6 +1529,7 @@ const MODEL_FAMILIES: &[ModelFamily] = &[
             title: "8B A1B",
             description: "Efficient local assistant model with reasoning support.",
             tags: &["recommended", "chat", "thinking", "moe"],
+            download_bytes: 5_156_075_525,
         }],
     },
     ModelFamily {
@@ -1374,6 +1543,7 @@ const MODEL_FAMILIES: &[ModelFamily] = &[
             title: "1.2B",
             description: "Compact reasoning model for lightweight local use.",
             tags: &["recommended", "small", "thinking", "multilingual"],
+            download_bytes: 731_163_903,
         }],
     },
     ModelFamily {
@@ -1388,12 +1558,14 @@ const MODEL_FAMILIES: &[ModelFamily] = &[
                 title: "120B A12B",
                 description: "Default Nemotron 3 Super MoE tag.",
                 tags: &["moe", "very large"],
+                download_bytes: 86_827_834_104,
             },
             ModelVariant {
                 name: "nemotron-3-super:120b-a12b-q4_K_M",
                 title: "120B Q4",
                 description: "Quantized Nemotron 3 Super tag.",
                 tags: &["q4", "very large"],
+                download_bytes: 86_827_834_104,
             },
         ],
     },
@@ -1409,18 +1581,21 @@ const MODEL_FAMILIES: &[ModelFamily] = &[
                 title: "135M",
                 description: "Tiny test model.",
                 tags: &["tiny", "fast"],
+                download_bytes: 270_898_672,
             },
             ModelVariant {
                 name: "smollm2:360m",
                 title: "360M",
                 description: "Very small local model.",
                 tags: &["tiny", "fast"],
+                download_bytes: 725_566_512,
             },
             ModelVariant {
                 name: "smollm2:1.7b",
                 title: "1.7B",
                 description: "Small instruction model.",
                 tags: &["small", "chat"],
+                download_bytes: 1_820_428_533,
             },
         ],
     },
@@ -1437,7 +1612,7 @@ pub(super) fn build() -> ModelManager {
 
     let content = gtk::Box::builder()
         .orientation(Orientation::Vertical)
-        .spacing(16)
+        .spacing(18)
         .hexpand(true)
         .vexpand(true)
         .build();
@@ -1449,17 +1624,15 @@ pub(super) fn build() -> ModelManager {
         .halign(Align::Fill)
         .hexpand(true)
         .build();
-    header.add_css_class("moose-model-manager-header");
 
     let title_row = gtk::Box::builder()
         .orientation(Orientation::Horizontal)
         .spacing(8)
-        .halign(Align::Center)
         .build();
 
     let title = gtk::Label::builder()
         .label("Models")
-        .halign(Align::Center)
+        .hexpand(true)
         .xalign(0.0)
         .build();
     title.add_css_class("title-2");
@@ -1467,131 +1640,301 @@ pub(super) fn build() -> ModelManager {
     let actions = gtk::Box::builder()
         .orientation(Orientation::Horizontal)
         .spacing(6)
-        .halign(Align::Center)
+        .halign(Align::End)
+        .valign(Align::Center)
         .build();
 
     let pull_button = gtk::Button::builder()
-        .label("Download Model…")
+        .label("Add Model…")
         .tooltip_text("Download a model from Ollama or Hugging Face")
-        .css_classes(["suggested-action"])
         .build();
     pull_button.set_sensitive(false);
 
-    let download_jobs_button = icon_button("view-list-symbolic", "Download Jobs");
-
-    let refresh_button = icon_button("view-refresh-symbolic", "Refresh Models");
+    let download_jobs_button = gtk::Button::builder()
+        .label("Downloads")
+        .css_classes(["flat"])
+        .build();
+    let refresh_button = gtk::Button::builder()
+        .label("Refresh Models")
+        .css_classes(["flat"])
+        .build();
     refresh_button.set_sensitive(false);
 
+    let options = gtk::Box::new(Orientation::Vertical, 0);
+    options.append(&refresh_button);
+    options.append(&download_jobs_button);
+    let options_popover = gtk::Popover::builder().child(&options).build();
+    for button in [&refresh_button, &download_jobs_button] {
+        let weak_popover = options_popover.downgrade();
+        button.connect_clicked(move |_| {
+            if let Some(popover) = weak_popover.upgrade() {
+                popover.popdown();
+            }
+        });
+    }
+    let options_button = gtk::MenuButton::builder()
+        .icon_name("view-more-symbolic")
+        .tooltip_text("More Options")
+        .popover(&options_popover)
+        .css_classes(["flat"])
+        .build();
+
     title_row.append(&title);
-    actions.append(&refresh_button);
-    actions.append(&download_jobs_button);
     actions.append(&pull_button);
+    actions.append(&options_button);
+    title_row.append(&actions);
 
     let search_entry = gtk::SearchEntry::builder()
-        .placeholder_text("Search models or paste a model link")
+        .placeholder_text("Search models or paste a link")
+        .tooltip_text("Search by name or task, or paste a model link")
         .hexpand(true)
         .build();
     search_entry.set_sensitive(false);
     search_entry.add_css_class("moose-model-search");
+    search_entry.update_property(&[gtk::accessible::Property::Label(
+        "Search models or paste a link",
+    )]);
 
     header.append(&title_row);
-    header.append(&actions);
-    let search_clamp = adw::Clamp::builder()
-        .maximum_size(480)
-        .tightening_threshold(320)
-        .child(&search_entry)
-        .build();
-    header.append(&search_clamp);
 
-    let installed_label = section_label("Installed Models");
-    installed_label.add_css_class("moose-model-section");
+    let filters_box = gtk::Box::new(Orientation::Vertical, 12);
+    let task_filter = adw::ToggleGroup::builder()
+        .homogeneous(true)
+        .can_shrink(true)
+        .css_classes(["round"])
+        .build();
+    for (name, label, tooltip) in [
+        ("all", "All", "Browse every model family"),
+        ("everyday", "Everyday", "Questions, writing, and learning"),
+        ("coding", "Coding", "Write, explain, and troubleshoot code"),
+        (
+            "images",
+            "Images",
+            "Ask questions about photos and screenshots",
+        ),
+        (
+            "documents",
+            "Documents",
+            "Summarize text and work with documents",
+        ),
+    ] {
+        task_filter.add(
+            adw::Toggle::builder()
+                .name(name)
+                .label(label)
+                .tooltip(tooltip)
+                .build(),
+        );
+    }
+    task_filter.set_active_name(Some("all"));
+    task_filter.update_property(&[gtk::accessible::Property::Label("Available model category")]);
+    filters_box.append(&task_filter);
+
+    let preference_filter = adw::ComboRow::builder()
+        .title("Preference")
+        .model(&gtk::StringList::new(&[
+            "Balanced",
+            "Lighter Downloads",
+            "Larger Models",
+        ]))
+        .build();
+    preference_filter.set_tooltip_text(Some(
+        "Choose a balance, smaller downloads, or larger versions. Speed depends on your hardware.",
+    ));
+    preference_filter.update_property(&[gtk::accessible::Property::Label("Model preference")]);
+    let reset_filters_button = gtk::Button::builder()
+        .label("Reset Filters")
+        .tooltip_text("Clear the search and restore the default filters")
+        .halign(Align::End)
+        .css_classes(["flat"])
+        .build();
+    let filters_button = gtk::MenuButton::builder()
+        .icon_name("moose-funnel-symbolic")
+        .tooltip_text("Filters")
+        .build();
+    filters_button.update_property(&[gtk::accessible::Property::Label("Model filters")]);
+    let popover = gtk::Popover::new();
+    let filter_content = gtk::Box::builder()
+        .orientation(Orientation::Vertical)
+        .spacing(12)
+        .margin_top(12)
+        .margin_bottom(12)
+        .margin_start(12)
+        .margin_end(12)
+        .width_request(300)
+        .build();
+    let download_filter = adw::ComboRow::builder()
+        .title("Download Size")
+        .model(&gtk::StringList::new(&[
+            "Any size",
+            "Under 2 GB",
+            "Under 5 GB",
+            "Under 10 GB",
+            "Under 20 GB",
+        ]))
+        .build();
+    let images_filter = adw::SwitchRow::builder()
+        .title("Image Input")
+        .subtitle("Models that can understand images")
+        .subtitle_lines(2)
+        .build();
+    let tools_filter = adw::SwitchRow::builder()
+        .title("Tool Use")
+        .subtitle("Models with tool-calling support")
+        .subtitle_lines(2)
+        .build();
+    let multilingual_filter = adw::SwitchRow::builder()
+        .title("Multiple Languages")
+        .subtitle("Language quality varies by model")
+        .subtitle_lines(2)
+        .build();
+    let filter_group = adw::PreferencesGroup::new();
+    filter_group.add(&preference_filter);
+    filter_group.add(&download_filter);
+    filter_group.add(&images_filter);
+    filter_group.add(&tools_filter);
+    filter_group.add(&multilingual_filter);
+    filter_content.append(&filter_group);
+    let memory_hint = gtk::Label::builder()
+        .xalign(0.0)
+        .wrap(true)
+        .width_chars(1)
+        .css_classes(["caption", "dim-label"])
+        .build();
+    filter_content.append(&memory_hint);
+    filter_content.append(&reset_filters_button);
+    let filter_scroll = gtk::ScrolledWindow::builder()
+        .hscrollbar_policy(PolicyType::Never)
+        .max_content_height(440)
+        .propagate_natural_height(true)
+        .child(&filter_content)
+        .build();
+    popover.set_child(Some(&filter_scroll));
+    filters_button.set_popover(Some(&popover));
+    let search_bar = gtk::Box::builder()
+        .orientation(Orientation::Horizontal)
+        .css_classes(["linked"])
+        .build();
+    search_bar.append(&search_entry);
+    search_bar.append(&filters_button);
+    header.append(&search_bar);
+    header.append(&filters_box);
 
     let pull_panel = gtk::Box::builder()
         .orientation(Orientation::Vertical)
-        .spacing(8)
         .hexpand(true)
         .visible(false)
+        .css_classes(["card"])
         .build();
-    pull_panel.add_css_class("moose-pull-panel");
-
-    let pull_header = gtk::Box::builder()
-        .orientation(Orientation::Horizontal)
-        .spacing(8)
-        .hexpand(true)
+    let pull_row = adw::ActionRow::builder()
+        .title("Model Download")
+        .subtitle("Preparing download…")
+        .title_lines(1)
+        .subtitle_lines(1)
+        .use_markup(false)
+        .activatable(false)
+        .selectable(false)
         .build();
-
-    let pull_title = gtk::Label::builder()
-        .label("Downloading Model")
-        .halign(Align::Start)
-        .hexpand(true)
-        .xalign(0.0)
+    let pull_activity = gtk::Stack::builder()
+        .valign(Align::Center)
+        .width_request(24)
+        .height_request(24)
         .build();
-    pull_title.add_css_class("heading");
+    let spinner = adw::Spinner::builder()
+        .width_request(24)
+        .height_request(24)
+        .build();
+    let pull_icon = gtk::Image::builder()
+        .icon_name("folder-download-symbolic")
+        .pixel_size(24)
+        .build();
+    pull_activity.add_named(&spinner, Some("working"));
+    pull_activity.add_named(&pull_icon, Some("status"));
+    pull_row.add_prefix(&pull_activity);
 
-    let pull_cancel_button = icon_button("process-stop-symbolic", "Cancel Download");
-    pull_cancel_button.add_css_class("destructive-action");
+    let pull_cancel_button = icon_button("window-close-symbolic", "Cancel Download");
+    pull_cancel_button.add_css_class("circular");
+    pull_cancel_button.set_valign(Align::Center);
     pull_cancel_button.set_sensitive(false);
-
-    pull_header.append(&pull_title);
-    pull_header.append(&pull_cancel_button);
+    pull_cancel_button.set_visible(false);
+    pull_cancel_button.update_property(&[gtk::accessible::Property::Label("Cancel download")]);
 
     let pull_status = gtk::Label::builder()
-        .label("Preparing download")
         .selectable(true)
         .wrap_mode(gtk::pango::WrapMode::WordChar)
-        .halign(Align::Start)
+        .width_chars(1)
         .xalign(0.0)
         .wrap(true)
         .build();
-    pull_status.add_css_class("dim-label");
-    let pull_copy_button = icon_button("edit-copy-symbolic", "Copy Details");
-    pull_copy_button.set_visible(false);
+    let pull_copy_button = gtk::Button::builder()
+        .label("Copy Details")
+        .halign(Align::End)
+        .css_classes(["flat"])
+        .build();
     let copy_status = pull_status.clone();
     pull_copy_button
         .connect_clicked(move |_| copy_status.clipboard().set_text(&copy_status.text()));
-    pull_header.append(&pull_copy_button);
+    let details = gtk::Box::builder()
+        .orientation(Orientation::Vertical)
+        .spacing(12)
+        .width_request(280)
+        .margin_top(6)
+        .margin_bottom(6)
+        .margin_start(6)
+        .margin_end(6)
+        .build();
+    details.append(&pull_status);
+    details.append(&pull_copy_button);
+    let details_scroll = gtk::ScrolledWindow::builder()
+        .hscrollbar_policy(PolicyType::Never)
+        .max_content_height(280)
+        .propagate_natural_height(true)
+        .child(&details)
+        .build();
+    let details_popover = gtk::Popover::builder().child(&details_scroll).build();
+    let details_button = gtk::MenuButton::builder()
+        .icon_name("view-more-symbolic")
+        .tooltip_text("Details")
+        .valign(Align::Center)
+        .popover(&details_popover)
+        .css_classes(["flat", "circular"])
+        .build();
+    details_button.update_property(&[gtk::accessible::Property::Label("Transfer details")]);
+    pull_row.add_suffix(&details_button);
+    pull_row.add_suffix(&pull_cancel_button);
 
     let pull_progress = gtk::ProgressBar::builder()
         .hexpand(true)
         .pulse_step(0.08)
+        .margin_start(16)
+        .margin_end(16)
+        .margin_bottom(12)
         .build();
-    pull_progress.add_css_class("moose-pull-progress");
-
-    let pull_progress_label = gtk::Label::builder()
-        .label("")
-        .halign(Align::Start)
-        .xalign(0.0)
-        .build();
-    pull_progress_label.add_css_class("caption");
-    pull_progress_label.add_css_class("dim-label");
-
-    pull_panel.append(&pull_header);
-    pull_panel.append(&pull_status);
+    pull_progress.update_property(&[gtk::accessible::Property::Label("Model download progress")]);
+    pull_panel.append(&pull_row);
     pull_panel.append(&pull_progress);
-    pull_panel.append(&pull_progress_label);
 
     let model_list = gtk::ListBox::new();
     model_list.set_selection_mode(gtk::SelectionMode::None);
-    model_list.add_css_class("moose-model-list");
-
-    let available_label = section_label("Popular and Recent Models");
-    available_label.add_css_class("moose-model-section");
+    model_list.add_css_class("boxed-list");
+    let installed_group = adw::PreferencesGroup::builder().title("Installed").build();
+    installed_group.add(&model_list);
 
     let available_model_list = gtk::ListBox::new();
     available_model_list.set_selection_mode(gtk::SelectionMode::None);
-    available_model_list.add_css_class("moose-model-list");
+    available_model_list.add_css_class("boxed-list");
+    let available_group = adw::PreferencesGroup::builder().title("Available").build();
+    available_group.add(&available_model_list);
 
     let models_content = gtk::Box::builder()
         .orientation(Orientation::Vertical)
-        .spacing(8)
+        .spacing(24)
         .hexpand(true)
         .vexpand(true)
         .build();
     models_content.add_css_class("moose-model-lists");
-    models_content.append(&installed_label);
-    models_content.append(&model_list);
-    models_content.append(&available_label);
-    models_content.append(&available_model_list);
+    models_content.append(&installed_group);
+    models_content.append(&available_group);
 
     let status_page = adw::StatusPage::builder()
         .icon_name(APPLICATION_ID)
@@ -1614,28 +1957,25 @@ pub(super) fn build() -> ModelManager {
     stack.add_named(&models_content, Some("models"));
     stack.set_visible_child_name("empty");
 
-    let scrolled = gtk::ScrolledWindow::builder()
-        .hscrollbar_policy(PolicyType::Never)
-        .vscrollbar_policy(PolicyType::Automatic)
-        .hexpand(true)
-        .vexpand(true)
-        .child(&stack)
-        .build();
-    scrolled.add_css_class("moose-model-scroll");
-
     content.append(&header);
     content.append(&pull_panel);
-    content.append(&scrolled);
+    content.append(&stack);
 
     let clamp = adw::Clamp::builder()
-        .maximum_size(900)
+        .maximum_size(820)
         .tightening_threshold(640)
         .hexpand(true)
         .vexpand(true)
         .child(&content)
         .build();
 
-    root.append(&clamp);
+    let scrolled = gtk::ScrolledWindow::builder()
+        .hscrollbar_policy(PolicyType::Never)
+        .child(&clamp)
+        .hexpand(true)
+        .vexpand(true)
+        .build();
+    root.append(&scrolled);
 
     ModelManager {
         root,
@@ -1643,13 +1983,27 @@ pub(super) fn build() -> ModelManager {
         download_jobs_button,
         refresh_button,
         search_entry,
+        task_filter,
+        preference_filter,
+        download_filter,
+        images_filter,
+        tools_filter,
+        multilingual_filter,
+        reset_filters_button,
+        changing_filters: Rc::new(Cell::new(false)),
         pull_cancel_button,
+        busy: Rc::new(Cell::new(false)),
+        filters_box,
+        filters_button,
+        installed_group,
+        memory_hint,
+        scroll: scrolled,
         pull_panel,
-        pull_title,
+        pull_row,
+        pull_activity,
+        pull_icon,
         pull_status,
-        pull_copy_button,
         pull_progress,
-        pull_progress_label,
         model_list,
         available_model_list,
         status_page,
@@ -1662,6 +2016,8 @@ pub(super) fn set_loading(manager: &ModelManager) {
     manager.pull_button.set_sensitive(false);
     manager.refresh_button.set_sensitive(false);
     manager.search_entry.set_sensitive(false);
+    manager.filters_button.set_sensitive(false);
+    manager.filters_box.set_sensitive(false);
     manager.status_page.set_title("Loading Models");
     manager.status_page.set_description(None);
     manager.stack.set_visible_child_name("empty");
@@ -1672,19 +2028,22 @@ pub(super) fn set_unavailable(manager: &ModelManager, title: &str, description: 
     manager.pull_button.set_sensitive(false);
     manager.refresh_button.set_sensitive(true);
     manager.search_entry.set_sensitive(false);
+    manager.filters_button.set_sensitive(false);
+    manager.filters_box.set_sensitive(false);
     manager.status_page.set_title(title);
     manager.status_page.set_description(Some(description));
     manager.stack.set_visible_child_name("empty");
 }
 
 pub(super) fn clear_download_job(manager: &ModelManager) {
+    manager.busy.set(false);
     manager.pull_panel.set_visible(false);
-    manager.pull_copy_button.set_visible(false);
     manager.pull_cancel_button.set_sensitive(false);
-    manager.pull_title.set_label("Downloading Model");
+    manager.pull_cancel_button.set_visible(false);
+    manager.pull_row.set_title("Model Download");
+    manager.pull_row.set_subtitle("");
     manager.pull_status.set_label("");
     manager.pull_progress.set_fraction(0.0);
-    manager.pull_progress_label.set_label("");
 }
 
 pub(super) fn finish_pull(manager: &ModelManager) {
@@ -1701,11 +2060,70 @@ pub(super) fn set_models(
     on_pull: Rc<dyn Fn(String)>,
     on_delete: Rc<dyn Fn(String)>,
     on_add: Rc<dyn Fn(String)>,
+    on_use: Rc<dyn Fn(String)>,
+    local: bool,
 ) {
     clear_model_lists(manager);
-    manager.pull_button.set_sensitive(true);
-    manager.refresh_button.set_sensitive(true);
+    manager.pull_button.set_sensitive(!manager.busy.get());
+    manager.refresh_button.set_sensitive(!manager.busy.get());
     manager.search_entry.set_sensitive(true);
+    manager.filters_button.set_sensitive(true);
+    manager.filters_box.set_sensitive(true);
+
+    let filters = Filters {
+        task: Task::from_name(
+            manager
+                .task_filter
+                .active_name()
+                .as_deref()
+                .unwrap_or("all"),
+        ),
+        preference: Preference::from_index(manager.preference_filter.selected()),
+        max_download: match manager.download_filter.selected() {
+            1 => Some(2_000_000_000),
+            2 => Some(5_000_000_000),
+            3 => Some(10_000_000_000),
+            4 => Some(20_000_000_000),
+            _ => None,
+        },
+        images: manager.images_filter.is_active(),
+        tools: manager.tools_filter.is_active(),
+        multilingual: manager.multilingual_filter.is_active(),
+    };
+    let extra_count = usize::from(filters.preference != Preference::Balanced)
+        + usize::from(filters.max_download.is_some())
+        + usize::from(filters.images)
+        + usize::from(filters.tools)
+        + usize::from(filters.multilingual);
+    if extra_count == 0 {
+        manager.filters_button.remove_css_class("suggested-action");
+        manager.filters_button.set_tooltip_text(Some("Filters"));
+    } else {
+        manager.filters_button.add_css_class("suggested-action");
+        manager
+            .filters_button
+            .set_tooltip_text(Some(&format!("Filters ({extra_count} active)")));
+    }
+    manager
+        .task_filter
+        .set_tooltip_text(Some(filters.task.description()));
+    manager.reset_filters_button.set_sensitive(
+        !query.trim().is_empty()
+            || filters.task != Task::All
+            || filters.preference != Preference::Balanced
+            || extra_count > 0,
+    );
+    let memory = MemoryBudget::read(local);
+    manager.memory_hint.set_label(&memory.available.map_or_else(
+        || "Memory guidance is unavailable for this connection.".to_string(),
+        |bytes| {
+            format!(
+                "{:.1} GiB available · Memory estimates are approximate",
+                bytes as f64 / 1_073_741_824.0
+            )
+        },
+    ));
+    manager.memory_hint.set_tooltip_text(Some("Memory guidance uses download size with a rough runtime allowance. Context length, graphics memory, and other apps affect actual requirements. It does not predict response speed."));
 
     let download_reference = ModelDownload::parse(query).ok().filter(|reference| {
         reference.hugging_face_repository.is_some()
@@ -1733,61 +2151,86 @@ pub(super) fn set_models(
         manager.model_list.append(&row);
     } else {
         for model in filtered_models {
-            manager
-                .model_list
-                .append(&model_row(parent, model, Rc::clone(&on_delete)));
+            manager.model_list.append(&model_row(
+                parent,
+                model,
+                Rc::clone(&on_delete),
+                Rc::clone(&on_use),
+            ));
         }
     }
+    manager.installed_group.set_visible(!models.is_empty());
 
     let installed_names = models
         .iter()
         .map(|model| model.name.as_str())
         .collect::<Vec<_>>();
-    let filtered_available = MODEL_FAMILIES
-        .iter()
-        .filter(|family| model_family_matches_query(family, &query))
-        .collect::<Vec<_>>();
-
-    if filtered_available.is_empty() {
-        if let Some(reference) = download_reference
-            .filter(|reference| !model_is_installed(&reference.name, &installed_names))
-        {
-            manager
-                .available_model_list
-                .append(&download_reference_row(reference, on_add));
-        } else {
-            manager
-                .available_model_list
-                .append(&empty_row("No available matches"));
-        }
-    } else {
-        for family in filtered_available {
-            manager.available_model_list.append(&model_family_row(
-                parent,
-                family,
-                &installed_names,
-                Rc::clone(&on_pull),
-            ));
-        }
+    let candidates = discovery::discover(&filters, &query, &installed_names, memory);
+    let direct_reference = download_reference.filter(|reference| {
+        !model_is_installed(&reference.name, &installed_names)
+            && !candidates
+                .iter()
+                .any(|candidate| model_names_match(candidate.variant.name, &reference.name))
+    });
+    let has_reference = direct_reference.is_some();
+    if let Some(reference) = direct_reference {
+        manager
+            .available_model_list
+            .append(&download_reference_row(reference, on_add));
+    }
+    if candidates.is_empty() && !has_reference {
+        let reset = gtk::Button::builder()
+            .label("Clear Filters")
+            .halign(Align::Center)
+            .css_classes(["pill"])
+            .build();
+        let weak_reset = manager.reset_filters_button.downgrade();
+        reset.connect_clicked(move |_| {
+            if let Some(button) = weak_reset.upgrade() {
+                button.emit_clicked();
+            }
+        });
+        let empty = adw::StatusPage::builder()
+            .icon_name("system-search-symbolic")
+            .title("No Matching Models")
+            .description("Try another task or clear your search and filters.")
+            .child(&reset)
+            .css_classes(["compact"])
+            .build();
+        manager.available_model_list.append(&empty);
+    }
+    for candidate in candidates {
+        manager.available_model_list.append(&model_family_row(
+            parent,
+            candidate,
+            &installed_names,
+            ModelActions {
+                download: Rc::clone(&on_pull),
+                use_model: Rc::clone(&on_use),
+                download_control: manager.pull_button.clone(),
+            },
+        ));
     }
 
     manager.stack.set_visible_child_name("models");
 }
 
 pub(super) fn set_pull_started(manager: &ModelManager, model: &str) {
-    manager.pull_copy_button.set_visible(false);
+    manager.busy.set(true);
+    manager.scroll.vadjustment().set_value(0.0);
     manager.pull_panel.set_visible(true);
     manager.pull_button.set_sensitive(false);
     manager.refresh_button.set_sensitive(false);
     manager.pull_cancel_button.set_sensitive(true);
+    manager.pull_cancel_button.set_visible(true);
+    manager.pull_activity.set_visible_child_name("working");
+    manager.pull_row.set_title(&download_model_title(model));
+    manager.pull_row.set_subtitle("Preparing download…");
     manager
-        .pull_title
-        .set_label(&format!("Downloading {model}"));
-    manager.pull_status.set_label("Starting download");
+        .pull_status
+        .set_label(&format!("Model: {model}\nPreparing download"));
+    manager.pull_progress.set_visible(true);
     manager.pull_progress.set_fraction(0.0);
-    manager
-        .pull_progress_label
-        .set_label("Waiting for progress");
 }
 
 pub(super) fn set_pull_progress(
@@ -1796,40 +2239,84 @@ pub(super) fn set_pull_progress(
     progress: &OllamaPullProgress,
 ) {
     manager.pull_panel.set_visible(true);
-    manager
-        .pull_title
-        .set_label(&format!("Downloading {model}"));
-    manager.pull_status.set_label(&progress.status);
-
-    match (progress.completed_bytes, progress.total_bytes) {
-        (Some(completed), Some(total)) if total > 0 => {
-            let fraction = (completed as f64 / total as f64).clamp(0.0, 1.0);
-            manager.pull_progress.set_fraction(fraction);
-            manager.pull_progress_label.set_label(&format!(
-                "{} of {}",
-                format_size(Some(completed)),
-                format_size(Some(total))
-            ));
-        }
-        _ => {
-            manager.pull_progress.pulse();
-            manager
-                .pull_progress_label
-                .set_label("Waiting for progress");
-        }
+    manager.pull_row.set_title(&download_model_title(model));
+    let status = progress.status.to_ascii_lowercase();
+    let finalizing = status.contains("verifying")
+        || status.contains("writing manifest")
+        || status.contains("removing unused");
+    let phase = if progress.done {
+        "Ready to use"
+    } else if status.contains("verifying") {
+        "Verifying download…"
+    } else if finalizing {
+        "Finishing up…"
+    } else if status.contains("manifest") {
+        "Preparing download…"
+    } else {
+        "Downloading…"
+    };
+    let subtitle = if progress.done || finalizing {
+        manager.pull_progress.set_fraction(1.0);
+        phase.to_string()
+    } else if let (Some(completed), Some(total)) = (progress.completed_bytes, progress.total_bytes)
+        && total > 0
+    {
+        let completed = completed.min(total);
+        manager
+            .pull_progress
+            .set_fraction(completed as f64 / total as f64);
+        format!(
+            "Downloading · {} of {}",
+            format_size(Some(completed)),
+            format_size(Some(total))
+        )
+    } else {
+        manager.pull_progress.pulse();
+        phase.to_string()
+    };
+    manager.pull_row.set_subtitle(&subtitle);
+    let mut details = format!("Model: {model}\nStatus: {}\n{subtitle}", progress.status);
+    if let Some(digest) = &progress.digest {
+        details.push_str(&format!("\nDigest: {digest}"));
+    }
+    manager.pull_status.set_label(&details);
+    if progress.done {
+        manager.pull_icon.set_icon_name(Some("emblem-ok-symbolic"));
+        manager.pull_activity.set_visible_child_name("status");
+        manager.pull_cancel_button.set_sensitive(false);
+        manager.pull_cancel_button.set_visible(false);
     }
 }
 
+fn download_model_title(model: &str) -> String {
+    MODEL_FAMILIES
+        .iter()
+        .find_map(|family| {
+            family
+                .variants
+                .iter()
+                .find(|variant| model_names_match(variant.name, model))
+                .map(|variant| format!("{} · {}", family.title, variant.title))
+        })
+        .unwrap_or_else(|| model.to_string())
+}
+
 pub(super) fn set_delete_started(manager: &ModelManager, model: &str) {
-    manager.pull_copy_button.set_visible(false);
+    manager.busy.set(true);
+    manager.scroll.vadjustment().set_value(0.0);
     manager.pull_panel.set_visible(true);
     manager.pull_button.set_sensitive(false);
     manager.refresh_button.set_sensitive(false);
     manager.pull_cancel_button.set_sensitive(false);
-    manager.pull_title.set_label(&format!("Deleting {model}"));
-    manager.pull_status.set_label("Removing model from Ollama");
+    manager.pull_cancel_button.set_visible(false);
+    manager.pull_activity.set_visible_child_name("working");
+    manager.pull_row.set_title(&download_model_title(model));
+    manager.pull_row.set_subtitle("Removing model…");
+    manager
+        .pull_status
+        .set_label(&format!("Model: {model}\nRemoving model from Ollama"));
+    manager.pull_progress.set_visible(false);
     manager.pull_progress.set_fraction(0.0);
-    manager.pull_progress_label.set_label("");
 }
 
 pub(super) fn set_delete_finished(
@@ -1838,13 +2325,25 @@ pub(super) fn set_delete_finished(
     status: &str,
     fraction: f64,
 ) {
-    manager.pull_copy_button.set_visible(true);
+    manager.busy.set(false);
     manager.pull_panel.set_visible(true);
-    manager.pull_title.set_label(title);
+    manager.pull_row.set_title(title);
+    manager.pull_row.set_subtitle(if fraction >= 1.0 {
+        "Model removed"
+    } else {
+        "Open details for more information"
+    });
+    manager.pull_icon.set_icon_name(Some(if fraction >= 1.0 {
+        "emblem-ok-symbolic"
+    } else {
+        "dialog-warning-symbolic"
+    }));
+    manager.pull_activity.set_visible_child_name("status");
     manager.pull_status.set_label(status);
+    manager.pull_progress.set_visible(false);
     manager.pull_progress.set_fraction(fraction.clamp(0.0, 1.0));
-    manager.pull_progress_label.set_label("");
     manager.pull_cancel_button.set_sensitive(false);
+    manager.pull_cancel_button.set_visible(false);
     manager.pull_button.set_sensitive(true);
     manager.refresh_button.set_sensitive(true);
 }
@@ -1872,34 +2371,54 @@ fn model_row(
     parent: &adw::ApplicationWindow,
     model: &OllamaModel,
     on_delete: Rc<dyn Fn(String)>,
+    on_use: Rc<dyn Fn(String)>,
 ) -> adw::ActionRow {
     let row = adw::ActionRow::builder()
         .title(&model.name)
-        .title_lines(2)
-        .subtitle(model_subtitle(model))
-        .subtitle_lines(2)
+        .title_lines(1)
+        .subtitle(if model.supports_chat {
+            format_size(model.size_bytes)
+        } else {
+            format!("{} · Not a chat model", format_size(model.size_bytes))
+        })
+        .subtitle_lines(1)
         .use_markup(false)
         .build();
     row.add_css_class("moose-model-row-item");
-    row.set_tooltip_text(Some(&model.name));
+    row.set_tooltip_text(Some(&format!("{}\n{}", model.name, model_subtitle(model))));
 
-    let meta = gtk::Box::builder()
-        .orientation(Orientation::Horizontal)
-        .spacing(6)
-        .halign(Align::End)
+    if model.supports_chat {
+        let use_button = gtk::Button::builder()
+            .label("Use")
+            .valign(Align::Center)
+            .build();
+        let name = model.name.clone();
+        use_button.connect_clicked(move |_| on_use(name.clone()));
+        row.add_suffix(&use_button);
+    }
+
+    let options = gtk::Box::new(Orientation::Vertical, 0);
+    let popover = gtk::Popover::builder().child(&options).build();
+    let options_button = gtk::MenuButton::builder()
+        .icon_name("view-more-symbolic")
+        .tooltip_text("Model Options")
         .valign(Align::Center)
+        .css_classes(["flat"])
+        .popover(&popover)
         .build();
 
-    let capability = if model.supports_chat { "Chat" } else { "Other" };
-    meta.append(&pill_label(capability));
-    meta.append(&pill_label(&format_size(model.size_bytes)));
-    row.add_suffix(&meta);
-
     if let Some(repository) = hugging_face_repository(&model.name) {
-        let open_button = icon_button("moose-globe-symbolic", "Open on Hugging Face");
+        let open_button = gtk::Button::builder()
+            .label("Open on Hugging Face")
+            .css_classes(["flat"])
+            .build();
         let url = format!("https://huggingface.co/{repository}");
         let parent = parent.downgrade();
+        let weak_popover = popover.downgrade();
         open_button.connect_clicked(move |_| {
+            if let Some(popover) = weak_popover.upgrade() {
+                popover.popdown();
+            }
             if let Some(parent) = parent.upgrade() {
                 gtk::UriLauncher::new(&url).launch(
                     Some(&parent),
@@ -1908,16 +2427,23 @@ fn model_row(
                 );
             }
         });
-        row.add_suffix(&open_button);
+        options.append(&open_button);
     }
 
-    let delete_button = icon_button("user-trash-symbolic", &format!("Delete {}", model.name));
-    delete_button.add_css_class("destructive-action");
+    let delete_button = gtk::Button::builder()
+        .label("Remove…")
+        .css_classes(["flat", "destructive-action"])
+        .build();
     let model_name = model.name.clone();
+    let weak_popover = popover.downgrade();
     delete_button.connect_clicked(move |_| {
+        if let Some(popover) = weak_popover.upgrade() {
+            popover.popdown();
+        }
         on_delete(model_name.clone());
     });
-    row.add_suffix(&delete_button);
+    options.append(&delete_button);
+    row.add_suffix(&options_button);
     row
 }
 
@@ -1942,66 +2468,57 @@ fn download_reference_row(reference: ModelDownload, on_add: Rc<dyn Fn(String)>) 
 
 fn model_family_row(
     parent: &adw::ApplicationWindow,
-    family: &'static ModelFamily,
+    candidate: Candidate,
     installed_names: &[&str],
-    on_pull: Rc<dyn Fn(String)>,
+    actions: ModelActions,
 ) -> adw::ActionRow {
-    let installed_count = family
-        .variants
-        .iter()
-        .filter(|variant| model_is_installed(variant.name, installed_names))
-        .count();
+    let family = candidate.family;
     let row = adw::ActionRow::builder()
         .title(family.title)
         .subtitle(format!(
-            "{} - {} variations",
-            family.subtitle,
-            family.variants.len()
+            "{} · {}",
+            candidate.purpose(),
+            format_size(Some(candidate.variant.download_bytes)),
         ))
-        .subtitle_lines(2)
+        .subtitle_lines(1)
+        .use_markup(false)
+        .activatable(true)
         .build();
-    row.add_css_class("moose-model-row-item");
-    row.set_activatable(true);
-    row.set_tooltip_text(Some("Show variations"));
-
-    if installed_count > 0 {
-        row.add_suffix(&pill_label(&format!("{installed_count} installed")));
-    }
-    row.add_suffix(&pill_label(&format!("{} tags", family.variants.len())));
-
-    let chevron = gtk::Image::from_icon_name("go-next-symbolic");
-    row.add_suffix(&chevron);
+    row.set_tooltip_text(Some(&format!(
+        "{} · View details and other versions",
+        candidate.variant.name
+    )));
+    row.add_suffix(&model_action(candidate.variant, installed_names, &actions));
+    row.add_suffix(&gtk::Image::from_icon_name("go-next-symbolic"));
 
     let target_parent = parent.clone();
-    let target_on_pull = Rc::clone(&on_pull);
     let installed_names = installed_names
         .iter()
         .map(|name| (*name).to_string())
         .collect::<Vec<_>>();
-    let click = gtk::GestureClick::new();
-    click.connect_released(move |_, _, _, _| {
+    row.connect_activated(move |_| {
         let installed_names = installed_names
             .iter()
             .map(String::as_str)
             .collect::<Vec<_>>();
         show_model_family_dialog(
             &target_parent,
-            family,
+            candidate,
             installed_names.as_slice(),
-            Rc::clone(&target_on_pull),
+            actions.clone(),
         );
     });
-    row.add_controller(click);
 
     row
 }
 
 fn show_model_family_dialog(
     parent: &adw::ApplicationWindow,
-    family: &'static ModelFamily,
+    candidate: Candidate,
     installed_names: &[&str],
-    on_pull: Rc<dyn Fn(String)>,
+    actions: ModelActions,
 ) {
+    let family = candidate.family;
     let dialog = adw::Dialog::builder()
         .title(family.title)
         .content_width(640)
@@ -2011,7 +2528,7 @@ fn show_model_family_dialog(
         .show_start_title_buttons(false)
         .show_end_title_buttons(false)
         .build();
-    let title = adw::WindowTitle::new(family.title, family.subtitle);
+    let title = adw::WindowTitle::new(family.title, "Model Details");
     header_bar.set_title_widget(Some(&title));
 
     let ollama_button = icon_button("moose-globe-symbolic", "Open on Ollama");
@@ -2032,62 +2549,78 @@ fn show_model_family_dialog(
 
     let content = gtk::Box::builder()
         .orientation(Orientation::Vertical)
-        .spacing(12)
+        .spacing(24)
         .hexpand(true)
         .build();
     content.add_css_class("moose-model-dialog-content");
 
     let description = gtk::Label::builder()
         .label(family.description)
-        .halign(Align::Center)
-        .xalign(0.5)
-        .justify(gtk::Justification::Center)
+        .xalign(0.0)
         .wrap(true)
+        .width_chars(1)
         .build();
     description.add_css_class("dim-label");
 
-    let tag_row = gtk::FlowBox::builder()
-        .selection_mode(gtk::SelectionMode::None)
-        .column_spacing(6)
-        .row_spacing(6)
-        .halign(Align::Start)
-        .hexpand(true)
-        .build();
-    tag_row.add_css_class("moose-model-tag-flow");
-    for tag in family.tags {
-        tag_row.append(&pill_label(tag));
-    }
-
     let variant_list = gtk::ListBox::new();
     variant_list.set_selection_mode(gtk::SelectionMode::None);
-    variant_list.add_css_class("moose-model-list");
-    variant_list.add_css_class("moose-model-variant-list");
-    for variant in family.variants {
+    variant_list.add_css_class("boxed-list");
+    let weak_dialog = dialog.downgrade();
+    let on_pull = actions.download;
+    let on_pull: Rc<dyn Fn(String)> = Rc::new(move |name| {
+        if let Some(dialog) = weak_dialog.upgrade() {
+            dialog.close();
+        }
+        on_pull(name);
+    });
+    let weak_dialog = dialog.downgrade();
+    let on_use = actions.use_model;
+    let on_use: Rc<dyn Fn(String)> = Rc::new(move |name| {
+        if let Some(dialog) = weak_dialog.upgrade() {
+            dialog.close();
+        }
+        on_use(name);
+    });
+    let actions = ModelActions {
+        download: on_pull,
+        use_model: on_use,
+        download_control: actions.download_control,
+    };
+    for variant in std::iter::once(candidate.variant).chain(
+        family
+            .variants
+            .iter()
+            .filter(|variant| variant.name != candidate.variant.name),
+    ) {
         variant_list.append(&model_variant_row(
-            variant,
+            Candidate {
+                variant,
+                ..candidate
+            },
+            variant.name == candidate.variant.name,
             installed_names,
-            Rc::clone(&on_pull),
+            &actions,
         ));
     }
-
+    let versions = adw::PreferencesGroup::builder().title("Versions").build();
+    versions.add(&variant_list);
+    let technical = requirements::build(parent, candidate);
+    let technical_group = adw::PreferencesGroup::new();
+    technical_group.add(&technical);
+    content.append(&description);
+    content.append(&versions);
+    content.append(&technical_group);
     let scrolled = gtk::ScrolledWindow::builder()
         .hscrollbar_policy(PolicyType::Never)
-        .vscrollbar_policy(PolicyType::Automatic)
-        .min_content_height(260)
-        .max_content_height(420)
-        .child(&variant_list)
+        .min_content_height(300)
+        .max_content_height(560)
+        .propagate_natural_height(true)
+        .child(&content)
         .build();
-    scrolled.add_css_class("moose-model-dialog-scroll");
-
-    content.append(&description);
-    content.append(&section_label("Tags"));
-    content.append(&tag_row);
-    content.append(&section_label("Variations"));
-    content.append(&scrolled);
 
     let toolbar_view = adw::ToolbarView::builder()
         .top_bar_style(adw::ToolbarStyle::Flat)
-        .content(&content)
+        .content(&scrolled)
         .build();
     toolbar_view.add_top_bar(&header_bar);
 
@@ -2096,112 +2629,85 @@ fn show_model_family_dialog(
 }
 
 fn model_variant_row(
+    candidate: Candidate,
+    selected: bool,
+    installed_names: &[&str],
+    actions: &ModelActions,
+) -> adw::ActionRow {
+    let variant = candidate.variant;
+    let row = adw::ActionRow::builder()
+        .title(if selected {
+            format!("{} · Recommended", variant.title)
+        } else {
+            variant.title.to_string()
+        })
+        .subtitle(format!(
+            "{} · {}",
+            format_size(Some(variant.download_bytes)),
+            candidate.capabilities(),
+        ))
+        .subtitle_lines(1)
+        .use_markup(false)
+        .build();
+    row.set_tooltip_text(Some(&format!(
+        "{}\n{}\n{}",
+        variant.name,
+        variant.description,
+        candidate.memory.guidance(variant.download_bytes)
+    )));
+    let action = model_action(variant, installed_names, actions);
+    row.set_activatable_widget(Some(&action));
+    row.add_suffix(&action);
+    row
+}
+
+fn model_action(
     variant: &ModelVariant,
     installed_names: &[&str],
-    on_pull: Rc<dyn Fn(String)>,
-) -> gtk::ListBoxRow {
-    let row = gtk::ListBoxRow::builder()
-        .activatable(false)
-        .selectable(false)
-        .build();
-    row.add_css_class("moose-model-variant-row");
-    row.set_tooltip_text(Some(variant.name));
-
-    let content = gtk::Box::builder()
-        .orientation(Orientation::Horizontal)
-        .spacing(12)
-        .margin_top(10)
-        .margin_bottom(10)
-        .margin_start(12)
-        .margin_end(12)
-        .hexpand(true)
-        .build();
-
-    let copy = gtk::Box::builder()
-        .orientation(Orientation::Vertical)
-        .spacing(6)
-        .hexpand(true)
+    actions: &ModelActions,
+) -> gtk::Button {
+    let installed = model_is_installed(variant.name, installed_names);
+    let button = gtk::Button::builder()
+        .label(if installed { "Use" } else { "Download" })
         .valign(Align::Center)
         .build();
-
-    let title = gtk::Label::builder()
-        .label(variant.name)
-        .halign(Align::Start)
-        .xalign(0.0)
-        .hexpand(true)
-        .wrap(true)
-        .wrap_mode(gtk::pango::WrapMode::WordChar)
-        .build();
-    title.add_css_class("moose-model-variant-title");
-
-    let description = gtk::Label::builder()
-        .label(format!("{} - {}", variant.title, variant.description))
-        .halign(Align::Start)
-        .xalign(0.0)
-        .hexpand(true)
-        .wrap(true)
-        .wrap_mode(gtk::pango::WrapMode::WordChar)
-        .build();
-    description.add_css_class("moose-model-variant-description");
-
-    let tag_row = gtk::FlowBox::builder()
-        .selection_mode(gtk::SelectionMode::None)
-        .column_spacing(6)
-        .row_spacing(6)
-        .halign(Align::Start)
-        .hexpand(true)
-        .build();
-    tag_row.add_css_class("moose-model-tag-flow");
-    for tag in variant.tags {
-        tag_row.append(&pill_label(tag));
+    button.set_tooltip_text(Some(&format!(
+        "{} {}",
+        if installed {
+            "Start a new chat with"
+        } else {
+            "Download"
+        },
+        variant.name
+    )));
+    button.update_property(&[gtk::accessible::Property::Label(&format!(
+        "{} {}",
+        if installed { "Use" } else { "Download" },
+        variant.name,
+    ))]);
+    if !installed {
+        actions
+            .download_control
+            .bind_property("sensitive", &button, "sensitive")
+            .sync_create()
+            .build();
     }
-
-    copy.append(&title);
-    copy.append(&description);
-    copy.append(&tag_row);
-    content.append(&copy);
-
-    let action_box = gtk::Box::builder()
-        .orientation(Orientation::Horizontal)
-        .halign(Align::End)
-        .valign(Align::Center)
-        .build();
-
-    if model_is_installed(variant.name, installed_names) {
-        action_box.append(&pill_label("Installed"));
-    } else {
-        let download_button = icon_button(
-            "folder-download-symbolic",
-            &format!("Download {}", variant.name),
-        );
-        download_button.add_css_class("moose-model-download-button");
-        let model_name = variant.name.to_string();
-        download_button.connect_clicked(move |_| {
-            on_pull(model_name.clone());
-        });
-        action_box.append(&download_button);
-    }
-
-    content.append(&action_box);
-    row.set_child(Some(&content));
-
-    row
+    let actions = actions.clone();
+    let name = variant.name.to_string();
+    button.connect_clicked(move |_| {
+        if installed {
+            (actions.use_model)(name.clone());
+        } else {
+            (actions.download)(name.clone());
+        }
+    });
+    button
 }
 
 fn model_is_installed(model_name: &str, installed_names: &[&str]) -> bool {
     installed_names
         .iter()
         .any(|installed| model_names_match(model_name, installed))
-}
-
-fn pill_label(text: &str) -> gtk::Label {
-    let label = gtk::Label::builder()
-        .label(text)
-        .halign(Align::Center)
-        .valign(Align::Center)
-        .build();
-    label.add_css_class("moose-model-pill");
-    label
 }
 
 fn model_subtitle(model: &OllamaModel) -> String {
@@ -2263,8 +2769,8 @@ fn format_size(size_bytes: Option<u64>) -> String {
     let mut size = size_bytes as f64;
     let mut unit_index = 0;
 
-    while size >= 1024.0 && unit_index + 1 < units.len() {
-        size /= 1024.0;
+    while size >= 1000.0 && unit_index + 1 < units.len() {
+        size /= 1000.0;
         unit_index += 1;
     }
 
@@ -2301,24 +2807,6 @@ fn model_matches_query(model: &OllamaModel, query: &str) -> bool {
             .quantization_level
             .as_deref()
             .is_some_and(|quantization_level| contains_query(quantization_level, query))
-}
-
-fn model_family_matches_query(family: &ModelFamily, query: &str) -> bool {
-    if query.is_empty() {
-        return true;
-    }
-
-    contains_query(family.id, query)
-        || contains_query(family.title, query)
-        || contains_query(family.subtitle, query)
-        || contains_query(family.description, query)
-        || family.tags.iter().any(|tag| contains_query(tag, query))
-        || family.variants.iter().any(|variant| {
-            contains_query(variant.name, query)
-                || contains_query(variant.title, query)
-                || contains_query(variant.description, query)
-                || variant.tags.iter().any(|tag| contains_query(tag, query))
-        })
 }
 
 fn contains_query(value: &str, query: &str) -> bool {

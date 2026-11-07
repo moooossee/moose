@@ -644,11 +644,7 @@
 }
 
 .moose-model-manager-content {
-  padding: 30px 22px 24px 22px;
-}
-
-.moose-model-manager-header {
-  padding: 8px 0 4px 0;
+  padding: 24px 18px 32px 18px;
 }
 
 .moose-model-search {
@@ -660,17 +656,6 @@
   font-size: 0.82em;
   margin: 4px 2px 0 2px;
   opacity: 0.62;
-}
-
-.moose-pull-panel {
-  background-color: @card_bg_color;
-  border: 1px solid @borders;
-  border-radius: 8px;
-  padding: 12px;
-}
-
-.moose-pull-progress {
-  min-height: 6px;
 }
 
 .moose-model-scroll {
@@ -688,8 +673,7 @@
 }
 
 .moose-model-dialog-content {
-  min-width: 520px;
-  padding: 8px 26px 26px 26px;
+  padding: 8px 18px 24px 18px;
 }
 
 .moose-model-dialog-scroll {

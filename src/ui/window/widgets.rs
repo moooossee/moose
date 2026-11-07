@@ -179,13 +179,3 @@ pub(super) fn string_list_factory(
     });
     factory
 }
-
-pub(super) fn section_label(text: &str) -> gtk::Label {
-    let label = gtk::Label::builder()
-        .label(text)
-        .halign(Align::Start)
-        .xalign(0.0)
-        .build();
-    label.add_css_class("heading");
-    label
-}
