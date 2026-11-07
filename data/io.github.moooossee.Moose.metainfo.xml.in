@@ -9,10 +9,11 @@
   <metadata_license>CC0-1.0</metadata_license>
   <project_license>GPL-3.0-or-later</project_license>
   <description>
-    <p>Ask questions, write and work through code with local AI models. Set up Ollama and download models, including compatible GGUF models from Hugging Face, or connect securely to cloud providers using your own API key. Choose a built-in provider or add a custom connection using a compatible API.</p>
-    <p>Bring images, PDFs and text files into your chats. Browse attachments and your document library in Files, preview documents and return to the chats that use them. Search documents locally and read source excerpts alongside answers. Images need a model with vision support, and PDFs need selectable text.</p>
-    <p>Edit messages, explore different answers and return to earlier versions. Drafts save automatically, and responses can include formatted code, mathematical formulas and model reasoning.</p>
-    <p>Your conversations, drafts and document library are stored on your device. Local Only mode restricts inference to Ollama managed by Moose. Remote connections require your permission to share messages, history or files. Message and file permissions are separate and can be reset in Privacy settings. The provider's data policy applies to shared content. API keys are stored securely using your desktop's secret storage.</p>
+    <p>Ask questions, work on your writing or get help with code. Chat with AI running on your computer through Ollama, or use an online service such as OpenRouter with your own key. Browse models for the things you want to do, or download compatible models from Hugging Face.</p>
+    <p>Bring photos, PDFs and text files into the conversation. In Files, you can find your attachments, preview documents, search your library and return to related chats. Answers can show passages from your documents so you can check where information came from. Pictures need a model that can understand them, and PDFs need text you can select.</p>
+    <p>Edit a message, try a different answer or go back to an earlier version. If an answer reaches its limit, you can ask it to continue. Drafts save as you go, and code and math are formatted to make them easier to read.</p>
+    <p>When you want to look something up or check a calculation, turn on Web or Calculator with a compatible Ollama or Ollama Cloud model. You can read the sources and see what the tools did alongside the answer.</p>
+    <p>Your chats, drafts and document library are saved on your device. You decide whether messages or files can be shared with an online service, with separate permissions you can reset in Privacy settings. Web asks for its own permission: search services receive your searches, websites receive requests for the pages you read, and results are shared with the model answering your chat. Each service's privacy policy applies to what you share. Local Only uses only Ollama managed by Moose and turns off web tools. Keys for online services are kept in your desktop's secure key storage.</p>
   </description>
   <keywords>
     <keyword>AI</keyword>
@@ -20,6 +21,7 @@
     <keyword>Local AI</keyword>
     <keyword>Cloud AI</keyword>
     <keyword>Ollama</keyword>
+    <keyword>OpenRouter</keyword>
     <keyword>Hugging Face</keyword>
     <keyword>GGUF</keyword>
     <keyword>LLM</keyword>
@@ -29,6 +31,7 @@
     <keyword>Documents</keyword>
     <keyword>Vision</keyword>
     <keyword>Reasoning</keyword>
+    <keyword>Web search</keyword>
   </keywords>
   <launchable type="desktop-id">io.github.moooossee.Moose.desktop</launchable>
   <url type="homepage">https://moooossee.github.io/</url>
@@ -67,6 +70,15 @@
   </screenshots>
   <content_rating type="oars-1.1" />
   <releases>
+    <release version="0.8.0" date="2026-11-07" type="stable">
+      <url type="details">https://github.com/moooossee/moose/releases/tag/v0.8.0</url>
+      <description>
+        <p>You can now look things up on the web and check calculations without leaving your chat. With a compatible Ollama or Ollama Cloud model, turn on Web or Calculator in Chat Settings, or type /web or /calculator. Web uses DuckDuckGo by default, without a search account, and you can choose another search service in Preferences. It asks for permission first and stays off in Local Only mode. Sources and tool results stay with your chats when you return to them, export them or continue in a new chat.</p>
+        <p>The redesigned Models view helps you find a model for everyday questions, coding, pictures or documents. Filters let you narrow the choices, and model details show download size and estimated memory and storage needs. If Moose manages Ollama, suggestions also consider the memory available on your computer. You can start a chat with an installed model right away, and progress messages make downloads and removals easier to follow.</p>
+        <p>OpenRouter is now available as another way to chat. Add your key and choose a model, with pictures and reasoning options where supported. We've also made it easier to switch between services and find your chat settings. Chat titles now better reflect your topic and language.</p>
+        <p>Longer chats with Ollama now leave more room for an answer. If an answer stops because it reaches its length limit, the text stays saved and you can choose Continue to pick up where it stopped. Moose remembers your reasoning preference, with reasoning off by default where supported. We've also improved message spacing to make conversations easier to read.</p>
+      </description>
+    </release>
     <release version="0.7.5" date="2026-10-29" type="stable">
       <url type="details">https://github.com/moooossee/moose/releases/tag/v0.7.5</url>
       <description>
