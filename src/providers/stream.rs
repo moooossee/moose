@@ -303,13 +303,21 @@ mod tests {
     }
 
     #[test]
-    fn new_providers_reject_incomplete_and_filtered_answers() {
+    fn new_providers_handle_response_limits_and_reject_errors() {
         for kind in [
             ProviderKind::OpenRouter,
             ProviderKind::Nvidia,
             ProviderKind::Cloudflare,
         ] {
-            for reason in ["length", "content_filter", "tool_calls"] {
+            let value = json!({"choices":[{"delta":{"content":"Partial answer"},"finish_reason":"length"}]});
+            assert_eq!(
+                parse(kind, value.to_string().as_bytes()).unwrap(),
+                vec![
+                    ChatStreamEvent::Token("Partial answer".into()),
+                    ChatStreamEvent::ResponseLimit,
+                ]
+            );
+            for reason in ["content_filter", "tool_calls"] {
                 let value = json!({"choices":[{"delta":{},"finish_reason":reason}]});
                 assert!(parse(kind, value.to_string().as_bytes()).is_err());
             }
