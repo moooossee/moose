@@ -479,10 +479,14 @@ pub(super) fn append_message(
 
         let bubble = bubble::new(&content_view);
         bubble.add_css_class("moose-message-user-bubble");
+        bubble.set_visible(!content.trim().is_empty());
+        let group = gtk::Box::new(Orientation::Vertical, 8);
+        group.add_css_class("moose-message-user-group");
+        group.append(&bubble);
         role_label.add_css_class("moose-message-user-meta");
         content_view.add_css_class("moose-message-user-content");
         row.append(&role_label);
-        row.append(&bubble);
+        row.append(&bubble::new(&group));
     } else {
         row.append(&role_label);
         row.append(&content_view);

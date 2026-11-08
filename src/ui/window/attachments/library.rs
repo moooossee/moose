@@ -447,6 +447,26 @@ pub(super) fn preview(
     asset: &Asset,
     initial_page: i64,
 ) {
+    preview_asset(parent, repository, asset, initial_page, &[]);
+}
+
+pub(super) fn preview_images(
+    parent: &adw::ApplicationWindow,
+    repository: &ConversationRepository,
+    asset: &Asset,
+    images: &[Asset],
+) {
+    preview_asset(parent, repository, asset, 1, images);
+}
+
+fn preview_asset(
+    parent: &adw::ApplicationWindow,
+    repository: &ConversationRepository,
+    asset: &Asset,
+    initial_page: i64,
+    images: &[Asset],
+) {
+    let current_asset = Rc::new(RefCell::new(asset.clone()));
     let dialog = adw::Dialog::builder()
         .title(&asset.name)
         .content_width(760)
@@ -462,11 +482,158 @@ pub(super) fn preview(
                 .map_err(|_| error("This image could not be displayed"))
         }) {
             Ok(texture) => {
+                dialog.set_content_width(960);
+                dialog.set_content_height(720);
                 let picture = gtk::Picture::for_paintable(&texture);
-                picture.set_content_fit(gtk::ContentFit::Contain);
+                picture.set_content_fit(gtk::ContentFit::ScaleDown);
                 picture.set_can_shrink(true);
+                picture.set_alternative_text(Some(&asset.name));
+                picture.set_hexpand(true);
                 picture.set_vexpand(true);
-                root.append(&picture);
+                let scroll = gtk::ScrolledWindow::builder()
+                    .hscrollbar_policy(gtk::PolicyType::Never)
+                    .vscrollbar_policy(gtk::PolicyType::Never)
+                    .hexpand(true)
+                    .vexpand(true)
+                    .child(&picture)
+                    .build();
+                let fit = gtk::ToggleButton::builder()
+                    .icon_name("zoom-fit-best-symbolic")
+                    .tooltip_text("Fit Image to Window")
+                    .active(true)
+                    .build();
+                let actual = gtk::ToggleButton::builder()
+                    .label("100%")
+                    .tooltip_text("View at Actual Size")
+                    .group(&fit)
+                    .build();
+                let controls = gtk::Box::new(gtk::Orientation::Horizontal, 0);
+                controls.add_css_class("linked");
+                controls.append(&fit);
+                controls.append(&actual);
+                header.pack_end(&controls);
+                let image_stack = gtk::Stack::builder().vexpand(true).build();
+                image_stack.add_named(&scroll, Some("image"));
+                let failed = gtk::Label::builder()
+                    .label("This image could not be displayed.")
+                    .wrap(true)
+                    .margin_start(24)
+                    .margin_end(24)
+                    .build();
+                image_stack.add_named(&failed, Some("error"));
+                root.append(&image_stack);
+                if let Some(initial) = images
+                    .iter()
+                    .position(|image| image.id == asset.id)
+                    .filter(|_| images.len() > 1)
+                {
+                    let previous = widgets::icon_button("go-previous-symbolic", "Previous Image");
+                    let next = widgets::icon_button("go-next-symbolic", "Next Image");
+                    previous.set_sensitive(initial > 0);
+                    next.set_sensitive(initial + 1 < images.len());
+                    let counter = gtk::Label::builder()
+                        .label(format!("{} of {}", initial + 1, images.len()))
+                        .width_chars(7)
+                        .css_classes(["dim-label"])
+                        .build();
+                    let navigation = gtk::Box::builder()
+                        .orientation(gtk::Orientation::Horizontal)
+                        .spacing(8)
+                        .halign(gtk::Align::Center)
+                        .margin_bottom(12)
+                        .build();
+                    navigation.append(&previous);
+                    navigation.append(&counter);
+                    navigation.append(&next);
+                    root.append(&navigation);
+                    let index = Cell::new(initial);
+                    let images = images.to_vec();
+                    let repository = repository.clone();
+                    let selected = current_asset.clone();
+                    let weak_dialog = dialog.downgrade();
+                    let weak_previous = previous.downgrade();
+                    let weak_next = next.downgrade();
+                    let target_picture = picture.clone();
+                    let target_scroll = scroll.clone();
+                    let target_save = save.clone();
+                    let navigate: Rc<dyn Fn(isize)> = Rc::new(move |step| {
+                        let Some(target) = index
+                            .get()
+                            .checked_add_signed(step)
+                            .filter(|target| *target < images.len())
+                        else {
+                            return;
+                        };
+                        let image = &images[target];
+                        let texture = repository.asset_bytes(&image.id).and_then(|bytes| {
+                            gdk::Texture::from_bytes(&glib::Bytes::from_owned(bytes))
+                                .map_err(|_| error("This image could not be displayed"))
+                        });
+                        let available = texture.is_ok();
+                        match texture {
+                            Ok(texture) => {
+                                target_picture.set_paintable(Some(&texture));
+                                image_stack.set_visible_child_name("image");
+                            }
+                            Err(_) => {
+                                target_picture.set_paintable(None::<&gdk::Texture>);
+                                image_stack.set_visible_child_name("error");
+                            }
+                        }
+                        target_picture.set_alternative_text(Some(&image.name));
+                        fit.set_active(true);
+                        target_scroll.hadjustment().set_value(0.0);
+                        target_scroll.vadjustment().set_value(0.0);
+                        target_save.set_sensitive(available);
+                        controls.set_sensitive(available);
+                        if let Some(dialog) = weak_dialog.upgrade() {
+                            dialog.set_title(&image.name);
+                        }
+                        counter.set_label(&format!("{} of {}", target + 1, images.len()));
+                        if let Some(previous) = weak_previous.upgrade() {
+                            previous.set_sensitive(target > 0);
+                        }
+                        if let Some(next) = weak_next.upgrade() {
+                            next.set_sensitive(target + 1 < images.len());
+                        }
+                        selected.replace(image.clone());
+                        index.set(target);
+                    });
+                    for (button, step) in [(&previous, -1), (&next, 1)] {
+                        let navigate = navigate.clone();
+                        button.connect_clicked(move |_| navigate(step));
+                    }
+                    let keys = gtk::EventControllerKey::builder()
+                        .propagation_phase(gtk::PropagationPhase::Capture)
+                        .build();
+                    keys.connect_key_pressed(move |_, key, _, modifiers| {
+                        if modifiers.intersects(
+                            gdk::ModifierType::CONTROL_MASK
+                                | gdk::ModifierType::ALT_MASK
+                                | gdk::ModifierType::SUPER_MASK
+                                | gdk::ModifierType::SHIFT_MASK,
+                        ) {
+                            return glib::Propagation::Proceed;
+                        }
+                        let step = match key {
+                            gdk::Key::Left => -1,
+                            gdk::Key::Right => 1,
+                            _ => return glib::Propagation::Proceed,
+                        };
+                        navigate(step);
+                        glib::Propagation::Stop
+                    });
+                    dialog.add_controller(keys);
+                }
+                actual.connect_toggled(move |button| {
+                    picture.set_can_shrink(!button.is_active());
+                    let policy = if button.is_active() {
+                        gtk::PolicyType::Automatic
+                    } else {
+                        gtk::PolicyType::Never
+                    };
+                    scroll.set_policy(policy, policy);
+                });
             }
             Err(error) => root.append(&gtk::Label::new(Some(&error.to_string()))),
         }
@@ -521,9 +688,9 @@ pub(super) fn preview(
     toolbar.add_top_bar(&header);
     dialog.set_child(Some(&toolbar));
     let repository = repository.clone();
-    let asset = asset.clone();
     let parent_window = parent.clone();
     save.connect_clicked(move |_| {
+        let asset = current_asset.borrow().clone();
         let filename = if asset.kind == "image" {
             format!(
                 "{}.png",

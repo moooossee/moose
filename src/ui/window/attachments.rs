@@ -2,6 +2,7 @@ use super::*;
 use crate::attachments::{Asset, MAX_ATTACHMENTS, MAX_FILE_BYTES, error};
 use gtk::{gdk, glib};
 
+mod image;
 mod import;
 pub(super) mod library;
 mod request;
@@ -737,45 +738,29 @@ fn sent_image_widget(
     ui: &WindowUi,
     backend: &Backend,
     asset: &Asset,
-    compact: bool,
+    frame: Option<(i32, i32)>,
+    assets: &[Asset],
 ) -> Result<gtk::Box> {
     let bytes = backend.conversation_repository.asset_bytes(&asset.id)?;
     let texture = gdk::Texture::from_bytes(&glib::Bytes::from_owned(bytes))
         .map_err(|_| error("This image could not be displayed"))?;
-    let (width, height) = if compact {
-        (96, 80)
-    } else {
-        let scale = (180.0 / f64::from(texture.width().max(1)))
-            .min(128.0 / f64::from(texture.height().max(1)))
-            .min(1.0);
-        (
-            ((f64::from(texture.width()) * scale).round() as i32).max(48),
-            ((f64::from(texture.height()) * scale).round() as i32).max(48),
-        )
-    };
-    let viewport = gtk::Overlay::builder()
-        .child(&gtk::Box::new(gtk::Orientation::Horizontal, 0))
-        .width_request(width)
-        .height_request(height)
-        .build();
-    viewport.add_css_class("moose-sent-image-preview");
-    viewport.set_overflow(gtk::Overflow::Hidden);
-    let picture = gtk::Picture::for_paintable(&texture);
-    picture.set_content_fit(gtk::ContentFit::Contain);
-    picture.set_can_shrink(true);
-    picture.set_can_target(false);
-    picture.set_alternative_text(Some(&asset.name));
-    viewport.add_overlay(&picture);
-    viewport.set_measure_overlay(&picture, false);
+    let viewport = image::preview(&texture, &asset.name, frame);
     let button = gtk::Button::new();
     button.add_css_class("flat");
     button.add_css_class("moose-sent-image");
+    button.set_halign(gtk::Align::Center);
     button.set_child(Some(&viewport));
+    button.set_cursor_from_name(Some("zoom-in"));
     button.set_tooltip_text(Some(&format!("Open image: {}", asset.name)));
     let repository = backend.conversation_repository.clone();
     let parent = ui.window.clone();
     let asset = asset.clone();
-    button.connect_clicked(move |_| library::preview(&parent, &repository, &asset, 1));
+    let images = assets
+        .iter()
+        .filter(|asset| asset.kind == "image")
+        .cloned()
+        .collect::<Vec<_>>();
+    button.connect_clicked(move |_| library::preview_images(&parent, &repository, &asset, &images));
     let card = gtk::Box::new(gtk::Orientation::Vertical, 0);
     card.set_valign(gtk::Align::Start);
     card.append(&button);
@@ -783,7 +768,7 @@ fn sent_image_widget(
 }
 
 fn append_message_assets(ui: &WindowUi, backend: &Backend, row: &gtk::Box, assets: &[Asset]) {
-    let section = gtk::Box::new(gtk::Orientation::Vertical, 6);
+    let section = gtk::Box::new(gtk::Orientation::Vertical, 8);
     section.add_css_class("moose-sent-attachments");
     let outgoing = row.has_css_class("moose-message-outgoing");
     let alignment = if outgoing {
@@ -792,16 +777,26 @@ fn append_message_assets(ui: &WindowUi, backend: &Backend, row: &gtk::Box, asset
         gtk::Align::Start
     };
     section.set_halign(alignment);
-    let image_count = assets.iter().filter(|asset| asset.kind == "image").count();
-    if image_count > 0 {
+    let mut images = assets.iter().filter(|asset| asset.kind == "image");
+    let image_count = images.clone().count();
+    if image_count == 1
+        && let Some(asset) = images.next()
+    {
+        let card = sent_image_widget(ui, backend, asset, None, assets)
+            .unwrap_or_else(|_| asset_widget(ui, backend, asset));
+        card.set_halign(alignment);
+        section.append(&card);
+    }
+    if image_count > 1 {
         let gallery = attachment_grid();
         gallery.set_hexpand(false);
         gallery.set_halign(alignment);
-        gallery.set_max_children_per_line(3);
+        gallery.set_max_children_per_line(image_count.min(4) as u32);
         gallery.set_column_spacing(6);
         gallery.set_row_spacing(6);
-        for asset in assets.iter().filter(|asset| asset.kind == "image") {
-            let card = sent_image_widget(ui, backend, asset, image_count > 1)
+        gallery.add_css_class("moose-image-gallery");
+        for asset in images {
+            let card = sent_image_widget(ui, backend, asset, Some((96, 72)), assets)
                 .unwrap_or_else(|_| asset_widget(ui, backend, asset));
             append_card(&gallery, &card);
         }
@@ -813,15 +808,20 @@ fn append_message_assets(ui: &WindowUi, backend: &Backend, row: &gtk::Box, asset
         document.add_css_class("moose-sent-document");
         section.append(&document);
     }
-    if let Some(bubble) = row
-        .first_child()
-        .and_downcast::<gtk::Box>()
-        .filter(|widget| widget.has_css_class("moose-message-user-bubble"))
-    {
-        bubble.insert_child_after(&section, bubble.first_child().as_ref());
-    } else {
-        row.append(&section);
+    let mut child = row.first_child();
+    while let Some(widget) = child {
+        child = widget.next_sibling();
+        if let Some(group) = widget
+            .downcast_ref::<adw::Bin>()
+            .and_then(|widget| widget.child())
+            .and_downcast::<gtk::Box>()
+            .filter(|widget| widget.has_css_class("moose-message-user-group"))
+        {
+            group.prepend(&section);
+            return;
+        }
     }
+    row.append(&section);
 }
 
 pub(super) fn append_stored(
