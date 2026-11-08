@@ -294,7 +294,13 @@ pub(super) fn build() -> Chat {
     model_picker.set_halign(Align::Start);
     model_picker.set_valign(Align::Center);
     model_picker.set_hexpand(false);
-    model_picker.set_enable_search(false);
+    model_picker.set_expression(Some(gtk::PropertyExpression::new(
+        gtk::StringObject::static_type(),
+        gtk::Expression::NONE,
+        "string",
+    )));
+    model_picker.set_enable_search(true);
+    model_picker.set_search_match_mode(gtk::StringFilterMatchMode::Substring);
     model_picker.set_factory(Some(&string_list_factory(22, false)));
     model_picker.set_list_factory(Some(&string_list_factory(44, true)));
     model_picker.add_css_class("flat");

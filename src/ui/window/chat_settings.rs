@@ -125,6 +125,13 @@ pub(super) fn dialog(
         .subtitle("Choose a model to always use in this chat")
         .subtitle_lines(2)
         .use_markup(false)
+        .expression(gtk::PropertyExpression::new(
+            gtk::StringObject::static_type(),
+            gtk::Expression::NONE,
+            "string",
+        ))
+        .enable_search(true)
+        .search_match_mode(gtk::StringFilterMatchMode::Substring)
         .model(&model_list)
         .selected(selected_model)
         .build();
