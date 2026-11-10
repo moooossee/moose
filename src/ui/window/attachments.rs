@@ -3,6 +3,7 @@ use crate::attachments::{Asset, MAX_ATTACHMENTS, MAX_FILE_BYTES, error};
 use gtk::{gdk, glib};
 
 mod clipboard;
+mod composer;
 mod image;
 mod import;
 pub(super) mod library;
@@ -12,7 +13,6 @@ pub(super) use request::prepare;
 pub(super) struct Controls {
     pub(super) button: gtk::MenuButton,
     pub(super) previews: gtk::FlowBox,
-    pub(super) summary: gtk::Label,
     pub(super) status: gtk::Label,
     pub(super) capability: gtk::Image,
     pub(super) cancel: gtk::Button,
@@ -51,11 +51,8 @@ pub(super) fn build() -> Controls {
         .position(gtk::PositionType::Top)
         .build();
     button.set_popover(Some(&popover));
-    let previews = attachment_grid();
+    let previews = composer::previews();
     previews.set_visible(false);
-    let summary = gtk::Label::builder().xalign(0.0).build();
-    summary.add_css_class("caption");
-    summary.add_css_class("dim-label");
     let status = gtk::Label::builder()
         .wrap(true)
         .xalign(0.0)
@@ -77,7 +74,6 @@ pub(super) fn build() -> Controls {
         capability_failed: Cell::new(false),
         button,
         previews,
-        summary,
         status,
         add,
         paste,
@@ -415,12 +411,13 @@ pub(super) fn refresh(ui: &WindowUi, backend: &Backend) {
         .has_images
         .set(assets.iter().any(|asset| asset.kind == "image"));
     for asset in assets {
-        let row = asset_widget(ui, backend, &asset);
+        let row = composer::asset_widget(ui, backend, &asset);
         let remove =
             widgets::icon_button("window-close-symbolic", &format!("Remove {}", asset.name));
         remove.set_valign(gtk::Align::Center);
         remove.add_css_class("flat");
-        remove.add_css_class("moose-attachment-remove");
+        remove.add_css_class("circular");
+        remove.add_css_class("moose-composer-attachment-remove");
         let repository = backend.conversation_repository.clone();
         let conversation = id.clone().unwrap_or_default();
         let asset_id = asset.id;
@@ -469,14 +466,12 @@ pub(super) fn sync_counts(ui: &WindowUi, backend: &Backend) {
 fn update_status(ui: &WindowUi, backend: &Backend) {
     library::sync_import(ui);
     let count = ui.attachments.count.get();
-    ui.attachments
-        .summary
-        .set_label(&format!("Attachments · {count} of {MAX_ATTACHMENTS}"));
-    ui.attachments.button.set_tooltip_text(Some(if count > 0 {
-        "Add More Attachments"
+    let tooltip = if count > 0 {
+        format!("Add Attachments · {count} of {MAX_ATTACHMENTS}")
     } else {
-        "Add Attachments"
-    }));
+        "Add Attachments".into()
+    };
+    ui.attachments.button.set_tooltip_text(Some(&tooltip));
     ui.attachments
         .cancel
         .set_visible(ui.attachments.busy.get() > 0);
@@ -495,7 +490,7 @@ fn update_status(ui: &WindowUi, backend: &Backend) {
         "Preparing files…"
     } else if ui.attachments.has_images.get() {
         match *ui.attachments.vision.borrow() {
-            Some(true) => "Images ready",
+            Some(true) => "",
             Some(false) => "Select a model with image support to send these attachments",
             None if ui.attachments.capability_failed.get() => {
                 "Image support could not be checked. Refresh the model list to retry."

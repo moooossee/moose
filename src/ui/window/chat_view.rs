@@ -341,12 +341,11 @@ pub(super) fn build() -> Chat {
         .hscrollbar_policy(gtk::PolicyType::Never)
         .vscrollbar_policy(gtk::PolicyType::Automatic)
         .propagate_natural_height(true)
-        .max_content_height(168)
+        .max_content_height(88)
         .child(&attachments.previews)
         .build();
-    let attachment_section = gtk::Box::new(Orientation::Vertical, 8);
+    let attachment_section = gtk::Box::new(Orientation::Vertical, 0);
     attachment_section.add_css_class("moose-attachment-section");
-    attachment_section.append(&attachments.summary);
     attachment_section.append(&attachment_scroll);
     attachments
         .previews
