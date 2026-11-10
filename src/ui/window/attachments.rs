@@ -2,6 +2,7 @@ use super::*;
 use crate::attachments::{Asset, MAX_ATTACHMENTS, MAX_FILE_BYTES, error};
 use gtk::{gdk, glib};
 
+mod clipboard;
 mod image;
 mod import;
 pub(super) mod library;
@@ -366,21 +367,10 @@ fn paste_image(ui: &Rc<WindowUi>, backend: &Rc<Backend>) {
     let backend = backend.clone();
     glib::MainContext::default().spawn_local(async move {
         let result = import_step(&ui, epoch, async {
-            let texture = ui
-                .entry
-                .clipboard()
-                .read_texture_future()
-                .await
-                .map_err(|_| error("No image could be read from the clipboard"))?
-                .ok_or_else(|| error("Copy an image or screenshot first"))?;
-            if i64::from(texture.width()) * i64::from(texture.height()) > 40_000_000 {
-                return Err(error("Choose an image with fewer than 40 million pixels"));
-            }
-            let bytes = texture.save_to_png_bytes().to_vec();
-            let cache = backend.paths.cache_dir().to_path_buf();
+            let bytes = clipboard::read_image(&ui.entry.clipboard()).await?;
             let asset = backend
                 .runtime
-                .spawn_blocking(move || import::parse("Pasted image.png".into(), bytes, &cache))
+                .spawn_blocking(move || import::image("Pasted image.png".into(), &bytes))
                 .await
                 .map_err(|_| error("The image could not be prepared"))??;
             if ui.attachments.import_epoch.get() != epoch {

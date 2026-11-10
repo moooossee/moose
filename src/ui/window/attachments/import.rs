@@ -56,7 +56,7 @@ pub(super) fn parse(name: String, bytes: Vec<u8>, cache: &Path) -> Result<Import
     })
 }
 
-fn image(name: String, bytes: &[u8]) -> Result<ImportedAsset> {
+pub(super) fn image(name: String, bytes: &[u8]) -> Result<ImportedAsset> {
     let loader = gdk_pixbuf::PixbufLoader::new();
     let oversized = std::rc::Rc::new(std::cell::Cell::new(false));
     let target = oversized.clone();
