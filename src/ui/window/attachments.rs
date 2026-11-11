@@ -4,6 +4,7 @@ use gtk::{gdk, glib};
 
 mod clipboard;
 mod composer;
+mod document;
 mod image;
 mod import;
 pub(super) mod library;
@@ -787,11 +788,9 @@ fn append_message_assets(ui: &WindowUi, backend: &Backend, row: &gtk::Box, asset
         }
         section.append(&gallery);
     }
-    for asset in assets.iter().filter(|asset| asset.kind != "image") {
-        let document = asset_widget(ui, backend, asset);
-        document.set_size_request(260, -1);
-        document.add_css_class("moose-sent-document");
-        section.append(&document);
+    if let Some(documents) = document::list(ui, backend, assets) {
+        documents.set_halign(alignment);
+        section.append(&documents);
     }
     let mut child = row.first_child();
     while let Some(widget) = child {
