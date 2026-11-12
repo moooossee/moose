@@ -61,6 +61,13 @@ struct ExportMessage<'a> {
     details: Option<&'a crate::storage::MessageDetails>,
     attachments: &'a [crate::attachments::Asset],
     sources: &'a [crate::attachments::Source],
+    documents: &'a [ExportCreatedDocument],
+}
+
+#[derive(Serialize)]
+struct ExportCreatedDocument {
+    metadata: crate::documents::CreatedDocument,
+    data_base64: Option<String>,
 }
 
 #[derive(Serialize)]
@@ -79,6 +86,7 @@ struct ExportData {
     attachments: std::collections::HashMap<String, Vec<crate::attachments::Asset>>,
     sources: std::collections::HashMap<String, Vec<crate::attachments::Source>>,
     assets: std::collections::BTreeMap<String, ExportAsset>,
+    documents: std::collections::HashMap<String, Vec<ExportCreatedDocument>>,
 }
 
 pub(super) fn show_dialog(ui: &Rc<WindowUi>, backend: &Rc<Backend>, conversation_id: &str) {
@@ -92,7 +100,7 @@ pub(super) fn show_dialog(ui: &Rc<WindowUi>, backend: &Rc<Backend>, conversation
 
     let dialog = adw::AlertDialog::builder()
         .heading("Export Conversation")
-        .body("JSON includes attachment copies. Markdown and plain text include attachment names. All formats include document source excerpts.")
+        .body("JSON includes copies of attachments and created documents. Markdown and plain text include their names. All formats include document source excerpts.")
         .close_response("cancel")
         .default_response("markdown")
         .build();
@@ -183,6 +191,7 @@ fn load_export_data(
     let mut attachments = std::collections::HashMap::new();
     let mut sources = std::collections::HashMap::new();
     let mut assets = std::collections::BTreeMap::new();
+    let mut documents = std::collections::HashMap::new();
     for message in &messages {
         let files = backend
             .conversation_repository
@@ -211,6 +220,29 @@ fn load_export_data(
         }
         attachments.insert(message.id.clone(), files);
         sources.insert(message.id.clone(), references);
+        let mut created = Vec::new();
+        for metadata in backend
+            .conversation_repository
+            .message_documents(&message.id)?
+        {
+            let data_base64 = if format == ExportFormat::Json {
+                Some(
+                    gtk::glib::base64_encode(
+                        &backend
+                            .conversation_repository
+                            .document_bytes(&metadata.id)?,
+                    )
+                    .to_string(),
+                )
+            } else {
+                None
+            };
+            created.push(ExportCreatedDocument {
+                metadata,
+                data_base64,
+            });
+        }
+        documents.insert(message.id.clone(), created);
     }
     Ok(ExportData {
         conversation,
@@ -222,6 +254,7 @@ fn load_export_data(
         attachments,
         sources,
         assets,
+        documents,
     })
 }
 
@@ -299,6 +332,15 @@ fn text(data: &ExportData) -> String {
 }
 
 fn append_references(output: &mut String, data: &ExportData, message: &Message) {
+    if let Some(documents) = data.documents.get(&message.id) {
+        for document in documents {
+            output.push_str(&format!(
+                "Created document: {} ({})\n\n",
+                document.metadata.filename(),
+                document.metadata.format.label()
+            ));
+        }
+    }
     if message.status == MessageStatus::Incomplete {
         output.push_str(&MooseError::ResponseLimit.to_string());
         output.push_str("\n\n");
@@ -365,7 +407,7 @@ fn append_references(output: &mut String, data: &ExportData, message: &Message) 
 
 fn json(data: &ExportData) -> Result<String> {
     let document = ExportDocument {
-        version: 4,
+        version: 5,
         assets: &data.assets,
         exported_at: &data.exported_at,
         conversation: ExportConversation {
@@ -401,6 +443,11 @@ fn json(data: &ExportData) -> Result<String> {
                     .unwrap_or_default(),
                 sources: data
                     .sources
+                    .get(&message.id)
+                    .map(Vec::as_slice)
+                    .unwrap_or_default(),
+                documents: data
+                    .documents
                     .get(&message.id)
                     .map(Vec::as_slice)
                     .unwrap_or_default(),
