@@ -186,7 +186,7 @@ pub(super) fn build() -> Chat {
     send_button.set_valign(Align::Center);
     stop_button.set_valign(Align::Center);
     let attachments = super::attachments::build();
-    let composer_actions = gtk::Box::new(Orientation::Horizontal, 10);
+    let composer_actions = gtk::Box::new(Orientation::Horizontal, 8);
     composer_actions.add_css_class("moose-composer-actions");
     let action_stack = gtk::Stack::builder()
         .transition_type(gtk::StackTransitionType::Crossfade)
@@ -197,8 +197,10 @@ pub(super) fn build() -> Chat {
     action_stack.add_named(&stop_button, Some("stop"));
     let hint = gtk::Label::builder()
         .label("Enter to send · Shift+Enter for a new line")
-        .xalign(0.0)
+        .xalign(1.0)
         .width_chars(1)
+        .margin_start(8)
+        .margin_end(8)
         .hexpand(true)
         .ellipsize(gtk::pango::EllipsizeMode::End)
         .build();
