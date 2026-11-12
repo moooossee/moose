@@ -162,6 +162,7 @@ impl ConversationRepository {
             self.connection.execute("INSERT INTO message_tool_activity SELECT ?1, calls, notice FROM message_tool_activity WHERE message_id = ?2", params![copied.id, original_id])?;
             self.connection.execute("INSERT INTO message_assets SELECT ?1, asset_id, position FROM message_assets WHERE message_id = ?2", params![copied.id, original_id])?;
             self.connection.execute("INSERT INTO response_sources SELECT ?1, number, asset_id, name, page, content FROM response_sources WHERE message_id = ?2", params![copied.id, original_id])?;
+            self.copy_documents(&original_id, &copied.id)?;
             parent_id = Some(copied.id);
             if is_last {
                 break;

@@ -2,6 +2,7 @@ pub mod attachments;
 pub mod chat;
 pub mod conversations;
 pub mod core;
+pub mod documents;
 pub mod error;
 pub mod logging;
 pub mod models;

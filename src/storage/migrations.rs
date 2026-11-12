@@ -59,6 +59,10 @@ const MIGRATIONS: &[(i64, &str)] = &[
         19,
         include_str!("../../migrations/0019_openrouter_provider.sql"),
     ),
+    (
+        21,
+        include_str!("../../migrations/0021_document_creation.sql"),
+    ),
 ];
 
 pub fn run_migrations(connection: &mut Connection) -> Result<()> {

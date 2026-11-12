@@ -112,6 +112,10 @@ impl ConversationRepository {
 
     pub fn recover_interrupted_responses(&self) -> Result<()> {
         self.connection.execute("UPDATE messages SET status = 'cancelled', completed_at = ?1 WHERE status = 'streaming'", [utc_now()])?;
+        self.connection.execute(
+            "UPDATE document_requests SET state = 'waiting', error = '' WHERE state = 'creating'",
+            [],
+        )?;
         Ok(())
     }
 }

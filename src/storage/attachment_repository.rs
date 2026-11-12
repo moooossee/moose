@@ -343,6 +343,17 @@ impl ConversationRepository {
         prompt: &str,
         sources: &[Source],
     ) -> Result<(Message, Message)> {
+        self.submit_with_document(conversation, submission, prompt, sources, None)
+    }
+
+    pub fn submit_with_document(
+        &self,
+        conversation: &str,
+        submission: &crate::chat::ChatSubmission,
+        prompt: &str,
+        sources: &[Source],
+        document: Option<&crate::documents::DocumentJob>,
+    ) -> Result<(Message, Message)> {
         let transaction = self.connection.unchecked_transaction()?;
         let exchange = match submission {
             crate::chat::ChatSubmission::New(_) => {
@@ -378,6 +389,9 @@ impl ConversationRepository {
                     source.content
                 ],
             )?;
+        }
+        if let Some(document) = document {
+            self.save_document_request(&exchange.1.id, &document.request, &document.content)?;
         }
         transaction.commit()?;
         Ok(exchange)
