@@ -9,6 +9,9 @@ pub(super) struct Context {
     reasoning: String,
     tools: Vec<crate::tools::ToolExecution>,
     tool_notice: String,
+    is_document: bool,
+    document_body: String,
+    document_prefix_bytes: usize,
     started: Option<Instant>,
     pub(super) finished: Option<Instant>,
     reasoning_started: Option<Instant>,
@@ -85,6 +88,7 @@ pub(super) fn sync_controls(ui: &WindowUi, backend: &Backend) {
     }));
     update_send_button(ui);
     composer_commands::refresh(ui, backend);
+    document_creation::sync_controls(ui, backend);
 }
 
 pub(super) fn bind(ui: &Rc<WindowUi>, backend: &Rc<Backend>) {
@@ -148,7 +152,14 @@ pub(super) fn persist(backend: &Backend, status: &str) -> Result<()> {
         &backend.active_assistant_content.borrow(),
         status,
         &details,
-    )
+    )?;
+    let context = backend.generation_context.borrow();
+    if context.is_document {
+        backend
+            .conversation_repository
+            .save_document_content(&id, &context.document_body)?;
+    }
+    Ok(())
 }
 
 pub(super) fn append_live(ui: &WindowUi, backend: &Backend, message: &Message) {
@@ -156,6 +167,12 @@ pub(super) fn append_live(ui: &WindowUi, backend: &Backend, message: &Message) {
     let live = chat_view::append_streaming_message(&ui.messages, &model, Some(&message.created_at));
     if let Some(row) = ui.messages.last_child() {
         row.set_widget_name(&message.id);
+        if let Some(row) = row.downcast_ref::<gtk::Box>() {
+            if let Err(error) = document_creation::append(backend, row, message) {
+                ui.toast_overlay
+                    .add_toast(adw::Toast::new(&error.to_string()));
+            }
+        }
     }
     *ui.streaming_message.borrow_mut() = Some(live);
     update_live(ui, backend);
@@ -188,6 +205,7 @@ pub(super) fn start(
     request: ChatRequest,
     assistant: Message,
     web: Option<crate::tools::web::WebConfig>,
+    document: Option<crate::documents::DocumentJob>,
     clear_draft: bool,
     mut title_prompt: Option<String>,
 ) {
@@ -200,6 +218,9 @@ pub(super) fn start(
     *backend.generation_context.borrow_mut() = Context {
         conversation_id: conversation_id.clone(),
         model: model.clone(),
+        is_document: document.is_some(),
+        document_prefix_bytes: document.as_ref().map_or(0, |job| job.content.len()),
+        document_body: document.map(|job| job.content).unwrap_or_default(),
         started: Some(Instant::now()),
         checkpoint: Some(Instant::now()),
         ..Context::default()
@@ -265,6 +286,10 @@ pub(super) fn start(
             match receiver.try_recv() {
                 Ok(ChatUiEvent::Tool(tool)) => {
                     let mut context = backend.generation_context.borrow_mut();
+                    if context.is_document && tool.status == crate::tools::ToolStatus::Running {
+                        let prefix = context.document_prefix_bytes;
+                        context.document_body.truncate(prefix);
+                    }
                     if let Some(previous) =
                         context.tools.iter_mut().find(|entry| entry.id == tool.id)
                     {
@@ -288,6 +313,9 @@ pub(super) fn start(
                             .active_assistant_content
                             .borrow_mut()
                             .push_str(&token);
+                        if context.is_document {
+                            context.document_body.push_str(&token);
+                        }
                     }
                 }
                 Ok(ChatUiEvent::Thinking(token)) => {
@@ -351,6 +379,9 @@ pub(super) fn start(
             finish_generation(&ui);
             if saved && is_visible(&backend) {
                 message_actions::refresh_message(&ui, &backend, &assistant_id);
+            }
+            if saved && completed && backend.generation_context.borrow().is_document {
+                document_creation::generate(&ui, &backend, &assistant_id, None);
             }
             workspace::sync_provider(&ui, &backend);
             sync_controls(&ui, &backend);

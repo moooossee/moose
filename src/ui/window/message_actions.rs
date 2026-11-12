@@ -153,6 +153,7 @@ fn append_row(
         chat_view::append_details(&row, &details);
     }
     super::attachments::append_stored(ui, backend, &row, &message.id)?;
+    super::document_creation::append(backend, &row, message)?;
     append_toolbar(&row, message, versions);
     row.set_widget_name(&message.id);
     Ok(row)
@@ -264,6 +265,21 @@ fn append_toolbar(row: &gtk::Box, message: &Message, versions: Option<&Vec<Strin
             &message.id,
         ));
     } else if message.role == MessageRole::Assistant && message.status.is_finished() {
+        if message.status == MessageStatus::Complete && !message.content.trim().is_empty() {
+            let document = action_button(
+                "document-new-symbolic",
+                "Create Document from Response",
+                "create-document",
+                &message.id,
+            );
+            document.set_child(Some(
+                &adw::ButtonContent::builder()
+                    .icon_name("document-new-symbolic")
+                    .label("Create Document")
+                    .build(),
+            ));
+            toolbar.append(&document);
+        }
         let retry = matches!(
             message.status,
             MessageStatus::Incomplete | MessageStatus::Failed | MessageStatus::Cancelled

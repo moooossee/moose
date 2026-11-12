@@ -31,6 +31,7 @@ pub(super) struct Chat {
     pub(super) chat_settings_button: gtk::Button,
     pub(super) send_button: gtk::Button,
     pub(super) stop_button: gtk::Button,
+    pub(super) create_document_button: gtk::Button,
     pub(super) draft_label: gtk::Label,
     pub(super) thinking_picker: gtk::DropDown,
     pub(super) attachments: super::attachments::Controls,
@@ -210,6 +211,19 @@ pub(super) fn build() -> Chat {
         .transition_duration(120)
         .build();
     composer_actions.append(&attachments.button);
+    let create_document_button = gtk::Button::builder()
+        .child(
+            &adw::ButtonContent::builder()
+                .icon_name("document-new-symbolic")
+                .label("Create Document")
+                .build(),
+        )
+        .valign(Align::Center)
+        .tooltip_text("Create a document, spreadsheet, or presentation")
+        .build();
+    create_document_button.add_css_class("flat");
+    create_document_button.add_css_class("moose-create-document-button");
+    composer_actions.append(&create_document_button);
     composer_actions.append(&feedback_revealer);
     composer_actions.append(&action_stack);
     let focus = gtk::EventControllerFocus::new();
@@ -414,6 +428,7 @@ pub(super) fn build() -> Chat {
         chat_settings_button,
         send_button,
         stop_button,
+        create_document_button,
         draft_label,
         thinking_picker,
         attachments,

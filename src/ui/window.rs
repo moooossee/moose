@@ -53,6 +53,7 @@ mod conversation_export;
 mod conversation_list;
 mod custom_provider;
 mod diagnostics;
+mod document_creation;
 mod first_run;
 mod generation;
 mod managed_install;
@@ -179,6 +180,7 @@ fn build_ui(app: &adw::Application) -> Rc<WindowUi> {
         entry: chat.entry,
         send_button: chat.send_button,
         stop_button: chat.stop_button,
+        create_document_button: chat.create_document_button,
         draft_label: chat.draft_label,
         thinking_picker: chat.thinking_picker,
         attachments: chat.attachments,
@@ -222,6 +224,7 @@ pub fn build(app: &adw::Application) -> adw::ApplicationWindow {
             );
             bind_global_shortcuts(&ui, &backend);
             message_actions::bind(&ui, &backend);
+            document_creation::bind(&ui, &backend);
             workspace::bind(&ui, &backend);
             reasoning::bind(&ui, &backend);
             attachments::bind(&ui, &backend);
@@ -321,6 +324,7 @@ struct WindowUi {
     entry: gtk::TextView,
     send_button: gtk::Button,
     stop_button: gtk::Button,
+    create_document_button: gtk::Button,
     draft_label: gtk::Label,
     thinking_picker: gtk::DropDown,
     attachments: attachments::Controls,
@@ -1186,6 +1190,7 @@ fn refresh_models_with_callback(
     mut on_loaded: Option<Box<dyn FnOnce()>>,
 ) {
     composer_commands::refresh(ui, backend);
+    document_creation::sync_controls(ui, backend);
     if runtime_install_is_active(ui, backend) {
         return;
     }
@@ -1422,6 +1427,15 @@ fn submit_message(
     backend: &Rc<Backend>,
     submission: message_actions::Submission,
 ) -> bool {
+    submit_message_with_document(ui, backend, submission, None)
+}
+
+fn submit_message_with_document(
+    ui: &Rc<WindowUi>,
+    backend: &Rc<Backend>,
+    submission: message_actions::Submission,
+    explicit_document: Option<crate::documents::DocumentRequest>,
+) -> bool {
     if runtime_install_is_active(ui, backend) {
         return false;
     }
@@ -1504,6 +1518,30 @@ fn submit_message(
             return false;
         }
     };
+    let document = match document_creation::prepare_request(
+        backend,
+        &submission,
+        &prompt,
+        &history,
+        explicit_document,
+    ) {
+        Ok(document) => document,
+        Err(error) => {
+            ui.toast_overlay.add_toast(adw::Toast::new(&format!(
+                "Document request could not be prepared: {error}"
+            )));
+            return false;
+        }
+    };
+    if let Some(document) = &document {
+        settings.system_prompt.push_str("\n\n");
+        settings
+            .system_prompt
+            .push_str(&document.request.instruction());
+        if matches!(&submission, message_actions::Submission::Continue(_)) {
+            settings.system_prompt.push_str("\nThis is a continuation of an incomplete document. Return only the remaining content. Do not restart the document or repeat text that is already written.");
+        }
+    }
     if let Err(error) = backend.conversation_repository.include_tool_context(
         &mut history,
         settings.context_messages.saturating_sub(1) as usize,
@@ -1567,6 +1605,7 @@ fn submit_message(
     request.messages = request_messages;
     let pending = PendingChat {
         web,
+        document,
         provider,
         conversation_id,
         model,
@@ -1581,6 +1620,7 @@ fn submit_message(
 
 struct PendingChat {
     web: Option<crate::tools::web::WebConfig>,
+    document: Option<crate::documents::DocumentJob>,
     provider: Provider,
     conversation_id: String,
     model: String,
@@ -1615,6 +1655,7 @@ fn start_authorized_chat(ui: &Rc<WindowUi>, backend: &Rc<Backend>, pending: Pend
     }
     let PendingChat {
         web,
+        document,
         provider,
         conversation_id,
         model,
@@ -1642,11 +1683,12 @@ fn start_authorized_chat(ui: &Rc<WindowUi>, backend: &Rc<Backend>, pending: Pend
             .add_toast(adw::Toast::new(&error.to_string()));
         return false;
     }
-    let exchange = backend.conversation_repository.submit_with_sources(
+    let exchange = backend.conversation_repository.submit_with_document(
         &conversation_id,
         &submission,
         &prompt,
         &sources,
+        document.as_ref(),
     );
     let (_, assistant) = match exchange {
         Ok(exchange) => exchange,
@@ -1667,6 +1709,7 @@ fn start_authorized_chat(ui: &Rc<WindowUi>, backend: &Rc<Backend>, pending: Pend
         request,
         assistant,
         web,
+        document,
         matches!(submission, message_actions::Submission::New(_)),
         should_generate_title.then_some(prompt),
     );
