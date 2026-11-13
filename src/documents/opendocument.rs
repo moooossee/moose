@@ -1,3 +1,5 @@
+use crate::i18n::{gettext, gettext_f};
+
 use super::{
     DocumentFormat,
     archive::Archive,
@@ -12,7 +14,7 @@ pub fn render(content: &Content, format: DocumentFormat) -> Result<Vec<u8>, Stri
         DocumentFormat::Odt => text_document(content),
         DocumentFormat::Ods => spreadsheet(content)?,
         DocumentFormat::Odp => presentation_document(content)?,
-        _ => return Err("This OpenDocument format is not supported.".into()),
+        _ => return Err(gettext("This OpenDocument format is not supported.")),
     };
     let mut archive = Archive::new();
     archive.add("mimetype", format.mime_type())?;
@@ -67,7 +69,9 @@ fn text_document(content: &Content) -> String {
 fn spreadsheet(content: &Content) -> Result<String, String> {
     let tables = content.tables();
     if tables.is_empty() || tables.len() > 64 {
-        return Err("A spreadsheet needs between 1 and 64 Markdown tables.".into());
+        return Err(gettext(
+            "A spreadsheet needs between 1 and 64 Markdown tables.",
+        ));
     }
     let mut result = String::from("<office:spreadsheet>");
     for (index, table) in tables.iter().enumerate() {
@@ -140,7 +144,7 @@ fn odf_formula(value: &str) -> String {
 fn presentation_document(content: &Content) -> Result<String, String> {
     let mut result = String::from("<office:presentation>");
     for (index, (title, lines)) in presentation::slides(content)?.iter().enumerate() {
-        result.push_str(&format!(r###"<draw:page draw:name="Slide {}" draw:master-page-name="Default"><draw:frame svg:x="1.8cm" svg:y="1.2cm" svg:width="30cm" svg:height="2.4cm"><draw:text-box><text:p text:style-name="SlideTitle">{}</text:p></draw:text-box></draw:frame><draw:frame svg:x="1.8cm" svg:y="4cm" svg:width="30cm" svg:height="13cm"><draw:text-box>"###, index + 1, text_xml(title)));
+        result.push_str(&format!(r###"<draw:page draw:name="{}" draw:master-page-name="Default"><draw:frame svg:x="1.8cm" svg:y="1.2cm" svg:width="30cm" svg:height="2.4cm"><draw:text-box><text:p text:style-name="SlideTitle">{}</text:p></draw:text-box></draw:frame><draw:frame svg:x="1.8cm" svg:y="4cm" svg:width="30cm" svg:height="13cm"><draw:text-box>"###, text_xml(&gettext_f("Slide {number}", &[("number", &(index + 1).to_string())])), text_xml(title)));
         for line in lines {
             result.push_str(&format!(
                 r###"<text:p text:style-name="SlideBody">{}</text:p>"###,

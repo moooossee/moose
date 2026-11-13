@@ -1,3 +1,5 @@
+use crate::i18n::{gettext, gettext_f, gettext_noop};
+
 use super::*;
 use crate::chat::ThinkingValue;
 
@@ -43,9 +45,12 @@ pub(super) fn bind(ui: &Rc<WindowUi>, backend: &Rc<Backend>) {
             Ok(())
         })();
         if let Err(error) = result {
-            target_ui.toast_overlay.add_toast(adw::Toast::new(&format!(
-                "Reasoning setting could not be saved: {error}"
-            )));
+            target_ui
+                .toast_overlay
+                .add_toast(adw::Toast::new(&gettext_f(
+                    "Reasoning setting could not be saved: {error}",
+                    &[("error", &(error).to_string())],
+                )));
         }
         conversation_list::refresh(&target_ui, &backend);
     });
@@ -60,15 +65,16 @@ fn apply(ui: &WindowUi, backend: &Backend, model: &str, values: Vec<ThinkingValu
     let unsupported = values == [ThinkingValue::Enabled(false)];
     let values = if unsupported { Vec::new() } else { values };
     let mut labels = vec![if unsupported {
-        "Reasoning: —".to_string()
+        gettext("Reasoning: —")
     } else {
-        "Reasoning: Auto".to_string()
+        gettext("Reasoning: Auto")
     }];
-    labels.extend(
-        values
-            .iter()
-            .map(|value| format!("Reasoning: {}", value.label())),
-    );
+    labels.extend(values.iter().map(|value| {
+        gettext_f(
+            "Reasoning: {arg1}",
+            &[("arg1", &crate::i18n::thinking_label(value))],
+        )
+    }));
     let saved = backend
         .active_conversation_id
         .borrow()
@@ -78,8 +84,9 @@ fn apply(ui: &WindowUi, backend: &Backend, model: &str, values: Vec<ThinkingValu
     let saved = match saved {
         Ok(saved) => saved.flatten(),
         Err(error) => {
-            ui.toast_overlay.add_toast(adw::Toast::new(&format!(
-                "Reasoning setting could not be loaded: {error}"
+            ui.toast_overlay.add_toast(adw::Toast::new(&gettext_f(
+                "Reasoning setting could not be loaded: {error}",
+                &[("error", &(error).to_string())],
             )));
             None
         }
@@ -105,13 +112,13 @@ fn apply(ui: &WindowUi, backend: &Backend, model: &str, values: Vec<ThinkingValu
         .set_model(Some(&gtk::StringList::new(&labels)));
     ui.thinking_picker.set_selected(index);
     ui.thinking_picker.set_sensitive(labels.len() > 1);
-    ui.thinking_picker.set_tooltip_text(Some(if unsupported {
-        "This model does not support reasoning"
+    ui.thinking_picker.set_tooltip_text(Some(&gettext(if unsupported {
+        gettext_noop("This model does not support reasoning")
     } else if labels.len() == 1 {
-        "The provider has not provided reasoning controls. The model’s default behavior will be used."
+        gettext_noop("The provider has not provided reasoning controls. The model’s default behavior will be used.")
     } else {
-        "Choose how this model reasons in this chat. Automatic uses the model’s default."
-    }));
+        gettext_noop("Choose how this model reasons in this chat. Automatic uses the model’s default.")
+    })));
     ui.thinking_state.borrow_mut().restoring = false;
 }
 
@@ -140,7 +147,7 @@ pub(super) fn refresh(ui: &Rc<WindowUi>, backend: &Rc<Backend>) {
     }
     apply(ui, backend, &model, Vec::new());
     ui.thinking_picker
-        .set_tooltip_text(Some("Checking this model’s reasoning controls…"));
+        .set_tooltip_text(Some(&gettext("Checking this model’s reasoning controls…")));
     let (sender, receiver) = mpsc::channel();
     let target_model = model.clone();
     let policy = backend.network_policy.clone();
@@ -171,7 +178,7 @@ pub(super) fn refresh(ui: &Rc<WindowUi>, backend: &Rc<Backend>) {
             }
             Ok(Err(_)) | Err(mpsc::TryRecvError::Disconnected) => {
                 apply(&ui, &backend, &model, Vec::new());
-                ui.thinking_picker.set_tooltip_text(Some("Reasoning controls could not be loaded. The model’s default behavior will be used."));
+                ui.thinking_picker.set_tooltip_text(Some(&gettext("Reasoning controls could not be loaded. The model’s default behavior will be used.")));
                 gtk::glib::ControlFlow::Break
             }
             Err(mpsc::TryRecvError::Empty) => gtk::glib::ControlFlow::Continue,
@@ -196,10 +203,11 @@ pub(super) fn reset(ui: &WindowUi) {
         state.cache.clear();
     }
     ui.thinking_picker
-        .set_model(Some(&gtk::StringList::new(&["Reasoning: Auto"])));
+        .set_model(Some(&gtk::StringList::new(&[&gettext("Reasoning: Auto")])));
     ui.thinking_picker.set_selected(0);
     ui.thinking_picker.set_sensitive(false);
-    ui.thinking_picker
-        .set_tooltip_text(Some("Select a model to see its reasoning controls"));
+    ui.thinking_picker.set_tooltip_text(Some(&gettext(
+        "Select a model to see its reasoning controls",
+    )));
     ui.thinking_state.borrow_mut().restoring = false;
 }

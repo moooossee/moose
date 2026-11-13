@@ -1,3 +1,5 @@
+use crate::i18n::gettext;
+
 use super::*;
 use crate::attachments::{
     Asset, FileEntry, ImportedAsset, MAX_ATTACHMENTS, Source, chunks, error, search_expression,
@@ -168,7 +170,7 @@ impl ConversationRepository {
                         return Ok(FileEntry::Uploaded(asset));
                     }
                     let format = DocumentFormat::parse(&format)
-                        .ok_or_else(|| error("This document format is not supported."))?;
+                        .ok_or_else(|| error(gettext("This document format is not supported.")))?;
                     Ok(FileEntry::Generated {
                         document: CreatedDocument {
                             id: asset.id,
@@ -232,7 +234,7 @@ impl ConversationRepository {
             return Ok(());
         }
         if existing.len() >= MAX_ATTACHMENTS {
-            return Err(error("Attach up to 8 files per message"));
+            return Err(error(gettext("Attach up to 8 files per message")));
         }
         self.connection.execute("INSERT INTO draft_assets SELECT ?1, ?2, COALESCE(MAX(position), -1) + 1 FROM draft_assets WHERE conversation_id = ?1", params![conversation, asset])?;
         self.remember_conversation(conversation)?;

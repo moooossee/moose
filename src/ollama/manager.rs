@@ -1,3 +1,5 @@
+use crate::i18n::{gettext, gettext_f};
+
 use std::{
     collections::{BTreeMap, HashSet},
     fs::{self, File, OpenOptions},
@@ -269,7 +271,10 @@ impl ManagedOllamaManifest {
 
     pub fn from_json(value: &str) -> Result<Self> {
         let manifest: Self = serde_json::from_str(value).map_err(|error| {
-            MooseError::ManagedOllamaManifestInvalid(format!("could not parse JSON: {error}"))
+            MooseError::ManagedOllamaManifestInvalid(gettext_f(
+                "could not parse JSON: {error}",
+                &[("error", &(error).to_string())],
+            ))
         })?;
         manifest.validate()?;
         Ok(manifest)
@@ -279,15 +284,15 @@ impl ManagedOllamaManifest {
         if !self.version.starts_with('v')
             || super::releases::RuntimeVersion::parse(&self.version).is_none()
         {
-            return Err(MooseError::ManagedOllamaManifestInvalid(
-                "version must be a fixed release tag beginning with v".to_string(),
-            ));
+            return Err(MooseError::ManagedOllamaManifestInvalid(gettext(
+                "version must be a fixed release tag beginning with v",
+            )));
         }
 
         if self.assets.is_empty() {
-            return Err(MooseError::ManagedOllamaManifestInvalid(
-                "no supported packages".into(),
-            ));
+            return Err(MooseError::ManagedOllamaManifestInvalid(gettext(
+                "no supported packages",
+            )));
         }
         for (key, asset) in &self.assets {
             asset.validate(
@@ -317,7 +322,10 @@ impl ManagedOllamaAsset {
             architecture.as_str()
         );
         let url = reqwest::Url::parse(&self.url).map_err(|error| {
-            MooseError::ManagedOllamaManifestInvalid(format!("invalid asset URL: {error}"))
+            MooseError::ManagedOllamaManifestInvalid(gettext_f(
+                "invalid asset URL: {error}",
+                &[("error", &(error).to_string())],
+            ))
         })?;
 
         if url.scheme() != "https"
@@ -329,23 +337,23 @@ impl ManagedOllamaAsset {
             || url.query().is_some()
             || url.fragment().is_some()
         {
-            return Err(MooseError::ManagedOllamaManifestInvalid(format!(
-                "asset URL for {} must point to the official Ollama GitHub release",
-                architecture.as_str()
+            return Err(MooseError::ManagedOllamaManifestInvalid(gettext_f(
+                "asset URL for {arg1} must point to the official Ollama GitHub release",
+                &[("arg1", (architecture.as_str()))],
             )));
         }
 
         if !is_sha256_hex(&self.sha256) {
-            return Err(MooseError::ManagedOllamaManifestInvalid(format!(
-                "asset checksum for {} must be a SHA-256 hex digest",
-                architecture.as_str()
+            return Err(MooseError::ManagedOllamaManifestInvalid(gettext_f(
+                "asset checksum for {arg1} must be a SHA-256 hex digest",
+                &[("arg1", (architecture.as_str()))],
             )));
         }
 
         if matches!(self.size_bytes, Some(0)) {
-            return Err(MooseError::ManagedOllamaManifestInvalid(format!(
-                "asset size for {} must be greater than zero",
-                architecture.as_str()
+            return Err(MooseError::ManagedOllamaManifestInvalid(gettext_f(
+                "asset size for {arg1} must be greater than zero",
+                &[("arg1", (architecture.as_str()))],
             )));
         }
 
@@ -379,8 +387,9 @@ impl ManagedOllamaArchitecture {
         match value {
             "amd64" => Ok(Self::Amd64),
             "arm64" => Ok(Self::Arm64),
-            value => Err(MooseError::ManagedOllamaManifestInvalid(format!(
-                "unsupported manifest architecture {value}"
+            value => Err(MooseError::ManagedOllamaManifestInvalid(gettext_f(
+                "unsupported manifest architecture {value}",
+                &[("value", (value))],
             ))),
         }
     }
@@ -417,13 +426,20 @@ fn extract_zstd_tar(
     cancellation: &InstallCancellation,
 ) -> Result<()> {
     let file = File::open(archive_path).map_err(|error| {
-        extraction_failed(format!(
-            "could not open archive {}: {error}",
-            archive_path.display()
+        extraction_failed(gettext_f(
+            "could not open archive {arg1}: {error}",
+            &[
+                ("arg1", &(archive_path.display()).to_string()),
+                ("error", &(error).to_string()),
+            ],
         ))
     })?;
-    let decoder = zstd::stream::read::Decoder::new(file)
-        .map_err(|error| extraction_failed(format!("could not decode zstd archive: {error}")))?;
+    let decoder = zstd::stream::read::Decoder::new(file).map_err(|error| {
+        extraction_failed(gettext_f(
+            "could not decode zstd archive: {error}",
+            &[("error", &(error).to_string())],
+        ))
+    })?;
     let mut archive = tar::Archive::new(decoder);
     extract_tar_archive(&mut archive, destination, cancellation)
 }
@@ -434,27 +450,39 @@ fn extract_tar_archive<R: Read>(
     cancellation: &InstallCancellation,
 ) -> Result<()> {
     fs::create_dir_all(destination).map_err(|error| {
-        extraction_failed(format!(
-            "could not create extraction directory {}: {error}",
-            destination.display()
+        extraction_failed(gettext_f(
+            "could not create extraction directory {arg1}: {error}",
+            &[
+                ("arg1", &(destination.display()).to_string()),
+                ("error", &(error).to_string()),
+            ],
         ))
     })?;
     let destination = fs::canonicalize(destination).map_err(|error| {
-        extraction_failed(format!(
-            "could not resolve extraction directory {}: {error}",
-            destination.display()
+        extraction_failed(gettext_f(
+            "could not resolve extraction directory {arg1}: {error}",
+            &[
+                ("arg1", &(destination.display()).to_string()),
+                ("error", &(error).to_string()),
+            ],
         ))
     })?;
 
     let mut extracted_paths = HashSet::new();
 
-    for entry in archive
-        .entries()
-        .map_err(|error| extraction_failed(format!("could not read archive entries: {error}")))?
-    {
+    for entry in archive.entries().map_err(|error| {
+        extraction_failed(gettext_f(
+            "could not read archive entries: {error}",
+            &[("error", &(error).to_string())],
+        ))
+    })? {
         cancellation.check()?;
-        let mut entry = entry
-            .map_err(|error| extraction_failed(format!("could not read archive entry: {error}")))?;
+        let mut entry = entry.map_err(|error| {
+            extraction_failed(gettext_f(
+                "could not read archive entry: {error}",
+                &[("error", &(error).to_string())],
+            ))
+        })?;
         let entry_type = entry.header().entry_type();
 
         if is_metadata_entry(entry_type) {
@@ -463,15 +491,20 @@ fn extract_tar_archive<R: Read>(
 
         let raw_path = entry
             .path()
-            .map_err(|error| extraction_failed(format!("invalid archive path: {error}")))?
+            .map_err(|error| {
+                extraction_failed(gettext_f(
+                    "invalid archive path: {error}",
+                    &[("error", &(error).to_string())],
+                ))
+            })?
             .into_owned();
         let relative_path = safe_relative_path(&raw_path)?;
         let output_path = destination.join(&relative_path);
 
         if !entry_type.is_dir() && !extracted_paths.insert(relative_path.clone()) {
-            return Err(extraction_failed(format!(
-                "duplicate archive entry {}",
-                relative_path.display()
+            return Err(extraction_failed(gettext_f(
+                "duplicate archive entry {arg1}",
+                &[("arg1", &(relative_path.display()).to_string())],
             )));
         }
 
@@ -486,10 +519,12 @@ fn extract_tar_archive<R: Read>(
         } else if entry_type.is_hard_link() {
             extract_hardlink_entry(&mut entry, &destination, &output_path)?;
         } else {
-            return Err(extraction_failed(format!(
-                "unsupported archive entry type {:?} for {}",
-                entry_type,
-                relative_path.display()
+            return Err(extraction_failed(gettext_f(
+                "unsupported archive entry type {arg1_formatted} for {arg2}",
+                &[
+                    ("arg1_formatted", &format!("{:?}", entry_type)),
+                    ("arg2", &(relative_path.display()).to_string()),
+                ],
             )));
         }
     }
@@ -504,7 +539,7 @@ fn extract_file_entry<R: Read>(
 ) -> Result<()> {
     let parent = output_path
         .parent()
-        .ok_or_else(|| extraction_failed("archive entry has no parent directory"))?;
+        .ok_or_else(|| extraction_failed(gettext("archive entry has no parent directory")))?;
     ensure_directory_without_symlinks(parent)?;
     ensure_path_is_absent(output_path)?;
 
@@ -514,9 +549,12 @@ fn extract_file_entry<R: Read>(
         .create_new(true)
         .open(output_path)
         .map_err(|error| {
-            extraction_failed(format!(
-                "could not create {}: {error}",
-                output_path.display()
+            extraction_failed(gettext_f(
+                "could not create {arg1}: {error}",
+                &[
+                    ("arg1", &(output_path.display()).to_string()),
+                    ("error", &(error).to_string()),
+                ],
             ))
         })?;
     let mut buffer = [0_u8; 128 * 1024];
@@ -536,27 +574,37 @@ fn extract_file_entry<R: Read>(
 fn extract_symlink_entry<R: Read>(entry: &mut tar::Entry<'_, R>, output_path: &Path) -> Result<()> {
     let target = entry
         .link_name()
-        .map_err(|error| extraction_failed(format!("invalid symlink target: {error}")))?
-        .ok_or_else(|| extraction_failed("symlink entry is missing a target"))?
+        .map_err(|error| {
+            extraction_failed(gettext_f(
+                "invalid symlink target: {error}",
+                &[("error", &(error).to_string())],
+            ))
+        })?
+        .ok_or_else(|| extraction_failed(gettext("symlink entry is missing a target")))?
         .into_owned();
     let target = safe_relative_path(&target)?;
     let parent = output_path
         .parent()
-        .ok_or_else(|| extraction_failed("symlink entry has no parent directory"))?;
+        .ok_or_else(|| extraction_failed(gettext("symlink entry has no parent directory")))?;
     ensure_directory_without_symlinks(parent)?;
     ensure_path_is_absent(output_path)?;
 
     #[cfg(unix)]
     unix_fs::symlink(&target, output_path).map_err(|error| {
-        extraction_failed(format!(
-            "could not create symlink {} -> {}: {error}",
-            output_path.display(),
-            target.display()
+        extraction_failed(gettext_f(
+            "could not create symlink {arg1} -> {arg2}: {error}",
+            &[
+                ("arg1", &(output_path.display()).to_string()),
+                ("arg2", &(target.display()).to_string()),
+                ("error", &(error).to_string()),
+            ],
         ))
     })?;
 
     #[cfg(not(unix))]
-    return Err(extraction_failed("symlink extraction requires Unix"));
+    return Err(extraction_failed(&gettext(
+        "symlink extraction requires Unix",
+    )));
 
     #[cfg(unix)]
     Ok(())
@@ -569,22 +617,30 @@ fn extract_hardlink_entry<R: Read>(
 ) -> Result<()> {
     let target = entry
         .link_name()
-        .map_err(|error| extraction_failed(format!("invalid hardlink target: {error}")))?
-        .ok_or_else(|| extraction_failed("hardlink entry is missing a target"))?
+        .map_err(|error| {
+            extraction_failed(gettext_f(
+                "invalid hardlink target: {error}",
+                &[("error", &(error).to_string())],
+            ))
+        })?
+        .ok_or_else(|| extraction_failed(gettext("hardlink entry is missing a target")))?
         .into_owned();
     let target = safe_relative_path(&target)?;
     let source_path = destination.join(&target);
     let parent = output_path
         .parent()
-        .ok_or_else(|| extraction_failed("hardlink entry has no parent directory"))?;
+        .ok_or_else(|| extraction_failed(gettext("hardlink entry has no parent directory")))?;
     ensure_directory_without_symlinks(parent)?;
     ensure_path_is_absent(output_path)?;
     ensure_regular_file_without_symlink(&source_path)?;
     fs::hard_link(&source_path, output_path).map_err(|error| {
-        extraction_failed(format!(
-            "could not create hardlink {} -> {}: {error}",
-            output_path.display(),
-            source_path.display()
+        extraction_failed(gettext_f(
+            "could not create hardlink {arg1} -> {arg2}: {error}",
+            &[
+                ("arg1", &(output_path.display()).to_string()),
+                ("arg2", &(source_path.display()).to_string()),
+                ("error", &(error).to_string()),
+            ],
         ))
     })?;
     Ok(())
@@ -598,16 +654,16 @@ fn safe_relative_path(path: &Path) -> Result<PathBuf> {
             Component::Normal(value) => safe_path.push(value),
             Component::CurDir => {}
             Component::ParentDir | Component::RootDir | Component::Prefix(_) => {
-                return Err(extraction_failed(format!(
-                    "archive path {} is not a safe relative path",
-                    path.display()
+                return Err(extraction_failed(gettext_f(
+                    "archive path {arg1} is not a safe relative path",
+                    &[("arg1", &(path.display()).to_string())],
                 )));
             }
         }
     }
 
     if safe_path.as_os_str().is_empty() {
-        return Err(extraction_failed("archive path is empty"));
+        return Err(extraction_failed(gettext("archive path is empty")));
     }
 
     Ok(safe_path)
@@ -621,24 +677,30 @@ fn ensure_directory_without_symlinks(path: &Path) -> Result<()> {
         match fs::symlink_metadata(&current) {
             Ok(metadata) => {
                 if metadata.file_type().is_symlink() || !metadata.is_dir() {
-                    return Err(extraction_failed(format!(
-                        "{} is not a safe directory",
-                        current.display()
+                    return Err(extraction_failed(gettext_f(
+                        "{arg1} is not a safe directory",
+                        &[("arg1", &(current.display()).to_string())],
                     )));
                 }
             }
             Err(error) if error.kind() == io::ErrorKind::NotFound => {
                 fs::create_dir(&current).map_err(|error| {
-                    extraction_failed(format!(
-                        "could not create directory {}: {error}",
-                        current.display()
+                    extraction_failed(gettext_f(
+                        "could not create directory {arg1}: {error}",
+                        &[
+                            ("arg1", &(current.display()).to_string()),
+                            ("error", &(error).to_string()),
+                        ],
                     ))
                 })?;
             }
             Err(error) => {
-                return Err(extraction_failed(format!(
-                    "could not inspect directory {}: {error}",
-                    current.display()
+                return Err(extraction_failed(gettext_f(
+                    "could not inspect directory {arg1}: {error}",
+                    &[
+                        ("arg1", &(current.display()).to_string()),
+                        ("error", &(error).to_string()),
+                    ],
                 )));
             }
         }
@@ -649,30 +711,36 @@ fn ensure_directory_without_symlinks(path: &Path) -> Result<()> {
 
 fn ensure_path_is_absent(path: &Path) -> Result<()> {
     match fs::symlink_metadata(path) {
-        Ok(_) => Err(extraction_failed(format!(
-            "{} already exists during extraction",
-            path.display()
+        Ok(_) => Err(extraction_failed(gettext_f(
+            "{arg1} already exists during extraction",
+            &[("arg1", &(path.display()).to_string())],
         ))),
         Err(error) if error.kind() == io::ErrorKind::NotFound => Ok(()),
-        Err(error) => Err(extraction_failed(format!(
-            "could not inspect {}: {error}",
-            path.display()
+        Err(error) => Err(extraction_failed(gettext_f(
+            "could not inspect {arg1}: {error}",
+            &[
+                ("arg1", &(path.display()).to_string()),
+                ("error", &(error).to_string()),
+            ],
         ))),
     }
 }
 
 fn ensure_regular_file_without_symlink(path: &Path) -> Result<()> {
     let metadata = fs::symlink_metadata(path).map_err(|error| {
-        extraction_failed(format!(
-            "could not inspect hardlink target {}: {error}",
-            path.display()
+        extraction_failed(gettext_f(
+            "could not inspect hardlink target {arg1}: {error}",
+            &[
+                ("arg1", &(path.display()).to_string()),
+                ("error", &(error).to_string()),
+            ],
         ))
     })?;
 
     if metadata.file_type().is_symlink() || !metadata.is_file() {
-        return Err(extraction_failed(format!(
-            "hardlink target {} is not a regular file",
-            path.display()
+        return Err(extraction_failed(gettext_f(
+            "hardlink target {arg1} is not a regular file",
+            &[("arg1", &(path.display()).to_string())],
         )));
     }
 

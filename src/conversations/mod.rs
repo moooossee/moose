@@ -1,3 +1,5 @@
+use crate::i18n::gettext;
+
 use std::{fmt, str::FromStr};
 
 use serde::{Deserialize, Serialize};
@@ -150,7 +152,7 @@ impl ConversationSummary {
         let preview = message
             .as_ref()
             .map(message_preview)
-            .unwrap_or_else(|| "Empty conversation".to_string());
+            .unwrap_or_else(|| gettext("Empty conversation"));
 
         Self {
             conversation,
@@ -392,18 +394,18 @@ fn invalid_text_character(character: char) -> bool {
 
 fn message_preview(message: &Message) -> String {
     match message.status {
-        MessageStatus::Streaming => "Generating response...".to_string(),
-        MessageStatus::Incomplete => "Response incomplete".to_string(),
-        MessageStatus::Cancelled => "Generation cancelled".to_string(),
-        MessageStatus::Failed => "Generation failed".to_string(),
-        MessageStatus::Complete => compact_preview(&message.content),
+        MessageStatus::Streaming => gettext("Generating response..."),
+        MessageStatus::Incomplete => gettext("Response incomplete"),
+        MessageStatus::Cancelled => gettext("Generation cancelled"),
+        MessageStatus::Failed => gettext("Generation failed"),
+        MessageStatus::Complete => compact_preview(&crate::i18n::message_text(&message.content)),
     }
 }
 
 fn compact_preview(content: &str) -> String {
     let compact = content.split_whitespace().collect::<Vec<_>>().join(" ");
     if compact.is_empty() {
-        return "Empty conversation".to_string();
+        return gettext("Empty conversation");
     }
 
     let mut preview = compact.chars().take(96).collect::<String>();

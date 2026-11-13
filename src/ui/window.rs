@@ -1,3 +1,5 @@
+use crate::i18n::{gettext, gettext_f, gettext_noop};
+
 use std::{
     cell::{Cell, RefCell},
     collections::HashMap,
@@ -106,8 +108,10 @@ fn build_ui(app: &adw::Application) -> Rc<WindowUi> {
     let new_chat_button = sidebar.new_chat_button.clone();
 
     let header_bar = adw::HeaderBar::new();
-    let sidebar_toggle_button = widgets::icon_button("sidebar-show-symbolic", "Hide Sidebar");
-    let preferences_button = widgets::icon_button("preferences-system-symbolic", "Preferences");
+    let sidebar_toggle_button =
+        widgets::icon_button("sidebar-show-symbolic", &gettext("Hide Sidebar"));
+    let preferences_button =
+        widgets::icon_button("preferences-system-symbolic", &gettext("Preferences"));
     sidebar_toggle_button.add_css_class("moose-header-button");
     preferences_button.add_css_class("moose-header-button");
     header_bar.pack_start(&sidebar_toggle_button);
@@ -123,8 +127,9 @@ fn build_ui(app: &adw::Application) -> Rc<WindowUi> {
     content_stack.set_visible_child_name("chat");
     toast_overlay.set_child(Some(&content_stack));
     content_toolbar.add_top_bar(&header_bar);
-    let generation_banner = adw::Banner::new("A response is being generated in another chat");
-    generation_banner.set_button_label(Some("View"));
+    let generation_banner =
+        adw::Banner::new(&gettext("A response is being generated in another chat"));
+    generation_banner.set_button_label(Some(&gettext("View")));
     content_toolbar.add_top_bar(&generation_banner);
     content_toolbar.set_content(Some(&toast_overlay));
 
@@ -234,8 +239,9 @@ pub fn build(app: &adw::Application) -> adw::ApplicationWindow {
                 .conversation_repository
                 .recover_interrupted_responses()
             {
-                ui.toast_overlay.add_toast(adw::Toast::new(&format!(
-                    "Interrupted responses could not be restored: {error}"
+                ui.toast_overlay.add_toast(adw::Toast::new(&gettext_f(
+                    "Interrupted responses could not be restored: {error}",
+                    &[("error", &(error).to_string())],
                 )));
             }
             workspace::restore_last(&ui, &backend);
@@ -248,15 +254,17 @@ pub fn build(app: &adw::Application) -> adw::ApplicationWindow {
             managed_runtime::notify_update_available(&ui, &backend);
         }
         Err(error) => {
-            ui.provider_switcher.set_status("Storage Error");
+            ui.provider_switcher.set_status(&gettext("Storage Error"));
             crate::logging::record("ERROR", "storage.open", &error.to_string());
             ui.send_button.set_sensitive(false);
             ui.stop_button.set_sensitive(false);
             ui.provider_switcher.refresh_button.set_sensitive(false);
             ui.model_manager.refresh_button.set_sensitive(false);
             ui.model_manager.download_jobs_button.set_sensitive(false);
-            ui.toast_overlay
-                .add_toast(adw::Toast::new(&format!("Storage setup failed: {error}")));
+            ui.toast_overlay.add_toast(adw::Toast::new(&gettext_f(
+                "Storage setup failed: {error}",
+                &[("error", &(error).to_string())],
+            )));
         }
     }
 
@@ -431,7 +439,7 @@ impl Backend {
             .map(|settings| settings.get(shortcuts::SETTINGS_SHORTCUTS))
             .unwrap_or_default();
         let shortcuts = shortcuts::merged_values(shortcuts);
-        download_job_repository.fail_active_jobs("Download interrupted.")?;
+        download_job_repository.fail_active_jobs(&gettext("Download interrupted."))?;
         conversation_repository.collect_unused_assets()?;
         let runtime = tokio::runtime::Builder::new_multi_thread()
             .enable_all()
@@ -519,14 +527,26 @@ impl Backend {
         self.model_load_revision
             .set(self.model_load_revision.get().wrapping_add(1));
         if let Err(error) = self.cancel_generation() {
-            eprintln!("Could not save the interrupted response: {error}");
+            eprintln!(
+                "{}",
+                gettext_f(
+                    "Could not save the interrupted response: {error}",
+                    &[("error", &error.to_string())]
+                )
+            );
         }
         if let Some(id) = self.cancel_model_pull()
             && let Err(error) = self
                 .download_job_repository
-                .fail(&id, "Download interrupted because Moose closed.")
+                .fail(&id, &gettext("Download interrupted because Moose closed."))
         {
-            eprintln!("Could not save the interrupted download: {error}");
+            eprintln!(
+                "{}",
+                gettext_f(
+                    "Could not save the interrupted download: {error}",
+                    &[("error", &error.to_string())]
+                )
+            );
         }
         if let Some(handle) = self.active_model_delete.borrow_mut().take() {
             handle.abort();
@@ -569,7 +589,7 @@ fn require_active_provider(ui: &WindowUi, backend: &Backend) -> Option<Provider>
     let provider = active_provider(backend);
     if provider.is_none() {
         ui.toast_overlay
-            .add_toast(adw::Toast::new("Add a provider first"));
+            .add_toast(adw::Toast::new(&gettext("Add a provider first")));
     }
     provider
 }
@@ -585,12 +605,12 @@ fn bind_sidebar_visibility(
 
     let target_toggle_button = sidebar_toggle_button.clone();
     split_view.connect_show_sidebar_notify(move |split_view| {
-        let tooltip = if split_view.shows_sidebar() {
-            "Hide Sidebar"
+        let tooltip = gettext(if split_view.shows_sidebar() {
+            gettext_noop("Hide Sidebar")
         } else {
-            "Show Sidebar"
-        };
-        target_toggle_button.set_tooltip_text(Some(tooltip));
+            gettext_noop("Show Sidebar")
+        });
+        target_toggle_button.set_tooltip_text(Some(&tooltip));
     });
 }
 
@@ -630,11 +650,11 @@ fn bind_actions(
     let target_backend = Rc::clone(backend);
     ui.archived_conversations_button
         .connect_toggled(move |button| {
-            button.set_tooltip_text(Some(if button.is_active() {
-                "Hide Archived Chats"
+            button.set_tooltip_text(Some(&gettext(if button.is_active() {
+                gettext_noop("Hide Archived Chats")
             } else {
-                "Show Archived Chats"
-            }));
+                gettext_noop("Show Archived Chats")
+            })));
             conversation_list::refresh(&target_ui, &target_backend);
         });
 
@@ -668,9 +688,12 @@ fn bind_actions(
         .connect_clicked(move |_| {
             if let Some(job_id) = target_backend.cancel_model_pull() {
                 if let Err(error) = target_backend.download_job_repository.cancel(&job_id) {
-                    target_ui.toast_overlay.add_toast(adw::Toast::new(&format!(
-                        "Download job could not be saved: {error}"
-                    )));
+                    target_ui
+                        .toast_overlay
+                        .add_toast(adw::Toast::new(&gettext_f(
+                            "Download job could not be saved: {error}",
+                            &[("error", &(error).to_string())],
+                        )));
                 }
                 target_ui
                     .provider_switcher
@@ -679,7 +702,7 @@ fn bind_actions(
                 model_manager::finish_pull(&target_ui.model_manager);
                 target_ui
                     .toast_overlay
-                    .add_toast(adw::Toast::new("Model download cancelled"));
+                    .add_toast(adw::Toast::new(&gettext("Model download cancelled")));
                 refresh_models(&target_ui, &target_backend);
             }
         });
@@ -840,9 +863,12 @@ fn bind_actions(
         };
 
         if let Err(error) = conversation_list::load_selected(&target_ui, &target_backend, row) {
-            target_ui.toast_overlay.add_toast(adw::Toast::new(&format!(
-                "Conversation could not be loaded: {error}"
-            )));
+            target_ui
+                .toast_overlay
+                .add_toast(adw::Toast::new(&gettext_f(
+                    "Conversation could not be loaded: {error}",
+                    &[("error", &(error).to_string())],
+                )));
         } else {
             show_chat(&target_ui);
             workspace::sync_provider(&target_ui, &target_backend);
@@ -943,8 +969,9 @@ fn new_conversation_action(ui: &Rc<WindowUi>, backend: &Rc<Backend>) {
 fn new_conversation_with_model(ui: &Rc<WindowUi>, backend: &Rc<Backend>, model: Option<&str>) {
     show_chat(ui);
     if let Err(error) = workspace::save(ui, backend) {
-        ui.toast_overlay.add_toast(adw::Toast::new(&format!(
-            "Draft could not be saved: {error}"
+        ui.toast_overlay.add_toast(adw::Toast::new(&gettext_f(
+            "Draft could not be saved: {error}",
+            &[("error", &(error).to_string())],
         )));
         return;
     }
@@ -967,8 +994,9 @@ fn new_conversation_with_model(ui: &Rc<WindowUi>, backend: &Rc<Backend>, model: 
             ui.entry.grab_focus();
         }
         Err(error) => {
-            ui.toast_overlay.add_toast(adw::Toast::new(&format!(
-                "Conversation could not be created: {error}"
+            ui.toast_overlay.add_toast(adw::Toast::new(&gettext_f(
+                "Conversation could not be created: {error}",
+                &[("error", &(error).to_string())],
             )));
         }
     }
@@ -999,19 +1027,20 @@ fn stop_generation_action(ui: &Rc<WindowUi>, backend: &Rc<Backend>, notify_inact
             }
             conversation_list::refresh(ui, backend);
             ui.toast_overlay
-                .add_toast(adw::Toast::new("Generation cancelled"));
+                .add_toast(adw::Toast::new(&gettext("Generation cancelled")));
             true
         }
         Ok(false) if notify_inactive => {
             ui.toast_overlay
-                .add_toast(adw::Toast::new("No generation is running"));
+                .add_toast(adw::Toast::new(&gettext("No generation is running")));
             true
         }
         Ok(false) => false,
         Err(error) => {
             finish_generation(ui);
-            ui.toast_overlay.add_toast(adw::Toast::new(&format!(
-                "Conversation could not be saved: {error}"
+            ui.toast_overlay.add_toast(adw::Toast::new(&gettext_f(
+                "Conversation could not be saved: {error}",
+                &[("error", &(error).to_string())],
             )));
             true
         }
@@ -1049,14 +1078,14 @@ fn save_shortcut_values(
 ) -> std::result::Result<(), String> {
     let values = shortcuts::normalize_values(values)?;
     let Some(settings) = backend.settings.as_ref() else {
-        return Err("Application settings are unavailable".to_string());
+        return Err(gettext("Application settings are unavailable"));
     };
     settings
         .set(shortcuts::SETTINGS_SHORTCUTS, values.clone())
-        .map_err(|_| "Shortcuts could not be saved".to_string())?;
+        .map_err(|_| gettext("Shortcuts could not be saved"))?;
     *backend.shortcuts.borrow_mut() = values;
     ui.toast_overlay
-        .add_toast(adw::Toast::new("Shortcuts saved"));
+        .add_toast(adw::Toast::new(&gettext("Shortcuts saved")));
     Ok(())
 }
 
@@ -1083,11 +1112,11 @@ fn save_managed_gpu_acceleration(
     enabled: bool,
 ) -> std::result::Result<bool, String> {
     let Some(settings) = backend.settings.as_ref() else {
-        return Err("Application settings are unavailable".to_string());
+        return Err(gettext("Application settings are unavailable"));
     };
     settings
         .set(SETTINGS_MANAGED_GPU_ACCELERATION, enabled)
-        .map_err(|_| "GPU acceleration setting could not be saved".to_string())?;
+        .map_err(|_| gettext("GPU acceleration setting could not be saved"))?;
 
     let mut config = backend.managed_gpu.borrow_mut();
     let changed = config.vulkan != enabled;
@@ -1106,25 +1135,29 @@ fn provider_change_is_blocked(ui: &Rc<WindowUi>, backend: &Rc<Backend>) -> bool 
         return true;
     }
     if backend.credential_operation.get() {
-        ui.toast_overlay
-            .add_toast(adw::Toast::new("Finish the keyring operation first"));
+        ui.toast_overlay.add_toast(adw::Toast::new(&gettext(
+            "Finish the keyring operation first",
+        )));
         return true;
     }
     if backend.active_generation.borrow().is_some() {
-        ui.toast_overlay
-            .add_toast(adw::Toast::new("Finish the active generation first"));
+        ui.toast_overlay.add_toast(adw::Toast::new(&gettext(
+            "Finish the active generation first",
+        )));
         return true;
     }
 
     if backend.active_model_pull.borrow().is_some() {
-        ui.toast_overlay
-            .add_toast(adw::Toast::new("Finish the active model download first"));
+        ui.toast_overlay.add_toast(adw::Toast::new(&gettext(
+            "Finish the active model download first",
+        )));
         return true;
     }
 
     if backend.active_model_delete.borrow().is_some() {
-        ui.toast_overlay
-            .add_toast(adw::Toast::new("Finish the active model deletion first"));
+        ui.toast_overlay.add_toast(adw::Toast::new(&gettext(
+            "Finish the active model deletion first",
+        )));
         return true;
     }
 
@@ -1133,8 +1166,9 @@ fn provider_change_is_blocked(ui: &Rc<WindowUi>, backend: &Rc<Backend>) -> bool 
 
 fn apply_active_provider(ui: &Rc<WindowUi>, backend: &Rc<Backend>, provider: Provider) {
     if let Err(error) = workspace::save(ui, backend) {
-        ui.toast_overlay.add_toast(adw::Toast::new(&format!(
-            "Draft could not be saved: {error}"
+        ui.toast_overlay.add_toast(adw::Toast::new(&gettext_f(
+            "Draft could not be saved: {error}",
+            &[("error", &(error).to_string())],
         )));
         return;
     }
@@ -1151,8 +1185,9 @@ fn apply_active_provider(ui: &Rc<WindowUi>, backend: &Rc<Backend>, provider: Pro
 
 fn clear_active_provider(ui: &Rc<WindowUi>, backend: &Rc<Backend>) {
     if let Err(error) = workspace::save(ui, backend) {
-        ui.toast_overlay.add_toast(adw::Toast::new(&format!(
-            "Draft could not be saved: {error}"
+        ui.toast_overlay.add_toast(adw::Toast::new(&gettext_f(
+            "Draft could not be saved: {error}",
+            &[("error", &(error).to_string())],
         )));
         return;
     }
@@ -1164,8 +1199,8 @@ fn clear_active_provider(ui: &Rc<WindowUi>, backend: &Rc<Backend>) {
     set_installed_models(ui, backend, Vec::new());
     model_manager::set_unavailable(
         &ui.model_manager,
-        "No Instance",
-        "Create or connect an Ollama instance to manage models.",
+        &gettext("No Instance"),
+        &gettext("Create or connect an Ollama instance to manage models."),
     );
     ui.model_manager.refresh_button.set_sensitive(false);
     ui.model_manager.pull_button.set_sensitive(false);
@@ -1200,14 +1235,16 @@ fn refresh_models_with_callback(
     let revision = backend.model_load_revision.get().wrapping_add(1);
     backend.model_load_revision.set(revision);
     if backend.active_model_pull.borrow().is_some() {
-        ui.toast_overlay
-            .add_toast(adw::Toast::new("Finish the active model download first"));
+        ui.toast_overlay.add_toast(adw::Toast::new(&gettext(
+            "Finish the active model download first",
+        )));
         return;
     }
 
     if backend.active_model_delete.borrow().is_some() {
-        ui.toast_overlay
-            .add_toast(adw::Toast::new("Finish the active model deletion first"));
+        ui.toast_overlay.add_toast(adw::Toast::new(&gettext(
+            "Finish the active model deletion first",
+        )));
         return;
     }
 
@@ -1217,8 +1254,8 @@ fn refresh_models_with_callback(
         set_installed_models(ui, backend, Vec::new());
         model_manager::set_unavailable(
             &ui.model_manager,
-            "No Instance",
-            "Create or connect an Ollama instance to refresh models.",
+            &gettext("No Instance"),
+            &gettext("Create or connect an Ollama instance to refresh models."),
         );
         ui.model_manager.refresh_button.set_sensitive(false);
         ui.model_manager.pull_button.set_sensitive(false);
@@ -1227,11 +1264,12 @@ fn refresh_models_with_callback(
     };
     let requested_provider_id = provider.id.clone();
     let provider_is_managed = provider.is_managed;
-    ui.provider_switcher.set_status(if provider.is_managed {
-        "Starting"
-    } else {
-        "Checking"
-    });
+    ui.provider_switcher
+        .set_status(&gettext(if provider.is_managed {
+            gettext_noop("Starting")
+        } else {
+            gettext_noop("Checking")
+        }));
     ui.provider_switcher.refresh_button.set_sensitive(false);
     ui.model_manager.refresh_button.set_sensitive(false);
     set_model_picker(ui, Vec::new(), None);
@@ -1255,7 +1293,7 @@ fn refresh_models_with_callback(
         {
             Ok(client) => client,
             Err(error) => {
-                let _ = sender.send(ModelLoadEvent::Failed(error.to_string()));
+                let _ = sender.send(ModelLoadEvent::Failed(crate::i18n::error_message(&error)));
                 return;
             }
         };
@@ -1289,7 +1327,7 @@ fn refresh_models_with_callback(
                 });
             }
             Err(error) => {
-                let _ = sender.send(ModelLoadEvent::Failed(error.to_string()));
+                let _ = sender.send(ModelLoadEvent::Failed(crate::i18n::error_message(&error)));
             }
         }
     });
@@ -1321,26 +1359,29 @@ fn refresh_models_with_callback(
                     if provider_is_managed {
                         managed_ready_status(acceleration)
                     } else if verified {
-                        "Connected".to_string()
+                        gettext("Connected")
                     } else {
-                        "Ready".to_string()
+                        gettext("Ready")
                     }
                 } else {
-                    "Disconnected".to_string()
+                    gettext("Disconnected")
                 };
                 target_ui.provider_switcher.set_status(&provider_status);
                 if !available {
                     if !provider_is_managed {
                         target_ui
                             .toast_overlay
-                            .add_toast(adw::Toast::new(&format!("Provider unavailable: {status}")));
+                            .add_toast(adw::Toast::new(&gettext_f(
+                                "Provider unavailable: {status}",
+                                &[("status", &(status).to_string())],
+                            )));
                     }
                     set_model_picker(&target_ui, Vec::new(), None);
                     set_installed_models(&target_ui, &target_backend, Vec::new());
                     model_manager::set_unavailable(
                         &target_ui.model_manager,
-                        "Provider Unavailable",
-                        "The active provider did not respond.",
+                        &gettext("Provider Unavailable"),
+                        &gettext("The active provider did not respond."),
                     );
                     return gtk::glib::ControlFlow::Break;
                 }
@@ -1360,16 +1401,19 @@ fn refresh_models_with_callback(
                     .refresh_button
                     .set_sensitive(true);
                 target_ui.model_manager.refresh_button.set_sensitive(true);
-                target_ui.provider_switcher.set_status("Error");
+                target_ui.provider_switcher.set_status(&gettext("Error"));
                 target_ui
                     .toast_overlay
-                    .add_toast(adw::Toast::new(&format!("Model list failed: {error}")));
+                    .add_toast(adw::Toast::new(&gettext_f(
+                        "Model list failed: {error}",
+                        &[("error", &(error).to_string())],
+                    )));
                 set_model_picker(&target_ui, Vec::new(), None);
                 set_installed_models(&target_ui, &target_backend, Vec::new());
                 model_manager::set_unavailable(
                     &target_ui.model_manager,
-                    "Models Could Not Load",
-                    "Check your connection and provider credentials.",
+                    &gettext("Models Could Not Load"),
+                    &gettext("Check your connection and provider credentials."),
                 );
                 gtk::glib::ControlFlow::Break
             }
@@ -1380,13 +1424,15 @@ fn refresh_models_with_callback(
                     .refresh_button
                     .set_sensitive(true);
                 target_ui.model_manager.refresh_button.set_sensitive(true);
-                target_ui.provider_switcher.set_status("Disconnected");
+                target_ui
+                    .provider_switcher
+                    .set_status(&gettext("Disconnected"));
                 set_model_picker(&target_ui, Vec::new(), None);
                 set_installed_models(&target_ui, &target_backend, Vec::new());
                 model_manager::set_unavailable(
                     &target_ui.model_manager,
-                    "Provider Disconnected",
-                    "The model refresh stopped before a response was received.",
+                    &gettext("Provider Disconnected"),
+                    &gettext("The model refresh stopped before a response was received."),
                 );
                 gtk::glib::ControlFlow::Break
             }
@@ -1396,11 +1442,11 @@ fn refresh_models_with_callback(
 
 fn managed_ready_status(acceleration: Option<ManagedOllamaAcceleration>) -> String {
     match acceleration {
-        Some(ManagedOllamaAcceleration::Cpu) => "Ready (CPU)".to_string(),
-        Some(ManagedOllamaAcceleration::Vulkan) => "Ready (Vulkan)".to_string(),
-        Some(ManagedOllamaAcceleration::Rocm) => "Ready (ROCm)".to_string(),
-        Some(ManagedOllamaAcceleration::Cuda) => "Ready (CUDA)".to_string(),
-        Some(ManagedOllamaAcceleration::Unknown) | None => "Ready".to_string(),
+        Some(ManagedOllamaAcceleration::Cpu) => gettext("Ready (CPU)"),
+        Some(ManagedOllamaAcceleration::Vulkan) => gettext("Ready (Vulkan)"),
+        Some(ManagedOllamaAcceleration::Rocm) => gettext("Ready (ROCm)"),
+        Some(ManagedOllamaAcceleration::Cuda) => gettext("Ready (CUDA)"),
+        Some(ManagedOllamaAcceleration::Unknown) | None => gettext("Ready"),
     }
 }
 
@@ -1410,12 +1456,11 @@ fn send_message(ui: &Rc<WindowUi>, backend: &Rc<Backend>) {
     }
     let mut prompt = prompt_text(&ui.entry).trim().to_string();
     if prompt.is_empty() && ui.attachments.count.get() > 0 {
-        prompt = if ui.attachments.has_images.get() {
-            "Describe the attached images."
+        prompt = gettext(if ui.attachments.has_images.get() {
+            gettext_noop("Describe the attached images.")
         } else {
-            "Summarize the attached documents."
-        }
-        .into();
+            gettext_noop("Summarize the attached documents.")
+        });
     }
     if !prompt.is_empty() {
         submit_message(ui, backend, message_actions::Submission::New(prompt));
@@ -1440,33 +1485,36 @@ fn submit_message_with_document(
         return false;
     }
     if backend.credential_operation.get() {
-        ui.toast_overlay
-            .add_toast(adw::Toast::new("Finish the keyring operation first"));
+        ui.toast_overlay.add_toast(adw::Toast::new(&gettext(
+            "Finish the keyring operation first",
+        )));
         return false;
     }
     if backend.active_generation.borrow().is_some() {
         ui.toast_overlay
-            .add_toast(adw::Toast::new("Generation is already running"));
+            .add_toast(adw::Toast::new(&gettext("Generation is already running")));
         return false;
     }
 
     if backend.active_model_delete.borrow().is_some() {
-        ui.toast_overlay
-            .add_toast(adw::Toast::new("Finish the active model deletion first"));
+        ui.toast_overlay.add_toast(adw::Toast::new(&gettext(
+            "Finish the active model deletion first",
+        )));
         return false;
     }
 
     if let Err(error) = generation::retry_pending(backend) {
-        ui.toast_overlay.add_toast(adw::Toast::new(&format!(
-            "Previous response could not be saved: {error}"
+        ui.toast_overlay.add_toast(adw::Toast::new(&gettext_f(
+            "Previous response could not be saved: {error}",
+            &[("error", &(error).to_string())],
         )));
         return false;
     }
     if !workspace::provider_matches(backend) {
         workspace::sync_provider(ui, backend);
-        ui.toast_overlay.add_toast(adw::Toast::new(
+        ui.toast_overlay.add_toast(adw::Toast::new(&gettext(
             "This chat’s instance must be ready before sending. Your draft is saved.",
-        ));
+        )));
         return false;
     }
     let Some(provider) = require_active_provider(ui, backend) else {
@@ -1475,14 +1523,15 @@ fn submit_message_with_document(
 
     if let Err(error) = backend.network_policy.check(&provider) {
         ui.toast_overlay
-            .add_toast(adw::Toast::new(&error.to_string()));
+            .add_toast(adw::Toast::new(&crate::i18n::error_message(&error)));
         return false;
     }
     let (conversation_id, should_generate_title) = match ensure_active_conversation(backend) {
         Ok(result) => result,
         Err(error) => {
-            ui.toast_overlay.add_toast(adw::Toast::new(&format!(
-                "Conversation could not be saved: {error}"
+            ui.toast_overlay.add_toast(adw::Toast::new(&gettext_f(
+                "Conversation could not be saved: {error}",
+                &[("error", &(error).to_string())],
             )));
             return false;
         }
@@ -1490,8 +1539,9 @@ fn submit_message_with_document(
     let mut settings = match load_chat_settings(backend, &conversation_id) {
         Ok(settings) => settings,
         Err(error) => {
-            ui.toast_overlay.add_toast(adw::Toast::new(&format!(
-                "Chat settings could not be loaded: {error}"
+            ui.toast_overlay.add_toast(adw::Toast::new(&gettext_f(
+                "Chat settings could not be loaded: {error}",
+                &[("error", &(error).to_string())],
             )));
             return false;
         }
@@ -1512,8 +1562,9 @@ fn submit_message_with_document(
     {
         Ok(context) => context,
         Err(error) => {
-            ui.toast_overlay.add_toast(adw::Toast::new(&format!(
-                "Message could not be prepared: {error}"
+            ui.toast_overlay.add_toast(adw::Toast::new(&gettext_f(
+                "Message could not be prepared: {error}",
+                &[("error", &(error).to_string())],
             )));
             return false;
         }
@@ -1527,8 +1578,9 @@ fn submit_message_with_document(
     ) {
         Ok(document) => document,
         Err(error) => {
-            ui.toast_overlay.add_toast(adw::Toast::new(&format!(
-                "Document request could not be prepared: {error}"
+            ui.toast_overlay.add_toast(adw::Toast::new(&gettext_f(
+                "Document request could not be prepared: {error}",
+                &[("error", &(error).to_string())],
             )));
             return false;
         }
@@ -1539,15 +1591,16 @@ fn submit_message_with_document(
             .system_prompt
             .push_str(&document.request.instruction());
         if matches!(&submission, message_actions::Submission::Continue(_)) {
-            settings.system_prompt.push_str("\nThis is a continuation of an incomplete document. Return only the remaining content. Do not restart the document or repeat text that is already written.");
+            settings.system_prompt.push_str(&gettext("\nThis is a continuation of an incomplete document. Return only the remaining content. Do not restart the document or repeat text that is already written."));
         }
     }
     if let Err(error) = backend.conversation_repository.include_tool_context(
         &mut history,
         settings.context_messages.saturating_sub(1) as usize,
     ) {
-        ui.toast_overlay.add_toast(adw::Toast::new(&format!(
-            "Tool history could not be loaded: {error}"
+        ui.toast_overlay.add_toast(adw::Toast::new(&gettext_f(
+            "Tool history could not be loaded: {error}",
+            &[("error", &(error).to_string())],
         )));
         return false;
     }
@@ -1556,8 +1609,9 @@ fn submit_message_with_document(
     {
         Ok(request) => request,
         Err(error) => {
-            ui.toast_overlay.add_toast(adw::Toast::new(&format!(
-                "Message could not be sent: {error}"
+            ui.toast_overlay.add_toast(adw::Toast::new(&gettext_f(
+                "Message could not be sent: {error}",
+                &[("error", &(error).to_string())],
             )));
             return false;
         }
@@ -1569,7 +1623,7 @@ fn submit_message_with_document(
     }
     let web = if !continuing && settings.web && provider.kind.supports_tool_calling() {
         if backend.network_policy.local_only() {
-            ui.toast_overlay.add_toast(adw::Toast::new("Web is blocked by Local Only. Turn off Web in Chat Settings or Local Only in Preferences → Privacy."));
+            ui.toast_overlay.add_toast(adw::Toast::new(&gettext("Web is blocked by Local Only. Turn off Web in Chat Settings or Local Only in Preferences → Privacy.")));
             return false;
         }
         match backend.repository.web_config() {
@@ -1578,7 +1632,11 @@ fn submit_message_with_document(
                 Some(config)
             }
             Err(error) => {
-                show_error(&ui.window, "Web settings could not be loaded", &error);
+                show_error(
+                    &ui.window,
+                    &gettext("Web settings could not be loaded"),
+                    &error,
+                );
                 return false;
             }
         }
@@ -1598,7 +1656,7 @@ fn submit_message_with_document(
         Ok(result) => result,
         Err(error) => {
             ui.toast_overlay
-                .add_toast(adw::Toast::new(&error.to_string()));
+                .add_toast(adw::Toast::new(&crate::i18n::error_message(&error)));
             return false;
         }
     };
@@ -1647,9 +1705,9 @@ fn start_authorized_chat(ui: &Rc<WindowUi>, backend: &Rc<Backend>, pending: Pend
                 .web_permission(&pending.conversation_id, config)
                 .unwrap_or(false);
         if !allowed {
-            ui.toast_overlay.add_toast(adw::Toast::new(
+            ui.toast_overlay.add_toast(adw::Toast::new(&gettext(
                 "Web settings changed. Review Chat Settings and send your message again.",
-            ));
+            )));
             return false;
         }
     }
@@ -1680,7 +1738,7 @@ fn start_authorized_chat(ui: &Rc<WindowUi>, backend: &Rc<Backend>, pending: Pend
     }
     if let Err(error) = backend.network_policy.check(&provider) {
         ui.toast_overlay
-            .add_toast(adw::Toast::new(&error.to_string()));
+            .add_toast(adw::Toast::new(&crate::i18n::error_message(&error)));
         return false;
     }
     let exchange = backend.conversation_repository.submit_with_document(
@@ -1693,8 +1751,9 @@ fn start_authorized_chat(ui: &Rc<WindowUi>, backend: &Rc<Backend>, pending: Pend
     let (_, assistant) = match exchange {
         Ok(exchange) => exchange,
         Err(error) => {
-            ui.toast_overlay.add_toast(adw::Toast::new(&format!(
-                "Message could not be saved: {error}"
+            ui.toast_overlay.add_toast(adw::Toast::new(&gettext_f(
+                "Message could not be saved: {error}",
+                &[("error", &(error).to_string())],
             )));
             return false;
         }
@@ -1730,11 +1789,13 @@ fn request_model(
             return Ok(model.clone());
         }
 
-        return Err(format!("Preferred model \"{model}\" is not available"));
+        return Err(gettext_f(
+            "Preferred model \"{model}\" is not available",
+            &[("model", &(model).to_string())],
+        ));
     }
 
-    selected_model(&ui.model_picker, &ui.model_names)
-        .ok_or_else(|| "Select a model first".to_string())
+    selected_model(&ui.model_picker, &ui.model_names).ok_or_else(|| gettext("Select a model first"))
 }
 
 fn chat_options(settings: &ChatSettingsValues) -> ChatOptions {
@@ -1750,8 +1811,9 @@ fn chat_options(settings: &ChatSettingsValues) -> ChatOptions {
 
 fn show_chat_settings(ui: &Rc<WindowUi>, backend: &Rc<Backend>) {
     if backend.active_generation.borrow().is_some() {
-        ui.toast_overlay
-            .add_toast(adw::Toast::new("Finish the active generation first"));
+        ui.toast_overlay.add_toast(adw::Toast::new(&gettext(
+            "Finish the active generation first",
+        )));
         return;
     }
 
@@ -1769,8 +1831,9 @@ fn show_chat_settings(ui: &Rc<WindowUi>, backend: &Rc<Backend>) {
                 conversation_id
             }
             Err(error) => {
-                ui.toast_overlay.add_toast(adw::Toast::new(&format!(
-                    "Conversation could not be created: {error}"
+                ui.toast_overlay.add_toast(adw::Toast::new(&gettext_f(
+                    "Conversation could not be created: {error}",
+                    &[("error", &(error).to_string())],
                 )));
                 return;
             }
@@ -1779,8 +1842,9 @@ fn show_chat_settings(ui: &Rc<WindowUi>, backend: &Rc<Backend>) {
 
     match chat_settings::dialog(ui, backend, &conversation_id) {
         Ok(dialog) => dialog.present(Some(&ui.window)),
-        Err(error) => ui.toast_overlay.add_toast(adw::Toast::new(&format!(
-            "Chat settings could not be loaded: {error}"
+        Err(error) => ui.toast_overlay.add_toast(adw::Toast::new(&gettext_f(
+            "Chat settings could not be loaded: {error}",
+            &[("error", &(error).to_string())],
         ))),
     }
 }
@@ -1919,10 +1983,14 @@ fn update_profile_indicator(
         .transpose()?
         .flatten();
     if let Some(profile) = profile {
-        ui.profile_label.set_label(&profile.name);
-        ui.profile_label.set_tooltip_text(Some(&format!(
-            "{} profile: {}",
-            profile.name, profile.description
+        ui.profile_label
+            .set_label(&crate::i18n::profile_name(&profile));
+        ui.profile_label.set_tooltip_text(Some(&gettext_f(
+            "{profile} profile: {description}",
+            &[
+                ("profile", &crate::i18n::profile_name(&profile)),
+                ("description", &crate::i18n::profile_description(&profile)),
+            ],
         )));
         ui.profile_label.set_visible(true);
     } else {
@@ -2006,9 +2074,9 @@ fn generate_conversation_title(
         })
         .await
         .unwrap_or_else(|_| {
-            Err(MooseError::ProviderRequest(
-                "Title generation timed out.".into(),
-            ))
+            Err(MooseError::ProviderRequest(gettext(
+                "Title generation timed out.",
+            )))
         });
         let title = match result {
             Ok(title) => title,
@@ -2276,11 +2344,12 @@ fn update_send_button(ui: &WindowUi) {
         "go-up-symbolic"
     });
     if !ui.stop_button.is_sensitive() {
-        ui.send_button.set_tooltip_text(Some(if choosing_command {
-            "Apply Tool Command (Enter)"
-        } else {
-            "Send Message (Enter)"
-        }));
+        ui.send_button
+            .set_tooltip_text(Some(&gettext(if choosing_command {
+                gettext_noop("Apply Tool Command (Enter)")
+            } else {
+                gettext_noop("Send Message (Enter)")
+            })));
     }
 }
 
@@ -2328,8 +2397,9 @@ fn save_selected_model(ui: &WindowUi, backend: &Backend, model: String) {
         .set(SETTINGS_SELECTED_MODELS, selected_models)
         .is_err()
     {
-        ui.toast_overlay
-            .add_toast(adw::Toast::new("Selected model could not be saved"));
+        ui.toast_overlay.add_toast(adw::Toast::new(&gettext(
+            "Selected model could not be saved",
+        )));
     }
 }
 
@@ -2346,8 +2416,9 @@ fn set_models(ui: &Rc<WindowUi>, backend: &Rc<Backend>, models: Vec<OllamaModel>
     if let Some(conversation_id) = backend.active_conversation_id.borrow().clone()
         && let Err(error) = apply_preferred_model_selection(ui, backend, &conversation_id)
     {
-        ui.toast_overlay.add_toast(adw::Toast::new(&format!(
-            "Chat settings could not be loaded: {error}"
+        ui.toast_overlay.add_toast(adw::Toast::new(&gettext_f(
+            "Chat settings could not be loaded: {error}",
+            &[("error", &(error).to_string())],
         )));
     }
     set_installed_models(ui, backend, models);
@@ -2369,14 +2440,20 @@ fn render_model_manager(ui: &Rc<WindowUi>, backend: &Rc<Backend>, query: &str) {
     if active_provider(backend).is_some_and(|p| p.kind.requires_key()) {
         model_manager::set_unavailable(
             &ui.model_manager,
-            "Cloud Models",
-            if active_provider(backend)
-                .is_some_and(|provider| provider.kind == ProviderKind::Custom)
-            {
-                "Choose a model from the chat model picker. Add model IDs in Preferences → Provider → Configure Provider."
-            } else {
-                "Choose an available model from the chat model picker. Cloud models do not need downloads."
-            },
+            &gettext("Cloud Models"),
+            &gettext(
+                if active_provider(backend)
+                    .is_some_and(|provider| provider.kind == ProviderKind::Custom)
+                {
+                    gettext_noop(
+                        "Choose a model from the chat model picker. Add model IDs in Preferences → Provider → Configure Provider.",
+                    )
+                } else {
+                    gettext_noop(
+                        "Choose an available model from the chat model picker. Cloud models do not need downloads.",
+                    )
+                },
+            ),
         );
         ui.model_manager.pull_button.set_sensitive(false);
         return;
@@ -2409,9 +2486,9 @@ fn render_model_manager(ui: &Rc<WindowUi>, backend: &Rc<Backend>, query: &str) {
             return;
         };
         if active_provider(&backend).map(|provider| provider.id) != provider_id {
-            ui.toast_overlay.add_toast(adw::Toast::new(
+            ui.toast_overlay.add_toast(adw::Toast::new(&gettext(
                 "The connection changed. Select a model again.",
-            ));
+            )));
             return;
         }
         let installed = ui
@@ -2446,7 +2523,7 @@ fn set_model_picker(ui: &WindowUi, models: Vec<String>, selected_model: Option<&
 
     if is_empty {
         reasoning::reset(ui);
-        let list = gtk::StringList::new(&["No model selected"]);
+        let list = gtk::StringList::new(&[&gettext("No model selected")]);
         ui.model_picker.set_model(Some(&list));
         ui.model_picker.set_selected(0);
         ui.model_picker.set_sensitive(false);
@@ -2480,14 +2557,20 @@ fn show_no_models_state(ui: &Rc<WindowUi>, backend: &Rc<Backend>) {
     if active_provider(backend).is_some_and(|p| p.kind.requires_key()) {
         chat_view::set_empty_state(
             &ui.chat_status_page,
-            "No Chat Models Available",
-            if active_provider(backend)
-                .is_some_and(|provider| provider.kind == ProviderKind::Custom)
-            {
-                "Add a model ID in Preferences → Provider → Configure Provider, or check automatic model discovery."
-            } else {
-                "Check your provider account and API key, then refresh the model list."
-            },
+            &gettext("No Chat Models Available"),
+            &gettext(
+                if active_provider(backend)
+                    .is_some_and(|provider| provider.kind == ProviderKind::Custom)
+                {
+                    gettext_noop(
+                        "Add a model ID in Preferences → Provider → Configure Provider, or check automatic model discovery.",
+                    )
+                } else {
+                    gettext_noop(
+                        "Check your provider account and API key, then refresh the model list.",
+                    )
+                },
+            ),
         );
         ui.chat_status_page.set_child(gtk::Widget::NONE);
         ui.message_stack.set_visible_child_name("empty");
@@ -2496,14 +2579,14 @@ fn show_no_models_state(ui: &Rc<WindowUi>, backend: &Rc<Backend>) {
     }
     chat_view::set_empty_state(
         &ui.chat_status_page,
-        "Choose Your First Model",
-        "Find a model for everyday questions, coding, images, or documents.",
+        &gettext("Choose Your First Model"),
+        &gettext("Find a model for everyday questions, coding, images, or documents."),
     );
 
-    let download_button = gtk::Button::with_label("Find a Model");
+    let download_button = gtk::Button::with_label(&gettext("Find a Model"));
     download_button.add_css_class("suggested-action");
     download_button.add_css_class("moose-empty-action");
-    let browse_button = gtk::Button::with_label("Add a Model by Name or Link…");
+    let browse_button = gtk::Button::with_label(&gettext("Add a Model by Name or Link…"));
     browse_button.add_css_class("flat");
     browse_button.add_css_class("moose-empty-action");
 
@@ -2536,7 +2619,7 @@ fn update_window_title(ui: &WindowUi, backend: &Backend) {
         .then(|| backend.active_conversation_id.borrow().clone())
         .flatten()
         .and_then(|id| backend.conversation_repository.get(&id).ok().flatten())
-        .map(|conversation| conversation.title);
+        .map(|conversation| crate::i18n::conversation_title(&conversation.title));
     ui.window
         .set_title(Some(title.as_deref().unwrap_or(APPLICATION_NAME)));
 }
@@ -2603,7 +2686,7 @@ fn apply_provider_state(ui: &WindowUi, provider: &Option<Provider>) {
         }
         None => {
             ui.provider_switcher.set_provider(None);
-            ui.provider_switcher.set_status("Not Set");
+            ui.provider_switcher.set_status(&gettext("Not Set"));
             ui.provider_switcher.refresh_button.set_sensitive(false);
             ui.model_manager.refresh_button.set_sensitive(false);
             ui.model_manager.pull_button.set_sensitive(false);
@@ -2618,15 +2701,19 @@ fn update_provider_summary(ui: &WindowUi, provider: &Provider) {
     ui.provider_switcher.set_provider(Some(provider));
 }
 
-fn show_error(parent: &impl IsA<gtk::Widget>, heading: &str, error: &dyn std::error::Error) {
-    diagnostics::show_error(parent, heading, &error.to_string());
+fn show_error(
+    parent: &impl IsA<gtk::Widget>,
+    heading: &str,
+    error: &(dyn std::error::Error + 'static),
+) {
+    diagnostics::show_error(parent, heading, &crate::i18n::error_message(error));
 }
 
 fn runtime_install_is_active(ui: &WindowUi, backend: &Backend) -> bool {
     if backend.runtime_install.borrow().is_some() {
-        ui.toast_overlay.add_toast(adw::Toast::new(
+        ui.toast_overlay.add_toast(adw::Toast::new(&gettext(
             "Wait for the Ollama installation to finish or cancel it.",
-        ));
+        )));
         true
     } else {
         false

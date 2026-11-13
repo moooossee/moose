@@ -1,3 +1,7 @@
+use crate::i18n::{gettext, gettext_f};
+
+use crate::i18n::gettext_noop;
+
 use std::{
     ffi::OsString,
     fs::{self, File, OpenOptions, TryLockError},
@@ -170,11 +174,11 @@ impl Default for ManagedOllamaGpuConfig {
 impl ManagedOllamaAcceleration {
     pub const fn label(self) -> &'static str {
         match self {
-            Self::Unknown => "Unknown",
-            Self::Cpu => "CPU",
-            Self::Vulkan => "Vulkan",
-            Self::Rocm => "ROCm",
-            Self::Cuda => "CUDA",
+            Self::Unknown => gettext_noop("Unknown"),
+            Self::Cpu => gettext_noop("CPU"),
+            Self::Vulkan => gettext_noop("Vulkan"),
+            Self::Rocm => gettext_noop("ROCm"),
+            Self::Cuda => gettext_noop("CUDA"),
         }
     }
 }
@@ -310,7 +314,10 @@ impl ManagedOllamaService {
                 crate::logging::record(
                     "INFO",
                     "ollama.start",
-                    &format!("Starting managed Ollama at {}", self.config.base_url),
+                    &gettext_f(
+                        "Starting managed Ollama at {arg1}",
+                        &[("arg1", &(self.config.base_url).to_string())],
+                    ),
                 );
                 Ok(())
             }
@@ -408,9 +415,9 @@ impl ManagedOllamaService {
 
     fn check_shutdown(&self) -> Result<()> {
         if self.shutdown.0.load(Ordering::Acquire) {
-            return Err(MooseError::ManagedOllamaStartFailed(
-                "Moose is shutting down".into(),
-            ));
+            return Err(MooseError::ManagedOllamaStartFailed(gettext(
+                "Moose is shutting down",
+            )));
         }
         Ok(())
     }
@@ -424,8 +431,10 @@ impl ManagedOllamaService {
             Some(status) => {
                 self.child = None;
                 self.process_lock = None;
-                self.state =
-                    ManagedOllamaServiceState::Failed(format!("process exited with {status}"));
+                self.state = ManagedOllamaServiceState::Failed(gettext_f(
+                    "process exited with {status}",
+                    &[("status", &(status).to_string())],
+                ));
                 Ok(false)
             }
             None => Ok(true),
@@ -441,8 +450,10 @@ impl ManagedOllamaService {
             Some(status) => {
                 self.child = None;
                 self.process_lock = None;
-                self.state =
-                    ManagedOllamaServiceState::Failed(format!("process exited with {status}"));
+                self.state = ManagedOllamaServiceState::Failed(gettext_f(
+                    "process exited with {status}",
+                    &[("status", &(status).to_string())],
+                ));
                 Ok(true)
             }
             None => Ok(false),
@@ -533,14 +544,15 @@ fn ensure_port_available(host: &str) -> Result<()> {
         Err(error) if error.kind() == io::ErrorKind::AddrInUse => {
             Err(MooseError::ManagedOllamaPortUnavailable(host.to_string()))
         }
-        Err(error) => Err(MooseError::ManagedOllamaStartFailed(format!(
-            "could not check {host}: {error}"
+        Err(error) => Err(MooseError::ManagedOllamaStartFailed(gettext_f(
+            "could not check {host}: {error}",
+            &[("host", (host)), ("error", &(error).to_string())],
         ))),
     }
 }
 
 fn startup_exit_message(log_path: &Path) -> String {
-    let mut message = "process exited before Ollama became ready".to_string();
+    let mut message = gettext("process exited before Ollama became ready");
     if let Some(log_excerpt) = recent_log_excerpt(log_path, 8) {
         message.push_str(": ");
         message.push_str(&log_excerpt);
@@ -579,8 +591,9 @@ pub(super) fn acquire_process_lock(home_dir: &Path) -> Result<File> {
     match file.try_lock() {
         Ok(()) => Ok(file),
         Err(TryLockError::WouldBlock) => Err(MooseError::ManagedOllamaInUse),
-        Err(TryLockError::Error(error)) => Err(MooseError::ManagedOllamaStartFailed(format!(
-            "could not lock the managed Ollama installation: {error}"
+        Err(TryLockError::Error(error)) => Err(MooseError::ManagedOllamaStartFailed(gettext_f(
+            "could not lock the managed Ollama installation: {error}",
+            &[("error", &(error).to_string())],
         ))),
     }
 }

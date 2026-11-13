@@ -1,3 +1,5 @@
+use crate::i18n::{gettext, gettext_f, gettext_noop};
+
 use std::rc::Rc;
 
 use adw::prelude::*;
@@ -28,8 +30,8 @@ pub(super) fn details_dialog(heading: &str, details: &str) -> adw::AlertDialog {
         .close_response("close")
         .default_response("close")
         .build();
-    dialog.add_response("copy", "Copy Details");
-    dialog.add_response("close", "Close");
+    dialog.add_response("copy", &gettext("Copy Details"));
+    dialog.add_response("close", &gettext("Close"));
     let full_details = details.to_string();
     dialog.connect_response(Some("copy"), move |_, _| {
         text.clipboard().set_text(&full_details)
@@ -43,24 +45,37 @@ pub(super) fn show_logs(ui: &Rc<WindowUi>, backend: &Rc<Backend>, ollama: bool) 
     } else {
         backend.paths.app_log_path()
     };
-    let heading = if ollama { "Ollama Log" } else { "Moose Log" };
-    let contents = crate::logging::recent(&path)
-        .unwrap_or_else(|error| format!("The log could not be read: {error}"));
-    let details = format!(
-        "Moose {}\n{}\n\n{}",
-        env!("CARGO_PKG_VERSION"),
-        path.display(),
-        contents
+    let heading = gettext(if ollama {
+        gettext_noop("Ollama Log")
+    } else {
+        gettext_noop("Moose Log")
+    });
+    let contents = crate::logging::recent(&path).unwrap_or_else(|error| {
+        gettext_f(
+            "The log could not be read: {error}",
+            &[("error", &(error).to_string())],
+        )
+    });
+    let details = gettext_f(
+        "Moose {arg1}\n{arg2}\n\n{arg3}",
+        &[
+            ("arg1", env!("CARGO_PKG_VERSION")),
+            ("arg2", &(path.display()).to_string()),
+            ("arg3", &(contents).to_string()),
+        ],
     );
     let dialog = adw::Dialog::builder()
-        .title(heading)
+        .title(&heading)
         .content_width(820)
         .content_height(560)
         .build();
     let header = adw::HeaderBar::new();
-    let title = adw::WindowTitle::new(heading, &format!("Moose {}", env!("CARGO_PKG_VERSION")));
+    let title = adw::WindowTitle::new(
+        &heading,
+        &gettext_f("Moose {arg1}", &[("arg1", env!("CARGO_PKG_VERSION"))]),
+    );
     header.set_title_widget(Some(&title));
-    let copy = widgets::icon_button("edit-copy-symbolic", "Copy Log");
+    let copy = widgets::icon_button("edit-copy-symbolic", &gettext("Copy Log"));
     header.pack_start(&copy);
     copy.connect_clicked(move |button| button.clipboard().set_text(&details));
     let buffer = gtk::TextBuffer::new(None);

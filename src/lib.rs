@@ -14,6 +14,8 @@ pub mod runtime;
 pub mod storage;
 pub mod tools;
 
+pub(crate) mod i18n;
+
 #[cfg(feature = "gui")]
 pub mod ui;
 

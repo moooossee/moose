@@ -1,3 +1,5 @@
+use crate::i18n::gettext;
+
 use serde_json::Value;
 
 type Result<T> = std::result::Result<T, String>;
@@ -5,16 +7,16 @@ type Result<T> = std::result::Result<T, String>;
 pub(super) fn calculate(arguments: &Value) -> Result<String> {
     let object = arguments
         .as_object()
-        .ok_or("Provide an object with an expression string.")?;
+        .ok_or(&gettext("Provide an object with an expression string."))?;
     if object.len() != 1 {
-        return Err("Provide only the expression argument.".into());
+        return Err(gettext("Provide only the expression argument."));
     }
     let expression = object
         .get("expression")
         .and_then(Value::as_str)
-        .ok_or("Provide an expression string.")?;
+        .ok_or(&gettext("Provide an expression string."))?;
     if expression.trim().is_empty() || expression.len() > 512 {
-        return Err("Use an expression between 1 and 512 bytes long.".into());
+        return Err(gettext("Use an expression between 1 and 512 bytes long."));
     }
     let expression = expression
         .replace('×', "*")
@@ -28,7 +30,9 @@ pub(super) fn calculate(arguments: &Value) -> Result<String> {
     let value = parser.expression(0, 0)?;
     parser.whitespace();
     if parser.position != parser.input.len() {
-        return Err("Unexpected text. Use explicit operators and supported functions only.".into());
+        return Err(gettext(
+            "Unexpected text. Use explicit operators and supported functions only.",
+        ));
     }
     if value == 0.0 {
         return Ok("0".into());
@@ -37,7 +41,7 @@ pub(super) fn calculate(arguments: &Value) -> Result<String> {
     if value.abs() < 1e-9 || value.abs() >= 1e15 {
         let (number, exponent) = formatted
             .split_once('e')
-            .ok_or("The result could not be formatted.")?;
+            .ok_or(&gettext("The result could not be formatted."))?;
         return Ok(format!(
             "{}e{exponent}",
             number.trim_end_matches('0').trim_end_matches('.')
@@ -81,9 +85,9 @@ impl Parser<'_> {
     fn expression(&mut self, minimum: u8, depth: usize) -> Result<f64> {
         self.steps += 1;
         if depth > 32 || self.steps > 256 {
-            return Err(
-                "This expression is too complex. Split it into smaller calculations.".into(),
-            );
+            return Err(gettext(
+                "This expression is too complex. Split it into smaller calculations.",
+            ));
         }
         self.whitespace();
         let mut value = if self.take(b'+') {
@@ -93,7 +97,7 @@ impl Parser<'_> {
         } else if self.take(b'(') {
             let value = self.expression(0, depth + 1)?;
             if !self.take(b')') {
-                return Err("A closing parenthesis is missing.".into());
+                return Err(gettext("A closing parenthesis is missing."));
             }
             value
         } else if self
@@ -130,17 +134,21 @@ impl Parser<'_> {
                 b'+' => value + operand,
                 b'-' => value - operand,
                 b'*' => value * operand,
-                b'/' if operand == 0.0 => return Err("Division by zero is not defined.".into()),
+                b'/' if operand == 0.0 => return Err(gettext("Division by zero is not defined.")),
                 b'/' => value / operand,
                 b'^' => value.powf(operand),
                 _ => unreachable!(),
             };
             if !value.is_finite() {
-                return Err("The result is outside the supported finite real numbers.".into());
+                return Err(gettext(
+                    "The result is outside the supported finite real numbers.",
+                ));
             }
         }
         if !value.is_finite() {
-            return Err("The result is outside the supported finite real numbers.".into());
+            return Err(gettext(
+                "The result is outside the supported finite real numbers.",
+            ));
         }
         Ok(value)
     }
@@ -168,7 +176,9 @@ impl Parser<'_> {
             }
         }
         if digits == 0 {
-            return Err("Expected a number, a parenthesis, or a supported function.".into());
+            return Err(gettext(
+                "Expected a number, a parenthesis, or a supported function.",
+            ));
         }
         if matches!(self.input.get(self.position), Some(b'e' | b'E')) {
             self.position += 1;
@@ -184,7 +194,9 @@ impl Parser<'_> {
                 self.position += 1;
             }
             if exponent == self.position {
-                return Err("Scientific notation needs an exponent, such as 1e3.".into());
+                return Err(gettext(
+                    "Scientific notation needs an exponent, such as 1e3.",
+                ));
             }
         }
         std::str::from_utf8(&self.input[start..self.position])
@@ -192,7 +204,7 @@ impl Parser<'_> {
             .and_then(|text| text.parse::<f64>().ok())
             .filter(|value| value.is_finite())
             .ok_or_else(|| {
-                "Use a finite number with a decimal point and no digit separators.".into()
+                gettext("Use a finite number with a decimal point and no digit separators.")
             })
     }
 
@@ -210,18 +222,22 @@ impl Parser<'_> {
             b"pi" => return Ok(std::f64::consts::PI),
             b"e" => return Ok(std::f64::consts::E),
             b"sqrt" | b"abs" | b"round" | b"floor" | b"ceil" => {}
-            _ => return Err("Supported functions are sqrt, abs, round, floor, and ceil.".into()),
+            _ => {
+                return Err(gettext(
+                    "Supported functions are sqrt, abs, round, floor, and ceil.",
+                ));
+            }
         }
         if !self.take(b'(') {
-            return Err("Function arguments need parentheses.".into());
+            return Err(gettext("Function arguments need parentheses."));
         }
         let value = self.expression(0, depth + 1)?;
         if !self.take(b')') {
-            return Err("A closing parenthesis is missing.".into());
+            return Err(gettext("A closing parenthesis is missing."));
         }
         match name.as_slice() {
             b"sqrt" if value < 0.0 => {
-                Err("The square root of a negative number is not real.".into())
+                Err(gettext("The square root of a negative number is not real."))
             }
             b"sqrt" => Ok(value.sqrt()),
             b"abs" => Ok(value.abs()),

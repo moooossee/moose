@@ -1,3 +1,5 @@
+use crate::i18n::{gettext, gettext_f, gettext_noop, ngettext_f};
+
 use std::{cell::RefCell, rc::Rc};
 
 use adw::prelude::*;
@@ -41,14 +43,14 @@ pub(super) fn dialog(
 ) -> Result<adw::Dialog> {
     let values = super::load_chat_settings(backend, conversation_id)?;
     let dialog = adw::Dialog::builder()
-        .title("Chat Settings")
+        .title(gettext("Chat Settings"))
         .content_width(620)
         .content_height(660)
         .build();
     let navigation = adw::NavigationView::new();
     let toast_overlay = adw::ToastOverlay::new();
     let page = adw::PreferencesPage::new();
-    let (main_page, header) = settings_page("Chat Settings", &page);
+    let (main_page, header) = settings_page(&gettext("Chat Settings"), &page);
     navigation.add(&main_page);
 
     let actions = gio::SimpleActionGroup::new();
@@ -61,21 +63,27 @@ pub(super) fn dialog(
     dialog.insert_action_group("settings", Some(&actions));
     let menu = gio::Menu::new();
     let profile_menu = gio::Menu::new();
-    profile_menu.append(Some("Save as Profile…"), Some("settings.create-profile"));
-    profile_menu.append(Some("Delete Profile…"), Some("settings.delete-profile"));
+    profile_menu.append(
+        Some(&gettext("Save as Profile…")),
+        Some("settings.create-profile"),
+    );
+    profile_menu.append(
+        Some(&gettext("Delete Profile…")),
+        Some("settings.delete-profile"),
+    );
     menu.append_section(None, &profile_menu);
     let reset_menu = gio::Menu::new();
-    reset_menu.append(Some("Reset to Defaults"), Some("settings.reset"));
+    reset_menu.append(Some(&gettext("Reset to Defaults")), Some("settings.reset"));
     menu.append_section(None, &reset_menu);
     let menu_button = gtk::MenuButton::builder()
         .icon_name("view-more-symbolic")
-        .tooltip_text("More Options")
+        .tooltip_text(gettext("More Options"))
         .menu_model(&menu)
         .build();
     header.pack_end(&menu_button);
 
-    let save_button = gtk::Button::with_label("Save Changes");
-    let cancel_button = gtk::Button::with_label("Cancel");
+    let save_button = gtk::Button::with_label(&gettext("Save Changes"));
+    let cancel_button = gtk::Button::with_label(&gettext("Cancel"));
     cancel_button.add_css_class("flat");
     cancel_button.set_halign(Align::Center);
     let footer = gtk::Box::builder()
@@ -106,10 +114,10 @@ pub(super) fn dialog(
     let (model_list, model_values, selected_model) =
         model_choices(ui, values.preferred_model.as_deref());
     let profile_group = adw::PreferencesGroup::builder()
-        .title("Conversation")
+        .title(gettext("Conversation"))
         .build();
     let profile_row = adw::ComboRow::builder()
-        .title("Profile")
+        .title(gettext("Profile"))
         .subtitle_lines(2)
         .use_markup(false)
         .model(&profile_list)
@@ -119,10 +127,12 @@ pub(super) fn dialog(
     delete_profile_action.set_enabled(selected_profile_is_custom(&profile_row, &profile_values));
     profile_group.add(&profile_row);
 
-    let behavior_group = adw::PreferencesGroup::builder().title("Response").build();
+    let behavior_group = adw::PreferencesGroup::builder()
+        .title(gettext("Response"))
+        .build();
     let model_row = adw::ComboRow::builder()
-        .title("Preferred Model")
-        .subtitle("Choose a model to always use in this chat")
+        .title(gettext("Preferred Model"))
+        .subtitle(gettext("Choose a model to always use in this chat"))
         .subtitle_lines(2)
         .use_markup(false)
         .expression(gtk::PropertyExpression::new(
@@ -138,16 +148,17 @@ pub(super) fn dialog(
     profile_group.add(&model_row);
     page.add(&profile_group);
     let temperature_row = adw::SpinRow::with_range(0.0, 2.0, 0.05);
-    temperature_row.set_title("Temperature");
-    temperature_row.set_subtitle("Lower is more focused; higher is more creative");
+    temperature_row.set_title(&gettext("Temperature"));
+    temperature_row.set_subtitle(&gettext("Lower is more focused; higher is more creative"));
     temperature_row.set_subtitle_lines(2);
     temperature_row.set_digits(2);
     temperature_row.set_numeric(true);
     temperature_row.set_value(values.temperature);
     let context_messages_row = adw::SpinRow::with_range(1.0, MAX_CONTEXT_MESSAGE_LIMIT as f64, 1.0);
-    context_messages_row.set_title("Context Messages");
-    context_messages_row
-        .set_subtitle("Maximum recent messages, keeping questions and answers together");
+    context_messages_row.set_title(&gettext("Context Messages"));
+    context_messages_row.set_subtitle(&gettext(
+        "Maximum recent messages, keeping questions and answers together",
+    ));
     context_messages_row.set_subtitle_lines(2);
     context_messages_row.set_digits(0);
     context_messages_row.set_numeric(true);
@@ -156,7 +167,9 @@ pub(super) fn dialog(
     behavior_group.add(&temperature_row);
     let provider_kind = active_provider(backend).map(|provider| provider.api_kind());
     if provider_kind == Some(ProviderKind::DeepSeek) {
-        temperature_row.set_subtitle("Applies when reasoning is off; higher is more creative");
+        temperature_row.set_subtitle(&gettext(
+            "Applies when reasoning is off; higher is more creative",
+        ));
     }
     let sampling = !matches!(
         provider_kind,
@@ -166,12 +179,14 @@ pub(super) fn dialog(
     behavior_group.add(&context_messages_row);
 
     let tools_group = adw::PreferencesGroup::builder()
-        .title("Tools")
-        .description("Allow tools in this chat. Requires a model with tool support.")
+        .title(gettext("Tools"))
+        .description(gettext(
+            "Allow tools in this chat. Requires a model with tool support.",
+        ))
         .build();
     let calculator_row = adw::SwitchRow::builder()
-        .title("Calculator")
-        .subtitle("Run calculations on this device")
+        .title(gettext("Calculator"))
+        .subtitle(gettext("Run calculations on this device"))
         .subtitle_lines(2)
         .active(values.calculator)
         .build();
@@ -180,36 +195,45 @@ pub(super) fn dialog(
     ));
     if !provider_kind.is_some_and(ProviderKind::supports_tool_calling) {
         calculator_row.set_sensitive(false);
-        calculator_row.set_subtitle("Available with compatible Ollama and Ollama Cloud models");
+        calculator_row.set_subtitle(&gettext(
+            "Available with compatible Ollama and Ollama Cloud models",
+        ));
     } else if active_provider(backend).is_some_and(|provider| provider.is_remote()) {
-        calculator_row
-            .set_subtitle("Calculate on this device and share results with this chat’s provider");
+        calculator_row.set_subtitle(&gettext(
+            "Calculate on this device and share results with this chat’s provider",
+        ));
     }
     tools_group.add(&calculator_row);
     let web_row = adw::SwitchRow::builder()
-        .title("Web")
-        .subtitle("Search and read public pages with your permission")
+        .title(gettext("Web"))
+        .subtitle(gettext("Search and read public pages with your permission"))
         .subtitle_lines(2)
         .active(values.web)
         .build();
     web_row.add_prefix(&gtk::Image::from_icon_name("moose-globe-symbolic"));
     if !provider_kind.is_some_and(ProviderKind::supports_tool_calling) {
         web_row.set_sensitive(false);
-        web_row.set_subtitle("Available with compatible Ollama and Ollama Cloud models");
+        web_row.set_subtitle(&gettext(
+            "Available with compatible Ollama and Ollama Cloud models",
+        ));
     } else if backend.network_policy.local_only() {
-        web_row.set_subtitle("Blocked by Local Only in Preferences → Privacy");
+        web_row.set_subtitle(&gettext("Blocked by Local Only in Preferences → Privacy"));
     }
     tools_group.add(&web_row);
     let web_config = backend.repository.web_config()?;
-    let search_row = navigation_row("Web Settings", &web_config.description(), None);
+    let search_row = navigation_row(
+        &gettext("Web Settings"),
+        &crate::i18n::web_description(&web_config),
+        None,
+    );
     let search_group = adw::PreferencesGroup::builder()
-        .description("Manage search and web permissions for all chats.")
+        .description(gettext("Manage search and web permissions for all chats."))
         .build();
     search_group.add(&search_row);
     let tools_content = adw::PreferencesPage::new();
     tools_content.add(&tools_group);
     tools_content.add(&search_group);
-    let (tools_page, _) = settings_page("Tools", &tools_content);
+    let (tools_page, _) = settings_page(&gettext("Tools"), &tools_content);
     let target_ui = Rc::clone(ui);
     let target_backend = Rc::clone(backend);
     let target_dialog = dialog.downgrade();
@@ -225,17 +249,29 @@ pub(super) fn dialog(
             if let Some(row) = row.upgrade()
                 && let Ok(config) = backend.repository.web_config()
             {
-                row.set_subtitle(&config.description());
+                row.set_subtitle(&crate::i18n::web_description(&config));
             }
         });
     });
 
     let prompt_group = adw::PreferencesGroup::builder()
-        .title("System Prompt")
-        .description("Instructions sent with every message in this chat.")
+        .title(gettext("System Prompt"))
+        .description(gettext(
+            "Instructions sent with every message in this chat.",
+        ))
         .build();
     let prompt_buffer = gtk::TextBuffer::new(None);
-    prompt_buffer.set_text(&values.system_prompt);
+    let displayed_prompt = profile_values
+        .borrow()
+        .iter()
+        .flatten()
+        .find(|profile| {
+            Some(profile.id.as_str()) == values.profile_id.as_deref()
+                && profile.system_prompt == values.system_prompt
+        })
+        .map(crate::i18n::profile_system_prompt)
+        .unwrap_or_else(|| values.system_prompt.clone());
+    prompt_buffer.set_text(&displayed_prompt);
     let prompt_view = gtk::TextView::builder()
         .buffer(&prompt_buffer)
         .accepts_tab(false)
@@ -262,7 +298,7 @@ pub(super) fn dialog(
     prompt_group.set_header_suffix(Some(&prompt_count));
     let prompt_content = adw::PreferencesPage::new();
     prompt_content.add(&prompt_group);
-    let (prompt_page, _) = settings_page("System Prompt", &prompt_content);
+    let (prompt_page, _) = settings_page(&gettext("System Prompt"), &prompt_content);
 
     let target_profile_values = Rc::clone(&profile_values);
     let target_temperature_row = temperature_row.clone();
@@ -281,28 +317,36 @@ pub(super) fn dialog(
             .flatten()
         {
             target_temperature_row.set_value(profile.temperature);
-            target_prompt_buffer.set_text(&profile.system_prompt);
+            target_prompt_buffer.set_text(&crate::i18n::profile_system_prompt(&profile));
         }
     });
 
     let advanced_group = adw::PreferencesGroup::builder()
-        .title("Ollama Options")
-        .description(
+        .title(gettext("Ollama Options"))
+        .description(gettext(
             "Context Window defaults to 16,384 tokens. Other empty fields use the model defaults.",
-        )
+        ))
         .build();
-    let top_p_row = optional_entry("Top P", "Probability-based token selection", values.top_p);
-    let top_k_row = optional_entry("Top K", "Maximum token choices per step", values.top_k);
+    let top_p_row = optional_entry(
+        &gettext("Top P"),
+        &gettext("Probability-based token selection"),
+        values.top_p,
+    );
+    let top_k_row = optional_entry(
+        &gettext("Top K"),
+        &gettext("Maximum token choices per step"),
+        values.top_k,
+    );
     let seed_row = optional_entry(
-        "Seed",
-        "Fixed seed for more reproducible responses",
+        &gettext("Seed"),
+        &gettext("Fixed seed for more reproducible responses"),
         values.seed,
     );
     let default_context_window = (provider_kind == Some(ProviderKind::Ollama))
         .then_some(crate::ollama::DEFAULT_CONTEXT_WINDOW);
     let num_ctx_row = optional_entry(
-        "Context Window",
-        "Defaults to 16,384 tokens. Larger values use more memory.",
+        &gettext("Context Window"),
+        &gettext("Defaults to 16,384 tokens. Larger values use more memory."),
         values.num_ctx.or(default_context_window),
     );
     advanced_group.add(&top_p_row);
@@ -313,8 +357,8 @@ pub(super) fn dialog(
     let advanced_content = adw::PreferencesPage::new();
     let guide_group = adw::PreferencesGroup::new();
     let guide_row = navigation_row(
-        "Settings Guide",
-        "Learn what each parameter does",
+        &gettext("Settings Guide"),
+        &gettext("Learn what each parameter does"),
         Some("dialog-information-symbolic"),
     );
     connect_page(&guide_row, &navigation, &settings_guide());
@@ -322,20 +366,30 @@ pub(super) fn dialog(
     advanced_content.add(&guide_group);
     advanced_content.add(&behavior_group);
     advanced_content.add(&advanced_group);
-    let (advanced_page, _) = settings_page("Advanced", &advanced_content);
+    let (advanced_page, _) = settings_page(&gettext("Advanced"), &advanced_content);
 
-    let customize_group = adw::PreferencesGroup::builder().title("Customize").build();
-    let prompt_row = navigation_row("System Prompt", "", Some("document-edit-symbolic"));
+    let customize_group = adw::PreferencesGroup::builder()
+        .title(gettext("Customize"))
+        .build();
+    let prompt_row = navigation_row(
+        &gettext("System Prompt"),
+        "",
+        Some("document-edit-symbolic"),
+    );
     update_prompt_summary(&prompt_row, &prompt_buffer);
     connect_page(&prompt_row, &navigation, &prompt_page);
     customize_group.add(&prompt_row);
-    let tools_row = navigation_row("Tools", "", Some("applications-utilities-symbolic"));
+    let tools_row = navigation_row(
+        &gettext("Tools"),
+        "",
+        Some("applications-utilities-symbolic"),
+    );
     update_tools_summary(&tools_row, &calculator_row, &web_row);
     connect_page(&tools_row, &navigation, &tools_page);
     customize_group.add(&tools_row);
     let advanced_row = navigation_row(
-        "Advanced",
-        "Response style and conversation history",
+        &gettext("Advanced"),
+        &gettext("Response style and conversation history"),
         Some("preferences-system-symbolic"),
     );
     connect_page(&advanced_row, &navigation, &advanced_page);
@@ -343,10 +397,10 @@ pub(super) fn dialog(
     if active_provider(backend).is_some_and(|p| p.is_remote()) {
         let privacy_content = adw::PreferencesPage::new();
         privacy_content.add(&super::privacy::conversation_group(ui, backend));
-        let (privacy_page, _) = settings_page("Sharing Permissions", &privacy_content);
+        let (privacy_page, _) = settings_page(&gettext("Sharing Permissions"), &privacy_content);
         let privacy_row = navigation_row(
-            "Sharing Permissions",
-            "Manage access for this chat’s provider",
+            &gettext("Sharing Permissions"),
+            &gettext("Manage access for this chat’s provider"),
             Some("changes-prevent-symbolic"),
         );
         connect_page(&privacy_row, &navigation, &privacy_page);
@@ -456,7 +510,9 @@ pub(super) fn dialog(
         target_calculator_row.set_active(false);
         target_web_row.set_active(false);
         if let Some(overlay) = target_toast_overlay.upgrade() {
-            overlay.add_toast(adw::Toast::new("Defaults restored. Save to apply changes."));
+            overlay.add_toast(adw::Toast::new(&gettext(
+                "Defaults restored. Save to apply changes.",
+            )));
         }
     });
 
@@ -492,24 +548,14 @@ pub(super) fn dialog(
         }
         let values = match values_from_controls(&controls) {
             Ok(values) => values,
-            Err(message) => {
+            Err((row, message)) => {
                 if let Some(navigation) = target_navigation.upgrade()
                     && navigation.visible_page().as_ref() != Some(&advanced_page)
                 {
                     navigation.replace(&[main_page.clone(), advanced_page.clone()]);
                 }
-                for row in [
-                    &controls.top_p_row,
-                    &controls.top_k_row,
-                    &controls.seed_row,
-                    &controls.num_ctx_row,
-                ] {
-                    if message.starts_with(row.title().as_str()) {
-                        row.add_css_class("error");
-                        row.grab_focus();
-                        break;
-                    }
-                }
+                row.add_css_class("error");
+                row.grab_focus();
                 overlay.add_toast(adw::Toast::new(&message));
                 return;
             }
@@ -529,18 +575,22 @@ pub(super) fn dialog(
                     &target_backend,
                     values.profile_id.as_deref(),
                 ) {
-                    target_ui.toast_overlay.add_toast(adw::Toast::new(&format!(
-                        "Profile indicator could not be updated: {error}"
-                    )));
+                    target_ui
+                        .toast_overlay
+                        .add_toast(adw::Toast::new(&gettext_f(
+                            "Profile indicator could not be updated: {error}",
+                            &[("error", &(error).to_string())],
+                        )));
                 }
                 target_ui
                     .toast_overlay
-                    .add_toast(adw::Toast::new("Chat settings saved"));
+                    .add_toast(adw::Toast::new(&gettext("Chat settings saved")));
                 dialog.close();
             }
             Err(error) => {
-                overlay.add_toast(adw::Toast::new(&format!(
-                    "Chat settings could not be saved: {error}"
+                overlay.add_toast(adw::Toast::new(&gettext_f(
+                    "Chat settings could not be saved: {error}",
+                    &[("error", &(error).to_string())],
                 )));
             }
         }
@@ -591,61 +641,87 @@ fn connect_page(
 fn settings_guide() -> adw::NavigationPage {
     let content = adw::PreferencesPage::new();
     let conversation_group = adw::PreferencesGroup::builder()
-        .title("Conversation")
-        .description("Start with the defaults, then adjust one setting at a time.")
+        .title(gettext("Conversation"))
+        .description(gettext(
+            "Start with the defaults, then adjust one setting at a time.",
+        ))
         .build();
     for (title, description) in [
         (
-            "Profile",
-            "Applies a temperature and system prompt as a starting point. You can still edit every setting.",
+            gettext_noop("Profile"),
+            gettext_noop(
+                "Applies a temperature and system prompt as a starting point. You can still edit every setting.",
+            ),
         ),
         (
-            "Preferred Model",
-            "Keeps this conversation on one model. Use Selected Model follows the model picker in the chat.",
+            gettext_noop("Preferred Model"),
+            gettext_noop(
+                "Keeps this conversation on one model. Use Selected Model follows the model picker in the chat.",
+            ),
         ),
         (
-            "System Prompt",
-            "Gives the model lasting instructions for this conversation, such as its role, tone or response style.",
+            gettext_noop("System Prompt"),
+            gettext_noop(
+                "Gives the model lasting instructions for this conversation, such as its role, tone or response style.",
+            ),
         ),
         (
-            "Temperature",
-            "Controls response variety. Lower values are more focused and predictable; higher values are more varied. Some providers or reasoning modes use their own defaults.",
+            gettext_noop("Temperature"),
+            gettext_noop(
+                "Controls response variety. Lower values are more focused and predictable; higher values are more varied. Some providers or reasoning modes use their own defaults.",
+            ),
         ),
         (
-            "Context Messages",
-            "Sets the maximum number of recent user and assistant messages sent to the model, including your next message. Questions and answers stay together. With Ollama, Moose also estimates their size and leaves out older exchanges when needed to make room for reasoning and the response. All messages stay saved in the chat.",
+            gettext_noop("Context Messages"),
+            gettext_noop(
+                "Sets the maximum number of recent user and assistant messages sent to the model, including your next message. Questions and answers stay together. With Ollama, Moose also estimates their size and leaves out older exchanges when needed to make room for reasoning and the response. All messages stay saved in the chat.",
+            ),
         ),
     ] {
-        conversation_group.add(&parameter_explanation(title, description));
+        conversation_group.add(&parameter_explanation(
+            &gettext(title),
+            &gettext(description),
+        ));
     }
     content.add(&conversation_group);
 
     let ollama_group = adw::PreferencesGroup::builder()
-        .title("Ollama Options")
-        .description("Available with Ollama. Context Window defaults to 16,384 tokens; other empty fields use the model defaults.")
+        .title(gettext("Ollama Options"))
+        .description(gettext("Available with Ollama. Context Window defaults to 16,384 tokens; other empty fields use the model defaults."))
         .build();
     for (title, description) in [
         (
-            "Top P",
-            "Limits token choices by their combined probability. Lower values reduce variety by keeping a smaller set of likely choices.",
+            gettext_noop("Top P"),
+            gettext_noop(
+                "Limits token choices by their combined probability. Lower values reduce variety by keeping a smaller set of likely choices.",
+            ),
         ),
         (
-            "Top K",
-            "Limits each token choice to the most likely options. Lower values reduce variety.",
+            gettext_noop("Top K"),
+            gettext_noop(
+                "Limits each token choice to the most likely options. Lower values reduce variety.",
+            ),
         ),
         (
-            "Seed",
-            "Uses a fixed random seed to make repeated requests more reproducible. Identical results are not guaranteed.",
+            gettext_noop("Seed"),
+            gettext_noop(
+                "Uses a fixed random seed to make repeated requests more reproducible. Identical results are not guaranteed.",
+            ),
         ),
         (
-            "Context Window",
-            "Sets Ollama’s context size in tokens, shared by the conversation, reasoning, and response. Moose uses 16,384 when this field is empty. Up to half the window, capped at 8,192 tokens, is reserved for reasoning and the response, with an additional safety margin. Text and image sizes are estimates, so very long responses can still reach the limit. Larger windows use more memory; Moose does not increase this setting automatically.",
+            gettext_noop("Context Window"),
+            gettext_noop(
+                "Sets Ollama’s context size in tokens, shared by the conversation, reasoning, and response. Moose uses 16,384 when this field is empty. Up to half the window, capped at 8,192 tokens, is reserved for reasoning and the response, with an additional safety margin. Text and image sizes are estimates, so very long responses can still reach the limit. Larger windows use more memory; Moose does not increase this setting automatically.",
+            ),
         ),
     ] {
-        ollama_group.add(&parameter_explanation(title, description));
+        ollama_group.add(&parameter_explanation(
+            &gettext(title),
+            &gettext(description),
+        ));
     }
     content.add(&ollama_group);
-    settings_page("Settings Guide", &content).0
+    settings_page(&gettext("Settings Guide"), &content).0
 }
 
 fn parameter_explanation(title: &str, description: &str) -> adw::ActionRow {
@@ -659,7 +735,12 @@ fn parameter_explanation(title: &str, description: &str) -> adw::ActionRow {
 
 fn update_prompt_count(label: &gtk::Label, buffer: &gtk::TextBuffer) {
     let count = buffer.char_count();
-    label.set_label(&format!("{count} characters"));
+    label.set_label(&ngettext_f(
+        "{count} character",
+        "{count} characters",
+        count as u32,
+        &[("count", &count.to_string())],
+    ));
 }
 
 fn update_prompt_summary(row: &adw::ActionRow, buffer: &gtk::TextBuffer) {
@@ -668,17 +749,17 @@ fn update_prompt_summary(row: &adw::ActionRow, buffer: &gtk::TextBuffer) {
     row.set_subtitle(
         &summary
             .map(|line| line.trim().chars().take(80).collect::<String>())
-            .unwrap_or_else(|| "Add instructions for this chat".to_string()),
+            .unwrap_or_else(|| gettext("Add instructions for this chat")),
     );
 }
 
 fn update_tools_summary(row: &adw::ActionRow, calculator: &adw::SwitchRow, web: &adw::SwitchRow) {
-    row.set_subtitle(match (calculator.is_active(), web.is_active()) {
-        (true, true) => "Calculator · Web",
-        (true, false) => "Calculator",
-        (false, true) => "Web",
-        (false, false) => "None enabled",
-    });
+    row.set_subtitle(&gettext(match (calculator.is_active(), web.is_active()) {
+        (true, true) => gettext_noop("Calculator · Web"),
+        (true, false) => gettext_noop("Calculator"),
+        (false, true) => gettext_noop("Web"),
+        (false, false) => gettext_noop("None enabled"),
+    }));
 }
 
 fn show_create_profile_dialog(
@@ -691,24 +772,28 @@ fn show_create_profile_dialog(
     system_prompt: String,
 ) {
     let dialog = adw::Dialog::builder()
-        .title("Save as Profile")
+        .title(gettext("Save as Profile"))
         .content_width(520)
         .content_height(420)
         .build();
     let header_bar = adw::HeaderBar::new();
-    let cancel_button = gtk::Button::with_label("Cancel");
-    let create_button = gtk::Button::with_label("Save");
+    let cancel_button = gtk::Button::with_label(&gettext("Cancel"));
+    let create_button = gtk::Button::with_label(&gettext("Save"));
     create_button.add_css_class("suggested-action");
     create_button.set_sensitive(false);
     header_bar.pack_start(&cancel_button);
     header_bar.pack_end(&create_button);
 
     let group = adw::PreferencesGroup::builder()
-        .title("Profile Details")
-        .description("Reuse this chat’s instructions and temperature in other conversations.")
+        .title(gettext("Profile Details"))
+        .description(gettext(
+            "Reuse this chat’s instructions and temperature in other conversations.",
+        ))
         .build();
-    let name_row = adw::EntryRow::builder().title("Name").build();
-    let description_row = adw::EntryRow::builder().title("Short Description").build();
+    let name_row = adw::EntryRow::builder().title(gettext("Name")).build();
+    let description_row = adw::EntryRow::builder()
+        .title(gettext("Short Description"))
+        .build();
     group.add(&name_row);
     group.add(&description_row);
     let page = adw::PreferencesPage::new();
@@ -775,8 +860,9 @@ fn show_create_profile_dialog(
                 target_profile_row.set_selected(target_profile_list.n_items() - 1);
                 dialog.close();
             }
-            Err(error) => overlay.add_toast(adw::Toast::new(&format!(
-                "Profile could not be created: {error}"
+            Err(error) => overlay.add_toast(adw::Toast::new(&gettext_f(
+                "Profile could not be created: {error}",
+                &[("error", &(error).to_string())],
             ))),
         }
     });
@@ -805,16 +891,16 @@ fn confirm_delete_profile(
         return;
     };
     let dialog = adw::AlertDialog::builder()
-        .heading("Delete Profile?")
-        .body(format!(
-            "Delete \"{}\"? Existing chats will keep their current settings.",
-            profile.name
+        .heading(gettext("Delete Profile?"))
+        .body(gettext_f(
+            "Delete \"{arg1}\"? Existing chats will keep their current settings.",
+            &[("arg1", &(profile.name).to_string())],
         ))
         .close_response("cancel")
         .default_response("cancel")
         .build();
-    dialog.add_response("cancel", "Cancel");
-    dialog.add_response("delete", "Delete");
+    dialog.add_response("cancel", &gettext("Cancel"));
+    dialog.add_response("delete", &gettext("Delete"));
     dialog.set_response_appearance("delete", adw::ResponseAppearance::Destructive);
 
     let target_toast_overlay = toast_overlay.downgrade();
@@ -844,14 +930,16 @@ fn confirm_delete_profile(
                         },
                     );
                 if let Err(error) = indicator_result {
-                    overlay.add_toast(adw::Toast::new(&format!(
-                        "Profile indicator could not be updated: {error}"
+                    overlay.add_toast(adw::Toast::new(&gettext_f(
+                        "Profile indicator could not be updated: {error}",
+                        &[("error", &(error).to_string())],
                     )));
                 }
-                overlay.add_toast(adw::Toast::new("Profile deleted"));
+                overlay.add_toast(adw::Toast::new(&gettext("Profile deleted")));
             }
-            Err(error) => overlay.add_toast(adw::Toast::new(&format!(
-                "Profile could not be deleted: {error}"
+            Err(error) => overlay.add_toast(adw::Toast::new(&gettext_f(
+                "Profile could not be deleted: {error}",
+                &[("error", &(error).to_string())],
             ))),
         }
     });
@@ -862,10 +950,10 @@ fn profile_choices(
     profiles: Vec<ChatProfile>,
     selected_profile_id: Option<&str>,
 ) -> (gtk::StringList, Rc<RefCell<Vec<Option<ChatProfile>>>>, u32) {
-    let mut labels = vec!["No Profile".to_string()];
+    let mut labels = vec![gettext("No Profile")];
     let mut values = vec![None];
     for profile in profiles {
-        labels.push(profile.name.clone());
+        labels.push(crate::i18n::profile_name(&profile));
         values.push(Some(profile));
     }
     let selected = selected_profile_id
@@ -894,9 +982,9 @@ fn update_profile_subtitle(
     let subtitle = profiles
         .get(selected)
         .and_then(Option::as_ref)
-        .map(|profile| profile.description.as_str())
-        .unwrap_or("Choose a profile to apply instructions and response settings");
-    profile_row.set_subtitle(subtitle);
+        .map(crate::i18n::profile_description)
+        .unwrap_or_else(|| gettext("Choose a profile to apply instructions and response settings"));
+    profile_row.set_subtitle(&subtitle);
 }
 
 fn selected_profile_is_custom(
@@ -915,7 +1003,7 @@ fn model_choices(
     ui: &WindowUi,
     preferred_model: Option<&str>,
 ) -> (gtk::StringList, Rc<Vec<Option<String>>>, u32) {
-    let mut labels = vec!["Use Selected Model".to_string()];
+    let mut labels = vec![gettext("Use Selected Model")];
     let mut values = vec![None];
 
     for model in ui.model_names.borrow().iter() {
@@ -928,7 +1016,7 @@ fn model_choices(
             .iter()
             .any(|candidate| candidate.as_deref() == Some(model))
     {
-        labels.push(format!("{model} (Unavailable)"));
+        labels.push(gettext_f("{model} (Unavailable)", &[("model", (model))]));
         values.push(Some(model.to_string()));
     }
 
@@ -955,7 +1043,7 @@ fn optional_entry<T: ToString>(title: &str, subtitle: &str, value: Option<T>) ->
 
 fn values_from_controls(
     controls: &SettingsControls,
-) -> std::result::Result<ChatSettingsValues, String> {
+) -> std::result::Result<ChatSettingsValues, (adw::EntryRow, String)> {
     let selected_profile = usize::try_from(controls.profile_row.selected()).unwrap_or(0);
     let profile_id = controls
         .profile_values
@@ -965,6 +1053,14 @@ fn values_from_controls(
         .map(|profile| profile.id.clone());
     let selected_model = usize::try_from(controls.model_row.selected()).unwrap_or(0);
     let preferred_model = controls.model_values.get(selected_model).cloned().flatten();
+    let displayed_prompt = buffer_text(&controls.prompt_buffer);
+    let system_prompt = controls
+        .profile_values
+        .borrow()
+        .get(selected_profile)
+        .and_then(Option::as_ref)
+        .map(|profile| crate::i18n::profile_prompt_value(profile, &displayed_prompt))
+        .unwrap_or(displayed_prompt);
 
     Ok(ChatSettingsValues {
         calculator: controls.calculator_row.is_active(),
@@ -972,12 +1068,16 @@ fn values_from_controls(
         profile_id,
         preferred_model,
         temperature: controls.temperature_row.value(),
-        top_p: parse_optional_probability(&controls.top_p_row, "Top P")?,
-        top_k: parse_optional_non_negative_i64(&controls.top_k_row, "Top K")?,
-        seed: parse_optional_i64(&controls.seed_row, "Seed")?,
-        num_ctx: parse_optional_positive_i64(&controls.num_ctx_row, "Context Window")?,
+        top_p: parse_optional_probability(&controls.top_p_row, &gettext("Top P"))
+            .map_err(|message| (controls.top_p_row.clone(), message))?,
+        top_k: parse_optional_non_negative_i64(&controls.top_k_row, &gettext("Top K"))
+            .map_err(|message| (controls.top_k_row.clone(), message))?,
+        seed: parse_optional_i64(&controls.seed_row, &gettext("Seed"))
+            .map_err(|message| (controls.seed_row.clone(), message))?,
+        num_ctx: parse_optional_positive_i64(&controls.num_ctx_row, &gettext("Context Window"))
+            .map_err(|message| (controls.num_ctx_row.clone(), message))?,
         context_messages: controls.context_messages_row.value().round() as i64,
-        system_prompt: buffer_text(&controls.prompt_buffer),
+        system_prompt,
     })
 }
 
@@ -997,7 +1097,10 @@ fn parse_optional_probability(
     if (0.0..=1.0).contains(&value) {
         Ok(Some(value))
     } else {
-        Err(format!("{field} must be between 0 and 1"))
+        Err(gettext_f(
+            "{field} must be between 0 and 1",
+            &[("field", (field))],
+        ))
     }
 }
 
@@ -1013,11 +1116,14 @@ fn parse_optional_f64(
 
     let value = text
         .parse::<f64>()
-        .map_err(|_| format!("{field} must be a number"))?;
+        .map_err(|_| gettext_f("{field} must be a number", &[("field", (field))]))?;
     if value.is_finite() && value >= 0.0 {
         Ok(Some(value))
     } else {
-        Err(format!("{field} must be 0 or greater"))
+        Err(gettext_f(
+            "{field} must be 0 or greater",
+            &[("field", (field))],
+        ))
     }
 }
 
@@ -1027,7 +1133,10 @@ fn parse_optional_positive_i64(
 ) -> std::result::Result<Option<i64>, String> {
     let value = parse_optional_i64(row, field)?;
     if value.is_some_and(|value| value <= 0) {
-        Err(format!("{field} must be greater than 0"))
+        Err(gettext_f(
+            "{field} must be greater than 0",
+            &[("field", (field))],
+        ))
     } else {
         Ok(value)
     }
@@ -1044,7 +1153,10 @@ fn parse_optional_non_negative_i64(
     if value >= 0 {
         Ok(Some(value))
     } else {
-        Err(format!("{field} must be 0 or greater"))
+        Err(gettext_f(
+            "{field} must be 0 or greater",
+            &[("field", (field))],
+        ))
     }
 }
 
@@ -1060,5 +1172,5 @@ fn parse_optional_i64(
 
     text.parse::<i64>()
         .map(Some)
-        .map_err(|_| format!("{field} must be a whole number"))
+        .map_err(|_| gettext_f("{field} must be a whole number", &[("field", (field))]))
 }

@@ -1,3 +1,5 @@
+use crate::i18n::gettext;
+
 use std::{path::Path, time::Duration};
 
 use comrak::nodes::NodeCodeBlock;
@@ -161,7 +163,7 @@ fn copy_button() -> gtk::Button {
     let button = gtk::Button::from_icon_name("edit-copy-symbolic");
     button.add_css_class("flat");
     button.add_css_class("moose-code-copy");
-    button.set_tooltip_text(Some("Copy code"));
+    button.set_tooltip_text(Some(&gettext("Copy code")));
     button
 }
 
@@ -338,8 +340,8 @@ fn inferred_code_language(code: &str) -> Option<&'static str> {
 
 fn language_label_text(language: &str) -> String {
     match language {
-        "" | "text" | "txt" => "Text".to_string(),
-        "bash" | "shell" | "sh" | "zsh" => "Shell".to_string(),
+        "" | "text" | "txt" => gettext("Text"),
+        "bash" | "shell" | "sh" | "zsh" => gettext("Shell"),
         "csharp" | "cs" => "C#".to_string(),
         "cpp" | "c++" => "C++".to_string(),
         "css" => "CSS".to_string(),

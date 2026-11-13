@@ -1,3 +1,5 @@
+use crate::i18n::gettext;
+
 use super::*;
 use crate::{
     attachments::{Asset, MAX_IMAGE_BYTES, Source},
@@ -22,7 +24,7 @@ pub(in crate::ui::window) fn prepare(
     request: &ChatRequest,
 ) -> Result<(Vec<ChatMessage>, Vec<Source>)> {
     if ui.attachments.busy.get() > 0 {
-        return Err(error("Wait for your files to finish importing"));
+        return Err(error(gettext("Wait for your files to finish importing")));
     }
     if prompt == crate::chat::CONTINUE_PROMPT {
         return Ok((
@@ -199,14 +201,14 @@ pub(in crate::ui::window) fn prepare(
         match supported {
             Some(true) => {}
             Some(false) => {
-                return Err(error(
+                return Err(error(gettext(
                     "This conversation includes images. Choose a model with image support.",
-                ));
+                )));
             }
             None => {
-                return Err(error(
+                return Err(error(gettext(
                     "Image support has not been confirmed for this model. Refresh the model list and try again.",
-                ));
+                )));
             }
         }
     }
@@ -236,9 +238,9 @@ fn reference_excerpt(number: usize, name: &str, page: i64, content: &str) -> Str
 }
 
 fn document_context_error() -> MooseError {
-    error(
+    error(gettext(
         "There is too little room for document excerpts. Shorten the message or chat instructions, use fewer attachments, or increase Context Window in Chat Settings.",
-    )
+    ))
 }
 
 fn add_images(
@@ -256,9 +258,9 @@ fn add_images(
         *count += 1;
         *bytes += payload.len();
         if *count > MAX_ATTACHMENTS || *bytes > MAX_IMAGE_BYTES {
-            return Err(error(
+            return Err(error(gettext(
                 "The image context is too large. Use fewer images or start a new chat.",
-            ));
+            )));
         }
         message
             .images

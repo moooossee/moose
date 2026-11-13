@@ -1,3 +1,5 @@
+use crate::i18n::gettext;
+
 use std::time::Duration;
 
 use super::{ChatMessage, ChatRequest, ChatRole, ChatStreamEvent};
@@ -34,26 +36,24 @@ where
             .iter()
             .any(|tool| !tools::is_available(&tool.function.name))
         {
-            return Err(MooseError::ProviderRequest(
-                "This tool is not available.".into(),
-            ));
+            return Err(MooseError::ProviderRequest(gettext(
+                "This tool is not available.",
+            )));
         }
         match client.supports_tools(&request.model).await {
             Ok(true) => {}
             Ok(false) => {
                 request.tools.clear();
-                on_event(ResponseEvent::Notice(
-                    "Tools are unavailable for this model. This response does not use tools."
-                        .into(),
-                ))?;
+                on_event(ResponseEvent::Notice(gettext(
+                    "Tools are unavailable for this model. This response does not use tools.",
+                )))?;
             }
             Err(MooseError::LocalOnly) => return Err(MooseError::LocalOnly),
             Err(_) => {
                 request.tools.clear();
-                on_event(ResponseEvent::Notice(
-                    "Tool availability could not be checked. This response does not use tools."
-                        .into(),
-                ))?;
+                on_event(ResponseEvent::Notice(gettext(
+                    "Tool availability could not be checked. This response does not use tools.",
+                )))?;
             }
         }
     }
@@ -66,9 +66,9 @@ where
                     ChatStreamEvent::ResponseLimit => return Err(MooseError::ResponseLimit),
                     ChatStreamEvent::Done => ResponseEvent::Done,
                     ChatStreamEvent::ToolCall(_) => {
-                        return Err(MooseError::ProviderResponse(
-                            "The model requested a tool that is not enabled for this chat.".into(),
-                        ));
+                        return Err(MooseError::ProviderResponse(gettext(
+                            "The model requested a tool that is not enabled for this chat.",
+                        )));
                     }
                 })
             })
@@ -83,9 +83,9 @@ where
     )
     .await
     .map_err(|_| {
-        MooseError::ProviderRequest(
-            "The response took too long. Try a more specific question.".into(),
-        )
+        MooseError::ProviderRequest(gettext(
+            "The response took too long. Try a more specific question.",
+        ))
     })?
 }
 
@@ -154,10 +154,9 @@ where
                 options.num_predict = output_limit;
             }
             client.prepare_chat(&mut request).await?;
-            on_event(ResponseEvent::Notice(
-                "The context budget for tools was reached. Answering with the available context."
-                    .into(),
-            ))?;
+            on_event(ResponseEvent::Notice(gettext(
+                "The context budget for tools was reached. Answering with the available context.",
+            )))?;
         }
         let mut assistant = ChatMessage::assistant("");
         let mut first_token = true;
@@ -193,18 +192,17 @@ where
                         if round == MAX_ROUNDS
                             || calls_used + assistant.tool_calls.len() >= MAX_CALLS
                         {
-                            return Err(MooseError::ProviderRequest(
-                                "The model reached the tool limit. Try a more specific question."
-                                    .into(),
-                            ));
+                            return Err(MooseError::ProviderRequest(gettext(
+                                "The model reached the tool limit. Try a more specific question.",
+                            )));
                         }
                         if call.function.name.len() > 64
                             || serde_json::to_vec(&call.function.arguments)?.len()
                                 > MAX_ARGUMENT_BYTES
                         {
-                            return Err(MooseError::ProviderResponse(
-                                "The model requested a tool operation that is too large.".into(),
-                            ));
+                            return Err(MooseError::ProviderResponse(gettext(
+                                "The model requested a tool operation that is too large.",
+                            )));
                         }
                         assistant.tool_calls.push(call);
                     }
@@ -216,7 +214,9 @@ where
             .await?;
         if assistant.tool_calls.is_empty() {
             if assistant.content.trim().is_empty() {
-                return Err(MooseError::ProviderResponse("The model did not provide an answer. Try another model or turn off tools in Chat Settings.".into()));
+                return Err(MooseError::ProviderResponse(gettext(
+                    "The model did not provide an answer. Try another model or turn off tools in Chat Settings.",
+                )));
             }
             on_event(ResponseEvent::Done)?;
             return Ok(());
@@ -242,9 +242,9 @@ where
             add_instruction(&mut request, instruction);
         }
     }
-    Err(MooseError::ProviderRequest(
-        "The model could not finish this response.".into(),
-    ))
+    Err(MooseError::ProviderRequest(gettext(
+        "The model could not finish this response.",
+    )))
 }
 
 fn add_instruction(request: &mut ChatRequest, instruction: &str) {

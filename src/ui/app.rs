@@ -4,6 +4,7 @@ use gtk::gio;
 use crate::{APPLICATION_ID, ui::window};
 
 pub fn run() -> gtk::glib::ExitCode {
+    crate::i18n::init();
     if let Ok(paths) = crate::platform::AppPaths::new("moose") {
         crate::logging::init(&paths);
     }

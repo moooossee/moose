@@ -1,3 +1,5 @@
+use crate::i18n::{gettext, gettext_f, gettext_noop};
+
 use std::{
     rc::Rc,
     sync::{Arc, mpsc},
@@ -44,7 +46,7 @@ pub(super) fn request_model_pull(
         Ok(model) => model,
         Err(_) => {
             ui.toast_overlay
-                .add_toast(adw::Toast::new("Model name is invalid"));
+                .add_toast(adw::Toast::new(&gettext("Model name is invalid")));
             return;
         }
     };
@@ -71,16 +73,19 @@ fn confirm_remote_model_pull(
     };
 
     let dialog = adw::AlertDialog::builder()
-        .heading("Download on Remote Provider?")
-        .body(format!(
-            "The model will be downloaded by {} at {}.",
-            provider.name, provider.base_url
+        .heading(gettext("Download on Remote Provider?"))
+        .body(gettext_f(
+            "The model will be downloaded by {arg1} at {arg2}.",
+            &[
+                ("arg1", &(provider.name).to_string()),
+                ("arg2", &(provider.base_url).to_string()),
+            ],
         ))
         .close_response("cancel")
         .default_response("download")
         .build();
-    dialog.add_response("cancel", "Cancel");
-    dialog.add_response("download", "Download");
+    dialog.add_response("cancel", &gettext("Cancel"));
+    dialog.add_response("download", &gettext("Download"));
     dialog.set_response_appearance("download", adw::ResponseAppearance::Suggested);
 
     let target_ui = Rc::clone(ui);
@@ -90,9 +95,9 @@ fn confirm_remote_model_pull(
         if active_provider_matches(&target_backend, &provider_id) {
             start_model_pull(&target_ui, &target_backend, model.clone());
         } else {
-            target_ui.toast_overlay.add_toast(adw::Toast::new(
+            target_ui.toast_overlay.add_toast(adw::Toast::new(&gettext(
                 "The connection changed. Try downloading the model again.",
-            ));
+            )));
         }
     });
 
@@ -114,15 +119,16 @@ pub(super) fn show_download_jobs_dialog(
     {
         Ok(jobs) => jobs,
         Err(error) => {
-            ui.toast_overlay.add_toast(adw::Toast::new(&format!(
-                "Download jobs could not be loaded: {error}"
+            ui.toast_overlay.add_toast(adw::Toast::new(&gettext_f(
+                "Download jobs could not be loaded: {error}",
+                &[("error", &(error).to_string())],
             )));
             return;
         }
     };
 
     let dialog = adw::Dialog::builder()
-        .title("Download Jobs")
+        .title(gettext("Download Jobs"))
         .content_width(680)
         .content_height(460)
         .build();
@@ -131,11 +137,12 @@ pub(super) fn show_download_jobs_dialog(
         .show_start_title_buttons(false)
         .show_end_title_buttons(false)
         .build();
-    let title = adw::WindowTitle::new("Download Jobs", &provider.name);
+    let title = adw::WindowTitle::new(&gettext("Download Jobs"), &provider.name);
     header_bar.set_title_widget(Some(&title));
 
     if !jobs.is_empty() {
-        let clear_button = widgets::icon_button("user-trash-symbolic", "Clear Download History");
+        let clear_button =
+            widgets::icon_button("user-trash-symbolic", &gettext("Clear Download History"));
         clear_button.add_css_class("destructive-action");
         clear_button.set_sensitive(backend.active_model_pull.borrow().is_none());
         let target_parent = parent.clone();
@@ -155,7 +162,7 @@ pub(super) fn show_download_jobs_dialog(
         header_bar.pack_start(&clear_button);
     }
 
-    let close_button = widgets::icon_button("window-close-symbolic", "Close");
+    let close_button = widgets::icon_button("window-close-symbolic", &gettext("Close"));
     let target_dialog = dialog.clone();
     close_button.connect_clicked(move |_| {
         target_dialog.close();
@@ -165,8 +172,8 @@ pub(super) fn show_download_jobs_dialog(
     let content = if jobs.is_empty() {
         let status_page = adw::StatusPage::builder()
             .icon_name(APPLICATION_ID)
-            .title("No Download Jobs")
-            .description("Model downloads will appear here.")
+            .title(gettext("No Download Jobs"))
+            .description(gettext("Model downloads will appear here."))
             .hexpand(true)
             .vexpand(true)
             .build();
@@ -206,19 +213,22 @@ fn confirm_download_history_clear(
     provider_id: &str,
 ) {
     if backend.active_model_pull.borrow().is_some() {
-        ui.toast_overlay
-            .add_toast(adw::Toast::new("Finish the active model download first"));
+        ui.toast_overlay.add_toast(adw::Toast::new(&gettext(
+            "Finish the active model download first",
+        )));
         return;
     }
 
     let alert = adw::AlertDialog::builder()
-        .heading("Clear Download History?")
-        .body("Remove all model download jobs for the active provider?")
+        .heading(gettext("Clear Download History?"))
+        .body(gettext(
+            "Remove all model download jobs for the active provider?",
+        ))
         .close_response("cancel")
         .default_response("cancel")
         .build();
-    alert.add_response("cancel", "Cancel");
-    alert.add_response("clear", "Clear");
+    alert.add_response("cancel", &gettext("Cancel"));
+    alert.add_response("clear", &gettext("Clear"));
     alert.set_response_appearance("clear", adw::ResponseAppearance::Destructive);
 
     let target_ui = Rc::clone(ui);
@@ -234,12 +244,15 @@ fn confirm_download_history_clear(
                 target_dialog.close();
                 target_ui
                     .toast_overlay
-                    .add_toast(adw::Toast::new("Download history cleared"));
+                    .add_toast(adw::Toast::new(&gettext("Download history cleared")));
             }
             Err(error) => {
-                target_ui.toast_overlay.add_toast(adw::Toast::new(&format!(
-                    "Download history could not be cleared: {error}"
-                )));
+                target_ui
+                    .toast_overlay
+                    .add_toast(adw::Toast::new(&gettext_f(
+                        "Download history could not be cleared: {error}",
+                        &[("error", &(error).to_string())],
+                    )));
             }
         }
     });
@@ -275,7 +288,7 @@ fn download_job_row(
 
 fn download_job_status_label(status: &DownloadJobStatus) -> gtk::Label {
     let label = gtk::Label::builder()
-        .label(download_job_status_text(status))
+        .label(gettext(download_job_status_text(status)))
         .halign(gtk::Align::Center)
         .valign(gtk::Align::Center)
         .build();
@@ -288,9 +301,12 @@ fn download_job_subtitle(job: &DownloadJob) -> String {
     if let Some(progress) = download_job_progress_text(job) {
         lines.push(progress);
     }
-    lines.push(format!(
-        "Updated {}",
-        compact_download_timestamp(&job.updated_at)
+    lines.push(gettext_f(
+        "Updated {arg1}",
+        &[(
+            "arg1",
+            &(compact_download_timestamp(&job.updated_at)).to_string(),
+        )],
     ));
     if matches!(&job.status, DownloadJobStatus::Failed)
         && let Some(error_message) = job
@@ -305,11 +321,11 @@ fn download_job_subtitle(job: &DownloadJob) -> String {
 
 fn download_job_status_text(status: &DownloadJobStatus) -> &'static str {
     match status {
-        DownloadJobStatus::Queued => "Queued",
-        DownloadJobStatus::Running => "Running",
-        DownloadJobStatus::Complete => "Complete",
-        DownloadJobStatus::Cancelled => "Cancelled",
-        DownloadJobStatus::Failed => "Failed",
+        DownloadJobStatus::Queued => gettext_noop("Queued"),
+        DownloadJobStatus::Running => gettext_noop("Running"),
+        DownloadJobStatus::Complete => gettext_noop("Complete"),
+        DownloadJobStatus::Cancelled => gettext_noop("Cancelled"),
+        DownloadJobStatus::Failed => gettext_noop("Failed"),
     }
 }
 
@@ -318,15 +334,21 @@ fn download_job_progress_text(job: &DownloadJob) -> Option<String> {
         optional_i64_to_u64(job.completed_bytes),
         optional_i64_to_u64(job.total_bytes),
     ) {
-        (Some(completed), Some(total)) if total > 0 => Some(format!(
-            "{} of {}",
-            format_download_size(completed),
-            format_download_size(total)
+        (Some(completed), Some(total)) if total > 0 => Some(gettext_f(
+            "{completed} of {total}",
+            &[
+                ("completed", &format_download_size(completed)),
+                ("total", &format_download_size(total)),
+            ],
         )),
-        (Some(completed), _) if completed > 0 => {
-            Some(format!("{} downloaded", format_download_size(completed)))
-        }
-        (_, Some(total)) if total > 0 => Some(format!("{} total", format_download_size(total))),
+        (Some(completed), _) if completed > 0 => Some(gettext_f(
+            "{size} downloaded",
+            &[("size", &format_download_size(completed))],
+        )),
+        (_, Some(total)) if total > 0 => Some(gettext_f(
+            "{size} total",
+            &[("size", &format_download_size(total))],
+        )),
         _ => None,
     }
 }
@@ -368,14 +390,16 @@ pub(super) fn start_model_pull(ui: &Rc<WindowUi>, backend: &Rc<Backend>, model: 
         return;
     }
     if backend.active_model_pull.borrow().is_some() {
-        ui.toast_overlay
-            .add_toast(adw::Toast::new("A model download is already running"));
+        ui.toast_overlay.add_toast(adw::Toast::new(&gettext(
+            "A model download is already running",
+        )));
         return;
     }
 
     if backend.active_model_delete.borrow().is_some() {
-        ui.toast_overlay
-            .add_toast(adw::Toast::new("Finish the active model deletion first"));
+        ui.toast_overlay.add_toast(adw::Toast::new(&gettext(
+            "Finish the active model deletion first",
+        )));
         return;
     }
 
@@ -399,8 +423,9 @@ pub(super) fn start_model_pull(ui: &Rc<WindowUi>, backend: &Rc<Backend>, model: 
         Err(error) => {
             ui.provider_switcher.refresh_button.set_sensitive(true);
             model_manager::finish_pull(&ui.model_manager);
-            ui.toast_overlay.add_toast(adw::Toast::new(&format!(
-                "Download job could not be saved: {error}"
+            ui.toast_overlay.add_toast(adw::Toast::new(&gettext_f(
+                "Download job could not be saved: {error}",
+                &[("error", &(error).to_string())],
             )));
             return;
         }
@@ -420,7 +445,8 @@ pub(super) fn start_model_pull(ui: &Rc<WindowUi>, backend: &Rc<Backend>, model: 
             {
                 Ok(client) => client,
                 Err(error) => {
-                    let _ = sender.send(ModelPullUiEvent::Failed(error.to_string()));
+                    let _ =
+                        sender.send(ModelPullUiEvent::Failed(crate::i18n::error_message(&error)));
                     return;
                 }
             };
@@ -428,7 +454,13 @@ pub(super) fn start_model_pull(ui: &Rc<WindowUi>, backend: &Rc<Backend>, model: 
         crate::logging::record(
             "INFO",
             "model.download",
-            &format!("Model: {target_model}; server: {}", health.message),
+            &gettext_f(
+                "Model: {target_model}; server: {arg1}",
+                &[
+                    ("target_model", &(target_model).to_string()),
+                    ("arg1", &(health.message).to_string()),
+                ],
+            ),
         );
         let progress_sender = sender.clone();
         let result = client
@@ -442,9 +474,13 @@ pub(super) fn start_model_pull(ui: &Rc<WindowUi>, backend: &Rc<Backend>, model: 
                 let _ = sender.send(ModelPullUiEvent::Done);
             }
             Err(error) => {
-                let details = format!(
-                    "Model: {target_model}\nServer: {}\n\n{error}",
-                    health.message
+                let details = gettext_f(
+                    "Model: {target_model}\nServer: {arg1}\n\n{error}",
+                    &[
+                        ("target_model", &(target_model).to_string()),
+                        ("arg1", &(health.message).to_string()),
+                        ("error", &(error).to_string()),
+                    ],
                 );
                 let _ = sender.send(ModelPullUiEvent::Failed(details));
             }
@@ -478,9 +514,12 @@ pub(super) fn start_model_pull(ui: &Rc<WindowUi>, backend: &Rc<Backend>, model: 
                         )
                     {
                         tracking_failed = true;
-                        target_ui.toast_overlay.add_toast(adw::Toast::new(&format!(
-                            "Download progress could not be saved: {error}"
-                        )));
+                        target_ui
+                            .toast_overlay
+                            .add_toast(adw::Toast::new(&gettext_f(
+                                "Download progress could not be saved: {error}",
+                                &[("error", &(error).to_string())],
+                            )));
                     }
                     model_manager::set_pull_progress(&target_ui.model_manager, &model, &progress);
                 }
@@ -489,9 +528,12 @@ pub(super) fn start_model_pull(ui: &Rc<WindowUi>, backend: &Rc<Backend>, model: 
                         return gtk::glib::ControlFlow::Break;
                     }
                     if let Err(error) = target_backend.download_job_repository.complete(&pull_id) {
-                        target_ui.toast_overlay.add_toast(adw::Toast::new(&format!(
-                            "Download job could not be saved: {error}"
-                        )));
+                        target_ui
+                            .toast_overlay
+                            .add_toast(adw::Toast::new(&gettext_f(
+                                "Download job could not be saved: {error}",
+                                &[("error", &(error).to_string())],
+                            )));
                     }
                     target_ui
                         .provider_switcher
@@ -499,7 +541,7 @@ pub(super) fn start_model_pull(ui: &Rc<WindowUi>, backend: &Rc<Backend>, model: 
                         .set_sensitive(true);
                     model_manager::finish_pull(&target_ui.model_manager);
                     let toast = adw::Toast::builder()
-                        .title("Model download complete")
+                        .title(gettext("Model download complete"))
                         .timeout(10)
                         .build();
                     target_ui.toast_overlay.add_toast(toast.clone());
@@ -534,9 +576,12 @@ pub(super) fn start_model_pull(ui: &Rc<WindowUi>, backend: &Rc<Backend>, model: 
                         .download_job_repository
                         .fail(&pull_id, &error)
                     {
-                        target_ui.toast_overlay.add_toast(adw::Toast::new(&format!(
-                            "Download job could not be saved: {save_error}"
-                        )));
+                        target_ui
+                            .toast_overlay
+                            .add_toast(adw::Toast::new(&gettext_f(
+                                "Download job could not be saved: {save_error}",
+                                &[("save_error", &(save_error).to_string())],
+                            )));
                     }
                     target_ui
                         .provider_switcher
@@ -546,14 +591,18 @@ pub(super) fn start_model_pull(ui: &Rc<WindowUi>, backend: &Rc<Backend>, model: 
                     crate::logging::record(
                         "ERROR",
                         "model.download",
-                        &format!(
-                            "Provider: {} at {}\n{error}",
-                            pull_provider.name, pull_provider.base_url
+                        &gettext_f(
+                            "Provider: {arg1} at {arg2}\n{error}",
+                            &[
+                                ("arg1", &(pull_provider.name).to_string()),
+                                ("arg2", &(pull_provider.base_url).to_string()),
+                                ("error", &(error).to_string()),
+                            ],
                         ),
                     );
                     let toast = adw::Toast::builder()
-                        .title("Model download failed")
-                        .button_label("Details")
+                        .title(gettext("Model download failed"))
+                        .button_label(gettext("Details"))
                         .timeout(10)
                         .build();
                     let detail_ui = Rc::clone(&target_ui);
@@ -587,20 +636,23 @@ pub(super) fn start_model_pull(ui: &Rc<WindowUi>, backend: &Rc<Backend>, model: 
                     if target_backend.finish_model_pull(&pull_id) {
                         if let Err(error) = target_backend
                             .download_job_repository
-                            .fail(&pull_id, "Download stopped before completion.")
+                            .fail(&pull_id, &gettext("Download stopped before completion."))
                         {
-                            target_ui.toast_overlay.add_toast(adw::Toast::new(&format!(
-                                "Download job could not be saved: {error}"
-                            )));
+                            target_ui
+                                .toast_overlay
+                                .add_toast(adw::Toast::new(&gettext_f(
+                                    "Download job could not be saved: {error}",
+                                    &[("error", &(error).to_string())],
+                                )));
                         }
                         target_ui
                             .provider_switcher
                             .refresh_button
                             .set_sensitive(true);
                         model_manager::finish_pull(&target_ui.model_manager);
-                        target_ui
-                            .toast_overlay
-                            .add_toast(adw::Toast::new("Model download stopped before completion"));
+                        target_ui.toast_overlay.add_toast(adw::Toast::new(&gettext(
+                            "Model download stopped before completion",
+                        )));
                     }
                     return gtk::glib::ControlFlow::Break;
                 }
@@ -622,26 +674,29 @@ pub(super) fn confirm_model_delete(
         Ok(model) => model,
         Err(_) => {
             ui.toast_overlay
-                .add_toast(adw::Toast::new("Model name is invalid"));
+                .add_toast(adw::Toast::new(&gettext("Model name is invalid")));
             return;
         }
     };
 
     if backend.active_generation.borrow().is_some() {
-        ui.toast_overlay
-            .add_toast(adw::Toast::new("Finish the active generation first"));
+        ui.toast_overlay.add_toast(adw::Toast::new(&gettext(
+            "Finish the active generation first",
+        )));
         return;
     }
 
     if backend.active_model_pull.borrow().is_some() {
-        ui.toast_overlay
-            .add_toast(adw::Toast::new("Finish the active model download first"));
+        ui.toast_overlay.add_toast(adw::Toast::new(&gettext(
+            "Finish the active model download first",
+        )));
         return;
     }
 
     if backend.active_model_delete.borrow().is_some() {
-        ui.toast_overlay
-            .add_toast(adw::Toast::new("A model deletion is already running"));
+        ui.toast_overlay.add_toast(adw::Toast::new(&gettext(
+            "A model deletion is already running",
+        )));
         return;
     }
 
@@ -650,22 +705,29 @@ pub(super) fn confirm_model_delete(
     };
 
     let body = if provider_is_local(&provider) {
-        format!("Delete \"{model}\" from Ollama? You can download it again later.")
+        gettext_f(
+            "Delete \"{model}\" from Ollama? You can download it again later.",
+            &[("model", &(model).to_string())],
+        )
     } else {
-        format!(
-            "Delete \"{model}\" from {} at {}? This changes the remote provider.",
-            provider.name, provider.base_url
+        gettext_f(
+            "Delete \"{model}\" from {arg1} at {arg2}? This changes the remote provider.",
+            &[
+                ("model", &(model).to_string()),
+                ("arg1", &(provider.name).to_string()),
+                ("arg2", &(provider.base_url).to_string()),
+            ],
         )
     };
 
     let dialog = adw::AlertDialog::builder()
-        .heading("Delete Model?")
+        .heading(gettext("Delete Model?"))
         .body(body)
         .close_response("cancel")
         .default_response("cancel")
         .build();
-    dialog.add_response("cancel", "Cancel");
-    dialog.add_response("delete", "Delete");
+    dialog.add_response("cancel", &gettext("Cancel"));
+    dialog.add_response("delete", &gettext("Delete"));
     dialog.set_response_appearance("delete", adw::ResponseAppearance::Destructive);
 
     let target_ui = Rc::clone(ui);
@@ -682,20 +744,23 @@ fn start_model_delete(ui: &Rc<WindowUi>, backend: &Rc<Backend>, model: String) {
         return;
     }
     if backend.active_generation.borrow().is_some() {
-        ui.toast_overlay
-            .add_toast(adw::Toast::new("Finish the active generation first"));
+        ui.toast_overlay.add_toast(adw::Toast::new(&gettext(
+            "Finish the active generation first",
+        )));
         return;
     }
 
     if backend.active_model_pull.borrow().is_some() {
-        ui.toast_overlay
-            .add_toast(adw::Toast::new("Finish the active model download first"));
+        ui.toast_overlay.add_toast(adw::Toast::new(&gettext(
+            "Finish the active model download first",
+        )));
         return;
     }
 
     if backend.active_model_delete.borrow().is_some() {
-        ui.toast_overlay
-            .add_toast(adw::Toast::new("A model deletion is already running"));
+        ui.toast_overlay.add_toast(adw::Toast::new(&gettext(
+            "A model deletion is already running",
+        )));
         return;
     }
 
@@ -710,8 +775,8 @@ fn start_model_delete(ui: &Rc<WindowUi>, backend: &Rc<Backend>, model: String) {
         ui.provider_switcher.refresh_button.set_sensitive(true);
         model_manager::set_delete_finished(
             &ui.model_manager,
-            "Delete Failed",
-            "Create or connect an Ollama instance first.",
+            &gettext("Delete Failed"),
+            &gettext("Create or connect an Ollama instance first."),
             0.0,
         );
         return;
@@ -727,7 +792,9 @@ fn start_model_delete(ui: &Rc<WindowUi>, backend: &Rc<Backend>, model: String) {
             {
                 Ok(client) => client,
                 Err(error) => {
-                    let _ = sender.send(ModelDeleteUiEvent::Failed(error.to_string()));
+                    let _ = sender.send(ModelDeleteUiEvent::Failed(crate::i18n::error_message(
+                        &error,
+                    )));
                     return;
                 }
             };
@@ -736,7 +803,9 @@ fn start_model_delete(ui: &Rc<WindowUi>, backend: &Rc<Backend>, model: String) {
                 let _ = sender.send(ModelDeleteUiEvent::Done);
             }
             Err(error) => {
-                let _ = sender.send(ModelDeleteUiEvent::Failed(error.to_string()));
+                let _ = sender.send(ModelDeleteUiEvent::Failed(crate::i18n::error_message(
+                    &error,
+                )));
             }
         }
     });
@@ -754,14 +823,17 @@ fn start_model_delete(ui: &Rc<WindowUi>, backend: &Rc<Backend>, model: String) {
                     .set_sensitive(true);
                 model_manager::set_delete_finished(
                     &target_ui.model_manager,
-                    "Model Deleted",
-                    &format!("{model} was removed from Ollama."),
+                    &gettext("Model Deleted"),
+                    &gettext_f(
+                        "{model} was removed from Ollama.",
+                        &[("model", &(model).to_string())],
+                    ),
                     1.0,
                 );
                 model_manager::clear_download_job(&target_ui.model_manager);
                 target_ui
                     .toast_overlay
-                    .add_toast(adw::Toast::new("Model deleted"));
+                    .add_toast(adw::Toast::new(&gettext("Model deleted")));
                 refresh_models(&target_ui, &target_backend);
                 gtk::glib::ControlFlow::Break
             }
@@ -773,11 +845,15 @@ fn start_model_delete(ui: &Rc<WindowUi>, backend: &Rc<Backend>, model: String) {
                     .set_sensitive(true);
                 model_manager::set_delete_finished(
                     &target_ui.model_manager,
-                    "Delete Failed",
+                    &gettext("Delete Failed"),
                     &error,
                     0.0,
                 );
-                super::diagnostics::show_error(&target_ui.window, "Model Deletion Failed", &error);
+                super::diagnostics::show_error(
+                    &target_ui.window,
+                    &gettext("Model Deletion Failed"),
+                    &error,
+                );
                 gtk::glib::ControlFlow::Break
             }
             Err(mpsc::TryRecvError::Empty) => gtk::glib::ControlFlow::Continue,
@@ -789,8 +865,8 @@ fn start_model_delete(ui: &Rc<WindowUi>, backend: &Rc<Backend>, model: String) {
                     .set_sensitive(true);
                 model_manager::set_delete_finished(
                     &target_ui.model_manager,
-                    "Delete Stopped",
-                    "The model deletion stopped before completion.",
+                    &gettext("Delete Stopped"),
+                    &gettext("The model deletion stopped before completion."),
                     0.0,
                 );
                 model_manager::clear_download_job(&target_ui.model_manager);
@@ -808,12 +884,12 @@ pub(super) fn can_manage_models(ui: &Rc<WindowUi>, backend: &Rc<Backend>) -> boo
         return false;
     };
     if provider.kind != ProviderKind::Ollama {
-        ui.toast_overlay.add_toast(adw::Toast::new("Cloud models are managed by the provider. Refresh the model list to see available models."));
+        ui.toast_overlay.add_toast(adw::Toast::new(&gettext("Cloud models are managed by the provider. Refresh the model list to see available models.")));
         return false;
     }
     if let Err(error) = backend.network_policy.check(&provider) {
         ui.toast_overlay
-            .add_toast(adw::Toast::new(&error.to_string()));
+            .add_toast(adw::Toast::new(&crate::i18n::error_message(&error)));
         return false;
     }
     true
@@ -833,7 +909,7 @@ fn add_download_chat_action(
         .find(|installed| installed.supports_chat && model_names_match(&installed.name, model))
         .map(|installed| installed.name.clone());
     if let Some(model) = installed {
-        toast.set_button_label(Some("New Chat"));
+        toast.set_button_label(Some(&gettext("New Chat")));
         let weak_ui = Rc::downgrade(ui);
         let weak_backend = Rc::downgrade(backend);
         let provider_id = provider_id.to_string();
@@ -846,9 +922,9 @@ fn add_download_chat_action(
             {
                 super::new_conversation_with_model(&ui, &backend, Some(&model));
             } else {
-                ui.toast_overlay.add_toast(adw::Toast::new(
+                ui.toast_overlay.add_toast(adw::Toast::new(&gettext(
                     "Select the original connection and refresh its models to start a chat.",
-                ));
+                )));
             }
         });
     }
@@ -881,24 +957,32 @@ fn show_pull_error(
     error: &str,
 ) {
     let needs_update = crate::ollama::requires_ollama_update(error);
-    let details = format!(
-        "Moose {}\nModel: {model}\nProvider: {}\nAddress: {}\n\n{error}",
-        env!("CARGO_PKG_VERSION"),
-        provider.name,
-        crate::logging::redact(&provider.base_url)
+    let details = gettext_f(
+        "Moose {arg1}\nModel: {model}\nProvider: {arg2}\nAddress: {arg3}\n\n{error}",
+        &[
+            ("arg1", env!("CARGO_PKG_VERSION")),
+            ("model", (model)),
+            ("arg2", &(provider.name).to_string()),
+            (
+                "arg3",
+                &(crate::logging::redact(&provider.base_url)).to_string(),
+            ),
+            ("error", (error)),
+        ],
     );
     let dialog = super::diagnostics::details_dialog(
-        if needs_update {
-            "Ollama Update Required"
+        &gettext(if needs_update {
+            gettext_noop("Ollama Update Required")
         } else {
-            "Model Download Failed"
-        },
+            gettext_noop("Model Download Failed")
+        }),
         &details,
     );
     if needs_update && provider.is_managed {
-        dialog
-            .set_body("Update the Ollama engine managed by Moose, then retry this model download.");
-        dialog.add_response("update", "Update Ollama and Retry");
+        dialog.set_body(&gettext(
+            "Update the Ollama engine managed by Moose, then retry this model download.",
+        ));
+        dialog.add_response("update", &gettext("Update Ollama and Retry"));
         dialog.set_response_appearance("update", adw::ResponseAppearance::Suggested);
         let ui = Rc::clone(ui);
         let backend = Rc::clone(backend);
@@ -907,25 +991,27 @@ fn show_pull_error(
             super::managed_runtime::show_dialog(&ui, &backend, Some(retry.clone()));
         });
     } else if needs_update {
-        dialog.set_body(
+        dialog.set_body(&gettext(
             "Update Ollama on this provider's server, restart that server, and retry the download.",
-        );
+        ));
     } else {
         if hugging_face_repository(model).is_some() {
             let error = error.to_ascii_lowercase();
-            dialog.set_body(if error.contains("401")
+            dialog.set_body(&gettext(if error.contains("401")
                 || error.contains("403")
                 || error.contains("unauthorized")
                 || error.contains("forbidden")
             {
-                "Check repository access. Private Hugging Face models require the Ollama instance's SSH key to be added to your Hugging Face account."
+                gettext_noop("Check repository access. Private Hugging Face models require the Ollama instance's SSH key to be added to your Hugging Face account.")
             } else {
-                "Check the repository and variant. The model must be a GGUF supported by your Ollama version."
-            });
+                gettext_noop("Check the repository and variant. The model must be a GGUF supported by your Ollama version.")
+            }));
         } else {
-            dialog.set_body("Check the model name and connection, then try again.");
+            dialog.set_body(&gettext(
+                "Check the model name and connection, then try again.",
+            ));
         }
-        dialog.add_response("edit", "Edit and Retry");
+        dialog.add_response("edit", &gettext("Edit and Retry"));
         dialog.set_response_appearance("edit", adw::ResponseAppearance::Suggested);
         let weak_ui = Rc::downgrade(ui);
         let weak_backend = Rc::downgrade(backend);
@@ -936,9 +1022,9 @@ fn show_pull_error(
                 if active_provider_matches(&backend, &provider_id) {
                     model_download::show_dialog(&ui, &backend, &model);
                 } else {
-                    ui.toast_overlay.add_toast(adw::Toast::new(
+                    ui.toast_overlay.add_toast(adw::Toast::new(&gettext(
                         "Select the original connection before retrying this download.",
-                    ));
+                    )));
                 }
             }
         });

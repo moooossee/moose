@@ -1,3 +1,5 @@
+use crate::i18n::{gettext, gettext_f};
+
 use super::{CustomAuthentication, Provider};
 use crate::{
     APPLICATION_ID,
@@ -99,7 +101,10 @@ pub async fn save(provider: &Provider, key: &ApiKey) -> Result<()> {
     let keyring = open().await?;
     keyring
         .create_item(
-            &format!("Moose · {} API key", provider.name),
+            &gettext_f(
+                "Moose · {arg1} API key",
+                &[("arg1", &(provider.name).to_string())],
+            ),
             &attributes,
             key.0.clone(),
             true,
@@ -148,7 +153,7 @@ pub async fn save_web_key(key: &ApiKey) -> Result<()> {
     open()
         .await?
         .create_item(
-            "Moose · Brave Search API key",
+            &gettext("Moose · Brave Search API key"),
             &web_attributes(),
             key.0.clone(),
             true,

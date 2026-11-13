@@ -1,3 +1,7 @@
+use crate::i18n::gettext;
+
+use crate::i18n::gettext_noop;
+
 use serde::{Deserialize, Serialize};
 
 #[cfg(feature = "gui")]
@@ -56,19 +60,19 @@ impl DocumentFormat {
 
     pub fn label(self) -> &'static str {
         match self {
-            Self::Pdf => "PDF Document",
-            Self::Docx => "Word Document",
-            Self::Xlsx => "Excel Workbook",
-            Self::Pptx => "PowerPoint Presentation",
-            Self::Odt => "OpenDocument Text",
-            Self::Ods => "OpenDocument Spreadsheet",
-            Self::Odp => "OpenDocument Presentation",
-            Self::Markdown => "Markdown",
-            Self::Text => "Plain Text",
-            Self::Csv => "CSV Table",
-            Self::Html => "HTML Document",
-            Self::Json => "JSON Data",
-            Self::Xml => "XML Document",
+            Self::Pdf => gettext_noop("PDF Document"),
+            Self::Docx => gettext_noop("Word Document"),
+            Self::Xlsx => gettext_noop("Excel Workbook"),
+            Self::Pptx => gettext_noop("PowerPoint Presentation"),
+            Self::Odt => gettext_noop("OpenDocument Text"),
+            Self::Ods => gettext_noop("OpenDocument Spreadsheet"),
+            Self::Odp => gettext_noop("OpenDocument Presentation"),
+            Self::Markdown => gettext_noop("Markdown"),
+            Self::Text => gettext_noop("Plain Text"),
+            Self::Csv => gettext_noop("CSV Table"),
+            Self::Html => gettext_noop("HTML Document"),
+            Self::Json => gettext_noop("JSON Data"),
+            Self::Xml => gettext_noop("XML Document"),
         }
     }
 
@@ -321,6 +325,7 @@ impl CreatedDocument {
 }
 
 pub fn filename(title: &str, format: DocumentFormat) -> String {
+    let title = crate::i18n::document_title(title);
     let name = title
         .chars()
         .filter(|ch| !ch.is_control())
@@ -337,7 +342,11 @@ pub fn filename(title: &str, format: DocumentFormat) -> String {
     let name = &name[..name.floor_char_boundary(name.len().min(160))];
     format!(
         "{}.{}",
-        if name.is_empty() { "Document" } else { name },
+        if name.is_empty() {
+            gettext("Document")
+        } else {
+            name.to_string()
+        },
         format.extension()
     )
 }

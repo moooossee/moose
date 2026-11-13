@@ -1,3 +1,5 @@
+use crate::i18n::{gettext, gettext_f};
+
 use std::{
     net::{IpAddr, SocketAddr},
     time::Duration,
@@ -16,24 +18,26 @@ pub const MAX_BODY: usize = 1024 * 1024;
 
 pub fn check_policy(policy: &NetworkPolicy) -> Result<(), String> {
     if policy.local_only() {
-        Err("Web access is blocked by Local Only. Turn it off in Preferences → Privacy to use the web.".into())
+        Err(gettext(
+            "Web access is blocked by Local Only. Turn it off in Preferences → Privacy to use the web.",
+        ))
     } else {
         Ok(())
     }
 }
 
 pub fn public_url(value: &str) -> Result<Url, String> {
-    let mut url = Url::parse(value).map_err(|_| "Enter a complete public HTTP or HTTPS URL.")?;
+    let mut url =
+        Url::parse(value).map_err(|_| gettext("Enter a complete public HTTP or HTTPS URL."))?;
     if value.len() > 2048
         || !matches!(url.scheme(), "http" | "https")
         || !url.username().is_empty()
         || url.password().is_some()
         || !matches!(url.port_or_known_default(), Some(80 | 443))
     {
-        return Err(
-            "Only public HTTP and HTTPS pages without credentials on ports 80 or 443 can be read."
-                .into(),
-        );
+        return Err(gettext(
+            "Only public HTTP and HTTPS pages without credentials on ports 80 or 443 can be read.",
+        ));
     }
     match url.host() {
         Some(Host::Ipv4(ip)) if public_ip(IpAddr::V4(ip)) => {}
@@ -53,7 +57,11 @@ pub fn public_url(value: &str) -> Result<Url, String> {
                 ]
                 .iter()
                 .any(|suffix| host == *suffix || host.ends_with(&format!(".{suffix}"))) => {}
-        _ => return Err("Local, private and reserved network addresses cannot be read.".into()),
+        _ => {
+            return Err(gettext(
+                "Local, private and reserved network addresses cannot be read.",
+            ));
+        }
     }
     url.set_fragment(None);
     Ok(url)
@@ -83,19 +91,23 @@ fn public_ip(ip: IpAddr) -> bool {
 
 pub async fn client(url: &Url, policy: &NetworkPolicy) -> Result<Client, String> {
     check_policy(policy)?;
-    let host = url.host_str().ok_or("The URL has no host.")?;
-    let port = url.port_or_known_default().ok_or("The URL has no port.")?;
+    let host = url.host_str().ok_or(&gettext("The URL has no host."))?;
+    let port = url
+        .port_or_known_default()
+        .ok_or(&gettext("The URL has no port."))?;
     let addresses: Vec<SocketAddr> = match url.host() {
         Some(Host::Ipv4(ip)) => vec![SocketAddr::new(ip.into(), port)],
         Some(Host::Ipv6(ip)) => vec![SocketAddr::new(ip.into(), port)],
         _ => tokio::net::lookup_host((host, port))
             .await
-            .map_err(|_| "The website address could not be resolved.")?
+            .map_err(|_| gettext("The website address could not be resolved."))?
             .take(32)
             .collect(),
     };
     if addresses.is_empty() || addresses.iter().any(|address| !public_ip(address.ip())) {
-        return Err("Local, private and reserved network addresses cannot be accessed.".into());
+        return Err(gettext(
+            "Local, private and reserved network addresses cannot be accessed.",
+        ));
     }
     check_policy(policy)?;
     Client::builder()
@@ -106,7 +118,7 @@ pub async fn client(url: &Url, policy: &NetworkPolicy) -> Result<Client, String>
         .user_agent(concat!("Moose/", env!("CARGO_PKG_VERSION")))
         .resolve_to_addrs(host, &addresses)
         .build()
-        .map_err(|_| "The web connection could not be prepared.".into())
+        .map_err(|_| gettext("The web connection could not be prepared."))
 }
 
 pub async fn body(response: Response, policy: &NetworkPolicy) -> Result<Vec<u8>, String> {
@@ -114,15 +126,15 @@ pub async fn body(response: Response, policy: &NetworkPolicy) -> Result<Vec<u8>,
         .content_length()
         .is_some_and(|length| length > MAX_BODY as u64)
     {
-        return Err("The page exceeds the 1 MB download limit.".into());
+        return Err(gettext("The page exceeds the 1 MB download limit."));
     }
     let mut data = Vec::new();
     let mut stream = response.bytes_stream();
     while let Some(chunk) = stream.next().await {
         check_policy(policy)?;
-        let chunk = chunk.map_err(|_| "The website stopped responding.")?;
+        let chunk = chunk.map_err(|_| gettext("The website stopped responding."))?;
         if data.len().saturating_add(chunk.len()) > MAX_BODY {
-            return Err("The page exceeds the 1 MB download limit.".into());
+            return Err(gettext("The page exceeds the 1 MB download limit."));
         }
         data.extend_from_slice(&chunk);
     }
@@ -141,30 +153,30 @@ pub async fn page(value: &str, policy: &NetworkPolicy) -> Result<(Url, String, V
             .header(ACCEPT_ENCODING, "identity")
             .send()
             .await
-            .map_err(|_| "The page could not be reached. Try another source.")?;
+            .map_err(|_| gettext("The page could not be reached. Try another source."))?;
         check_policy(policy)?;
         if response.status().is_redirection() {
             if redirect == 4 {
-                return Err("The website redirected too many times.".into());
+                return Err(gettext("The website redirected too many times."));
             }
             let location = response
                 .headers()
                 .get(LOCATION)
                 .and_then(|value| value.to_str().ok())
-                .ok_or("The website returned an invalid redirect.")?;
+                .ok_or(&gettext("The website returned an invalid redirect."))?;
             let next = url
                 .join(location)
-                .map_err(|_| "The website returned an invalid redirect.")?;
+                .map_err(|_| gettext("The website returned an invalid redirect."))?;
             if url.scheme() == "https" && next.scheme() != "https" {
-                return Err("The website redirected to an insecure connection.".into());
+                return Err(gettext("The website redirected to an insecure connection."));
             }
             url = public_url(next.as_str())?;
             continue;
         }
         if !response.status().is_success() {
-            return Err(format!(
-                "The website returned HTTP {}. Try another source.",
-                response.status().as_u16()
+            return Err(gettext_f(
+                "The website returned HTTP {arg1}. Try another source.",
+                &[("arg1", &(response.status().as_u16()).to_string())],
             ));
         }
         let content_type = response
@@ -175,10 +187,12 @@ pub async fn page(value: &str, policy: &NetworkPolicy) -> Result<(Url, String, V
             .to_ascii_lowercase();
         let mime = content_type.split(';').next().unwrap_or("").trim();
         if !matches!(mime, "text/html" | "application/xhtml+xml" | "text/plain") {
-            return Err("This link is not an HTML or plain-text page. Downloads, images and PDFs are not supported by Web.".into());
+            return Err(gettext(
+                "This link is not an HTML or plain-text page. Downloads, images and PDFs are not supported by Web.",
+            ));
         }
         let bytes = body(response, policy).await?;
         return Ok((url, content_type, bytes));
     }
-    Err("The page could not be read.".into())
+    Err(gettext("The page could not be read."))
 }

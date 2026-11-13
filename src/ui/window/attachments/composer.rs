@@ -1,3 +1,5 @@
+use crate::i18n::gettext_f;
+
 use super::*;
 
 pub(super) fn previews() -> gtk::FlowBox {
@@ -72,7 +74,13 @@ pub(super) fn asset_widget(ui: &WindowUi, backend: &Backend, asset: &Asset) -> g
     let size = model_actions::format_download_size(asset.byte_size.max(0) as u64);
     let button = gtk::Button::builder()
         .child(&content)
-        .tooltip_text(format!("Preview {}\n{size}", asset.name))
+        .tooltip_text(gettext_f(
+            "Preview {arg1}\n{size}",
+            &[
+                ("arg1", &(asset.name).to_string()),
+                ("size", &(size).to_string()),
+            ],
+        ))
         .build();
     button.add_css_class("flat");
     button.add_css_class("moose-composer-attachment-preview");

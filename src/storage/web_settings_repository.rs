@@ -1,3 +1,5 @@
+use crate::i18n::gettext;
+
 use rusqlite::{Connection, OptionalExtension, params};
 
 use super::{ConversationRepository, ProviderRepository};
@@ -94,18 +96,18 @@ impl ConversationRepository {
     pub fn allow_web(&self, conversation: &str, config: &WebConfig, remember: bool) -> Result<()> {
         let transaction = self.connection.unchecked_transaction()?;
         if web_config(&transaction)?.destination() != config.destination() {
-            return Err(MooseError::ProviderRequest(
-                "Web settings changed. Review Web settings and send your message again.".into(),
-            ));
+            return Err(MooseError::ProviderRequest(gettext(
+                "Web settings changed. Review Web settings and send your message again.",
+            )));
         }
         let updated = transaction.execute(
             "UPDATE conversation_tools SET web_permission = ?2 WHERE conversation_id = ?1 AND web = 1",
             params![conversation, config.destination()],
         )?;
         if updated == 0 {
-            return Err(MooseError::ProviderRequest(
-                "Web was turned off in this chat. Enable it and send your message again.".into(),
-            ));
+            return Err(MooseError::ProviderRequest(gettext(
+                "Web was turned off in this chat. Enable it and send your message again.",
+            )));
         }
         if remember {
             set_web_permission(&transaction, config, true)?;

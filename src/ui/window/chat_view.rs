@@ -1,3 +1,5 @@
+use crate::i18n::{gettext, gettext_f, gettext_noop, ngettext_f};
+
 use std::cell::{Cell, RefCell};
 
 use adw::prelude::*;
@@ -62,8 +64,8 @@ pub(super) fn build() -> Chat {
 
     let status_page = adw::StatusPage::builder()
         .icon_name(APPLICATION_ID)
-        .title("No Conversation Selected")
-        .description("Choose a model and start a conversation.")
+        .title(gettext("No Conversation Selected"))
+        .description(gettext("Choose a model and start a conversation."))
         .hexpand(true)
         .vexpand(true)
         .build();
@@ -157,7 +159,7 @@ pub(super) fn build() -> Chat {
     let entry_placeholder = gtk::Label::builder()
         .can_target(false)
         .halign(Align::Fill)
-        .label("Ask anything, or type / for tools")
+        .label(gettext("Ask anything, or type / for tools"))
         .margin_end(18)
         .margin_start(18)
         .margin_top(16)
@@ -176,8 +178,8 @@ pub(super) fn build() -> Chat {
     entry_overlay.add_overlay(&entry_placeholder);
     entry_overlay.set_measure_overlay(&entry_placeholder, false);
 
-    let stop_button = composer_button("media-playback-stop-symbolic", "Stop Response");
-    let send_button = composer_button("go-up-symbolic", "Send Message (Enter)");
+    let stop_button = composer_button("media-playback-stop-symbolic", &gettext("Stop Response"));
+    let send_button = composer_button("go-up-symbolic", &gettext("Send Message (Enter)"));
     send_button.set_focus_on_click(false);
     send_button.add_css_class("moose-send-button");
     stop_button.add_css_class("moose-stop-button");
@@ -196,7 +198,7 @@ pub(super) fn build() -> Chat {
     action_stack.add_named(&send_button, Some("send"));
     action_stack.add_named(&stop_button, Some("stop"));
     let hint = gtk::Label::builder()
-        .label("Enter to send · Shift+Enter for a new line")
+        .label(gettext("Enter to send · Shift+Enter for a new line"))
         .xalign(1.0)
         .width_chars(1)
         .margin_start(8)
@@ -217,11 +219,11 @@ pub(super) fn build() -> Chat {
         .child(
             &adw::ButtonContent::builder()
                 .icon_name("document-new-symbolic")
-                .label("Create Document")
+                .label(gettext("Create Document"))
                 .build(),
         )
         .valign(Align::Center)
-        .tooltip_text("Create a document, spreadsheet, or presentation")
+        .tooltip_text(gettext("Create a document, spreadsheet, or presentation"))
         .build();
     create_document_button.add_css_class("flat");
     create_document_button.add_css_class("moose-create-document-button");
@@ -272,24 +274,24 @@ pub(super) fn build() -> Chat {
             composer.remove_css_class("has-text");
         }
         placeholder.set_visible(!has_text);
-        placeholder.set_label(if previews.is_visible() {
-            "Ask about your files…"
+        placeholder.set_label(&gettext(if previews.is_visible() {
+            gettext_noop("Ask about your files…")
         } else if running {
-            "Write your next message…"
+            gettext_noop("Write your next message…")
         } else {
-            "Ask anything, or type / for tools"
-        });
+            gettext_noop("Ask anything, or type / for tools")
+        }));
         if !running && stop.has_focus() {
             entry.grab_focus();
         }
         stack.set_visible_child_name(if running { "stop" } else { "send" });
-        let text = if running {
-            "Responding… You can keep writing"
+        let text = gettext(if running {
+            gettext_noop("Responding… You can keep writing")
         } else {
-            "Enter to send · Shift+Enter for a new line"
-        };
-        hint.set_label(text);
-        hint.set_tooltip_text(Some(text));
+            gettext_noop("Enter to send · Shift+Enter for a new line")
+        });
+        hint.set_label(&text);
+        hint.set_tooltip_text(Some(&text));
         revealer.set_reveal_child(running || focus.contains_focus());
     });
     let update = update_feedback.clone();
@@ -304,8 +306,8 @@ pub(super) fn build() -> Chat {
     focus.connect_contains_focus_notify(move |_| update());
     update_feedback();
 
-    let model_picker = gtk::DropDown::from_strings(&["No model selected"]);
-    model_picker.set_tooltip_text(Some("Active Model"));
+    let model_picker = gtk::DropDown::from_strings(&[&gettext("No model selected")]);
+    model_picker.set_tooltip_text(Some(&gettext("Active Model")));
     model_picker.set_sensitive(false);
     model_picker.set_halign(Align::Start);
     model_picker.set_valign(Align::Center);
@@ -322,7 +324,8 @@ pub(super) fn build() -> Chat {
     model_picker.add_css_class("flat");
     model_picker.add_css_class("moose-model-picker");
 
-    let chat_settings_button = icon_button("preferences-system-symbolic", "Chat Settings");
+    let chat_settings_button =
+        icon_button("preferences-system-symbolic", &gettext("Chat Settings"));
     chat_settings_button.add_css_class("moose-chat-settings-button");
 
     let profile_label = gtk::Label::new(None);
@@ -332,11 +335,11 @@ pub(super) fn build() -> Chat {
     profile_label.add_css_class("moose-profile-badge");
     profile_label.set_visible(false);
 
-    let thinking_picker = gtk::DropDown::from_strings(&["Reasoning: Auto"]);
+    let thinking_picker = gtk::DropDown::from_strings(&[&gettext("Reasoning: Auto")]);
     thinking_picker.add_css_class("flat");
     thinking_picker.add_css_class("moose-reasoning-picker");
     thinking_picker.set_valign(Align::Center);
-    thinking_picker.set_tooltip_text(Some("Use the model’s default reasoning behavior"));
+    thinking_picker.set_tooltip_text(Some(&gettext("Use the model’s default reasoning behavior")));
     thinking_picker.set_sensitive(false);
     thinking_picker.set_factory(Some(&string_list_factory(18, false)));
     thinking_picker.set_list_factory(Some(&string_list_factory(24, true)));
@@ -470,7 +473,7 @@ pub(super) fn append_message(
         .valign(Align::Start)
         .build();
     let role_label = gtk::Label::builder()
-        .label(message_header_label(role, created_at))
+        .label(message_header_label(&gettext(role), created_at))
         .height_request(24)
         .halign(Align::Fill)
         .width_chars(1)
@@ -545,7 +548,7 @@ pub(super) fn append_streaming_message(
     spinner.add_css_class("moose-thinking-spinner");
 
     let thinking_label = gtk::Label::builder()
-        .label("Waiting for response…")
+        .label(gettext("Waiting for response…"))
         .halign(Align::Fill)
         .width_chars(1)
         .max_width_chars(28)
@@ -556,7 +559,7 @@ pub(super) fn append_streaming_message(
     let (reasoning, reasoning_text) = reasoning_section();
     reasoning.set_visible(false);
     let (tools, tools_buffer) = reasoning_section();
-    tools.set_label(Some("Tools"));
+    tools.set_label(Some(&gettext("Tools")));
     tools.set_visible(false);
     let tool_notice = tool_notice_label("");
     tool_notice.set_visible(false);
@@ -613,13 +616,13 @@ pub(super) fn update_streaming_message(
     let has_content = !content.is_empty();
     message.indicator.set_visible(true);
     message.spinner.start();
-    let phase = if has_content {
-        "Writing response"
+    let phase = gettext(if has_content {
+        gettext_noop("Writing response")
     } else if reasoning.is_empty() {
-        "Waiting for response"
+        gettext_noop("Waiting for response")
     } else {
-        "Reasoning"
-    };
+        gettext_noop("Reasoning")
+    });
     let status = format!("{phase} · {elapsed}s");
     if message.status.text().as_str() != status.as_str() {
         message.status.set_text(&status);
@@ -627,9 +630,10 @@ pub(super) fn update_streaming_message(
     message.content.widget().set_visible(has_content);
     message.content.update(content);
     message.reasoning.set_visible(!reasoning.is_empty());
-    message
-        .reasoning
-        .set_label(Some(&format!("Reasoning · {}s", reasoning_ms / 1000)));
+    message.reasoning.set_label(Some(&gettext_f(
+        "Reasoning · {arg1}s",
+        &[("arg1", &(reasoning_ms / 1000).to_string())],
+    )));
     let previous_length = message.reasoning_length.replace(reasoning.len());
     if previous_length < reasoning.len() {
         message.reasoning_text.insert(
@@ -650,7 +654,7 @@ pub(super) fn finish_streaming_message(
     tools: &[crate::tools::ToolExecution],
 ) {
     update_streaming_message(message, content, reasoning, elapsed, reasoning_ms);
-    message.content.finish(content);
+    message.content.finish(&crate::i18n::message_text(content));
     message.spinner.stop();
     message.indicator.set_visible(false);
     fill_web_sources(&message.web_sources, &message.web_sources_box, tools);
@@ -672,7 +676,7 @@ pub(super) fn update_tool_activity(
         .iter()
         .find(|tool| tool.status == crate::tools::ToolStatus::Running)
     {
-        message.status.set_text(tool.running_label());
+        message.status.set_text(&gettext(tool.running_label()));
     }
     message.tool_notice.set_visible(!notice.is_empty());
     if message.tool_notice.text().as_str() != notice {
@@ -685,20 +689,24 @@ fn tool_activity_label(tools: &[crate::tools::ToolExecution]) -> String {
         .iter()
         .find(|tool| tool.status == crate::tools::ToolStatus::Running)
     {
-        tool.running_label().into()
+        gettext(tool.running_label())
     } else if tools
         .iter()
         .any(|tool| tool.status == crate::tools::ToolStatus::Failed)
     {
-        "Tools · Check results".into()
+        gettext("Tools · Check results")
     } else if tools.len() > 1 {
-        format!("Tools · {} actions", tools.len())
+        ngettext_f(
+            "Tools · {count} action",
+            "Tools · {count} actions",
+            tools.len() as u32,
+            &[("count", &tools.len().to_string())],
+        )
     } else {
         tools
             .first()
-            .map(|tool| tool.label())
-            .unwrap_or("Tools")
-            .into()
+            .map(|tool| gettext(tool.label()))
+            .unwrap_or_else(|| gettext("Tools"))
     }
 }
 
@@ -709,7 +717,7 @@ fn web_sources_section() -> (gtk::Expander, gtk::Box) {
         .margin_top(8)
         .build();
     let expander = gtk::Expander::builder()
-        .label("Web Sources")
+        .label(gettext("Web Sources"))
         .child(&content)
         .visible(false)
         .build();
@@ -726,7 +734,10 @@ fn fill_web_sources(
     }
     let sources = crate::tools::web::sources(tools);
     expander.set_visible(!sources.is_empty());
-    expander.set_label(Some(&format!("Web Sources · {}", sources.len())));
+    expander.set_label(Some(&gettext_f(
+        "Web Sources · {arg1}",
+        &[("arg1", &(sources.len()).to_string())],
+    )));
     for source in sources {
         let row = gtk::Box::builder()
             .orientation(Orientation::Vertical)
@@ -746,29 +757,32 @@ fn fill_web_sources(
             .ok()
             .and_then(|url| url.host_str().map(str::to_string))
             .unwrap_or_default();
-        let state = if source.page_read {
+        let state = gettext(if source.page_read {
             if source.truncated {
-                "Page read · excerpt"
+                gettext_noop("Page read · excerpt")
             } else {
-                "Page read"
+                gettext_noop("Page read")
             }
         } else {
-            "Search snippet"
-        };
+            gettext_noop("Search snippet")
+        });
         let meta = gtk::Label::builder()
             .label(format!("{domain} · {state}"))
             .xalign(0.0)
             .wrap(true)
             .selectable(true)
             .build();
-        meta.set_tooltip_text(Some(&format!("Retrieved {}", source.retrieved_at)));
+        meta.set_tooltip_text(Some(&gettext_f(
+            "Retrieved {arg1}",
+            &[("arg1", &(source.retrieved_at).to_string())],
+        )));
         meta.add_css_class("dim-label");
         meta.add_css_class("caption");
         row.append(&link);
         row.append(&meta);
         if !source.content.is_empty() {
             let (excerpt, buffer) = reasoning_section();
-            excerpt.set_label(Some("View source text"));
+            excerpt.set_label(Some(&gettext("View source text")));
             buffer.set_text(&source.content);
             row.append(&excerpt);
         }
@@ -819,7 +833,7 @@ fn reasoning_section() -> (gtk::Expander, gtk::TextBuffer) {
         .propagate_natural_height(true)
         .build();
     let expander = gtk::Expander::builder()
-        .label("Reasoning")
+        .label(gettext("Reasoning"))
         .child(&scroll)
         .expanded(false)
         .build();
@@ -845,9 +859,9 @@ pub(super) fn append_details(row: &gtk::Box, details: &crate::storage::MessageDe
     if !details.reasoning.is_empty() {
         let (expander, buffer) = reasoning_section();
         buffer.set_text(&details.reasoning);
-        expander.set_label(Some(&format!(
-            "Reasoning · {}s",
-            details.reasoning_ms / 1000
+        expander.set_label(Some(&gettext_f(
+            "Reasoning · {arg1}s",
+            &[("arg1", &(details.reasoning_ms / 1000).to_string())],
         )));
         row.insert_child_after(&expander, row.first_child().as_ref());
     }
@@ -887,59 +901,35 @@ fn format_message_timestamp(value: &str) -> String {
 }
 
 fn format_message_datetime(timestamp: &DateTime) -> String {
-    let hour = timestamp.hour();
-    let display_hour = match hour % 12 {
-        0 => 12,
-        value => value,
-    };
-    let meridiem = if hour < 12 { "AM" } else { "PM" };
-    let minute = timestamp.minute();
-
-    format!(
-        "{} {}, {display_hour}:{minute:02} {meridiem}",
-        month_name(timestamp.month()),
-        timestamp.day_of_month()
-    )
-}
-
-fn month_name(month: i32) -> &'static str {
-    match month {
-        1 => "January",
-        2 => "February",
-        3 => "March",
-        4 => "April",
-        5 => "May",
-        6 => "June",
-        7 => "July",
-        8 => "August",
-        9 => "September",
-        10 => "October",
-        11 => "November",
-        12 => "December",
-        _ => "",
-    }
+    timestamp
+        .format(&gettext("%B %-d, %-I:%M %p"))
+        .or_else(|_| timestamp.format("%B %-d, %-I:%M %p"))
+        .map(|value| value.to_string())
+        .unwrap_or_default()
 }
 
 fn message_role_label(role: &MessageRole) -> &'static str {
     match role {
-        MessageRole::System => "System",
-        MessageRole::User => "You",
-        MessageRole::Assistant => "Assistant",
-        MessageRole::Tool => "Tool",
+        MessageRole::System => gettext_noop("System"),
+        MessageRole::User => gettext_noop("You"),
+        MessageRole::Assistant => gettext_noop("Assistant"),
+        MessageRole::Tool => gettext_noop("Tool"),
     }
 }
 
 fn stored_message_content(message: &Message) -> String {
     match message.status {
         MessageStatus::Streaming if message.content.trim().is_empty() => {
-            "Generating response...".to_string()
+            gettext("Generating response...")
         }
-        MessageStatus::Cancelled => message_content_with_state(message, "Generation cancelled"),
+        MessageStatus::Cancelled => {
+            message_content_with_state(message, &gettext("Generation cancelled"))
+        }
         MessageStatus::Incomplete => {
             message_content_with_state(message, &MooseError::ResponseLimit.to_string())
         }
-        MessageStatus::Failed => message_content_with_state(message, "Generation failed"),
-        _ => message.content.clone(),
+        MessageStatus::Failed => message_content_with_state(message, &gettext("Generation failed")),
+        _ => crate::i18n::message_text(&message.content),
     }
 }
 

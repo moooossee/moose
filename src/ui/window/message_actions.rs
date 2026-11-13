@@ -1,3 +1,5 @@
+use crate::i18n::{gettext, gettext_f, gettext_noop};
+
 use std::{rc::Rc, time::Duration};
 
 use adw::prelude::*;
@@ -44,8 +46,9 @@ pub(super) fn bind(ui: &Rc<WindowUi>, backend: &Rc<Backend>) {
                 _ => fork(&ui, &backend, id),
             };
             if let Err(error) = result {
-                ui.toast_overlay.add_toast(adw::Toast::new(&format!(
-                    "Message action could not be completed: {error}"
+                ui.toast_overlay.add_toast(adw::Toast::new(&gettext_f(
+                    "Message action could not be completed: {error}",
+                    &[("error", &(error).to_string())],
                 )));
             }
         });
@@ -87,10 +90,10 @@ pub(super) fn render(ui: &WindowUi, backend: &Backend, skip: Option<&str>) -> Re
     while let Some(message_row) = row {
         let mut child = message_row.first_child();
         while let Some(widget) = child {
-            if let Ok(expander) = widget.clone().downcast::<gtk::Expander>() {
-                if expander.is_expanded() {
-                    expanded.insert((message_row.widget_name().to_string(), expander.label()));
-                }
+            if let Ok(expander) = widget.clone().downcast::<gtk::Expander>()
+                && expander.is_expanded()
+            {
+                expanded.insert((message_row.widget_name().to_string(), expander.label()));
             }
             child = widget.next_sibling();
         }
@@ -130,8 +133,9 @@ pub(super) fn render(ui: &WindowUi, backend: &Backend, skip: Option<&str>) -> Re
 pub(super) fn refresh(ui: &WindowUi, backend: &Backend) {
     let should_scroll = ui.messages_scroll.is_following();
     if let Err(error) = render(ui, backend, None) {
-        ui.toast_overlay.add_toast(adw::Toast::new(&format!(
-            "Conversation could not be displayed: {error}"
+        ui.toast_overlay.add_toast(adw::Toast::new(&gettext_f(
+            "Conversation could not be displayed: {error}",
+            &[("error", &(error).to_string())],
         )));
     }
     if should_scroll {
@@ -221,8 +225,9 @@ pub(super) fn refresh_message(ui: &WindowUi, backend: &Backend, id: &str) {
         Ok(())
     })();
     if let Err(error) = result {
-        ui.toast_overlay.add_toast(adw::Toast::new(&format!(
-            "Message could not be displayed: {error}"
+        ui.toast_overlay.add_toast(adw::Toast::new(&gettext_f(
+            "Message could not be displayed: {error}",
+            &[("error", &(error).to_string())],
         )));
     }
     if should_scroll {
@@ -241,18 +246,18 @@ fn append_toolbar(row: &gtk::Box, message: &Message, versions: Option<&Vec<Strin
         })
         .build();
     toolbar.add_css_class("moose-message-actions");
-    let copy = widgets::icon_button("edit-copy-symbolic", "Copy Message");
+    let copy = widgets::icon_button("edit-copy-symbolic", &gettext("Copy Message"));
     copy.set_sensitive(!message.content.is_empty());
     let content = message.content.clone();
     copy.connect_clicked(move |button| {
         button.clipboard().set_text(&content);
         button.set_icon_name("object-select-symbolic");
-        button.set_tooltip_text(Some("Copied"));
+        button.set_tooltip_text(Some(&gettext("Copied")));
         let weak = button.downgrade();
         glib::timeout_add_local_once(Duration::from_millis(1600), move || {
             if let Some(button) = weak.upgrade() {
                 button.set_icon_name("edit-copy-symbolic");
-                button.set_tooltip_text(Some("Copy Message"));
+                button.set_tooltip_text(Some(&gettext("Copy Message")));
             }
         });
     });
@@ -260,7 +265,7 @@ fn append_toolbar(row: &gtk::Box, message: &Message, versions: Option<&Vec<Strin
     if message.role == MessageRole::User {
         toolbar.append(&action_button(
             "document-edit-symbolic",
-            "Edit Message",
+            &gettext("Edit Message"),
             "edit",
             &message.id,
         ));
@@ -268,7 +273,7 @@ fn append_toolbar(row: &gtk::Box, message: &Message, versions: Option<&Vec<Strin
         if message.status == MessageStatus::Complete && !message.content.trim().is_empty() {
             toolbar.append(&action_button(
                 "document-new-symbolic",
-                "Create Document from Response",
+                &gettext("Create Document from Response"),
                 "create-document",
                 &message.id,
             ));
@@ -279,11 +284,11 @@ fn append_toolbar(row: &gtk::Box, message: &Message, versions: Option<&Vec<Strin
         );
         let button = action_button(
             "view-refresh-symbolic",
-            if retry {
-                "Retry Response"
+            &gettext(if retry {
+                gettext_noop("Retry Response")
             } else {
-                "Regenerate Response"
-            },
+                gettext_noop("Regenerate Response")
+            }),
             "regenerate",
             &message.id,
         );
@@ -291,7 +296,7 @@ fn append_toolbar(row: &gtk::Box, message: &Message, versions: Option<&Vec<Strin
             button.set_child(Some(
                 &adw::ButtonContent::builder()
                     .icon_name("view-refresh-symbolic")
-                    .label("Retry")
+                    .label(gettext("Retry"))
                     .build(),
             ));
         }
@@ -299,14 +304,14 @@ fn append_toolbar(row: &gtk::Box, message: &Message, versions: Option<&Vec<Strin
         if message.status == MessageStatus::Incomplete && !message.content.trim().is_empty() {
             let button = action_button(
                 "media-playback-start-symbolic",
-                "Continue Response",
+                &gettext("Continue Response"),
                 "continue",
                 &message.id,
             );
             button.set_child(Some(
                 &adw::ButtonContent::builder()
                     .icon_name("media-playback-start-symbolic")
-                    .label("Continue")
+                    .label(gettext("Continue"))
                     .build(),
             ));
             toolbar.append(&button);
@@ -317,7 +322,7 @@ fn append_toolbar(row: &gtk::Box, message: &Message, versions: Option<&Vec<Strin
     {
         let previous = action_button(
             "go-previous-symbolic",
-            "Previous Version",
+            &gettext("Previous Version"),
             "version",
             &versions[index.saturating_sub(1)],
         );
@@ -327,7 +332,7 @@ fn append_toolbar(row: &gtk::Box, message: &Message, versions: Option<&Vec<Strin
         previous.set_sensitive(index > 0);
         let next = action_button(
             "go-next-symbolic",
-            "Next Version",
+            &gettext("Next Version"),
             "version",
             &versions[(index + 1).min(versions.len() - 1)],
         );
@@ -337,7 +342,9 @@ fn append_toolbar(row: &gtk::Box, message: &Message, versions: Option<&Vec<Strin
         next.set_sensitive(index + 1 < versions.len());
         let label = gtk::Label::new(Some(&format!("{} / {}", index + 1, versions.len())));
         label.add_css_class("caption");
-        label.set_tooltip_text(Some("Switch versions to restore their conversation"));
+        label.set_tooltip_text(Some(&gettext(
+            "Switch versions to restore their conversation",
+        )));
         toolbar.append(&previous);
         toolbar.append(&label);
         toolbar.append(&next);
@@ -348,16 +355,16 @@ fn append_toolbar(row: &gtk::Box, message: &Message, versions: Option<&Vec<Strin
         && message.status != MessageStatus::Incomplete
         && !message.content.trim().is_empty()
     {
-        let item = gio::MenuItem::new(Some("Continue Response"), None);
+        let item = gio::MenuItem::new(Some(&gettext("Continue Response")), None);
         item.set_action_and_target_value(Some("message.continue"), Some(&message.id.to_variant()));
         menu.append_item(&item);
     }
-    let item = gio::MenuItem::new(Some("Continue in New Chat"), None);
+    let item = gio::MenuItem::new(Some(&gettext("Continue in New Chat")), None);
     item.set_action_and_target_value(Some("message.fork"), Some(&message.id.to_variant()));
     menu.append_item(&item);
     let more = gtk::MenuButton::builder()
         .icon_name("view-more-symbolic")
-        .tooltip_text("More Message Actions")
+        .tooltip_text(gettext("More Message Actions"))
         .menu_model(&menu)
         .build();
     more.add_css_class("flat");
@@ -440,9 +447,9 @@ fn fork(ui: &Rc<WindowUi>, backend: &Rc<Backend>, id: &str) -> Result<()> {
     super::workspace::sync_provider(ui, backend);
     super::reasoning::refresh(ui, backend);
     ui.entry.grab_focus();
-    ui.toast_overlay.add_toast(adw::Toast::new(
+    ui.toast_overlay.add_toast(adw::Toast::new(&gettext(
         "New chat created. The original conversation is unchanged.",
-    ));
+    )));
     Ok(())
 }
 
@@ -470,13 +477,13 @@ fn edit_inline(ui: &Rc<WindowUi>, backend: &Rc<Backend>, id: &str) -> Result<()>
         .build();
     content.add_css_class("moose-inline-editor");
     let title = gtk::Label::builder()
-        .label("Edit message")
+        .label(gettext("Edit message"))
         .halign(Align::Start)
         .build();
     title.add_css_class("caption-heading");
     title.add_css_class("dim-label");
     let buffer = gtk::TextBuffer::new(None);
-    buffer.set_text(&message.content);
+    buffer.set_text(&crate::i18n::message_text(&message.content));
     let editor = gtk::TextView::builder()
         .buffer(&buffer)
         .wrap_mode(gtk::WrapMode::WordChar)
@@ -502,7 +509,7 @@ fn edit_inline(ui: &Rc<WindowUi>, backend: &Rc<Backend>, id: &str) -> Result<()>
         .spacing(8)
         .build();
     let hint = gtk::Label::builder()
-        .label("Previous versions are kept.")
+        .label(gettext("Previous versions are kept."))
         .wrap(true)
         .xalign(0.0)
         .hexpand(true)
@@ -514,15 +521,17 @@ fn edit_inline(ui: &Rc<WindowUi>, backend: &Rc<Backend>, id: &str) -> Result<()>
         .message_assets(id)?
         .is_empty()
     {
-        hint.set_label("Attachments and previous versions are kept.");
+        hint.set_label(&gettext("Attachments and previous versions are kept."));
     }
-    let cancel = gtk::Button::with_label("Cancel");
+    let cancel = gtk::Button::with_label(&gettext("Cancel"));
     cancel.set_valign(Align::Center);
-    cancel.set_tooltip_text(Some("Cancel editing (Esc)"));
+    cancel.set_tooltip_text(Some(&gettext("Cancel editing (Esc)")));
     cancel.add_css_class("flat");
-    let send = gtk::Button::with_label("Save & Send");
+    let send = gtk::Button::with_label(&gettext("Save & Send"));
     send.set_valign(Align::Center);
-    send.set_tooltip_text(Some("Save and generate a new response (Ctrl+Enter)"));
+    send.set_tooltip_text(Some(&gettext(
+        "Save and generate a new response (Ctrl+Enter)",
+    )));
     send.add_css_class("suggested-action");
     send.set_sensitive(false);
     footer.append(&hint);
@@ -542,7 +551,9 @@ fn edit_inline(ui: &Rc<WindowUi>, backend: &Rc<Backend>, id: &str) -> Result<()>
     }
     row.append(&content);
     let weak_send = send.downgrade();
-    let original = message.content.trim().to_string();
+    let original = crate::i18n::message_text(&message.content)
+        .trim()
+        .to_string();
     buffer.connect_changed(move |buffer| {
         let text = buffer.text(&buffer.start_iter(), &buffer.end_iter(), true);
         if let Some(send) = weak_send.upgrade() {

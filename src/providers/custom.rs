@@ -1,3 +1,7 @@
+use crate::i18n::gettext;
+
+use crate::i18n::gettext_noop;
+
 use std::collections::HashSet;
 
 use reqwest::header::HeaderName;
@@ -36,10 +40,10 @@ impl ApiProtocol {
 
     pub const fn label(self) -> &'static str {
         match self {
-            Self::ChatCompletions => "OpenAI Chat Completions",
-            Self::Responses => "OpenAI Responses",
-            Self::Anthropic => "Anthropic Messages",
-            Self::Gemini => "Google Gemini",
+            Self::ChatCompletions => gettext_noop("OpenAI Chat Completions"),
+            Self::Responses => gettext_noop("OpenAI Responses"),
+            Self::Anthropic => gettext_noop("Anthropic Messages"),
+            Self::Gemini => gettext_noop("Google Gemini"),
         }
     }
 
@@ -102,7 +106,7 @@ impl CustomProviderConfig {
     pub fn validate(&self) -> Result<()> {
         if let CustomAuthentication::Header(name) = &self.authentication {
             let header = HeaderName::from_bytes(name.as_bytes()).map_err(|_| {
-                MooseError::ProviderRequest("Enter a valid API key header name.".into())
+                MooseError::ProviderRequest(gettext("Enter a valid API key header name."))
             })?;
             if matches!(
                 header.as_str(),
@@ -114,28 +118,28 @@ impl CustomProviderConfig {
                     | "accept"
                     | "anthropic-version"
             ) {
-                return Err(MooseError::ProviderRequest(
-                    "This header cannot be used for an API key.".into(),
-                ));
+                return Err(MooseError::ProviderRequest(gettext(
+                    "This header cannot be used for an API key.",
+                )));
             }
         }
         if self.models.len() > 1000 {
-            return Err(MooseError::ProviderRequest(
-                "A provider can have up to 1,000 manual models.".into(),
-            ));
+            return Err(MooseError::ProviderRequest(gettext(
+                "A provider can have up to 1,000 manual models.",
+            )));
         }
         let mut ids = HashSet::new();
         for model in &self.models {
             if model.id.is_empty() {
-                return Err(MooseError::ProviderRequest(
-                    "Enter a model ID for each manual model, or remove empty rows.".into(),
-                ));
+                return Err(MooseError::ProviderRequest(gettext(
+                    "Enter a model ID for each manual model, or remove empty rows.",
+                )));
             }
             validate_model_id(&model.id)?;
             if !ids.insert(&model.id) {
-                return Err(MooseError::ProviderRequest(
-                    "Each manual model must have a unique ID.".into(),
-                ));
+                return Err(MooseError::ProviderRequest(gettext(
+                    "Each manual model must have a unique ID.",
+                )));
             }
             let gemini_id = model.id.strip_prefix("models/").unwrap_or(&model.id);
             if self.protocol == ApiProtocol::Gemini
@@ -144,15 +148,15 @@ impl CustomProviderConfig {
                         .bytes()
                         .all(|byte| byte.is_ascii_alphanumeric() || b"-_.".contains(&byte)))
             {
-                return Err(MooseError::ProviderRequest(
-                    "Gemini model IDs can contain letters, numbers, hyphens, underscores and periods.".into(),
-                ));
+                return Err(MooseError::ProviderRequest(gettext(
+                    "Gemini model IDs can contain letters, numbers, hyphens, underscores and periods.",
+                )));
             }
         }
         if !self.discover_models && self.models.is_empty() {
-            return Err(MooseError::ProviderRequest(
-                "Add a model ID or enable automatic model discovery.".into(),
-            ));
+            return Err(MooseError::ProviderRequest(gettext(
+                "Add a model ID or enable automatic model discovery.",
+            )));
         }
         Ok(())
     }

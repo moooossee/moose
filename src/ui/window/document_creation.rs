@@ -1,3 +1,5 @@
+use crate::i18n::{gettext, gettext_f, gettext_noop};
+
 use super::*;
 use crate::{
     conversations::{Message, MessageRole, MessageStatus},
@@ -49,7 +51,7 @@ pub(super) fn bind(ui: &Rc<WindowUi>, backend: &Rc<Backend>) {
             let document = match target_backend.conversation_repository.created_document(id) {
                 Ok(Some(document)) => document,
                 _ => {
-                    toast(&ui, "This document is no longer available.");
+                    toast(&ui, &gettext("This document is no longer available."));
                     return;
                 }
             };
@@ -69,11 +71,12 @@ pub(super) fn sync_controls(ui: &WindowUi, backend: &Backend) {
     let running = backend.active_generation.borrow().is_some();
     ui.create_document_button
         .set_sensitive(!running && active_provider(backend).is_some());
-    ui.create_document_button.set_tooltip_text(Some(if running {
-        "Finish or stop the current response to create a document"
-    } else {
-        "Create a document, spreadsheet, or presentation"
-    }));
+    ui.create_document_button
+        .set_tooltip_text(Some(&gettext(if running {
+            gettext_noop("Finish or stop the current response to create a document")
+        } else {
+            gettext_noop("Create a document, spreadsheet, or presentation")
+        })));
 }
 
 pub(super) fn prepare_request(
@@ -161,7 +164,7 @@ fn show_dialog(ui: &Rc<WindowUi>, backend: &Rc<Backend>, message: Option<String>
         if backend.active_generation.borrow().is_some() {
             toast(
                 ui,
-                "Finish or stop the current response to create a document.",
+                &gettext("Finish or stop the current response to create a document."),
             );
             return;
         }
@@ -170,14 +173,14 @@ fn show_dialog(ui: &Rc<WindowUi>, backend: &Rc<Backend>, message: Option<String>
         Some(id) => match backend.conversation_repository.get_message(id) {
             Ok(Some(message)) => Some(message),
             _ => {
-                toast(ui, "This response is no longer available.");
+                toast(ui, &gettext("This response is no longer available."));
                 return;
             }
         },
         None => None,
     };
     let dialog = adw::Dialog::builder()
-        .title("Create Document")
+        .title(gettext("Create Document"))
         .content_width(580)
         .content_height(if message.is_some() { 340 } else { 620 })
         .build();
@@ -185,31 +188,31 @@ fn show_dialog(ui: &Rc<WindowUi>, backend: &Rc<Backend>, message: Option<String>
         .show_start_title_buttons(false)
         .show_end_title_buttons(false)
         .build();
-    let cancel = gtk::Button::with_label("Cancel");
-    let create = gtk::Button::with_label("Create");
+    let cancel = gtk::Button::with_label(&gettext("Cancel"));
+    let create = gtk::Button::with_label(&gettext("Create"));
     create.add_css_class("suggested-action");
     header.pack_start(&cancel);
     header.pack_end(&create);
     let page = adw::PreferencesPage::new();
-    let group = adw::PreferencesGroup::builder().description(if message.is_some() { "Turn this response into a file you can open and save." } else { "Describe what you need. Moose will write the content and create a file you can open and save." }).build();
+    let group = adw::PreferencesGroup::builder().description(gettext(if message.is_some() { gettext_noop("Turn this response into a file you can open and save.") } else { gettext_noop("Describe what you need. Moose will write the content and create a file you can open and save.") })).build();
     let title = adw::EntryRow::builder()
-        .title("Document Name")
-        .text("Untitled Document")
+        .title(gettext("Document Name"))
+        .text(gettext("Untitled Document"))
         .build();
     let formats = DocumentFormat::ALL
         .iter()
-        .map(|format| format!("{} (.{})", format.label(), format.extension()))
+        .map(|format| format!("{} (.{})", gettext(format.label()), format.extension()))
         .collect::<Vec<_>>();
     let names = formats.iter().map(String::as_str).collect::<Vec<_>>();
     let format = adw::ComboRow::builder()
-        .title("File Format")
+        .title(gettext("File Format"))
         .model(&gtk::StringList::new(&names))
         .selected(0)
         .build();
     if let Some(original) = &original
         && let Ok(Some(previous)) = backend.conversation_repository.document_job(&original.id)
     {
-        title.set_text(&previous.request.title);
+        title.set_text(&crate::i18n::document_title(&previous.request.title));
         if let Some(index) = DocumentFormat::ALL
             .iter()
             .position(|format| *format == previous.request.format)
@@ -231,10 +234,10 @@ fn show_dialog(ui: &Rc<WindowUi>, backend: &Rc<Backend>, message: Option<String>
     instructions.buffer().set_text(&prompt_text(&ui.entry));
     if message.is_none() {
         let request_group = adw::PreferencesGroup::builder()
-            .title("What Would You Like to Create?")
-            .description(
+            .title(gettext("What Would You Like to Create?"))
+            .description(gettext(
                 "For example: a project proposal, a monthly budget, or a presentation for a class.",
-            )
+            ))
             .build();
         let scroll = gtk::ScrolledWindow::builder()
             .child(&instructions)
@@ -254,33 +257,40 @@ fn show_dialog(ui: &Rc<WindowUi>, backend: &Rc<Backend>, message: Option<String>
             .build();
         for (label, choice, text) in [
             (
-                "Report",
+                gettext_noop("Report"),
                 DocumentFormat::Pdf,
-                "Write a report about [topic], with a summary, key findings, and recommendations.",
+                gettext_noop(
+                    "Write a report about [topic], with a summary, key findings, and recommendations.",
+                ),
             ),
             (
-                "Letter",
+                gettext_noop("Letter"),
                 DocumentFormat::Docx,
-                "Write a letter to [recipient] about [purpose].",
+                gettext_noop("Write a letter to [recipient] about [purpose]."),
             ),
             (
-                "Budget",
+                gettext_noop("Budget"),
                 DocumentFormat::Xlsx,
-                "Create a monthly budget with categories, planned and actual amounts, and formulas for totals and differences.",
+                gettext_noop(
+                    "Create a monthly budget with categories, planned and actual amounts, and formulas for totals and differences.",
+                ),
             ),
             (
-                "Slides",
+                gettext_noop("Slides"),
                 DocumentFormat::Pptx,
-                "Create a presentation about [topic] with an introduction, key points, and a conclusion.",
+                gettext_noop(
+                    "Create a presentation about [topic] with an introduction, key points, and a conclusion.",
+                ),
             ),
         ] {
-            let button = gtk::Button::with_label(label);
+            let button = gtk::Button::with_label(&gettext(label));
             button.add_css_class("pill");
             let buffer = instructions.buffer();
             let target_format = format.clone();
             let entry = instructions.clone();
+            let text = gettext(text);
             button.connect_clicked(move |_| {
-                buffer.set_text(text);
+                buffer.set_text(&text);
                 if let Some(start) = text.find('[')
                     && let Some(end) = text[start..].find(']')
                 {
@@ -340,16 +350,25 @@ fn show_dialog(ui: &Rc<WindowUi>, backend: &Rc<Backend>, message: Option<String>
             generate(&ui, &backend, message, Some(request));
         } else {
             let description = prompt_text(&instructions);
-            let name = if request.title == "Untitled Document" {
-                String::new()
+            let format_name = gettext(request.format.label());
+            let prompt = if request.title == "Untitled Document" {
+                gettext_f(
+                    "Create a {format}.\n\n{instructions}",
+                    &[
+                        ("format", &format_name),
+                        ("instructions", description.trim()),
+                    ],
+                )
             } else {
-                format!(" named “{}”", request.title)
+                gettext_f(
+                    "Create a {format} named “{title}”.\n\n{instructions}",
+                    &[
+                        ("format", &format_name),
+                        ("title", &request.title),
+                        ("instructions", description.trim()),
+                    ],
+                )
             };
-            let prompt = format!(
-                "Create a {}{name}.\n\n{}",
-                request.format.label(),
-                description.trim()
-            );
             ui.entry.buffer().set_text(&prompt);
             submit_message_with_document(
                 &ui,
@@ -374,31 +393,31 @@ pub(super) fn generate(
             .get_message(message)?
             .ok_or(MooseError::MessageNotFound)?;
         if original.status != MessageStatus::Complete {
-            return Err(crate::attachments::error(
+            return Err(crate::attachments::error(gettext(
                 "Finish or retry the response before creating its document.",
-            ));
+            )));
         }
         let existing = backend.conversation_repository.document_job(message)?;
         if existing.as_ref().is_some_and(|job| job.state == "creating") {
-            return Err(crate::attachments::error(
+            return Err(crate::attachments::error(gettext(
                 "This document is already being created.",
-            ));
+            )));
         }
         let content = existing
             .as_ref()
             .filter(|job| !job.content.is_empty())
             .map(|job| job.content.clone())
             .unwrap_or(original.content);
-        if content.trim().is_empty() || content.trim() == "No response generated." {
-            let error = "The model did not provide document content. Retry the response.";
+        if content.trim().is_empty() || content.trim() == crate::chat::EMPTY_RESPONSE {
+            let error = gettext("The model did not provide document content. Retry the response.");
             backend
                 .conversation_repository
-                .set_document_state(message, "failed", error)?;
+                .set_document_state(message, "failed", &error)?;
             return Err(crate::attachments::error(error));
         }
         let request = override_request
             .or_else(|| existing.as_ref().map(|job| job.request.clone()))
-            .ok_or_else(|| crate::attachments::error("Choose a document format first."))?;
+            .ok_or_else(|| crate::attachments::error(gettext("Choose a document format first.")))?;
         backend
             .conversation_repository
             .save_document_request(message, &request, &content)?;
@@ -410,7 +429,7 @@ pub(super) fn generate(
     let (request, content) = match result {
         Ok(value) => value,
         Err(error) => {
-            toast(ui, &error.to_string());
+            toast(ui, &crate::i18n::error_message(&error));
             message_actions::refresh_message(ui, backend, message);
             return;
         }
@@ -443,7 +462,7 @@ pub(super) fn generate(
                 .await
             {
                 Ok(result) => result,
-                Err(_) => Err("Document creation was interrupted. Try again.".into()),
+                Err(_) => Err(gettext("Document creation was interrupted. Try again.")),
             }
         };
         let result = result.and_then(|output| {
@@ -456,7 +475,7 @@ pub(super) fn generate(
                     &content,
                     &output.bytes,
                 )
-                .map_err(|error| error.to_string())
+                .map_err(|error| crate::i18n::error_message(&error))
         });
         match result {
             Ok(_) => {
@@ -502,20 +521,20 @@ pub(super) fn append(backend: &Backend, row: &gtk::Box, message: &Message) -> Re
     {
         let working = message.status == MessageStatus::Streaming || job.state == "creating";
         let pending = adw::ActionRow::builder()
-            .title(job.request.format.label())
-            .subtitle(if working {
+            .title(gettext(job.request.format.label()))
+            .subtitle(gettext(if working {
                 if job.state == "creating" {
-                    "Creating your file…"
+                    gettext_noop("Creating your file…")
                 } else {
-                    "Writing your document…"
+                    gettext_noop("Writing your document…")
                 }
             } else if !job.error.is_empty() {
                 &job.error
             } else if message.status == MessageStatus::Complete {
-                "Ready to create your file"
+                gettext_noop("Ready to create your file")
             } else {
-                "Continue or retry the response to finish this document"
-            })
+                gettext_noop("Continue or retry the response to finish this document")
+            }))
             .subtitle_lines(3)
             .use_markup(false)
             .build();
@@ -528,11 +547,11 @@ pub(super) fn append(backend: &Backend, row: &gtk::Box, message: &Message) -> Re
         } else {
             pending.add_prefix(&gtk::Image::from_icon_name(job.request.format.icon()));
             if message.status == MessageStatus::Complete {
-                let button = gtk::Button::with_label(if job.error.is_empty() {
-                    "Create File"
+                let button = gtk::Button::with_label(&gettext(if job.error.is_empty() {
+                    gettext_noop("Create File")
                 } else {
-                    "Retry Response"
-                });
+                    gettext_noop("Retry Response")
+                }));
                 button.set_valign(gtk::Align::Center);
                 button.set_action_name(Some(if job.error.is_empty() {
                     "message.create-file"
@@ -558,7 +577,7 @@ fn card(document: &CreatedDocument) -> gtk::Box {
         .title(document.filename())
         .subtitle(format!(
             "{} · {}",
-            document.format.label(),
+            gettext(document.format.label()),
             model_actions::format_download_size(document.byte_size.max(0) as u64)
         ))
         .title_lines(1)
@@ -573,11 +592,11 @@ fn card(document: &CreatedDocument) -> gtk::Box {
     actions.set_margin_end(12);
     actions.set_margin_bottom(12);
     for (label, action) in [
-        ("Preview", "preview-document"),
-        ("Open", "open-document"),
-        ("Save As…", "save-document"),
+        (gettext_noop("Preview"), "preview-document"),
+        (gettext_noop("Open"), "open-document"),
+        (gettext_noop("Save As…"), "save-document"),
     ] {
-        let button = gtk::Button::with_label(label);
+        let button = gtk::Button::with_label(&gettext(label));
         button.set_hexpand(true);
         button.set_action_name(Some(&format!("message.{action}")));
         button.set_action_target_value(Some(&document.id.to_variant()));
@@ -594,7 +613,7 @@ fn preview(ui: &Rc<WindowUi>, backend: &Rc<Backend>, document: &CreatedDocument)
     {
         Ok(content) => content,
         Err(error) => {
-            toast(ui, &error.to_string());
+            toast(ui, &crate::i18n::error_message(&error));
             return;
         }
     };
@@ -604,7 +623,7 @@ fn preview(ui: &Rc<WindowUi>, backend: &Rc<Backend>, document: &CreatedDocument)
         .content_height(700)
         .build();
     let header = adw::HeaderBar::new();
-    let save_button = gtk::Button::with_label("Save As…");
+    let save_button = gtk::Button::with_label(&gettext("Save As…"));
     save_button.add_css_class("suggested-action");
     header.pack_end(&save_button);
     let document_copy = document.clone();
@@ -617,7 +636,7 @@ fn preview(ui: &Rc<WindowUi>, backend: &Rc<Backend>, document: &CreatedDocument)
     page.set_margin_top(20);
     page.set_margin_bottom(24);
     let title = gtk::Label::builder()
-        .label(&document.title)
+        .label(crate::i18n::document_title(&document.title))
         .xalign(0.0)
         .wrap(true)
         .selectable(true)
@@ -625,7 +644,9 @@ fn preview(ui: &Rc<WindowUi>, backend: &Rc<Backend>, document: &CreatedDocument)
     title.add_css_class("title-1");
     page.append(&title);
     let description = gtk::Label::builder()
-        .label("Content preview · Open the file to see its final layout")
+        .label(gettext(
+            "Content preview · Open the file to see its final layout",
+        ))
         .xalign(0.0)
         .wrap(true)
         .build();
@@ -680,9 +701,9 @@ fn open_chat(ui: &Rc<WindowUi>, backend: &Rc<Backend>, document: &CreatedDocumen
             .any(|item| item.id == message.id)
         {
             if backend.active_generation.borrow().is_some() {
-                return Err(crate::attachments::error(
+                return Err(crate::attachments::error(gettext(
                     "Finish or stop the current response before opening another response version.",
-                ));
+                )));
             }
             generation::retry_pending(backend)?;
             repository.select_message_path(&message.id)?;
@@ -692,7 +713,13 @@ fn open_chat(ui: &Rc<WindowUi>, backend: &Rc<Backend>, document: &CreatedDocumen
     let message = match result {
         Ok(message) => message,
         Err(error) => {
-            toast(ui, &format!("Chat could not be opened: {error}"));
+            toast(
+                ui,
+                &gettext_f(
+                    "Chat could not be opened: {error}",
+                    &[("error", &(error).to_string())],
+                ),
+            );
             return;
         }
     };
@@ -759,11 +786,17 @@ fn open(ui: &Rc<WindowUi>, backend: &Rc<Backend>, document: &CreatedDocument) {
                 if let Err(error) = result
                     && !error.matches(gio::IOErrorEnum::Cancelled)
                 {
-                    toast(&ui, &format!("Document could not be opened: {error}"));
+                    toast(
+                        &ui,
+                        &gettext_f(
+                            "Document could not be opened: {error}",
+                            &[("error", &(error).to_string())],
+                        ),
+                    );
                 }
             });
         }
-        Err(error) => toast(ui, &error.to_string()),
+        Err(error) => toast(ui, &crate::i18n::error_message(&error)),
     }
 }
 
@@ -771,18 +804,18 @@ fn save(ui: &Rc<WindowUi>, backend: &Rc<Backend>, document: &CreatedDocument) {
     let bytes = match backend.conversation_repository.document_bytes(&document.id) {
         Ok(bytes) => bytes,
         Err(error) => {
-            toast(ui, &error.to_string());
+            toast(ui, &crate::i18n::error_message(&error));
             return;
         }
     };
     let filter = gtk::FileFilter::new();
-    filter.set_name(Some(document.format.label()));
+    filter.set_name(Some(&gettext(document.format.label())));
     filter.add_suffix(document.format.extension());
     let filters = gio::ListStore::new::<gtk::FileFilter>();
     filters.append(&filter);
     let dialog = gtk::FileDialog::builder()
-        .title("Save Document")
-        .accept_label("Save")
+        .title(gettext("Save Document"))
+        .accept_label(gettext("Save"))
         .initial_name(document.filename())
         .filters(&filters)
         .default_filter(&filter)
@@ -798,7 +831,13 @@ fn save(ui: &Rc<WindowUi>, backend: &Rc<Backend>, document: &CreatedDocument) {
                 return;
             }
             Err(error) => {
-                toast(&ui, &format!("Save location could not be opened: {error}"));
+                toast(
+                    &ui,
+                    &gettext_f(
+                        "Save location could not be opened: {error}",
+                        &[("error", &(error).to_string())],
+                    ),
+                );
                 return;
             }
         };
@@ -811,9 +850,15 @@ fn save(ui: &Rc<WindowUi>, backend: &Rc<Backend>, document: &CreatedDocument) {
             )
             .await
         {
-            Ok(_) => toast(&ui, "Document saved"),
+            Ok(_) => toast(&ui, &gettext("Document saved")),
             Err((_, error)) if error.matches(gio::IOErrorEnum::Cancelled) => {}
-            Err((_, error)) => toast(&ui, &format!("Document could not be saved: {error}")),
+            Err((_, error)) => toast(
+                &ui,
+                &gettext_f(
+                    "Document could not be saved: {error}",
+                    &[("error", &(error).to_string())],
+                ),
+            ),
         }
     });
 }

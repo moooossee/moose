@@ -1,3 +1,5 @@
+use crate::i18n::{gettext, gettext_f};
+
 use std::{
     cell::RefCell,
     fs,
@@ -30,14 +32,14 @@ pub(super) fn render(
         .recursive(true)
         .mode(0o700)
         .create(directory)
-        .map_err(|_| "The document cache could not be opened.")?;
+        .map_err(|_| gettext("The document cache could not be opened."))?;
     let path = TemporaryFile(directory.join(format!("{}.pdf", crate::core::new_id())));
     fs::OpenOptions::new()
         .write(true)
         .create_new(true)
         .mode(0o600)
         .open(&path.0)
-        .map_err(|_| "A temporary PDF could not be created.")?;
+        .map_err(|_| gettext("A temporary PDF could not be created."))?;
     let operation = gtk::PrintOperation::new();
     operation.set_allow_async(false);
     operation.set_unit(gtk::Unit::Points);
@@ -61,7 +63,9 @@ pub(super) fn render(
         let layout = context.create_pango_layout();
         layout.set_width((context.width() * f64::from(pango::SCALE)) as i32);
         layout.set_wrap(pango::WrapMode::WordChar);
-        layout.set_font_description(Some(&pango::FontDescription::from_string("Sans 11")));
+        layout.set_font_description(Some(&pango::FontDescription::from_string(&gettext(
+            "Sans 11",
+        ))));
         layout.set_spacing(3 * pango::SCALE);
         layout.set_markup(&markup);
         let height = context.height() - 26.0;
@@ -84,10 +88,9 @@ pub(super) fn render(
         }
         ranges.push((start, end));
         if ranges.len() > 300 {
-            *target_error.borrow_mut() = Some(
-                "The PDF exceeds the limit of 300 pages. Split the document into smaller parts."
-                    .into(),
-            );
+            *target_error.borrow_mut() = Some(gettext(
+                "The PDF exceeds the limit of 300 pages. Split the document into smaller parts.",
+            ));
             operation.cancel();
             return;
         }
@@ -95,8 +98,9 @@ pub(super) fn render(
         snapshot.append_layout(&layout, &gdk::RGBA::BLACK);
         *target_node.borrow_mut() = snapshot.to_node();
         if target_node.borrow().is_none() {
-            *target_error.borrow_mut() =
-                Some("The PDF text could not be rendered. Try another format.".into());
+            *target_error.borrow_mut() = Some(gettext(
+                "The PDF text could not be rendered. Try another format.",
+            ));
             operation.cancel();
             return;
         }
@@ -126,7 +130,9 @@ pub(super) fn render(
             let _ = cr.restore();
         }
         let footer = context.create_pango_layout();
-        footer.set_font_description(Some(&pango::FontDescription::from_string("Sans 9")));
+        footer.set_font_description(Some(&pango::FontDescription::from_string(&gettext(
+            "Sans 9",
+        ))));
         footer.set_text(&format!("{} / {}", page + 1, pages.len()));
         let snapshot = gtk::Snapshot::new();
         snapshot.append_layout(&footer, &gdk::RGBA::new(0.4, 0.4, 0.4, 1.0));
@@ -135,22 +141,30 @@ pub(super) fn render(
             node.draw(&cr);
         }
         if let Err(error) = cr.status() {
-            *target_error.borrow_mut() = Some(format!("The PDF page could not be drawn: {error}"));
+            *target_error.borrow_mut() = Some(gettext_f(
+                "The PDF page could not be drawn: {error}",
+                &[("error", &(error).to_string())],
+            ));
             operation.cancel();
         }
     });
     let result = operation
         .run(gtk::PrintOperationAction::Export, Some(parent))
-        .map_err(|error| format!("PDF generation failed: {error}"))?;
+        .map_err(|error| {
+            gettext_f(
+                "PDF generation failed: {error}",
+                &[("error", &(error).to_string())],
+            )
+        })?;
     if let Some(error) = error.borrow_mut().take() {
         return Err(error);
     }
     if result != gtk::PrintOperationResult::Apply {
-        return Err("PDF generation did not finish.".into());
+        return Err(gettext("PDF generation did not finish."));
     }
-    let bytes = fs::read(&path.0).map_err(|_| "The generated PDF could not be read.")?;
+    let bytes = fs::read(&path.0).map_err(|_| gettext("The generated PDF could not be read."))?;
     if !bytes.starts_with(b"%PDF-") || bytes.len() > MAX_FILE_BYTES {
-        return Err("The PDF is invalid or exceeds the size limit.".into());
+        return Err(gettext("The PDF is invalid or exceeds the size limit."));
     }
     Ok(bytes)
 }
@@ -223,9 +237,9 @@ fn table_markup(table: &Table) -> String {
             for (column, cell) in row.iter().enumerate() {
                 let name = table.rows[0]
                     .get(column)
-                    .map(String::as_str)
-                    .unwrap_or("Column");
-                result.push_str(&format!("<b>{}</b>: {}\n", xml(name), xml(cell)));
+                    .cloned()
+                    .unwrap_or_else(|| gettext("Column"));
+                result.push_str(&format!("<b>{}</b>: {}\n", xml(&name), xml(cell)));
             }
             result.push('\n');
         }

@@ -1,3 +1,5 @@
+use crate::i18n::{gettext, gettext_f, gettext_noop, ngettext_f};
+
 use super::*;
 use crate::attachments::FileEntry;
 
@@ -28,20 +30,23 @@ pub(in crate::ui::window) fn build() -> Library {
     let content = gtk::Box::new(gtk::Orientation::Vertical, 20);
     content.add_css_class("moose-files-content");
     let heading = gtk::Box::new(gtk::Orientation::Horizontal, 16);
-    let back = widgets::icon_button("go-previous-symbolic", "Back to Chat");
+    let back = widgets::icon_button("go-previous-symbolic", &gettext("Back to Chat"));
     back.add_css_class("flat");
     back.add_css_class("moose-files-back");
     back.set_valign(gtk::Align::Center);
     let back_content = gtk::Box::new(gtk::Orientation::Horizontal, 6);
     back_content.append(&gtk::Image::from_icon_name("go-previous-symbolic"));
-    back_content.append(&gtk::Label::new(Some("Chat")));
+    back_content.append(&gtk::Label::new(Some(&gettext("Chat"))));
     back.set_child(Some(&back_content));
     let titles = gtk::Box::new(gtk::Orientation::Vertical, 4);
     titles.set_hexpand(true);
-    let title = gtk::Label::builder().label("Files").xalign(0.0).build();
+    let title = gtk::Label::builder()
+        .label(gettext("Files"))
+        .xalign(0.0)
+        .build();
     title.add_css_class("moose-files-title");
     let subtitle = gtk::Label::builder()
-        .label("Files you upload and create in your chats.")
+        .label(gettext("Files you upload and create in your chats."))
         .xalign(0.0)
         .wrap(true)
         .build();
@@ -49,17 +54,17 @@ pub(in crate::ui::window) fn build() -> Library {
     subtitle.add_css_class("moose-files-subtitle");
     titles.append(&title);
     titles.append(&subtitle);
-    let add = gtk::Button::with_label("Import…");
-    add.set_tooltip_text(Some("Add files to your library"));
+    let add = gtk::Button::with_label(&gettext("Import…"));
+    add.set_tooltip_text(Some(&gettext("Add files to your library")));
     add.set_valign(gtk::Align::Center);
     add.add_css_class("moose-files-import");
-    let cancel = widgets::icon_button("process-stop-symbolic", "Cancel Import");
+    let cancel = widgets::icon_button("process-stop-symbolic", &gettext("Cancel Import"));
     cancel.add_css_class("flat");
     cancel.set_valign(gtk::Align::Center);
     cancel.set_visible(false);
     let scope = adw::SwitchRow::builder()
-        .title("Search Library in This Chat")
-        .subtitle("Include relevant text when you send a message.")
+        .title(gettext("Search Library in This Chat"))
+        .subtitle(gettext("Include relevant text when you send a message."))
         .build();
     let group = adw::PreferencesGroup::new();
     group.add(&scope);
@@ -72,7 +77,7 @@ pub(in crate::ui::window) fn build() -> Library {
     let popover = gtk::Popover::builder().child(&options_content).build();
     let options = gtk::MenuButton::builder()
         .icon_name("emblem-system-symbolic")
-        .tooltip_text("Chat Library Settings")
+        .tooltip_text(gettext("Chat Library Settings"))
         .valign(gtk::Align::Center)
         .popover(&popover)
         .build();
@@ -90,19 +95,25 @@ pub(in crate::ui::window) fn build() -> Library {
     content.append(&heading);
 
     let search = gtk::SearchEntry::builder()
-        .placeholder_text("Search files…")
+        .placeholder_text(gettext("Search files…"))
         .hexpand(true)
         .build();
-    search.set_tooltip_text(Some(
+    search.set_tooltip_text(Some(&gettext(
         "Search by file name or contents, or a generated document's chat",
-    ));
+    )));
     search.add_css_class("moose-files-search");
     content.append(&search);
     let filter_row = gtk::Box::new(gtk::Orientation::Horizontal, 4);
     filter_row.add_css_class("moose-files-filters");
     let mut filters = Vec::<gtk::ToggleButton>::new();
-    for name in ["All", "Library", "Documents", "Images", "Generated"] {
-        let filter = gtk::ToggleButton::with_label(name);
+    for name in [
+        gettext_noop("All"),
+        gettext_noop("Library"),
+        gettext_noop("Documents"),
+        gettext_noop("Images"),
+        gettext_noop("Generated"),
+    ] {
+        let filter = gtk::ToggleButton::with_label(&gettext(name));
         filter.add_css_class("flat");
         filter.add_css_class("moose-files-filter");
         if let Some(first) = filters.first() {
@@ -126,10 +137,10 @@ pub(in crate::ui::window) fn build() -> Library {
     grid.add_css_class("moose-files-grid");
     let empty = adw::StatusPage::builder()
         .icon_name("folder-documents-symbolic")
-        .title("A Place for Your Files")
-        .description(
+        .title(gettext("A Place for Your Files"))
+        .description(gettext(
             "Import files or create a document in a chat. They will appear here automatically.",
-        )
+        ))
         .build();
     empty.add_css_class("moose-files-empty");
     empty.add_css_class("compact");
@@ -143,7 +154,7 @@ pub(in crate::ui::window) fn build() -> Library {
     results.add_css_class("dim-label");
     filter_row.append(&results);
     content.append(&filter_row);
-    let more = gtk::Button::with_label("Show More");
+    let more = gtk::Button::with_label(&gettext("Show More"));
     more.set_halign(gtk::Align::Center);
     more.add_css_class("flat");
     more.add_css_class("moose-files-more");
@@ -256,7 +267,10 @@ pub(in crate::ui::window) fn bind(ui: &Rc<WindowUi>, backend: &Rc<Backend>) {
         if let Err(error) = result {
             toast(
                 &target_ui,
-                &format!("Library setting could not be saved: {error}"),
+                &gettext_f(
+                    "Library setting could not be saved: {error}",
+                    &[("error", &(error).to_string())],
+                ),
             );
             sync_scope(&target_ui, &target_backend);
         }
@@ -278,7 +292,13 @@ pub(in crate::ui::window) fn bind(ui: &Rc<WindowUi>, backend: &Rc<Backend>) {
 
 pub(in crate::ui::window) fn show(ui: &Rc<WindowUi>, backend: &Rc<Backend>) {
     if let Err(error) = workspace::save(ui, backend) {
-        toast(ui, &format!("Draft could not be saved: {error}"));
+        toast(
+            ui,
+            &gettext_f(
+                "Draft could not be saved: {error}",
+                &[("error", &(error).to_string())],
+            ),
+        );
         return;
     }
     ui.root_stack.set_visible_child_name("app");
@@ -311,9 +331,11 @@ fn sync_scope(ui: &WindowUi, backend: &Backend) {
 pub(in crate::ui::window) fn sync_import(ui: &WindowUi) {
     let busy = ui.attachments.busy.get() > 0;
     ui.files.add.set_sensitive(!busy);
-    ui.files
-        .add
-        .set_label(if busy { "Importing…" } else { "Import…" });
+    ui.files.add.set_label(&gettext(if busy {
+        gettext_noop("Importing…")
+    } else {
+        gettext_noop("Import…")
+    }));
     ui.files.cancel.set_visible(busy);
     ui.files.cancel.set_sensitive(busy);
 }
@@ -348,10 +370,11 @@ fn populate(ui: &Rc<WindowUi>, backend: &Rc<Backend>) {
                 page.grid.set_visible(false);
                 page.more.set_visible(false);
                 page.results.set_visible(false);
-                page.empty.set_title("Files Could Not Be Loaded");
-                page.empty.set_description(Some("Try opening Files again."));
+                page.empty.set_title(&gettext("Files Could Not Be Loaded"));
+                page.empty
+                    .set_description(Some(&gettext("Try opening Files again.")));
                 page.empty.set_visible(true);
-                toast(ui, &error.to_string());
+                toast(ui, &crate::i18n::error_message(&error));
                 return;
             }
         };
@@ -361,30 +384,40 @@ fn populate(ui: &Rc<WindowUi>, backend: &Rc<Backend>) {
     let searching = !page.search.text().trim().is_empty();
     let filtered = searching || filter != "all";
     page.empty
-        .set_title(if filter == "generated" && !searching {
-            "No Generated Documents Yet"
+        .set_title(&gettext(if filter == "generated" && !searching {
+            gettext_noop("No Generated Documents Yet")
         } else if filtered {
-            "No Matching Files"
+            gettext_noop("No Matching Files")
         } else {
-            "A Place for Your Files"
-        });
-    page.empty
-        .set_description(Some(if filter == "generated" && !searching {
-            "Use Create Document in a chat. Your finished documents will appear here automatically."
-        } else if filtered {
-            "Try another search or select All."
-        } else {
-            "Import files or create a document in a chat. They will appear here automatically."
+            gettext_noop("A Place for Your Files")
         }));
+    page.empty
+        .set_description(Some(&gettext(if filter == "generated" && !searching {
+            gettext_noop("Use Create Document in a chat. Your finished documents will appear here automatically.")
+        } else if filtered {
+            gettext_noop("Try another search or select All.")
+        } else {
+            gettext_noop("Import files or create a document in a chat. They will appear here automatically.")
+        })));
     page.empty.set_visible(files.is_empty());
     page.grid.set_visible(!files.is_empty());
     page.more.set_visible(files.len() > limit);
     page.results.set_visible(!files.is_empty());
     let count = files.len().min(limit);
     page.results.set_label(&if files.len() > limit {
-        format!("Showing {count} files")
+        ngettext_f(
+            "Showing {count} file",
+            "Showing {count} files",
+            count as u32,
+            &[("count", &count.to_string())],
+        )
     } else {
-        format!("{count} file{}", if count == 1 { "" } else { "s" })
+        ngettext_f(
+            "{count} file",
+            "{count} files",
+            count as u32,
+            &[("count", &count.to_string())],
+        )
     });
     for file in files.into_iter().take(limit) {
         let (filename, icon, kind, size) = match &file {
@@ -396,9 +429,9 @@ fn populate(ui: &Rc<WindowUi>, backend: &Rc<Backend>) {
                     "text-x-generic-symbolic"
                 },
                 match asset.kind.as_str() {
-                    "image" => "Image",
+                    "image" => gettext_noop("Image"),
                     "pdf" => "PDF",
-                    _ => "Document",
+                    _ => gettext_noop("Document"),
                 },
                 asset.byte_size,
             ),
@@ -436,7 +469,8 @@ fn populate(ui: &Rc<WindowUi>, backend: &Rc<Backend>) {
         name.add_css_class("moose-file-name");
         let details = gtk::Label::builder()
             .label(format!(
-                "{kind} · {}",
+                "{} · {}",
+                gettext(kind),
                 super::super::model_actions::format_download_size(size.max(0) as u64),
             ))
             .xalign(0.0)
@@ -454,10 +488,20 @@ fn populate(ui: &Rc<WindowUi>, backend: &Rc<Backend>) {
             .tooltip_text(match &file {
                 FileEntry::Generated {
                     conversation_title, ..
-                } => {
-                    format!("{filename}\nGenerated in {conversation_title}\nPreview document")
-                }
-                FileEntry::Uploaded(_) => format!("{filename} — Open chat or preview"),
+                } => gettext_f(
+                    "{filename}\nGenerated in {conversation_title}\nPreview document",
+                    &[
+                        ("filename", &(filename).to_string()),
+                        (
+                            "conversation_title",
+                            &crate::i18n::conversation_title(conversation_title),
+                        ),
+                    ],
+                ),
+                FileEntry::Uploaded(_) => gettext_f(
+                    "{filename} — Open chat or preview",
+                    &[("filename", &(filename).to_string())],
+                ),
             })
             .build();
         open.add_css_class("moose-file-card");
@@ -498,18 +542,33 @@ fn generated_menu(document: &crate::documents::CreatedDocument) -> gtk::MenuButt
     let popover = gtk::Popover::builder().child(&content).build();
     let button = gtk::MenuButton::builder()
         .icon_name("view-more-symbolic")
-        .tooltip_text(format!("Actions for {}", document.filename()))
+        .tooltip_text(gettext_f(
+            "Actions for {arg1}",
+            &[("arg1", &(document.filename()).to_string())],
+        ))
         .popover(&popover)
         .build();
     button.add_css_class("flat");
     button.add_css_class("moose-file-actions");
     for (label, icon, action) in [
-        ("Preview", "document-open-symbolic", "preview-document"),
-        ("Open", "go-next-symbolic", "open-document"),
-        ("Save As…", "document-save-as-symbolic", "save-document"),
-        ("Open Chat", "go-jump-symbolic", "document-chat"),
+        (
+            gettext_noop("Preview"),
+            "document-open-symbolic",
+            "preview-document",
+        ),
+        (gettext_noop("Open"), "go-next-symbolic", "open-document"),
+        (
+            gettext_noop("Save As…"),
+            "document-save-as-symbolic",
+            "save-document",
+        ),
+        (
+            gettext_noop("Open Chat"),
+            "go-jump-symbolic",
+            "document-chat",
+        ),
     ] {
-        let item = menu_item(icon, label);
+        let item = menu_item(icon, &gettext(label));
         item.set_action_target_value(Some(&document.id.to_variant()));
         item.set_action_name(Some(&format!("message.{action}")));
         let weak_popover = popover.downgrade();
@@ -555,13 +614,13 @@ fn preview_asset(
         .content_height(560)
         .build();
     let header = adw::HeaderBar::new();
-    let save = gtk::Button::with_label("Save Copy…");
+    let save = gtk::Button::with_label(&gettext("Save Copy…"));
     header.pack_start(&save);
     let root = gtk::Box::new(gtk::Orientation::Vertical, 8);
     if asset.kind == "image" {
         match repository.asset_bytes(&asset.id).and_then(|bytes| {
             gdk::Texture::from_bytes(&glib::Bytes::from_owned(bytes))
-                .map_err(|_| error("This image could not be displayed"))
+                .map_err(|_| error(gettext("This image could not be displayed")))
         }) {
             Ok(texture) => {
                 dialog.set_content_width(960);
@@ -581,12 +640,12 @@ fn preview_asset(
                     .build();
                 let fit = gtk::ToggleButton::builder()
                     .icon_name("zoom-fit-best-symbolic")
-                    .tooltip_text("Fit Image to Window")
+                    .tooltip_text(gettext("Fit Image to Window"))
                     .active(true)
                     .build();
                 let actual = gtk::ToggleButton::builder()
                     .label("100%")
-                    .tooltip_text("View at Actual Size")
+                    .tooltip_text(gettext("View at Actual Size"))
                     .group(&fit)
                     .build();
                 let controls = gtk::Box::new(gtk::Orientation::Horizontal, 0);
@@ -597,7 +656,7 @@ fn preview_asset(
                 let image_stack = gtk::Stack::builder().vexpand(true).build();
                 image_stack.add_named(&scroll, Some("image"));
                 let failed = gtk::Label::builder()
-                    .label("This image could not be displayed.")
+                    .label(gettext("This image could not be displayed."))
                     .wrap(true)
                     .margin_start(24)
                     .margin_end(24)
@@ -609,12 +668,19 @@ fn preview_asset(
                     .position(|image| image.id == asset.id)
                     .filter(|_| images.len() > 1)
                 {
-                    let previous = widgets::icon_button("go-previous-symbolic", "Previous Image");
-                    let next = widgets::icon_button("go-next-symbolic", "Next Image");
+                    let previous =
+                        widgets::icon_button("go-previous-symbolic", &gettext("Previous Image"));
+                    let next = widgets::icon_button("go-next-symbolic", &gettext("Next Image"));
                     previous.set_sensitive(initial > 0);
                     next.set_sensitive(initial + 1 < images.len());
                     let counter = gtk::Label::builder()
-                        .label(format!("{} of {}", initial + 1, images.len()))
+                        .label(gettext_f(
+                            "{current} of {total}",
+                            &[
+                                ("current", &(initial + 1).to_string()),
+                                ("total", &images.len().to_string()),
+                            ],
+                        ))
                         .width_chars(7)
                         .css_classes(["dim-label"])
                         .build();
@@ -649,7 +715,7 @@ fn preview_asset(
                         let image = &images[target];
                         let texture = repository.asset_bytes(&image.id).and_then(|bytes| {
                             gdk::Texture::from_bytes(&glib::Bytes::from_owned(bytes))
-                                .map_err(|_| error("This image could not be displayed"))
+                                .map_err(|_| error(gettext("This image could not be displayed")))
                         });
                         let available = texture.is_ok();
                         match texture {
@@ -671,7 +737,13 @@ fn preview_asset(
                         if let Some(dialog) = weak_dialog.upgrade() {
                             dialog.set_title(&image.name);
                         }
-                        counter.set_label(&format!("{} of {}", target + 1, images.len()));
+                        counter.set_label(&gettext_f(
+                            "{current} of {total}",
+                            &[
+                                ("current", &(target + 1).to_string()),
+                                ("total", &images.len().to_string()),
+                            ],
+                        ));
                         if let Some(previous) = weak_previous.upgrade() {
                             previous.set_sensitive(target > 0);
                         }
@@ -717,16 +789,19 @@ fn preview_asset(
                     scroll.set_policy(policy, policy);
                 });
             }
-            Err(error) => root.append(&gtk::Label::new(Some(&error.to_string()))),
+            Err(error) => root.append(&gtk::Label::new(Some(&crate::i18n::error_message(&error)))),
         }
     } else {
         let page = gtk::SpinButton::with_range(1.0, asset.page_count.max(1) as f64, 1.0);
         page.set_value(initial_page.clamp(1, asset.page_count.max(1)) as f64);
         let page_row = gtk::Box::new(gtk::Orientation::Horizontal, 8);
         page_row.set_halign(gtk::Align::Center);
-        page_row.append(&gtk::Label::new(Some("Page")));
+        page_row.append(&gtk::Label::new(Some(&gettext("Page"))));
         page_row.append(&page);
-        page_row.append(&gtk::Label::new(Some(&format!("of {}", asset.page_count))));
+        page_row.append(&gtk::Label::new(Some(&gettext_f(
+            "of {total}",
+            &[("total", &asset.page_count.to_string())],
+        ))));
         let buffer = gtk::TextBuffer::new(None);
         let text = gtk::TextView::builder()
             .buffer(&buffer)
@@ -748,17 +823,20 @@ fn preview_asset(
         let id = asset.id.clone();
         let load = move |number| match repository.asset_page(&id, number) {
             Ok(text) if text.trim().is_empty() => {
-                buffer.set_text("No selectable text on this page.")
+                buffer.set_text(&gettext("No selectable text on this page."))
             }
             Ok(text) => buffer.set_text(&text),
-            Err(error) => buffer.set_text(&format!("Page could not be loaded: {error}")),
+            Err(error) => buffer.set_text(&gettext_f(
+                "Page could not be loaded: {error}",
+                &[("error", &(error).to_string())],
+            )),
         };
         load(page.value_as_int() as i64);
         page.connect_value_changed(move |page| load(page.value_as_int() as i64));
         if asset.kind == "pdf" {
-            let hint = gtk::Label::new(Some(
+            let hint = gtk::Label::new(Some(&gettext(
                 "Extracted text · Original layout is available in the saved PDF",
-            ));
+            )));
             hint.add_css_class("caption");
             hint.add_css_class("dim-label");
             root.append(&hint);
@@ -785,7 +863,7 @@ fn preview_asset(
             asset.name.clone()
         };
         let picker = gtk::FileDialog::builder()
-            .title("Save Attachment")
+            .title(gettext("Save Attachment"))
             .initial_name(&filename)
             .build();
         let parent = parent_window.clone();
@@ -805,15 +883,15 @@ fn preview_asset(
                     )
                     .await
                     .map(|_| ())
-                    .map_err(|(_, error)| error.to_string()),
-                Err(error) => Err(error.to_string()),
+                    .map_err(|(_, error)| crate::i18n::error_message(&error)),
+                Err(error) => Err(crate::i18n::error_message(&error)),
             };
             if let Err(error) = result {
                 let dialog = adw::AlertDialog::builder()
-                    .heading("File Could Not Be Saved")
+                    .heading(gettext("File Could Not Be Saved"))
                     .body(&error)
                     .build();
-                dialog.add_response("close", "Close");
+                dialog.add_response("close", &gettext("Close"));
                 dialog.present(Some(&parent));
             }
         });

@@ -1,3 +1,5 @@
+use crate::i18n::{gettext, gettext_f, gettext_noop};
+
 use super::{
     CustomAuthentication, Provider, ProviderKind, credentials, is_loopback_url,
     policy::NetworkPolicy, stream::Decoder, validate_model_id, validate_model_name, wire,
@@ -126,8 +128,9 @@ impl ProviderClient {
                 Ok(ModelCatalog {
                     models: manual,
                     verified: false,
-                    warning: Some(format!(
-                        "Model discovery failed: {error}. Using your saved model IDs."
+                    warning: Some(gettext_f(
+                        "Model discovery failed: {error}. Using your saved model IDs.",
+                        &[("error", &(error).to_string())],
                     )),
                 })
             }
@@ -203,9 +206,9 @@ impl ProviderClient {
                 return Ok(models);
             }
         }
-        Err(MooseError::ProviderResponse(
-            "The model list exceeded its pagination limit.".into(),
-        ))
+        Err(MooseError::ProviderResponse(gettext(
+            "The model list exceeded its pagination limit.",
+        )))
     }
 
     pub async fn stream_chat<F>(&self, mut request: ChatRequest, on_event: F) -> Result<()>
@@ -235,9 +238,9 @@ impl ProviderClient {
         self.check()?;
         let kind = self.provider.api_kind();
         if !request.tools.is_empty() && !kind.supports_tool_calling() {
-            return Err(MooseError::ProviderRequest(
-                "Tools are not supported by this provider yet.".into(),
-            ));
+            return Err(MooseError::ProviderRequest(gettext(
+                "Tools are not supported by this provider yet.",
+            )));
         }
         request.model = kind.validate_model_id(&request.model)?;
         if let Transport::Ollama(client) = &self.transport {
@@ -265,9 +268,9 @@ impl ProviderClient {
             .any(|message| !message.images.is_empty())
             && !self.supports_vision(&request.model).await?
         {
-            return Err(MooseError::ProviderRequest(
-                "This model does not support images. Select a model with image support.".into(),
-            ));
+            return Err(MooseError::ProviderRequest(gettext(
+                "This model does not support images. Select a model with image support.",
+            )));
         }
         let url = match kind {
             ProviderKind::OllamaCloud => self.endpoint("chat")?,
@@ -325,9 +328,9 @@ impl ProviderClient {
                 }
                 if matches!(event, ChatStreamEvent::Done) {
                     if !received_output {
-                        return Err(MooseError::ProviderResponse(
-                            "The model returned no text. Select a model that supports chat.".into(),
-                        ));
+                        return Err(MooseError::ProviderResponse(gettext(
+                            "The model returned no text. Select a model that supports chat.",
+                        )));
                     }
                     on_event(event)?;
                     return Ok(());
@@ -335,9 +338,9 @@ impl ProviderClient {
                 on_event(event)?;
             }
             if eof {
-                return Err(MooseError::ProviderResponse(
-                    "The connection ended before the answer was complete.".into(),
-                ));
+                return Err(MooseError::ProviderResponse(gettext(
+                    "The connection ended before the answer was complete.",
+                )));
             }
         }
     }
@@ -391,9 +394,9 @@ impl ProviderClient {
             .map_err(network_error)?;
         let data = response_json(response).await?;
         if !data["capabilities"].is_object() {
-            return Err(MooseError::ProviderResponse(
-                "The provider returned invalid model capabilities.".into(),
-            ));
+            return Err(MooseError::ProviderResponse(gettext(
+                "The provider returned invalid model capabilities.",
+            )));
         }
         Ok(data)
     }
@@ -420,9 +423,9 @@ impl ProviderClient {
             .as_array()
             .or_else(|| data["result"].as_array())
         else {
-            return Err(MooseError::ProviderResponse(
-                "The provider returned invalid model capabilities.".into(),
-            ));
+            return Err(MooseError::ProviderResponse(gettext(
+                "The provider returned invalid model capabilities.",
+            )));
         };
         list.iter()
             .find(|entry| {
@@ -432,9 +435,9 @@ impl ProviderClient {
             })
             .cloned()
             .ok_or_else(|| {
-                MooseError::ProviderResponse(
-                    "The provider returned invalid model capabilities.".into(),
-                )
+                MooseError::ProviderResponse(gettext(
+                    "The provider returned invalid model capabilities.",
+                ))
             })
     }
 
@@ -497,17 +500,17 @@ impl ProviderClient {
             .map_err(network_error)?;
         let data = response_json(response).await?;
         let Some(list) = data["data"].as_array() else {
-            return Err(MooseError::ProviderResponse(
-                "The provider returned invalid model capabilities.".into(),
-            ));
+            return Err(MooseError::ProviderResponse(gettext(
+                "The provider returned invalid model capabilities.",
+            )));
         };
         list.iter()
             .find(|entry| entry["id"].as_str() == Some(model.as_str()))
             .cloned()
             .ok_or_else(|| {
-                MooseError::ProviderResponse(
-                    "The provider returned invalid model capabilities.".into(),
-                )
+                MooseError::ProviderResponse(gettext(
+                    "The provider returned invalid model capabilities.",
+                ))
             })
     }
 
@@ -553,18 +556,18 @@ impl ProviderClient {
         if let Transport::Ollama(client) = &self.transport {
             return client.pull_model(model, on_progress).await;
         }
-        Err(MooseError::ProviderRequest(
-            "Cloud models do not need to be downloaded.".into(),
-        ))
+        Err(MooseError::ProviderRequest(gettext(
+            "Cloud models do not need to be downloaded.",
+        )))
     }
     pub async fn delete_model(&self, model: &str) -> Result<()> {
         self.check()?;
         if let Transport::Ollama(client) = &self.transport {
             return client.delete_model(model).await;
         }
-        Err(MooseError::ProviderRequest(
-            "Cloud models cannot be deleted from Moose.".into(),
-        ))
+        Err(MooseError::ProviderRequest(gettext(
+            "Cloud models cannot be deleted from Moose.",
+        )))
     }
     fn endpoint(&self, path: &str) -> Result<reqwest::Url> {
         let base = self.provider.kind.validate_url(&self.provider.base_url)?;
@@ -646,7 +649,7 @@ fn http_client(provider: &Provider, key: Option<&credentials::ApiKey>) -> Result
             }
             CustomAuthentication::Header(name) => {
                 let name = HeaderName::from_bytes(name.as_bytes()).map_err(|_| {
-                    MooseError::ProviderRequest("Invalid API key header name.".into())
+                    MooseError::ProviderRequest(gettext("Invalid API key header name."))
                 })?;
                 headers.insert(name, key.header(false)?);
             }
@@ -670,34 +673,33 @@ fn http_client(provider: &Provider, key: Option<&credentials::ApiKey>) -> Result
 }
 
 fn network_error(_: reqwest::Error) -> MooseError {
-    MooseError::ProviderRequest(
-        "The secure connection failed. Check your network and try again.".into(),
-    )
+    MooseError::ProviderRequest(gettext(
+        "The secure connection failed. Check your network and try again.",
+    ))
 }
 fn check_status(response: &Response) -> Result<()> {
     let status = response.status();
     if status.is_success() {
         return Ok(());
     }
-    let message = match status.as_u16() {
-        401 | 403 => "Authentication failed. Check your API key and model access in Preferences.",
-        429 => {
-            "The provider's rate or spending limit was reached. Wait before retrying or check your account."
-        }
-        400 | 422 => {
-            "The provider rejected the model or request options. Check the selected model and attachments."
-        }
-        404 => "This model or API endpoint is unavailable. Refresh the model list.",
-        300..=399 => {
-            "The provider tried to redirect the request. Redirects are blocked to protect your API key."
-        }
-        500..=599 => "The provider is temporarily unavailable. Try again later.",
-        _ => "The provider could not process this request.",
-    };
-    Err(MooseError::HttpStatus {
-        status,
-        message: message.into(),
-    })
+    let message = gettext(match status.as_u16() {
+        401 | 403 => gettext_noop(
+            "Authentication failed. Check your API key and model access in Preferences.",
+        ),
+        429 => gettext_noop(
+            "The provider's rate or spending limit was reached. Wait before retrying or check your account.",
+        ),
+        400 | 422 => gettext_noop(
+            "The provider rejected the model or request options. Check the selected model and attachments.",
+        ),
+        404 => gettext_noop("This model or API endpoint is unavailable. Refresh the model list."),
+        300..=399 => gettext_noop(
+            "The provider tried to redirect the request. Redirects are blocked to protect your API key.",
+        ),
+        500..=599 => gettext_noop("The provider is temporarily unavailable. Try again later."),
+        _ => gettext_noop("The provider could not process this request."),
+    });
+    Err(MooseError::HttpStatus { status, message })
 }
 async fn response_json(response: Response) -> Result<Value> {
     check_status(&response)?;
@@ -706,19 +708,19 @@ async fn response_json(response: Response) -> Result<Value> {
     while let Some(chunk) = stream.next().await {
         let chunk = chunk.map_err(network_error)?;
         if bytes.len().saturating_add(chunk.len()) > MAX_RESPONSE_BYTES {
-            return Err(MooseError::ProviderResponse(
-                "The provider response is too large.".into(),
-            ));
+            return Err(MooseError::ProviderResponse(gettext(
+                "The provider response is too large.",
+            )));
         }
         bytes.extend_from_slice(&chunk);
     }
-    let data: Value = serde_json::from_slice(&bytes)
-        .map_err(|_| MooseError::ProviderResponse("The provider returned invalid JSON.".into()))?;
+    let data: Value = serde_json::from_slice(&bytes).map_err(|_| {
+        MooseError::ProviderResponse(gettext("The provider returned invalid JSON."))
+    })?;
     if data["success"].as_bool() == Some(false) {
-        return Err(MooseError::ProviderResponse(
-            "The provider rejected the request. Check your API token, account ID and permissions."
-                .into(),
-        ));
+        return Err(MooseError::ProviderResponse(gettext(
+            "The provider rejected the request. Check your API token, account ID and permissions.",
+        )));
     }
     Ok(data)
 }
@@ -748,7 +750,7 @@ fn parse_models(kind: ProviderKind, data: &Value, custom: bool) -> Result<Vec<Ol
         _ => data["data"].as_array(),
     }
     .ok_or_else(|| {
-        MooseError::ProviderResponse("The provider returned an invalid model list.".into())
+        MooseError::ProviderResponse(gettext("The provider returned an invalid model list."))
     })?;
     let mut models = Vec::new();
     for item in list {

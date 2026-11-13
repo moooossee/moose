@@ -1,3 +1,5 @@
+use crate::i18n::{gettext, gettext_f};
+
 use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
 use adw::prelude::*;
@@ -21,7 +23,7 @@ pub(super) fn dialog(
     backend: &Rc<Backend>,
 ) -> adw::PreferencesDialog {
     let dialog = adw::PreferencesDialog::builder()
-        .title("Preferences")
+        .title(gettext("Preferences"))
         .search_enabled(false)
         .build();
 
@@ -43,18 +45,18 @@ pub(super) fn dialog(
         .as_ref()
         .is_some_and(|provider| provider.is_managed);
     let provider_page = adw::PreferencesPage::builder()
-        .title("Provider")
+        .title(gettext("Provider"))
         .icon_name("network-server-symbolic")
         .build();
     let provider_group = adw::PreferencesGroup::builder()
-        .title("Active Provider")
+        .title(gettext("Active Provider"))
         .build();
     let name_row = adw::EntryRow::builder()
-        .title("Name")
+        .title(gettext("Name"))
         .text(provider_name)
         .build();
     let url_row = adw::EntryRow::builder()
-        .title("Base URL")
+        .title(gettext("Base URL"))
         .text(provider_url)
         .build();
     if provider_is_managed || provider.as_ref().is_some_and(|p| p.kind.requires_key()) {
@@ -62,7 +64,7 @@ pub(super) fn dialog(
     }
     let port_row = provider_is_managed.then(|| {
         adw::EntryRow::builder()
-            .title("Managed Port")
+            .title(gettext("Managed Port"))
             .text(managed_port.to_string())
             .build()
     });
@@ -73,9 +75,9 @@ pub(super) fn dialog(
         .margin_top(6)
         .margin_bottom(6)
         .build();
-    let save_button = widgets::icon_button("document-save-symbolic", "Save Provider");
-    let add_button = widgets::icon_button("list-add-symbolic", "Add Provider");
-    let delete_button = widgets::icon_button("user-trash-symbolic", "Delete Provider");
+    let save_button = widgets::icon_button("document-save-symbolic", &gettext("Save Provider"));
+    let add_button = widgets::icon_button("list-add-symbolic", &gettext("Add Provider"));
+    let delete_button = widgets::icon_button("user-trash-symbolic", &gettext("Delete Provider"));
 
     save_button.add_css_class("suggested-action");
     delete_button.add_css_class("destructive-action");
@@ -87,8 +89,8 @@ pub(super) fn dialog(
     if provider_is_managed {
         provider_group.add(
             &adw::ActionRow::builder()
-                .title("Managed by Moose")
-                .subtitle("Local sandbox service")
+                .title(gettext("Managed by Moose"))
+                .subtitle(gettext("Local sandbox service"))
                 .build(),
         );
     }
@@ -103,14 +105,16 @@ pub(super) fn dialog(
         && let Some(config) = &provider.custom_config
     {
         let custom_group = adw::PreferencesGroup::builder()
-            .title("Custom Connection")
-            .description("Configure the server, authentication and model IDs.")
+            .title(gettext("Custom Connection"))
+            .description(gettext(
+                "Configure the server, authentication and model IDs.",
+            ))
             .build();
         let row = adw::ActionRow::builder()
-            .title("API Format")
-            .subtitle(config.protocol.label())
+            .title(gettext("API Format"))
+            .subtitle(gettext(config.protocol.label()))
             .build();
-        let configure = gtk::Button::with_label("Configure Provider");
+        let configure = gtk::Button::with_label(&gettext("Configure Provider"));
         configure.set_valign(Align::Center);
         row.add_suffix(&configure);
         row.set_activatable_widget(Some(&configure));
@@ -131,23 +135,29 @@ pub(super) fn dialog(
                     }
                     super::cloud_setup::edit_custom(&target_ui, &target_backend, provider);
                 }
-                Ok(None) => target_ui
-                    .toast_overlay
-                    .add_toast(adw::Toast::new("This provider is no longer available")),
-                Err(error) => show_error(&target_ui.window, "Provider could not be loaded", &error),
+                Ok(None) => target_ui.toast_overlay.add_toast(adw::Toast::new(&gettext(
+                    "This provider is no longer available",
+                ))),
+                Err(error) => show_error(
+                    &target_ui.window,
+                    &gettext("Provider could not be loaded"),
+                    &error,
+                ),
             }
         });
     }
     if let Some(provider) = provider.as_ref().filter(|p| p.requires_key()) {
         let key_group = adw::PreferencesGroup::builder()
-            .title("Credentials")
-            .description("API keys are protected by the desktop keyring and excluded from exports.")
+            .title(gettext("Credentials"))
+            .description(gettext(
+                "API keys are protected by the desktop keyring and excluded from exports.",
+            ))
             .build();
         let row = adw::ActionRow::builder()
-            .title("API Key")
-            .subtitle("Add, replace or remove the saved key")
+            .title(gettext("API Key"))
+            .subtitle(gettext("Add, replace or remove the saved key"))
             .build();
-        let button = gtk::Button::with_label("Manage Key");
+        let button = gtk::Button::with_label(&gettext("Manage Key"));
         button.set_valign(Align::Center);
         row.add_suffix(&button);
         key_group.add(&row);
@@ -159,21 +169,27 @@ pub(super) fn dialog(
             Ok(Some(provider)) => {
                 super::cloud_setup::edit_key(&target_ui, &target_backend, provider)
             }
-            Ok(None) => target_ui
-                .toast_overlay
-                .add_toast(adw::Toast::new("This provider is no longer available")),
-            Err(error) => show_error(&target_ui.window, "Provider could not be loaded", &error),
+            Ok(None) => target_ui.toast_overlay.add_toast(adw::Toast::new(&gettext(
+                "This provider is no longer available",
+            ))),
+            Err(error) => show_error(
+                &target_ui.window,
+                &gettext("Provider could not be loaded"),
+                &error,
+            ),
         });
     }
 
     let managed_gpu_switch = provider_is_managed.then(|| {
         let managed_group = adw::PreferencesGroup::builder()
-            .title("Managed Hardware")
-            .description("Moose asks managed Ollama to use local GPU acceleration when available.")
+            .title(gettext("Managed Hardware"))
+            .description(gettext(
+                "Moose asks managed Ollama to use local GPU acceleration when available.",
+            ))
             .build();
         let gpu_row = adw::ActionRow::builder()
-            .title("GPU Acceleration")
-            .subtitle("Attempts GPU acceleration when supported.")
+            .title(gettext("GPU Acceleration"))
+            .subtitle(gettext("Attempts GPU acceleration when supported."))
             .subtitle_lines(2)
             .build();
         let gpu_switch = gtk::Switch::builder()
@@ -185,8 +201,8 @@ pub(super) fn dialog(
         managed_group.add(&gpu_row);
         managed_group.add(
             &adw::ActionRow::builder()
-                .title("Current Acceleration")
-                .subtitle(managed_acceleration_label(backend))
+                .title(gettext("Current Acceleration"))
+                .subtitle(gettext(managed_acceleration_label(backend)))
                 .build(),
         );
         provider_page.add(&managed_group);
@@ -194,20 +210,22 @@ pub(super) fn dialog(
     });
 
     let privacy_page = adw::PreferencesPage::builder()
-        .title("Privacy")
+        .title(gettext("Privacy"))
         .icon_name("changes-prevent-symbolic")
         .build();
-    let privacy_group = adw::PreferencesGroup::builder().title("Local Data").build();
+    let privacy_group = adw::PreferencesGroup::builder()
+        .title(gettext("Local Data"))
+        .build();
     privacy_group.add(
         &adw::ActionRow::builder()
-            .title("Telemetry")
-            .subtitle("Disabled")
+            .title(gettext("Telemetry"))
+            .subtitle(gettext("Disabled"))
             .build(),
     );
     privacy_group.add(
         &adw::ActionRow::builder()
-            .title("Conversation Storage")
-            .subtitle("Local application data")
+            .title(gettext("Conversation Storage"))
+            .subtitle(gettext("Local application data"))
             .build(),
     );
     privacy_page.add(&privacy_group);
@@ -218,16 +236,22 @@ pub(super) fn dialog(
             privacy_page.add(&group);
             *sharing_group.borrow_mut() = Some(group);
         }
-        Err(error) => show_error(parent, "Sharing permissions could not be loaded", &error),
+        Err(error) => show_error(
+            parent,
+            &gettext("Sharing permissions could not be loaded"),
+            &error,
+        ),
     }
 
     let shortcuts_page = adw::PreferencesPage::builder()
-        .title("Shortcuts")
+        .title(gettext("Shortcuts"))
         .icon_name("preferences-desktop-keyboard-symbolic")
         .build();
     let shortcuts_group = adw::PreferencesGroup::builder()
-        .title("Keyboard Shortcuts")
-        .description("Select a command, then press the shortcut you want to use.")
+        .title(gettext("Keyboard Shortcuts"))
+        .description(gettext(
+            "Select a command, then press the shortcut you want to use.",
+        ))
         .build();
     let current_shortcuts = shortcut_values(backend);
     let mut shortcut_rows = Vec::new();
@@ -237,8 +261,8 @@ pub(super) fn dialog(
             .map(String::as_str)
             .unwrap_or(definition.default);
         let row = adw::ActionRow::builder()
-            .title(definition.title)
-            .subtitle(definition.description)
+            .title(gettext(definition.title))
+            .subtitle(gettext(definition.description))
             .subtitle_lines(2)
             .build();
         let button = shortcut_button(value);
@@ -246,7 +270,7 @@ pub(super) fn dialog(
         let target_ui = Rc::clone(ui);
         let target_backend = Rc::clone(backend);
         let id = definition.id.to_string();
-        let title = definition.title.to_string();
+        let title = gettext(definition.title);
         let target_button = button.clone();
         button.connect_clicked(move |_| {
             show_shortcut_capture_dialog(
@@ -271,7 +295,7 @@ pub(super) fn dialog(
         .margin_top(6)
         .margin_bottom(6)
         .build();
-    let reset_shortcuts_button = gtk::Button::with_label("Reset Shortcuts");
+    let reset_shortcuts_button = gtk::Button::with_label(&gettext("Reset Shortcuts"));
     shortcut_actions.append(&reset_shortcuts_button);
     shortcuts_group.add(&shortcut_actions);
     shortcuts_page.add(&shortcuts_group);
@@ -320,7 +344,7 @@ pub(super) fn dialog(
                 Ok(changed) => {
                     target_ui
                         .toast_overlay
-                        .add_toast(adw::Toast::new("Managed hardware setting saved"));
+                        .add_toast(adw::Toast::new(&gettext("Managed hardware setting saved")));
                     if changed {
                         refresh_models(&target_ui, &target_backend);
                     }
@@ -348,28 +372,28 @@ pub(super) fn dialog(
         }
 
         let Some(current) = active_provider(&target_backend) else {
-            target_ui
-                .toast_overlay
-                .add_toast(adw::Toast::new("Create or connect an instance first"));
+            target_ui.toast_overlay.add_toast(adw::Toast::new(&gettext(
+                "Create or connect an instance first",
+            )));
             return;
         };
         if expected_provider_id.as_deref() != Some(current.id.as_str()) {
-            target_ui.toast_overlay.add_toast(adw::Toast::new(
+            target_ui.toast_overlay.add_toast(adw::Toast::new(&gettext(
                 "The active provider changed. Reopen Preferences to edit it.",
-            ));
+            )));
             return;
         }
         let base_url = if current.is_managed {
             let Some(port_row) = target_port_row.as_ref() else {
                 target_ui
                     .toast_overlay
-                    .add_toast(adw::Toast::new("Managed port is unavailable"));
+                    .add_toast(adw::Toast::new(&gettext("Managed port is unavailable")));
                 return;
             };
             match managed_port_from_row(port_row).and_then(managed_ollama_base_url) {
                 Ok(base_url) => base_url,
                 Err(error) => {
-                    show_error(&target_parent, "Managed port is invalid", &error);
+                    show_error(&target_parent, &gettext("Managed port is invalid"), &error);
                     return;
                 }
             }
@@ -401,16 +425,20 @@ pub(super) fn dialog(
                     }
                     Err(error) => show_error(
                         &target_parent,
-                        "Sharing permissions could not be loaded",
+                        &gettext("Sharing permissions could not be loaded"),
                         &error,
                     ),
                 }
                 refresh_models(&target_ui, &target_backend);
                 target_ui
                     .toast_overlay
-                    .add_toast(adw::Toast::new("Provider saved"));
+                    .add_toast(adw::Toast::new(&gettext("Provider saved")));
             }
-            Err(error) => show_error(&target_parent, "Provider could not be saved", &error),
+            Err(error) => show_error(
+                &target_parent,
+                &gettext("Provider could not be saved"),
+                &error,
+            ),
         }
     });
 
@@ -459,9 +487,13 @@ fn shortcut_button(value: &str) -> gtk::Button {
 
 fn shortcut_button_label(value: &str) -> String {
     if value.trim().is_empty() {
-        "Disabled".to_string()
+        gettext("Disabled")
     } else {
-        value.to_string()
+        shortcuts::parse(value)
+            .ok()
+            .flatten()
+            .map(|chord| chord.display_label())
+            .unwrap_or_else(|| value.to_string())
     }
 }
 
@@ -475,7 +507,7 @@ fn show_shortcut_capture_dialog(
 ) {
     set_shortcut_capture_active(backend, true);
     let dialog = adw::Dialog::builder()
-        .title(format!("Set {title} Shortcut"))
+        .title(gettext_f("Set {title} Shortcut", &[("title", (title))]))
         .content_width(420)
         .build();
     let content = gtk::Box::builder()
@@ -487,13 +519,18 @@ fn show_shortcut_capture_dialog(
         .margin_end(22)
         .build();
     let label = gtk::Label::builder()
-        .label(format!("Press the new shortcut for {title}."))
+        .label(gettext_f(
+            "Press the new shortcut for {title}.",
+            &[("title", (title))],
+        ))
         .halign(Align::Start)
         .xalign(0.0)
         .wrap(true)
         .build();
     let hint = gtk::Label::builder()
-        .label("Use Ctrl, Alt, Shift or Super with printable keys. Esc can be captured here.")
+        .label(gettext(
+            "Use Ctrl, Alt, Shift or Super with printable keys. Esc can be captured here.",
+        ))
         .halign(Align::Start)
         .xalign(0.0)
         .wrap(true)
@@ -504,8 +541,8 @@ fn show_shortcut_capture_dialog(
         .spacing(8)
         .halign(Align::End)
         .build();
-    let clear_button = gtk::Button::with_label("Clear");
-    let cancel_button = gtk::Button::with_label("Cancel");
+    let clear_button = gtk::Button::with_label(&gettext("Clear"));
+    let cancel_button = gtk::Button::with_label(&gettext("Cancel"));
     actions.append(&clear_button);
     actions.append(&cancel_button);
     content.append(&label);
@@ -550,7 +587,9 @@ fn show_shortcut_capture_dialog(
     key_controller.set_propagation_phase(gtk::PropagationPhase::Capture);
     key_controller.connect_key_pressed(move |_, key, _, state| {
         let Some(chord) = shortcuts::event_chord(key, state) else {
-            target_parent.add_toast(adw::Toast::new("This key cannot be used as a shortcut"));
+            target_parent.add_toast(adw::Toast::new(&gettext(
+                "This key cannot be used as a shortcut",
+            )));
             return gtk::glib::Propagation::Stop;
         };
         let value = chord.label();

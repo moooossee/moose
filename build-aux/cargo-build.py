@@ -10,12 +10,14 @@ build_root = Path(sys.argv[2])
 profile = sys.argv[3]
 gui_enabled = sys.argv[4] == "true"
 style_path = sys.argv[5]
-output = Path(sys.argv[6])
+locale_path = sys.argv[6]
+output = Path(sys.argv[7])
 target_dir = build_root / "target"
 binary_dir = "release" if profile == "release" else "debug"
 binary_name = "moose-gui" if gui_enabled else "moose"
 environment = os.environ.copy()
 environment["MOOSE_STYLE_PATH"] = style_path
+environment["MOOSE_LOCALEDIR"] = locale_path
 
 command = [
     "cargo",

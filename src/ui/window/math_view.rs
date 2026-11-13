@@ -1,3 +1,5 @@
+use crate::i18n::{gettext, gettext_f, gettext_noop};
+
 use std::cell::RefCell;
 use std::collections::{HashMap, VecDeque};
 use std::hash::{DefaultHasher, Hash, Hasher};
@@ -36,15 +38,18 @@ pub(super) fn inline(source: &str) -> Option<gtk::Button> {
     }
     let button = gtk::Button::builder()
         .child(&drawing(&image))
-        .tooltip_text(format!("Copy formula: {}", source.trim()))
+        .tooltip_text(gettext_f(
+            "Copy formula: {arg1}",
+            &[("arg1", (source.trim()))],
+        ))
         .valign(Align::Center)
         .build();
     button.add_css_class("flat");
     button.add_css_class("moose-math-inline");
     button.set_widget_name(&formula_name(source, false));
-    button.update_property(&[gtk::accessible::Property::Label(&format!(
-        "Copy formula: {}",
-        source.trim()
+    button.update_property(&[gtk::accessible::Property::Label(&gettext_f(
+        "Copy formula: {arg1}",
+        &[("arg1", (source.trim()))],
     ))]);
     let source = source.to_string();
     button.connect_clicked(move |button| button.clipboard().set_text(&source));
@@ -67,11 +72,11 @@ pub(super) fn block(source: &str) -> gtk::Box {
         .spacing(8)
         .build();
     let title = gtk::Label::builder()
-        .label(if image.is_some() {
-            "Formula"
+        .label(gettext(if image.is_some() {
+            gettext_noop("Formula")
         } else {
-            "Formula source"
-        })
+            gettext_noop("Formula source")
+        }))
         .xalign(0.0)
         .hexpand(true)
         .build();
@@ -80,7 +85,7 @@ pub(super) fn block(source: &str) -> gtk::Box {
     header.append(&title);
     let copy = gtk::Button::builder()
         .icon_name("edit-copy-symbolic")
-        .tooltip_text("Copy formula")
+        .tooltip_text(gettext("Copy formula"))
         .build();
     copy.add_css_class("flat");
     copy.add_css_class("moose-code-copy");
@@ -117,7 +122,7 @@ pub(super) fn block(source: &str) -> gtk::Box {
         scroll.add_css_class("moose-math-scroll");
         root.append(&scroll);
         let expander = gtk::Expander::builder()
-            .label("LaTeX source")
+            .label(gettext("LaTeX source"))
             .child(&source_label)
             .build();
         expander.add_css_class("moose-math-details");

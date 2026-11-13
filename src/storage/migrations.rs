@@ -1,3 +1,5 @@
+use crate::i18n::gettext;
+
 use rusqlite::{Connection, OptionalExtension, params};
 
 use crate::{core::utc_now, error::Result};
@@ -100,9 +102,9 @@ pub fn run_migrations(connection: &mut Connection) -> Result<()> {
                 |row| row.get(0),
             )?;
             if violations != 0 {
-                return Err(crate::error::MooseError::ProviderResponse(
-                    "Database migration would break existing references".into(),
-                ));
+                return Err(crate::error::MooseError::ProviderResponse(gettext(
+                    "Database migration would break existing references",
+                )));
             }
             transaction.execute(
                 "INSERT INTO schema_migrations (version, applied_at) VALUES (?1, ?2)",

@@ -1,3 +1,5 @@
+use crate::i18n::{gettext, gettext_f, gettext_noop};
+
 use std::rc::Rc;
 
 use adw::prelude::*;
@@ -28,7 +30,7 @@ pub(super) struct Switcher {
 impl Switcher {
     pub(super) fn new() -> Self {
         let title = gtk::Label::builder()
-            .label("Select Provider")
+            .label(gettext("Select Provider"))
             .xalign(0.0)
             .ellipsize(pango::EllipsizeMode::End)
             .single_line_mode(true)
@@ -36,7 +38,7 @@ impl Switcher {
             .css_classes(["moose-provider-title"])
             .build();
         let status = gtk::Label::builder()
-            .label("Not Set")
+            .label(gettext("Not Set"))
             .xalign(0.0)
             .ellipsize(pango::EllipsizeMode::End)
             .single_line_mode(true)
@@ -63,18 +65,21 @@ impl Switcher {
             .always_show_arrow(true)
             .can_shrink(true)
             .hexpand(true)
-            .tooltip_text("Switch Provider")
+            .tooltip_text(gettext("Switch Provider"))
             .css_classes(["flat"])
             .build();
-        button.update_property(&[gtk::accessible::Property::Label("Switch Provider")]);
+        button.update_property(&[gtk::accessible::Property::Label(&gettext(
+            "Switch Provider",
+        ))]);
 
         let heading = gtk::Label::builder()
-            .label("Providers")
+            .label(gettext("Providers"))
             .xalign(0.0)
             .hexpand(true)
             .css_classes(["heading"])
             .build();
-        let refresh_button = widgets::icon_button("view-refresh-symbolic", "Refresh Models");
+        let refresh_button =
+            widgets::icon_button("view-refresh-symbolic", &gettext("Refresh Models"));
         let header = gtk::Box::builder()
             .orientation(Orientation::Horizontal)
             .spacing(12)
@@ -84,7 +89,7 @@ impl Switcher {
         header.append(&refresh_button);
 
         let placeholder = gtk::Label::builder()
-            .label("No providers added")
+            .label(gettext("No providers added"))
             .wrap(true)
             .margin_top(24)
             .margin_bottom(24)
@@ -110,7 +115,7 @@ impl Switcher {
             .child(
                 &adw::ButtonContent::builder()
                     .icon_name("list-add-symbolic")
-                    .label("Add Provider…")
+                    .label(gettext("Add Provider…"))
                     .halign(Align::Start)
                     .build(),
             )
@@ -160,24 +165,28 @@ impl Switcher {
         if let Some(provider) = provider {
             self.title.set_label(&provider.name);
             self.icon.set_icon_name(Some(provider_icon_name(provider)));
-            self.button.set_tooltip_text(Some(&format!(
-                "Switch Provider\n{}\n{}\n{}",
-                provider.name,
-                provider.location_label(),
-                provider.base_url
+            self.button.set_tooltip_text(Some(&gettext_f(
+                "Switch Provider\n{arg1}\n{arg2}\n{arg3}",
+                &[
+                    ("arg1", &(provider.name).to_string()),
+                    ("arg2", &gettext(provider.location_label())),
+                    ("arg3", &(provider.base_url).to_string()),
+                ],
             )));
             self.button
-                .update_property(&[gtk::accessible::Property::Label(&format!(
-                    "Switch Provider: {}",
-                    provider.name
+                .update_property(&[gtk::accessible::Property::Label(&gettext_f(
+                    "Switch Provider: {arg1}",
+                    &[("arg1", &(provider.name).to_string())],
                 ))]);
         } else {
-            self.title.set_label("Select Provider");
+            self.title.set_label(&gettext("Select Provider"));
             self.icon.set_icon_name(Some("network-server-symbolic"));
             self.button
-                .set_tooltip_text(Some("Add or Select a Provider"));
+                .set_tooltip_text(Some(&gettext("Add or Select a Provider")));
             self.button
-                .update_property(&[gtk::accessible::Property::Label("Select Provider")]);
+                .update_property(&[gtk::accessible::Property::Label(&gettext(
+                    "Select Provider",
+                ))]);
         }
     }
 }
@@ -215,16 +224,19 @@ pub(super) fn bind_switcher(ui: &Rc<WindowUi>, backend: &Rc<Backend>) {
 fn populate_switcher(ui: &Rc<WindowUi>, backend: &Rc<Backend>) {
     let switcher = &ui.provider_switcher;
     switcher.list.remove_all();
-    switcher.placeholder.set_label("No providers added");
+    switcher
+        .placeholder
+        .set_label(&gettext("No providers added"));
 
     let providers = match backend.repository.list() {
         Ok(providers) => providers,
         Err(error) => {
             switcher
                 .placeholder
-                .set_label("Providers could not be loaded");
-            ui.toast_overlay.add_toast(adw::Toast::new(&format!(
-                "Providers could not be loaded: {error}"
+                .set_label(&gettext("Providers could not be loaded"));
+            ui.toast_overlay.add_toast(adw::Toast::new(&gettext_f(
+                "Providers could not be loaded: {error}",
+                &[("error", &(error).to_string())],
             )));
             return;
         }
@@ -263,8 +275,10 @@ fn populate_switcher(ui: &Rc<WindowUi>, backend: &Rc<Backend>) {
             }
         });
 
-        let delete_button =
-            widgets::icon_button("user-trash-symbolic", &format!("Delete {}…", provider.name));
+        let delete_button = widgets::icon_button(
+            "user-trash-symbolic",
+            &gettext_f("Delete {arg1}…", &[("arg1", &(provider.name).to_string())]),
+        );
         delete_button.set_valign(Align::Center);
         let provider_id = provider.id.clone();
         let target_ui = Rc::downgrade(ui);
@@ -282,9 +296,13 @@ fn populate_switcher(ui: &Rc<WindowUi>, backend: &Rc<Backend>) {
 
 fn provider_switch_row(provider: &Provider) -> adw::ActionRow {
     let subtitle = if provider.kind == ProviderKind::Ollama {
-        provider.location_label().to_string()
+        gettext(provider.location_label())
     } else {
-        format!("{} · {}", provider.kind.label(), provider.location_label())
+        format!(
+            "{} · {}",
+            provider.kind.label(),
+            gettext(provider.location_label())
+        )
     };
     let row = adw::ActionRow::builder()
         .title(&provider.name)
@@ -296,7 +314,7 @@ fn provider_switch_row(provider: &Provider) -> adw::ActionRow {
     row.set_tooltip_text(Some(&format!(
         "{}\n{}\n{}",
         provider.name,
-        provider.location_label(),
+        gettext(provider.location_label()),
         provider.base_url
     )));
 
@@ -324,7 +342,7 @@ fn show_provider_setup(ui: &Rc<WindowUi>, backend: &Rc<Backend>) {
     }
 
     let dialog = adw::Dialog::builder()
-        .title("Add Provider")
+        .title(gettext("Add Provider"))
         .content_width(500)
         .follows_content_size(true)
         .build();
@@ -339,17 +357,22 @@ fn show_provider_setup(ui: &Rc<WindowUi>, backend: &Rc<Backend>) {
 
     let type_toggle = adw::ToggleGroup::builder().homogeneous(true).build();
     for (name, label) in [
-        ("managed", "Set Up for Me"),
-        ("external", "Connect Existing"),
-        ("cloud", "Cloud Provider"),
+        ("managed", gettext_noop("Set Up for Me")),
+        ("external", gettext_noop("Connect Existing")),
+        ("cloud", gettext_noop("Cloud Provider")),
     ] {
-        type_toggle.add(adw::Toggle::builder().name(name).label(label).build());
+        type_toggle.add(
+            adw::Toggle::builder()
+                .name(name)
+                .label(gettext(label))
+                .build(),
+        );
     }
     type_toggle.set_active(0);
     content.append(&type_toggle);
 
     let description = gtk::Label::builder()
-        .label("Moose installs and runs Ollama on this device.")
+        .label(gettext("Moose installs and runs Ollama on this device."))
         .wrap(true)
         .wrap_mode(pango::WrapMode::WordChar)
         .width_chars(1)
@@ -359,11 +382,11 @@ fn show_provider_setup(ui: &Rc<WindowUi>, backend: &Rc<Backend>) {
     content.append(&description);
 
     let cancel = gtk::Button::builder()
-        .label("Cancel")
+        .label(gettext("Cancel"))
         .css_classes(["flat"])
         .build();
     let continue_button = gtk::Button::builder()
-        .label("Continue")
+        .label(gettext("Continue"))
         .css_classes(["suggested-action", "pill"])
         .build();
     let actions = gtk::Box::builder()
@@ -383,11 +406,11 @@ fn show_provider_setup(ui: &Rc<WindowUi>, backend: &Rc<Backend>) {
     let target_description = description.downgrade();
     type_toggle.connect_active_notify(move |toggle| {
         if let Some(target) = target_description.upgrade() {
-            target.set_label(match toggle.active() {
-                1 => "Use an Ollama server you already run.",
-                2 => "Connect to an AI service using your own API key.",
-                _ => "Moose installs and runs Ollama on this device.",
-            });
+            target.set_label(&gettext(match toggle.active() {
+                1 => gettext_noop("Use an Ollama server you already run."),
+                2 => gettext_noop("Connect to an AI service using your own API key."),
+                _ => gettext_noop("Moose installs and runs Ollama on this device."),
+            }));
         }
     });
 
@@ -434,35 +457,37 @@ pub(super) fn show_connect_external_dialog(ui: &Rc<WindowUi>, backend: &Rc<Backe
     }
 
     let setup = widgets::SetupDialog::new(
-        "Connect Existing",
-        "Connect Existing",
-        "Use an Ollama server you already run.",
+        &gettext("Connect Existing"),
+        &gettext("Connect Existing"),
+        &gettext("Use an Ollama server you already run."),
     );
     let dialog = setup.dialog.clone();
 
     let name_row = adw::EntryRow::builder()
-        .title("Instance Name")
+        .title(gettext("Instance Name"))
         .text(next_provider_name(backend))
         .build();
     let url_row = adw::EntryRow::builder()
-        .title("Ollama URL")
+        .title(gettext("Ollama URL"))
         .text(DEFAULT_OLLAMA_BASE_URL)
         .input_purpose(gtk::InputPurpose::Url)
         .build();
-    let connection_group = adw::PreferencesGroup::builder().title("Connection").build();
+    let connection_group = adw::PreferencesGroup::builder()
+        .title(gettext("Connection"))
+        .build();
     connection_group.add(&name_row);
     connection_group.add(&url_row);
 
     let sharing_group = adw::PreferencesGroup::builder()
-        .title("Sharing Permissions")
-        .description("Choose whether this server can receive messages in all chats. Files require separate permission. Shared content is processed under the server's own data policy.")
+        .title(gettext("Sharing Permissions"))
+        .description(gettext("Choose whether this server can receive messages in all chats. Files require separate permission. Shared content is processed under the server's own data policy."))
         .build();
     let message_permission = super::privacy::message_permission_row();
     sharing_group.add(&message_permission);
     let description = gtk::Label::builder()
-        .label(
+        .label(gettext(
             "Connecting enables external connections. Moose cannot verify where this server runs.",
-        )
+        ))
         .wrap(true)
         .wrap_mode(pango::WrapMode::WordChar)
         .width_chars(1)
@@ -473,8 +498,8 @@ pub(super) fn show_connect_external_dialog(ui: &Rc<WindowUi>, backend: &Rc<Backe
     setup.content.append(&sharing_group);
     setup.content.append(&description);
 
-    let cancel = gtk::Button::with_label("Cancel");
-    let connect = gtk::Button::with_label("Connect");
+    let cancel = gtk::Button::with_label(&gettext("Cancel"));
+    let connect = gtk::Button::with_label(&gettext("Connect"));
     setup.set_actions(&connect, &cancel);
     dialog.set_default_widget(Some(&connect));
     dialog.set_focus(Some(&url_row));
@@ -535,12 +560,13 @@ pub(super) fn confirm_provider_delete(ui: &Rc<WindowUi>, backend: &Rc<Backend>, 
         Ok(Some(provider)) => provider,
         Ok(None) => {
             ui.toast_overlay
-                .add_toast(adw::Toast::new("Provider was not found"));
+                .add_toast(adw::Toast::new(&gettext("Provider was not found")));
             return;
         }
         Err(error) => {
-            ui.toast_overlay.add_toast(adw::Toast::new(&format!(
-                "Provider could not be loaded: {error}"
+            ui.toast_overlay.add_toast(adw::Toast::new(&gettext_f(
+                "Provider could not be loaded: {error}",
+                &[("error", &(error).to_string())],
             )));
             return;
         }
@@ -548,17 +574,19 @@ pub(super) fn confirm_provider_delete(ui: &Rc<WindowUi>, backend: &Rc<Backend>, 
 
     let provider_id = provider.id.clone();
     let dialog = adw::AlertDialog::builder()
-        .heading("Delete Provider?")
-        .body(format!(
-            "Delete \"{}\" at {}?",
-            provider.name.as_str(),
-            provider.base_url.as_str()
+        .heading(gettext("Delete Provider?"))
+        .body(gettext_f(
+            "Delete \"{arg1}\" at {arg2}?",
+            &[
+                ("arg1", (provider.name.as_str())),
+                ("arg2", (provider.base_url.as_str())),
+            ],
         ))
         .close_response("cancel")
         .default_response("cancel")
         .build();
-    dialog.add_response("cancel", "Cancel");
-    dialog.add_response("delete", "Delete");
+    dialog.add_response("cancel", &gettext("Cancel"));
+    dialog.add_response("delete", &gettext("Delete"));
     dialog.set_response_appearance("delete", adw::ResponseAppearance::Destructive);
 
     let target_ui = Rc::clone(ui);
@@ -573,8 +601,13 @@ fn next_provider_name(backend: &Backend) -> String {
     backend
         .repository
         .list()
-        .map(|providers| format!("Ollama Provider {}", providers.len() + 1))
-        .unwrap_or_else(|_| "Ollama Provider".to_string())
+        .map(|providers| {
+            gettext_f(
+                "Ollama Provider {arg1}",
+                &[("arg1", &(providers.len() + 1).to_string())],
+            )
+        })
+        .unwrap_or_else(|_| gettext("Ollama Provider"))
 }
 
 pub(super) fn next_managed_provider_name(backend: &Backend) -> String {
@@ -590,9 +623,12 @@ pub(super) fn next_managed_provider_name(backend: &Backend) -> String {
         .unwrap_or_default();
 
     if managed_count == 0 {
-        "Managed Ollama".to_string()
+        gettext("Managed Ollama")
     } else {
-        format!("Managed Ollama {}", managed_count + 1)
+        gettext_f(
+            "Managed Ollama {arg1}",
+            &[("arg1", &(managed_count + 1).to_string())],
+        )
     }
 }
 
@@ -646,11 +682,11 @@ fn add_provider_from_sidebar(
             apply_active_provider(ui, backend, provider);
             show_chat(ui);
             ui.toast_overlay
-                .add_toast(adw::Toast::new("Provider added"));
+                .add_toast(adw::Toast::new(&gettext("Provider added")));
             true
         }
         Err(error) => {
-            show_error(&ui.window, "Provider could not be added", &error);
+            show_error(&ui.window, &gettext("Provider could not be added"), &error);
             false
         }
     }
@@ -681,15 +717,23 @@ pub(super) fn delete_provider_record(ui: &Rc<WindowUi>, backend: &Rc<Backend>, p
                     Ok(Some(provider)) => apply_active_provider(ui, backend, provider),
                     Ok(None) => clear_active_provider(ui, backend),
                     Err(error) => {
-                        show_error(&ui.window, "Provider could not be selected", &error);
+                        show_error(
+                            &ui.window,
+                            &gettext("Provider could not be selected"),
+                            &error,
+                        );
                         return;
                     }
                 }
             }
             ui.toast_overlay
-                .add_toast(adw::Toast::new("Provider deleted"));
+                .add_toast(adw::Toast::new(&gettext("Provider deleted")));
         }
-        Err(error) => show_error(&ui.window, "Provider could not be deleted", &error),
+        Err(error) => show_error(
+            &ui.window,
+            &gettext("Provider could not be deleted"),
+            &error,
+        ),
     }
 }
 
@@ -709,12 +753,13 @@ fn activate_provider(ui: &Rc<WindowUi>, backend: &Rc<Backend>, provider_id: &str
         Ok(Some(provider)) => provider,
         Ok(None) => {
             ui.toast_overlay
-                .add_toast(adw::Toast::new("Provider was not found"));
+                .add_toast(adw::Toast::new(&gettext("Provider was not found")));
             return;
         }
         Err(error) => {
-            ui.toast_overlay.add_toast(adw::Toast::new(&format!(
-                "Provider could not be loaded: {error}"
+            ui.toast_overlay.add_toast(adw::Toast::new(&gettext_f(
+                "Provider could not be loaded: {error}",
+                &[("error", &(error).to_string())],
             )));
             return;
         }
@@ -728,13 +773,17 @@ fn activate_provider(ui: &Rc<WindowUi>, backend: &Rc<Backend>, provider_id: &str
         Ok(Some(provider)) => {
             apply_active_provider(ui, backend, provider);
             ui.toast_overlay
-                .add_toast(adw::Toast::new("Provider switched"));
+                .add_toast(adw::Toast::new(&gettext("Provider switched")));
         }
         Ok(None) => {
             apply_active_provider(ui, backend, provider);
             ui.toast_overlay
-                .add_toast(adw::Toast::new("Provider switched"));
+                .add_toast(adw::Toast::new(&gettext("Provider switched")));
         }
-        Err(error) => show_error(&ui.window, "Provider could not be switched", &error),
+        Err(error) => show_error(
+            &ui.window,
+            &gettext("Provider could not be switched"),
+            &error,
+        ),
     }
 }

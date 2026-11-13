@@ -1,3 +1,5 @@
+use crate::i18n::gettext;
+
 use super::MAX_FILE_BYTES;
 
 pub struct Archive {
@@ -23,7 +25,7 @@ impl Archive {
                 .saturating_add(name.len() * 2 + 128)
                 > MAX_FILE_BYTES
         {
-            return Err("The document is too large to package.".into());
+            return Err(gettext("The document is too large to package."));
         }
         let offset = self.data.len() as u32;
         let size = content.len() as u32;
@@ -61,7 +63,7 @@ impl Archive {
 
     pub fn finish(mut self) -> Result<Vec<u8>, String> {
         if self.entries.len() > u16::MAX as usize {
-            return Err("The document contains too many parts.".into());
+            return Err(gettext("The document contains too many parts."));
         }
         let offset = self.data.len() as u32;
         let count = self.entries.len() as u16;
@@ -77,7 +79,7 @@ impl Archive {
         u32_bytes(&mut self.data, offset);
         u16_bytes(&mut self.data, 0);
         if self.data.len() > MAX_FILE_BYTES {
-            return Err("The generated document exceeds the size limit.".into());
+            return Err(gettext("The generated document exceeds the size limit."));
         }
         Ok(self.data)
     }

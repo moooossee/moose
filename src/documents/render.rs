@@ -1,3 +1,5 @@
+use crate::i18n::gettext;
+
 use super::{
     DocumentFormat,
     content::{Block, Content, Table, numeric, xml},
@@ -17,7 +19,9 @@ pub fn render(
     let content = Content::parse(title, source)?;
     let bytes = match format {
         DocumentFormat::Pdf => {
-            return Err("PDF documents must be rendered through the native print service.".into());
+            return Err(gettext(
+                "PDF documents must be rendered through the native print service.",
+            ));
         }
         DocumentFormat::Docx => office::docx(&content)?,
         DocumentFormat::Xlsx => office::xlsx(&tables(&content)?)?,
@@ -35,14 +39,14 @@ pub fn render(
         DocumentFormat::Csv => csv(&content)?,
         DocumentFormat::Html => html(&content).into_bytes(),
         DocumentFormat::Json => {
-            let value: serde_json::Value = serde_json::from_str(&content.source).map_err(|_| "The response is not valid JSON. Ask the model to correct the JSON and try again.")?;
+            let value: serde_json::Value = serde_json::from_str(&content.source).map_err(|_| gettext("The response is not valid JSON. Ask the model to correct the JSON and try again."))?;
             serde_json::to_vec_pretty(&value)
-                .map_err(|_| "The JSON document could not be formatted.")?
+                .map_err(|_| gettext("The JSON document could not be formatted."))?
         }
         DocumentFormat::Xml => xml_document(&content).into_bytes(),
     };
     if bytes.len() > super::MAX_FILE_BYTES {
-        return Err("The generated file exceeds the 32 MB limit.".into());
+        return Err(gettext("The generated file exceeds the 32 MB limit."));
     }
     Ok(RenderedDocument {
         title: content.title,
@@ -57,7 +61,9 @@ pub fn tables(content: &Content) -> Result<Vec<Table>, String> {
     }
     let rows = parse_csv(&content.source)?;
     if rows.first().is_none_or(|row| row.len() < 2) {
-        return Err("No table was found. Ask for a spreadsheet with a header row and columns, or choose a text document format.".into());
+        return Err(gettext(
+            "No table was found. Ask for a spreadsheet with a header row and columns, or choose a text document format.",
+        ));
     }
     Ok(vec![Table {
         name: content.title.clone(),
@@ -68,7 +74,9 @@ pub fn tables(content: &Content) -> Result<Vec<Table>, String> {
 fn csv(content: &Content) -> Result<Vec<u8>, String> {
     let tables = content.tables();
     if tables.len() > 1 {
-        return Err("CSV supports one table. Choose Excel or OpenDocument Spreadsheet to keep multiple tables.".into());
+        return Err(gettext(
+            "CSV supports one table. Choose Excel or OpenDocument Spreadsheet to keep multiple tables.",
+        ));
     }
     let rows = if let Some(table) = tables.first() {
         table.rows.clone()
@@ -120,25 +128,34 @@ fn parse_csv(source: &str) -> Result<Vec<Vec<String>>, String> {
         } else {
             match ch {
                 '"' if field.is_empty() && !closed => quoted = true,
-                ',' => { row.push(std::mem::take(&mut field)); closed = false; }
+                ',' => {
+                    row.push(std::mem::take(&mut field));
+                    closed = false;
+                }
                 '\n' | '\r' => {
-                    if ch == '\r' && chars.peek() == Some(&'\n') { chars.next(); }
+                    if ch == '\r' && chars.peek() == Some(&'\n') {
+                        chars.next();
+                    }
                     row.push(std::mem::take(&mut field));
                     rows.push(std::mem::take(&mut row));
                     closed = false;
                 }
-                _ if closed || ch == '"' => return Err("The response contains malformed CSV. Ask the model to return only a CSV table.".into()),
+                _ if closed || ch == '"' => {
+                    return Err(gettext(
+                        "The response contains malformed CSV. Ask the model to return only a CSV table.",
+                    ));
+                }
                 _ => field.push(ch),
             }
         }
         if row.len() > 100 || rows.len() > 20_000 {
-            return Err("Use up to 100 columns and 20,000 rows.".into());
+            return Err(gettext("Use up to 100 columns and 20,000 rows."));
         }
     }
     if quoted {
-        return Err(
-            "The CSV response ends inside a quoted field. Continue or retry the response.".into(),
-        );
+        return Err(gettext(
+            "The CSV response ends inside a quoted field. Continue or retry the response.",
+        ));
     }
     if !field.is_empty() || !row.is_empty() || closed {
         row.push(field);
@@ -146,10 +163,12 @@ fn parse_csv(source: &str) -> Result<Vec<Vec<String>>, String> {
     }
     let columns = rows.first().map_or(0, Vec::len);
     if columns > 100 || rows.len() > 20_000 {
-        return Err("Use up to 100 columns and 20,000 rows.".into());
+        return Err(gettext("Use up to 100 columns and 20,000 rows."));
     }
     if columns == 0 || rows.iter().any(|row| row.len() != columns) {
-        return Err("Each CSV row must have the same number of columns.".into());
+        return Err(gettext(
+            "Each CSV row must have the same number of columns.",
+        ));
     }
     Ok(rows)
 }

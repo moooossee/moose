@@ -1,3 +1,5 @@
+use crate::i18n::{gettext, gettext_f};
+
 use std::rc::Rc;
 
 use adw::prelude::*;
@@ -37,7 +39,7 @@ impl DownloadFields {
         let Some(download) = self.download.upgrade() else {
             return;
         };
-        download.set_label("Download");
+        download.set_label(&gettext("Download"));
 
         match self.reference() {
             Ok(reference) => {
@@ -53,21 +55,23 @@ impl DownloadFields {
                 self.preview.set_label(&format!(
                     "{source}{}\n{}",
                     if installed.is_some() {
-                        " · Already installed"
+                        gettext(" · Already installed")
                     } else {
-                        ""
+                        String::new()
                     },
                     reference.name
                 ));
                 self.preview.set_visible(true);
                 self.variant_expander
-                    .set_subtitle(reference.variant().unwrap_or("Automatic"));
+                    .set_subtitle(reference.variant().unwrap_or(&gettext("Automatic")));
                 self.error.set_visible(false);
                 download.set_sensitive(installed.is_none_or(|model| model.supports_chat));
                 if installed.is_some_and(|model| model.supports_chat) {
-                    download.set_label("New Chat");
+                    download.set_label(&gettext("New Chat"));
                 } else if installed.is_some() {
-                    self.show_error("This model is already installed and does not support chat.");
+                    self.show_error(&gettext(
+                        "This model is already installed and does not support chat.",
+                    ));
                 }
             }
             Err(error) => {
@@ -88,7 +92,7 @@ impl DownloadFields {
     }
 
     fn show_error(&self, message: &str) {
-        self.error.set_label(message);
+        self.error.set_label(&gettext(message));
         self.error.set_visible(true);
     }
 }
@@ -98,8 +102,9 @@ pub(super) fn show_dialog(ui: &Rc<WindowUi>, backend: &Rc<Backend>, initial: &st
         return;
     }
     if backend.active_model_pull.borrow().is_some() {
-        ui.toast_overlay
-            .add_toast(adw::Toast::new("A model download is already running"));
+        ui.toast_overlay.add_toast(adw::Toast::new(&gettext(
+            "A model download is already running",
+        )));
         return;
     }
     let Some(provider) = active_provider(backend) else {
@@ -107,7 +112,7 @@ pub(super) fn show_dialog(ui: &Rc<WindowUi>, backend: &Rc<Backend>, initial: &st
     };
 
     let dialog = adw::Dialog::builder()
-        .title("Download Model")
+        .title(gettext("Download Model"))
         .content_width(520)
         .follows_content_size(true)
         .build();
@@ -122,30 +127,32 @@ pub(super) fn show_dialog(ui: &Rc<WindowUi>, backend: &Rc<Backend>, initial: &st
         .build();
 
     let model = adw::EntryRow::builder()
-        .title("Model Name or Link")
+        .title(gettext("Model Name or Link"))
         .text(initial)
         .activates_default(true)
         .build();
     let model_group = adw::PreferencesGroup::builder()
-        .description("Use an Ollama name like llama3.2:1b, a Hugging Face GGUF link, or an ollama run command.")
+        .description(gettext("Use an Ollama name like llama3.2:1b, a Hugging Face GGUF link, or an ollama run command."))
         .build();
     model_group.add(&model);
     content.append(&model_group);
 
     let variant = adw::EntryRow::builder()
-        .title("Quantization or Filename")
-        .tooltip_text("Overrides the variant in the model name or link")
+        .title(gettext("Quantization or Filename"))
+        .tooltip_text(gettext("Overrides the variant in the model name or link"))
         .activates_default(true)
         .build();
     let variant_expander = adw::ExpanderRow::builder()
-        .title("Variant")
-        .subtitle("Automatic")
+        .title(gettext("Variant"))
+        .subtitle(gettext("Automatic"))
         .build();
     variant_expander.add_row(&variant);
     let options = adw::PreferencesGroup::builder().visible(false).build();
     options.add(&variant_expander);
     let variant_hint = gtk::Label::builder()
-        .label("Optional. Enter a quantization such as Q4_K_M or an exact GGUF filename.")
+        .label(gettext(
+            "Optional. Enter a quantization such as Q4_K_M or an exact GGUF filename.",
+        ))
         .wrap(true)
         .width_chars(1)
         .xalign(0.0)
@@ -179,16 +186,25 @@ pub(super) fn show_dialog(ui: &Rc<WindowUi>, backend: &Rc<Backend>, initial: &st
 
     let browse = gtk::LinkButton::with_label(
         "https://huggingface.co/models?library=gguf",
-        "Browse Hugging Face Models",
+        &gettext("Browse Hugging Face Models"),
     );
     browse.set_halign(gtk::Align::Start);
     content.append(&browse);
 
     let destination = gtk::Label::builder()
         .label(if provider.is_managed {
-            format!("Downloads to {} on this device.", provider.name)
+            gettext_f(
+                "Downloads to {arg1} on this device.",
+                &[("arg1", &(provider.name).to_string())],
+            )
         } else {
-            format!("Downloads to {} at {}.", provider.name, provider.base_url)
+            gettext_f(
+                "Downloads to {arg1} at {arg2}.",
+                &[
+                    ("arg1", &(provider.name).to_string()),
+                    ("arg2", &(provider.base_url).to_string()),
+                ],
+            )
         })
         .wrap(true)
         .wrap_mode(gtk::pango::WrapMode::WordChar)
@@ -198,8 +214,8 @@ pub(super) fn show_dialog(ui: &Rc<WindowUi>, backend: &Rc<Backend>, initial: &st
         .build();
     content.append(&destination);
 
-    let cancel = gtk::Button::with_label("Cancel");
-    let download = gtk::Button::with_label("Download");
+    let cancel = gtk::Button::with_label(&gettext("Cancel"));
+    let download = gtk::Button::with_label(&gettext("Download"));
     download.add_css_class("suggested-action");
     let actions = gtk::Box::builder()
         .orientation(gtk::Orientation::Horizontal)
@@ -271,9 +287,9 @@ pub(super) fn show_dialog(ui: &Rc<WindowUi>, backend: &Rc<Backend>, initial: &st
             }
         };
         if active_provider(&backend).is_none_or(|active| active.id != provider.id) {
-            fields.show_error(
+            fields.show_error(&gettext(
                 "The connection changed. Reopen this dialog to choose the destination.",
-            );
+            ));
             return;
         }
         if !model_actions::can_manage_models(&ui, &backend) {
@@ -282,7 +298,7 @@ pub(super) fn show_dialog(ui: &Rc<WindowUi>, backend: &Rc<Backend>, initial: &st
         if backend.active_model_pull.borrow().is_some()
             || backend.active_model_delete.borrow().is_some()
         {
-            fields.show_error("Wait for the current model operation to finish.");
+            fields.show_error(&gettext("Wait for the current model operation to finish."));
             return;
         }
         let installed = ui

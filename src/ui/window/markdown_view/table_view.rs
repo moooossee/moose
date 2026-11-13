@@ -1,3 +1,5 @@
+use crate::i18n::gettext;
+
 use std::{
     cell::{OnceCell, RefCell},
     time::Duration,
@@ -149,12 +151,12 @@ pub(super) fn render<'a>(node: &'a AstNode<'a>, alignments: &[TableAlignment]) -
 
     let copy = gtk::Button::builder()
         .icon_name("edit-copy-symbolic")
-        .tooltip_text("Copy table")
+        .tooltip_text(gettext("Copy table"))
         .halign(Align::End)
         .build();
     copy.add_css_class("flat");
     copy.add_css_class("moose-table-copy");
-    copy.update_property(&[gtk::accessible::Property::Label("Copy table")]);
+    copy.update_property(&[gtk::accessible::Property::Label(&gettext("Copy table"))]);
     copy.connect_clicked(glib::clone!(
         #[weak]
         table,
@@ -177,7 +179,7 @@ pub(super) fn render<'a>(node: &'a AstNode<'a>, alignments: &[TableAlignment]) -
         .build();
     header.add_css_class("moose-table-header");
     let title = gtk::Label::builder()
-        .label("Spreadsheet")
+        .label(gettext("Spreadsheet"))
         .hexpand(true)
         .xalign(0.0)
         .ellipsize(gtk::pango::EllipsizeMode::End)

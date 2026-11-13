@@ -1,3 +1,5 @@
+use crate::i18n::gettext;
+
 use std::time::Duration;
 
 use futures_util::StreamExt;
@@ -219,9 +221,9 @@ impl OllamaClient {
         })
         .await?;
         if !completed {
-            return Err(MooseError::InvalidOllamaResponse(
-                "The model download ended before completion".into(),
-            ));
+            return Err(MooseError::InvalidOllamaResponse(gettext(
+                "The model download ended before completion",
+            )));
         }
         Ok(())
     }
@@ -337,19 +339,17 @@ impl OllamaClient {
             return Err(MooseError::InvalidOllamaResponse(error));
         }
         if !response.done || response.eval_count.is_none_or(|tokens| tokens > 1) {
-            return Err(MooseError::InvalidOllamaResponse(
-                "Ollama did not respect the token counting limit. Update Ollama and try again."
-                    .into(),
-            ));
+            return Err(MooseError::InvalidOllamaResponse(gettext(
+                "Ollama did not respect the token counting limit. Update Ollama and try again.",
+            )));
         }
         response
             .prompt_eval_count
             .filter(|tokens| *tokens > 0)
             .ok_or_else(|| {
-                MooseError::InvalidOllamaResponse(
-                    "Ollama did not report the input token count. Update Ollama and try again."
-                        .into(),
-                )
+                MooseError::InvalidOllamaResponse(gettext(
+                    "Ollama did not report the input token count. Update Ollama and try again.",
+                ))
             })
     }
 
@@ -406,9 +406,9 @@ impl OllamaClient {
         })
         .await?;
         if !completed {
-            return Err(MooseError::InvalidOllamaResponse(
-                "The response ended before completion".into(),
-            ));
+            return Err(MooseError::InvalidOllamaResponse(gettext(
+                "The response ended before completion",
+            )));
         }
         Ok(())
     }
@@ -437,10 +437,9 @@ impl OllamaClient {
             .get("capabilities")
             .and_then(serde_json::Value::as_array)
             .ok_or_else(|| {
-                MooseError::InvalidOllamaResponse(
-                    "Model capabilities are unavailable. Update Ollama to check model support."
-                        .into(),
-                )
+                MooseError::InvalidOllamaResponse(gettext(
+                    "Model capabilities are unavailable. Update Ollama to check model support.",
+                ))
             })?;
         Ok(capabilities
             .iter()
@@ -614,15 +613,16 @@ pub fn parse_pull_stream_line(line: &str) -> Result<Option<OllamaPullProgress>> 
         let message = error
             .as_str()
             .filter(|message| !message.trim().is_empty())
-            .unwrap_or("Ollama returned an invalid model download error");
-        return Err(pull_error(message));
+            .map(str::to_string)
+            .unwrap_or_else(|| gettext("Ollama returned an invalid model download error"));
+        return Err(pull_error(&message));
     }
     let response: PullLine = serde_json::from_value(value)?;
     let status = response.status.trim().to_string();
     if status.is_empty() {
-        return Err(MooseError::InvalidOllamaResponse(
-            "missing pull status".to_string(),
-        ));
+        return Err(MooseError::InvalidOllamaResponse(gettext(
+            "missing pull status",
+        )));
     }
 
     Ok(Some(OllamaPullProgress {

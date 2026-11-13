@@ -1,3 +1,5 @@
+use crate::i18n::{gettext, gettext_noop};
+
 use super::ProviderKind;
 use crate::{
     chat::{ChatMessage, ChatRequest, ChatRole, ThinkingValue},
@@ -16,7 +18,7 @@ fn image_mime(data: &str) -> Result<&'static str> {
         Ok("image/gif")
     } else {
         Err(MooseError::ProviderRequest(
-            "This image format is not supported. Use PNG, JPEG, WebP or GIF.".into(),
+            gettext_noop("This image format is not supported. Use PNG, JPEG, WebP or GIF.").into(),
         ))
     }
 }
@@ -27,7 +29,7 @@ fn role(message: &ChatMessage) -> Result<&'static str> {
         ChatRole::User => Ok("user"),
         ChatRole::Assistant => Ok("assistant"),
         ChatRole::Tool => Err(MooseError::ProviderRequest(
-            "Tool messages are not supported by this chat.".into(),
+            gettext_noop("Tool messages are not supported by this chat.").into(),
         )),
     }
 }
@@ -95,9 +97,9 @@ fn chat_completions(kind: ProviderKind, request: &ChatRequest) -> Result<Value> 
             messages.push(json!({"role":role,"content":message.content}));
         } else {
             if kind != ProviderKind::Groq && role != "user" {
-                return Err(MooseError::ProviderRequest(
-                    "Images are only supported in user messages for this provider.".into(),
-                ));
+                return Err(MooseError::ProviderRequest(gettext(
+                    "Images are only supported in user messages for this provider.",
+                )));
             }
             let mut content = Vec::new();
             if !message.content.is_empty() {

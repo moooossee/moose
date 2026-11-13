@@ -1,3 +1,5 @@
+use crate::i18n::{gettext, gettext_f, gettext_noop};
+
 use super::*;
 
 pub(super) fn bind(ui: &Rc<WindowUi>, backend: &Rc<Backend>) {
@@ -6,15 +8,17 @@ pub(super) fn bind(ui: &Rc<WindowUi>, backend: &Rc<Backend>) {
     ui.window.connect_close_request(move |_| {
         if let Some(ui) = weak_ui.upgrade() {
             if let Err(error) = save(&ui, &backend) {
-                ui.toast_overlay.add_toast(adw::Toast::new(&format!(
-                    "Draft could not be saved: {error}"
+                ui.toast_overlay.add_toast(adw::Toast::new(&gettext_f(
+                    "Draft could not be saved: {error}",
+                    &[("error", &(error).to_string())],
                 )));
                 return gtk::glib::Propagation::Stop;
             }
             if let Err(error) = backend.cancel_generation() {
                 finish_generation(&ui);
-                ui.toast_overlay.add_toast(adw::Toast::new(&format!(
-                    "Response could not be saved: {error}"
+                ui.toast_overlay.add_toast(adw::Toast::new(&gettext_f(
+                    "Response could not be saved: {error}",
+                    &[("error", &(error).to_string())],
                 )));
                 return gtk::glib::Propagation::Stop;
             }
@@ -31,14 +35,14 @@ pub(super) fn schedule_save(ui: &Rc<WindowUi>, backend: &Rc<Backend>) {
     if let Some(source) = ui.draft_source.borrow_mut().take() {
         source.remove();
     }
-    ui.draft_label.set_label("Saving…");
+    ui.draft_label.set_label(&gettext("Saving…"));
     let target_ui = Rc::clone(ui);
     let backend = Rc::clone(backend);
     let source = gtk::glib::timeout_add_local_once(Duration::from_millis(350), move || {
         target_ui.draft_source.borrow_mut().take();
         let was_new = backend.active_conversation_id.borrow().is_none();
         if save(&target_ui, &backend).is_err() {
-            target_ui.draft_label.set_label("Draft not saved");
+            target_ui.draft_label.set_label(&gettext("Draft not saved"));
         }
         if was_new {
             conversation_list::refresh(&target_ui, &backend);
@@ -64,11 +68,11 @@ pub(super) fn save(ui: &WindowUi, backend: &Backend) -> Result<()> {
     backend.conversation_repository.save_draft(&id, &content)?;
     backend.conversation_repository.remember_conversation(&id)?;
     conversation_list::update_draft(ui, &id, &content);
-    ui.draft_label.set_label(if content.is_empty() {
+    ui.draft_label.set_label(&gettext(if content.is_empty() {
         ""
     } else {
-        "Draft saved"
-    });
+        gettext_noop("Draft saved")
+    }));
     Ok(())
 }
 
@@ -83,8 +87,11 @@ pub(super) fn restore(ui: &WindowUi, backend: &Backend) -> Result<()> {
     composer_commands::reset(ui);
     ui.entry.buffer().set_text(&draft);
     ui.restoring_draft.set(false);
-    ui.draft_label
-        .set_label(if draft.is_empty() { "" } else { "Draft saved" });
+    ui.draft_label.set_label(&gettext(if draft.is_empty() {
+        ""
+    } else {
+        gettext_noop("Draft saved")
+    }));
     if let Some(id) = id {
         backend.conversation_repository.remember_conversation(&id)?;
     }
@@ -99,19 +106,20 @@ pub(super) fn restore_last(ui: &Rc<WindowUi>, backend: &Rc<Backend>) {
         let Some(id) = backend.conversation_repository.last_conversation()? else {
             return Ok(());
         };
-        if let Some(conversation) = backend.conversation_repository.get(&id)? {
-            if let Some(provider) = backend.repository.get(&conversation.provider_id)? {
-                *backend.provider.borrow_mut() = Some(provider.clone());
-                apply_provider_state(ui, &Some(provider));
-            }
+        if let Some(conversation) = backend.conversation_repository.get(&id)?
+            && let Some(provider) = backend.repository.get(&conversation.provider_id)?
+        {
+            *backend.provider.borrow_mut() = Some(provider.clone());
+            apply_provider_state(ui, &Some(provider));
         }
         load_conversation(ui, backend, &id)?;
         conversation_list::select(ui, &id);
         Ok(())
     })();
     if let Err(error) = result {
-        ui.toast_overlay.add_toast(adw::Toast::new(&format!(
-            "Workspace could not be restored: {error}"
+        ui.toast_overlay.add_toast(adw::Toast::new(&gettext_f(
+            "Workspace could not be restored: {error}",
+            &[("error", &(error).to_string())],
         )));
     }
 }
@@ -156,8 +164,9 @@ pub(super) fn sync_provider(ui: &Rc<WindowUi>, backend: &Rc<Backend>) {
         Ok(())
     })();
     if let Err(error) = result {
-        ui.toast_overlay.add_toast(adw::Toast::new(&format!(
-            "Chat instance could not be loaded: {error}"
+        ui.toast_overlay.add_toast(adw::Toast::new(&gettext_f(
+            "Chat instance could not be loaded: {error}",
+            &[("error", &(error).to_string())],
         )));
     }
 }

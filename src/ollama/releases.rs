@@ -1,3 +1,5 @@
+use crate::i18n::{gettext, gettext_f};
+
 use std::{collections::BTreeMap, fs, io::Read, time::Duration};
 
 use futures_util::StreamExt;
@@ -101,20 +103,23 @@ pub async fn check_latest_release(paths: &AppPaths) -> Result<CachedRelease> {
     let response = request.send().await?;
     let checked_at = crate::core::utc_now();
     let release = if response.status() == reqwest::StatusCode::NOT_MODIFIED {
-        let mut cached = cached
-            .ok_or_else(|| update_error("The update cache is unavailable. Try checking again."))?;
+        let mut cached = cached.ok_or_else(|| {
+            update_error(gettext(
+                "The update cache is unavailable. Try checking again.",
+            ))
+        })?;
         cached.checked_at = checked_at;
         cached
     } else {
         if matches!(response.status().as_u16(), 403 | 429) {
-            return Err(update_error(
+            return Err(update_error(gettext(
                 "GitHub temporarily limited update checks. Try again later. Your installed Ollama is still available.",
-            ));
+            )));
         }
         if !response.status().is_success() {
-            return Err(update_error(format!(
-                "Could not check for updates: HTTP {}",
-                response.status()
+            return Err(update_error(gettext_f(
+                "Could not check for updates: HTTP {arg1}",
+                &[("arg1", &(response.status()).to_string())],
             )));
         }
         let etag = response
@@ -127,7 +132,7 @@ pub async fn check_latest_release(paths: &AppPaths) -> Result<CachedRelease> {
         while let Some(chunk) = stream.next().await {
             let chunk = chunk?;
             if bytes.len().saturating_add(chunk.len()) > MAX_RELEASE_BYTES {
-                return Err(update_error("The release response is too large."));
+                return Err(update_error(gettext("The release response is too large.")));
             }
             bytes.extend_from_slice(&chunk);
         }
@@ -160,9 +165,9 @@ fn parse_release(bytes: &[u8]) -> Result<ManagedOllamaManifest> {
         || RuntimeVersion::parse(&release.tag_name).is_none()
         || !release.tag_name.starts_with('v')
     {
-        return Err(update_error(
+        return Err(update_error(gettext(
             "The release is not a supported stable Ollama version.",
-        ));
+        )));
     }
     let mut assets = BTreeMap::new();
     for architecture in [
@@ -176,7 +181,9 @@ fn parse_release(bytes: &[u8]) -> Result<ManagedOllamaManifest> {
             .filter(|asset| asset.name == name)
             .collect::<Vec<_>>();
         if matching.len() > 1 {
-            return Err(update_error("The release contains duplicate packages."));
+            return Err(update_error(gettext(
+                "The release contains duplicate packages.",
+            )));
         }
         if let Some(asset) = matching.first() {
             let sha256 = asset
@@ -184,8 +191,9 @@ fn parse_release(bytes: &[u8]) -> Result<ManagedOllamaManifest> {
                 .as_deref()
                 .and_then(|digest| digest.strip_prefix("sha256:"))
                 .ok_or_else(|| {
-                    update_error(format!(
-                        "The {name} package has no verifiable SHA-256 checksum."
+                    update_error(gettext_f(
+                        "The {name} package has no verifiable SHA-256 checksum.",
+                        &[("name", &(name).to_string())],
                     ))
                 })?;
             assets.insert(

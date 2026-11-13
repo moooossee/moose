@@ -1,3 +1,5 @@
+use crate::i18n::gettext;
+
 use scraper::{Html, Selector};
 
 const MAX_EXCERPT: usize = 8000;
@@ -24,11 +26,13 @@ pub fn snippet(value: &str, limit: usize) -> String {
 
 pub fn page(bytes: &[u8], content_type: &str) -> Result<(String, String, bool), String> {
     let text = std::str::from_utf8(bytes)
-        .map_err(|_| "This page uses an unsupported text encoding. Try another source.")?;
+        .map_err(|_| gettext("This page uses an unsupported text encoding. Try another source."))?;
     if content_type.starts_with("text/plain") {
         let text = text.trim();
         if text.is_empty() || text.contains('\0') {
-            return Err("This page does not contain readable text. Try another source.".into());
+            return Err(gettext(
+                "This page does not contain readable text. Try another source.",
+            ));
         }
         return Ok((
             String::new(),
@@ -38,7 +42,7 @@ pub fn page(bytes: &[u8], content_type: &str) -> Result<(String, String, bool), 
     }
     let mut document = Html::parse_document(text);
     let ignored = Selector::parse("script, style, noscript, template, svg, canvas, iframe, nav, footer, header, form, aside, [hidden], [aria-hidden='true']")
-        .map_err(|_| "Page extraction is unavailable.")?;
+        .map_err(|_| gettext("Page extraction is unavailable."))?;
     let ids: Vec<_> = document
         .select(&ignored)
         .map(|element| element.id())
@@ -77,7 +81,9 @@ pub fn page(bytes: &[u8], content_type: &str) -> Result<(String, String, bool), 
         output.push('\n');
     }
     if output.trim().len() < 40 {
-        return Err("This page has too little readable text. It may require JavaScript or sign-in. Try another source.".into());
+        return Err(gettext(
+            "This page has too little readable text. It may require JavaScript or sign-in. Try another source.",
+        ));
     }
     Ok((title, output.trim().to_string(), truncated))
 }

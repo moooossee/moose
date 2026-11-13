@@ -1,3 +1,5 @@
+use crate::i18n::gettext_f;
+
 use std::{
     sync::{
         Arc,
@@ -66,7 +68,14 @@ where
     F: FnMut(ManagedOllamaInstallProgress) + Send,
 {
     let version = manager.manifest().version.clone();
-    crate::logging::record("INFO", "ollama.install", &format!("Preparing {version}"));
+    crate::logging::record(
+        "INFO",
+        "ollama.install",
+        &gettext_f(
+            "Preparing {version}",
+            &[("version", &(version).to_string())],
+        ),
+    );
     let prepared = manager.prepare(&cancellation, &mut on_progress).await?;
     cancellation.check()?;
     let mut service = tokio::select! {
@@ -104,7 +113,13 @@ where
         Ok(transaction) => transaction,
         Err(error) => {
             service.recover_installation().map_err(|recovery| {
-                MooseError::ManagedOllamaUpdate(format!("{error}; recovery failed: {recovery}"))
+                MooseError::ManagedOllamaUpdate(gettext_f(
+                    "{error}; recovery failed: {recovery}",
+                    &[
+                        ("error", &(error).to_string()),
+                        ("recovery", &(recovery).to_string()),
+                    ],
+                ))
             })?;
             service.reconfigure(previous_config)?;
             if was_running {
@@ -130,27 +145,40 @@ where
         on_progress(ManagedOllamaInstallProgress::Restoring);
         service.shutdown();
         transaction.rollback().map_err(|recovery| {
-            MooseError::ManagedOllamaUpdate(format!(
-                "{error}; recovery failed: {recovery}. Restart Moose to retry recovery."
+            MooseError::ManagedOllamaUpdate(gettext_f(
+                "{error}; recovery failed: {recovery}. Restart Moose to retry recovery.",
+                &[
+                    ("error", &(error).to_string()),
+                    ("recovery", &(recovery).to_string()),
+                ],
             ))
         })?;
         service.reconfigure(previous_config)?;
         if was_running {
             if let Err(restart) = service.start_with_process_lock(lock) {
-                return Err(MooseError::ManagedOllamaUpdate(format!(
-                    "{error}. The previous installation was restored but could not restart: {restart}"
+                return Err(MooseError::ManagedOllamaUpdate(gettext_f(
+                    "{error}. The previous installation was restored but could not restart: {restart}",
+                    &[
+                        ("error", &(error).to_string()),
+                        ("restart", &(restart).to_string()),
+                    ],
                 )));
             }
             if let Err(restart) = service.wait_until_ready(Duration::from_secs(30)).await {
                 service.shutdown();
-                return Err(MooseError::ManagedOllamaUpdate(format!(
-                    "{error}. The previous installation was restored but is unavailable: {restart}"
+                return Err(MooseError::ManagedOllamaUpdate(gettext_f(
+                    "{error}. The previous installation was restored but is unavailable: {restart}",
+                    &[
+                        ("error", &(error).to_string()),
+                        ("restart", &(restart).to_string()),
+                    ],
                 )));
             }
         }
         crate::logging::record("ERROR", "ollama.update_rollback", &error.to_string());
-        return Err(MooseError::ManagedOllamaUpdate(format!(
-            "{error}. The installation was rolled back; your models and chats were preserved."
+        return Err(MooseError::ManagedOllamaUpdate(gettext_f(
+            "{error}. The installation was rolled back; your models and chats were preserved.",
+            &[("error", &(error).to_string())],
         )));
     }
     manager.clear_completed_download();
@@ -161,7 +189,10 @@ where
     crate::logging::record(
         "INFO",
         "ollama.install",
-        &format!("Verified Ollama {version}"),
+        &gettext_f(
+            "Verified Ollama {version}",
+            &[("version", &(version).to_string())],
+        ),
     );
     on_progress(ManagedOllamaInstallProgress::Installed { version });
     Ok(())
@@ -178,8 +209,9 @@ fn validate_target_version(target: &str, installed: &str, repair: bool) -> Resul
             Ok(())
         }
         (_, None) if repair => Ok(()),
-        _ => Err(MooseError::ManagedOllamaUpdate(format!(
-            "Ollama {installed} is already installed. Installing {target} would not upgrade it. Use Repair Installation to reinstall the same version."
+        _ => Err(MooseError::ManagedOllamaUpdate(gettext_f(
+            "Ollama {installed} is already installed. Installing {target} would not upgrade it. Use Repair Installation to reinstall the same version.",
+            &[("installed", (installed)), ("target", (target))],
         ))),
     }
 }
@@ -190,8 +222,9 @@ fn verify_running_version(expected: &str, actual: &str) -> Result<()> {
         RuntimeVersion::parse(actual),
     ) {
         (Some(expected), Some(actual)) if expected == actual => Ok(()),
-        _ => Err(MooseError::ManagedOllamaUpdate(format!(
-            "Expected Ollama {expected}, but the server reported {actual}."
+        _ => Err(MooseError::ManagedOllamaUpdate(gettext_f(
+            "Expected Ollama {expected}, but the server reported {actual}.",
+            &[("expected", (expected)), ("actual", (actual))],
         ))),
     }
 }

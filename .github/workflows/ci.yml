@@ -24,7 +24,7 @@ jobs:
       - name: Install system dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y appstream desktop-file-utils libglib2.0-bin libsqlite3-dev pkg-config
+          sudo apt-get install -y appstream desktop-file-utils gettext libglib2.0-bin libsqlite3-dev pkg-config
 
       - name: Install Rust stable
         run: |
@@ -43,11 +43,22 @@ jobs:
       - name: Check formatting
         run: cargo fmt --check
 
+      - name: Validate translations
+        run: |
+          python3 build-aux/check-translation-sources.py
+          for catalog in po/*.po; do
+            if [ -f "$catalog" ]; then
+              msgfmt --check --check-format --output-file=/dev/null "$catalog"
+            fi
+          done
+
       - name: Lint Rust
         run: cargo clippy --locked --all-targets -- -D warnings
 
       - name: Run tests
-        run: cargo test --locked --all-targets
+        run: |
+          cargo test --locked --all-targets
+          cargo test --locked --all-targets --features i18n
 
   flatpak:
     name: Build Flatpak

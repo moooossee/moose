@@ -1,3 +1,5 @@
+use crate::i18n::{gettext, gettext_noop};
+
 use std::fs;
 
 use super::{MODEL_FAMILIES, ModelFamily, ModelVariant};
@@ -27,11 +29,13 @@ impl Task {
 
     pub(super) fn description(self) -> &'static str {
         match self {
-            Self::Everyday => "For everyday questions, writing, and learning.",
-            Self::Coding => "For writing, explaining, and troubleshooting code.",
-            Self::Images => "For questions about photos, screenshots, and charts.",
-            Self::Documents => "For summarizing text and asking questions about documents.",
-            Self::All => "Explore every model family, including specialized models.",
+            Self::Everyday => gettext_noop("For everyday questions, writing, and learning."),
+            Self::Coding => gettext_noop("For writing, explaining, and troubleshooting code."),
+            Self::Images => gettext_noop("For questions about photos, screenshots, and charts."),
+            Self::Documents => {
+                gettext_noop("For summarizing text and asking questions about documents.")
+            }
+            Self::All => gettext_noop("Explore every model family, including specialized models."),
         }
     }
 }
@@ -131,12 +135,12 @@ impl MemoryBudget {
 
     pub(super) fn guidance(self, download_bytes: u64) -> &'static str {
         if self.available.is_none() {
-            return "Memory needs depend on the Ollama server";
+            return gettext_noop("Memory needs depend on the Ollama server");
         }
         match self.pressure(download_bytes) {
-            0 => "Lower memory pressure expected",
-            1 => "May leave little memory for other apps",
-            _ => "May need more memory than is available",
+            0 => gettext_noop("Lower memory pressure expected"),
+            1 => gettext_noop("May leave little memory for other apps"),
+            _ => gettext_noop("May need more memory than is available"),
         }
     }
 }
@@ -150,36 +154,36 @@ pub(super) struct Candidate {
 
 impl Candidate {
     pub(super) fn capabilities(self) -> String {
-        let mut features = vec![if supports_images(self.family, self.variant) {
-            "Text and images"
+        let mut features = vec![gettext(if supports_images(self.family, self.variant) {
+            gettext_noop("Text and images")
         } else {
-            "Text only"
-        }];
+            gettext_noop("Text only")
+        })];
         if supports_tools(self.family, self.variant) {
-            features.push("Tools");
+            features.push(gettext("Tools"));
         }
         if self.family.tags.contains(&"thinking") || self.variant.tags.contains(&"reasoning") {
-            features.push("Reasoning");
+            features.push(gettext("Reasoning"));
         }
         features.join(" · ")
     }
 
     pub(super) fn purpose(self) -> &'static str {
         if self.family.tags.contains(&"specialized") {
-            "Specialized tasks"
+            gettext_noop("Specialized tasks")
         } else if self.family.tags.contains(&"translation") {
-            "Translation"
+            gettext_noop("Translation")
         } else if self.family.tags.contains(&"coding") {
-            "Coding and debugging"
+            gettext_noop("Coding and debugging")
         } else if supports_images(self.family, self.variant) {
-            "Chat and images"
+            gettext_noop("Chat and images")
         } else if self.family.tags.contains(&"documents") {
-            "Documents and summaries"
+            gettext_noop("Documents and summaries")
         } else if self.family.tags.contains(&"thinking") || self.family.tags.contains(&"reasoning")
         {
-            "Complex questions"
+            gettext_noop("Complex questions")
         } else {
-            "Chat and writing"
+            gettext_noop("Chat and writing")
         }
     }
 }
@@ -312,14 +316,16 @@ fn is_multilingual(family: &ModelFamily) -> bool {
 
 fn family_matches(family: &ModelFamily, query: &str) -> bool {
     let text = format!(
-        "{} {} {} {} {}",
+        "{} {} {} {} {} {} {}",
         family.id,
         family.title,
         family.subtitle,
         family.description,
+        gettext(family.subtitle),
+        gettext(family.description),
         family.tags.join(" ")
     )
-    .to_ascii_lowercase();
+    .to_lowercase();
     search_words(query).all(|word| {
         text.contains(word)
             || match word {
@@ -355,13 +361,14 @@ fn family_matches(family: &ModelFamily, query: &str) -> bool {
 
 fn variant_matches(variant: &ModelVariant, query: &str) -> bool {
     let text = format!(
-        "{} {} {} {}",
+        "{} {} {} {} {}",
         variant.name,
         variant.title,
         variant.description,
+        gettext(variant.description),
         variant.tags.join(" ")
     )
-    .to_ascii_lowercase();
+    .to_lowercase();
     search_words(query).all(|word| text.contains(word))
 }
 

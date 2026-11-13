@@ -1,3 +1,5 @@
+use crate::i18n::{gettext, gettext_f};
+
 use std::{
     fs::OpenOptions,
     path::Path,
@@ -85,18 +87,18 @@ where
             .headers()
             .get(reqwest::header::CONTENT_RANGE)
             .and_then(|value| value.to_str().ok())
-            .ok_or_else(|| download_error("The download has no valid resume position."))?;
+            .ok_or_else(|| download_error(gettext("The download has no valid resume position.")))?;
         let (start, end, total) = parse_range(range)
-            .ok_or_else(|| download_error("The download has an invalid byte range."))?;
+            .ok_or_else(|| download_error(gettext("The download has an invalid byte range.")))?;
         if start != offset
             || asset.size_bytes.is_some_and(|size| size != total)
             || response
                 .content_length()
                 .is_some_and(|length| length != end - start + 1)
         {
-            return Err(download_error(
+            return Err(download_error(gettext(
                 "The server returned a different package while resuming. Retry the update.",
-            ));
+            )));
         }
         Some(total)
     } else if response.status() == reqwest::StatusCode::OK {
@@ -105,15 +107,15 @@ where
         if let (Some(expected), Some(actual)) = (asset.size_bytes, response.content_length())
             && expected != actual
         {
-            return Err(download_error(
+            return Err(download_error(gettext(
                 "The package size does not match the release metadata.",
-            ));
+            )));
         }
         response.content_length().or(asset.size_bytes)
     } else {
-        return Err(download_error(format!(
-            "HTTP {} while downloading Ollama",
-            response.status()
+        return Err(download_error(gettext_f(
+            "HTTP {arg1} while downloading Ollama",
+            &[("arg1", &(response.status()).to_string())],
         )));
     };
     if let Some(total) = total {
@@ -140,7 +142,9 @@ where
             };
             let chunk = chunk?;
             if total.is_some_and(|total| offset.saturating_add(chunk.len() as u64) > total) {
-                return Err(download_error("The package is larger than expected."));
+                return Err(download_error(gettext(
+                    "The package is larger than expected.",
+                )));
             }
             file.write_all(&chunk).await?;
             hasher.update(&chunk);
@@ -160,9 +164,9 @@ where
     file.sync_all().await?;
     result?;
     if total.is_some_and(|total| total != offset) {
-        return Err(download_error(
+        return Err(download_error(gettext(
             "The package download is incomplete. Retry to resume it.",
-        ));
+        )));
     }
     Ok((offset, hex_digest(hasher.finalize().as_slice())))
 }

@@ -1,3 +1,5 @@
+use crate::i18n::{gettext, gettext_f, ngettext_f};
+
 use super::*;
 use std::path::Path;
 
@@ -24,17 +26,18 @@ pub(super) fn list(ui: &WindowUi, backend: &Backend, assets: &[Asset]) -> Option
                 .and_then(|extension| extension.to_str())
                 .filter(|extension| !extension.is_empty())
                 .map(str::to_uppercase)
-                .unwrap_or_else(|| "Document".into())
+                .unwrap_or_else(|| gettext("Document"))
         };
         let description = if asset.kind == "pdf" && asset.page_count > 0 {
-            format!(
-                "{kind} · {} {} · {size}",
-                asset.page_count,
-                if asset.page_count == 1 {
-                    "page"
-                } else {
-                    "pages"
-                }
+            ngettext_f(
+                "{kind} · {count} page · {size}",
+                "{kind} · {count} pages · {size}",
+                asset.page_count as u32,
+                &[
+                    ("kind", &kind),
+                    ("count", &asset.page_count.to_string()),
+                    ("size", &size),
+                ],
             )
         } else {
             format!("{kind} · {size}")
@@ -46,7 +49,13 @@ pub(super) fn list(ui: &WindowUi, backend: &Backend, assets: &[Asset]) -> Option
             .subtitle_lines(1)
             .use_markup(false)
             .activatable(true)
-            .tooltip_text(format!("Preview {}\n{description}", asset.name))
+            .tooltip_text(gettext_f(
+                "Preview {arg1}\n{description}",
+                &[
+                    ("arg1", &(asset.name).to_string()),
+                    ("description", &(description).to_string()),
+                ],
+            ))
             .build();
 
         let (guessed_type, uncertain) = gio::content_type_guess(Some(&asset.name), None::<&[u8]>);

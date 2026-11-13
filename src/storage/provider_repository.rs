@@ -1,3 +1,5 @@
+use crate::i18n::gettext;
+
 use std::rc::Rc;
 
 use rusqlite::{Connection, OptionalExtension, Row, params};
@@ -185,9 +187,9 @@ impl ProviderRepository {
             || provider.kind != ProviderKind::Custom
             || provider.id != expected.id
         {
-            return Err(crate::error::MooseError::ProviderRequest(
-                "Only custom providers can be configured here.".into(),
-            ));
+            return Err(crate::error::MooseError::ProviderRequest(gettext(
+                "Only custom providers can be configured here.",
+            )));
         }
         provider.name = validate_provider_name(&provider.name)?;
         provider.base_url = provider.kind.validate_url(&provider.base_url)?;
@@ -198,9 +200,9 @@ impl ProviderRepository {
             .get(&provider.id)?
             .ok_or(crate::error::MooseError::ProviderNotConfigured)?;
         if current != *expected {
-            return Err(crate::error::MooseError::ProviderRequest(
-                "The provider changed. Reopen its settings and try again.".into(),
-            ));
+            return Err(crate::error::MooseError::ProviderRequest(gettext(
+                "The provider changed. Reopen its settings and try again.",
+            )));
         }
         if destination(&current) != destination(&provider) {
             self.clear_remote_permissions(&provider.id)?;

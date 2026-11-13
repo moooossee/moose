@@ -1,3 +1,5 @@
+use crate::i18n::{gettext, gettext_f, gettext_noop, ngettext_f};
+
 mod calculator;
 pub mod web;
 
@@ -69,10 +71,10 @@ impl ToolExecution {
 
     pub fn label(&self) -> &str {
         match self.name.as_str() {
-            CALCULATOR => "Calculator",
-            web::SEARCH => "Web Search",
-            web::READ => "Read Page",
-            _ => "Unavailable tool",
+            CALCULATOR => gettext_noop("Calculator"),
+            web::SEARCH => gettext_noop("Web Search"),
+            web::READ => gettext_noop("Read Page"),
+            _ => gettext_noop("Unavailable tool"),
         }
     }
 
@@ -87,12 +89,26 @@ impl ToolExecution {
                 })
                 .and_then(Value::as_str)
                 .unwrap_or("");
-            let status = match self.status {
+            let status = gettext(match self.status {
                 ToolStatus::Running => self.running_label(),
-                ToolStatus::Cancelled => "Stopped",
-                _ => &self.output,
-            };
-            return format!("{}\n{input}\n{status}", self.label());
+                ToolStatus::Cancelled => gettext_noop("Stopped"),
+                ToolStatus::Complete if self.name == web::SEARCH && !self.sources.is_empty() => {
+                    return format!(
+                        "{}\n{input}\n{}",
+                        gettext(self.label()),
+                        ngettext_f(
+                            "{count} source found",
+                            "{count} sources found",
+                            self.sources.len() as u32,
+                            &[("count", &self.sources.len().to_string())]
+                        )
+                    );
+                }
+                ToolStatus::Complete if self.name == web::SEARCH => &self.output,
+                ToolStatus::Complete => gettext_noop("Page read"),
+                ToolStatus::Failed => &self.output,
+            });
+            return format!("{}\n{input}\n{status}", gettext(self.label()));
         }
         let input = self
             .arguments
@@ -100,19 +116,21 @@ impl ToolExecution {
             .and_then(Value::as_str)
             .unwrap_or("");
         match self.status {
-            ToolStatus::Running => format!("{input}\nCalculating…"),
+            ToolStatus::Running => gettext_f("{input}\nCalculating…", &[("input", input)]),
             ToolStatus::Complete => format!("{input} = {}", self.output),
-            ToolStatus::Failed => format!("{input}\n{}", self.output),
-            ToolStatus::Cancelled => format!("{input}\nCalculation stopped"),
+            ToolStatus::Failed => format!("{input}\n{}", gettext(&self.output)),
+            ToolStatus::Cancelled => {
+                gettext_f("{input}\nCalculation stopped", &[("input", (input))])
+            }
         }
     }
 
     pub fn running_label(&self) -> &str {
         match self.name.as_str() {
-            CALCULATOR => "Calculating…",
-            web::SEARCH => "Searching the web…",
-            web::READ => "Reading page…",
-            _ => "Using tool…",
+            CALCULATOR => gettext_noop("Calculating…"),
+            web::SEARCH => gettext_noop("Searching the web…"),
+            web::READ => gettext_noop("Reading page…"),
+            _ => gettext_noop("Using tool…"),
         }
     }
 
@@ -129,12 +147,17 @@ impl ToolExecution {
                         Ok(sources) => {
                             self.output = if self.name == web::SEARCH {
                                 if sources.is_empty() {
-                                    "No usable results found. Try a more specific query.".into()
+                                    gettext("No usable results found. Try a more specific query.")
                                 } else {
-                                    format!("{} sources found", sources.len())
+                                    ngettext_f(
+                                        "{count} source found",
+                                        "{count} sources found",
+                                        sources.len() as u32,
+                                        &[("count", &sources.len().to_string())],
+                                    )
                                 }
                             } else {
-                                "Page read".into()
+                                gettext("Page read")
                             };
                             self.status = ToolStatus::Complete;
                             self.sources = sources;
@@ -142,12 +165,16 @@ impl ToolExecution {
                         }
                         Err(error) => Err(error),
                     },
-                    None => Err("Web access is not enabled for this chat.".into()),
+                    None => Err(gettext("Web access is not enabled for this chat.")),
                 },
-                _ => Err("This tool is not available. Use only the provided tools.".into()),
+                _ => Err(gettext(
+                    "This tool is not available. Use only the provided tools.",
+                )),
             }
         } else {
-            Err("This tool is not enabled for this chat. Use only the provided tools.".into())
+            Err(gettext(
+                "This tool is not enabled for this chat. Use only the provided tools.",
+            ))
         };
         match result {
             Ok(value) => {

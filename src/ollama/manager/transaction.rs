@@ -1,3 +1,5 @@
+use crate::i18n::{gettext, gettext_f, gettext_noop};
+
 use std::{
     fs::{self, File, OpenOptions, TryLockError},
     io::Write,
@@ -30,9 +32,9 @@ pub(crate) struct InstallationTransaction {
 impl InstallationTransaction {
     pub fn begin(paths: &AppPaths, staging: &Path) -> Result<Self> {
         if is_pending(paths) || path_exists(&paths.data_dir().join(BACKUP)) {
-            return Err(update_error(
+            return Err(update_error(gettext(
                 "An earlier update needs recovery before installing.",
-            ));
+            )));
         }
         let transaction = Self {
             paths: paths.clone(),
@@ -56,7 +58,13 @@ impl InstallationTransaction {
         })();
         if let Err(error) = result {
             recover(paths).map_err(|recovery| {
-                update_error(format!("{error}; recovery failed: {recovery}"))
+                update_error(gettext_f(
+                    "{error}; recovery failed: {recovery}",
+                    &[
+                        ("error", &(error).to_string()),
+                        ("recovery", &(recovery).to_string()),
+                    ],
+                ))
             })?;
             return Err(error);
         }
@@ -92,9 +100,9 @@ pub(super) fn lock_installation(paths: &AppPaths) -> Result<File> {
     let lock = options.open(paths.data_dir().join("ollama-install.lock"))?;
     match lock.try_lock() {
         Ok(()) => Ok(lock),
-        Err(TryLockError::WouldBlock) => Err(update_error(
+        Err(TryLockError::WouldBlock) => Err(update_error(gettext(
             "Another Ollama installation or update is already in progress.",
-        )),
+        ))),
         Err(TryLockError::Error(error)) => Err(error.into()),
     }
 }
@@ -122,9 +130,9 @@ pub(crate) fn recover(paths: &AppPaths) -> Result<()> {
     let backup = paths.data_dir().join(BACKUP);
     if journal.committed {
         if !installation.join("bin/ollama").is_file() {
-            return Err(update_error(
+            return Err(update_error(gettext(
                 "The completed installation is missing. Its backup has been retained.",
-            ));
+            )));
         }
         remove_path_if_exists(&backup)?;
     } else if path_exists(&backup) {
@@ -134,20 +142,20 @@ pub(crate) fn recover(paths: &AppPaths) -> Result<()> {
     } else if !journal.had_previous {
         remove_path_if_exists(&installation)?;
     } else if !path_exists(&installation) {
-        return Err(update_error(
+        return Err(update_error(gettext(
             "The previous installation and its backup are missing. Recovery cannot continue.",
-        ));
+        )));
     }
     fs::remove_file(journal_path)?;
     sync_directory(paths.data_dir())?;
     crate::logging::record(
         "INFO",
         "ollama.update_recovery",
-        if journal.committed {
-            "Completed update cleanup"
+        &gettext(if journal.committed {
+            gettext_noop("Completed update cleanup")
         } else {
-            "Restored the previous installation"
-        },
+            gettext_noop("Restored the previous installation")
+        }),
     );
     Ok(())
 }
@@ -178,7 +186,7 @@ pub(super) fn check_disk_space(directory: &Path, needed: u64) -> Result<()> {
     {
         use std::os::unix::ffi::OsStrExt;
         let path = std::ffi::CString::new(directory.as_os_str().as_bytes())
-            .map_err(|_| update_error("The installation path is invalid."))?;
+            .map_err(|_| update_error(gettext("The installation path is invalid.")))?;
         let mut info = std::mem::MaybeUninit::<libc::statvfs>::uninit();
         if unsafe { libc::statvfs(path.as_ptr(), info.as_mut_ptr()) } != 0 {
             return Err(std::io::Error::last_os_error().into());
@@ -186,9 +194,9 @@ pub(super) fn check_disk_space(directory: &Path, needed: u64) -> Result<()> {
         let info = unsafe { info.assume_init() };
         let available = u128::from(info.f_bavail) * u128::from(info.f_frsize);
         if available < u128::from(needed) + 16 * 1024 * 1024 {
-            return Err(update_error(
+            return Err(update_error(gettext(
                 "There is not enough free disk space to prepare Ollama. Free some space and retry.",
-            ));
+            )));
         }
     }
     #[cfg(not(unix))]

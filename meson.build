@@ -8,13 +8,16 @@ project(
 
 python = find_program('python3')
 gnome = import('gnome')
+i18n = import('i18n')
 cargo_build = files('build-aux/cargo-build.py')
 datadir = get_option('datadir')
 styledir = join_paths(datadir, 'moose')
+localedir = join_paths(get_option('prefix'), get_option('localedir'))
 service_config = configuration_data()
 service_config.set('bindir', join_paths(get_option('prefix'), get_option('bindir')))
 
 subdir('data')
+subdir('po')
 
 custom_target(
   'moose',
@@ -27,25 +30,29 @@ custom_target(
     get_option('cargo_profile'),
     get_option('gui').to_string(),
     join_paths(get_option('prefix'), styledir, 'io.github.moooossee.Moose.css'),
+    localedir,
     '@OUTPUT@'
   ],
   build_by_default: true,
+  build_always_stale: true,
   install: true,
   install_dir: get_option('bindir')
 )
 
-configure_file(
+i18n.merge_file(
   input: 'data/io.github.moooossee.Moose.desktop',
   output: 'io.github.moooossee.Moose.desktop',
-  copy: true,
+  po_dir: 'po',
+  type: 'desktop',
   install: true,
   install_dir: join_paths(datadir, 'applications')
 )
 
-configure_file(
+i18n.merge_file(
   input: 'data/io.github.moooossee.Moose.metainfo.xml.in',
   output: 'io.github.moooossee.Moose.metainfo.xml',
-  copy: true,
+  po_dir: 'po',
+  type: 'xml',
   install: true,
   install_dir: join_paths(datadir, 'metainfo')
 )

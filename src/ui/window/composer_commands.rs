@@ -1,3 +1,5 @@
+use crate::i18n::{gettext, gettext_f, gettext_noop};
+
 use super::*;
 
 #[derive(Clone, Copy, Eq, PartialEq)]
@@ -16,8 +18,8 @@ impl Tool {
 
     fn label(self) -> &'static str {
         match self {
-            Self::Web => "Web",
-            Self::Calculator => "Calculator",
+            Self::Web => gettext_noop("Web"),
+            Self::Calculator => gettext_noop("Calculator"),
         }
     }
 
@@ -100,7 +102,10 @@ pub(super) fn build() -> Controls {
             labels.append(&title);
             labels.append(&description);
             content.append(&labels);
-            let state = gtk::Label::builder().label("On").visible(false).build();
+            let state = gtk::Label::builder()
+                .label(gettext("On"))
+                .visible(false)
+                .build();
             state.add_css_class("accent");
             state.add_css_class("caption-heading");
             content.append(&state);
@@ -120,7 +125,7 @@ pub(super) fn build() -> Controls {
         }
         let content = gtk::Box::new(gtk::Orientation::Horizontal, 6);
         content.append(&gtk::Image::from_icon_name(tool.icon()));
-        let label = gtk::Label::new(Some(tool.label()));
+        let label = gtk::Label::new(Some(&gettext(tool.label())));
         content.append(&label);
         let close = gtk::Image::from_icon_name("window-close-symbolic");
         close.set_pixel_size(12);
@@ -132,7 +137,10 @@ pub(super) fn build() -> Controls {
             .build();
         button.add_css_class("flat");
         button.add_css_class("moose-tool-chip");
-        button.set_tooltip_text(Some(&format!("Turn off {} in this chat", tool.label())));
+        button.set_tooltip_text(Some(&gettext_f(
+            "Turn off {arg1} in this chat",
+            &[("arg1", &gettext(tool.label()))],
+        )));
         active.append(&button);
         chips.push(Chip {
             tool,
@@ -142,7 +150,9 @@ pub(super) fn build() -> Controls {
     }
     let content = gtk::Box::new(gtk::Orientation::Vertical, 6);
     let hint = gtk::Label::builder()
-        .label("Tools for this chat · ↑↓ to choose · Enter or Tab to select · Esc to dismiss")
+        .label(gettext(
+            "Tools for this chat · ↑↓ to choose · Enter or Tab to select · Esc to dismiss",
+        ))
         .xalign(0.0)
         .wrap(true)
         .build();
@@ -246,9 +256,11 @@ pub(super) fn bind(ui: &Rc<WindowUi>, backend: &Rc<Backend>) {
 
 fn busy(backend: &Backend) -> Option<&'static str> {
     if backend.active_generation.borrow().is_some() {
-        Some("Finish or stop the current response to change tools")
+        Some(gettext_noop(
+            "Finish or stop the current response to change tools",
+        ))
     } else if backend.credential_operation.get() {
-        Some("Finish the keyring operation to change tools")
+        Some(gettext_noop("Finish the keyring operation to change tools"))
     } else {
         None
     }
@@ -262,10 +274,14 @@ fn unavailable(backend: &Backend, command: Command) -> Option<&'static str> {
         return None;
     }
     if !active_provider(backend).is_some_and(|provider| provider.kind.supports_tool_calling()) {
-        return Some("Requires a compatible Ollama or Ollama Cloud model");
+        return Some(gettext_noop(
+            "Requires a compatible Ollama or Ollama Cloud model",
+        ));
     }
     if command.tool == Tool::Web && backend.network_policy.local_only() {
-        return Some("Blocked by Local Only in Preferences → Privacy");
+        return Some(gettext_noop(
+            "Blocked by Local Only in Preferences → Privacy",
+        ));
     }
     None
 }
@@ -292,28 +308,34 @@ pub(super) fn refresh(ui: &WindowUi, backend: &Backend) {
         };
         item.state.set_visible(item.command.enabled && enabled);
         let reason = if !loaded {
-            Some("Tool settings could not be loaded. Reopen this chat.")
+            Some(gettext(
+                "Tool settings could not be loaded. Reopen this chat.",
+            ))
         } else {
-            unavailable(backend, item.command)
+            unavailable(backend, item.command).map(gettext)
         };
         item.row.set_sensitive(reason.is_none());
         let description = reason.unwrap_or_else(|| {
             if !item.command.enabled {
-                return "Turn off this tool for the conversation";
+                return gettext("Turn off this tool for the conversation");
             }
-            match item.command.tool {
-                Tool::Calculator => "Calculate on this device · Requires a model with tool support",
+            gettext(match item.command.tool {
+                Tool::Calculator => {
+                    gettext_noop("Calculate on this device · Requires a model with tool support")
+                }
                 Tool::Web
                     if config.as_ref().is_none_or(|config| {
                         config.provider == crate::tools::web::SearchProvider::LinksOnly
                     }) =>
                 {
-                    "Read public links · Set up search in Preferences → Web"
+                    gettext_noop("Read public links · Set up search in Preferences → Web")
                 }
-                Tool::Web => "Search and read public pages · Permission required before first use",
-            }
+                Tool::Web => gettext_noop(
+                    "Search and read public pages · Permission required before first use",
+                ),
+            })
         });
-        item.description.set_text(description);
+        item.description.set_text(&description);
     }
     for chip in &ui.commands.chips {
         let enabled = match chip.tool {
@@ -327,8 +349,12 @@ pub(super) fn refresh(ui: &WindowUi, backend: &Backend) {
                 .is_some_and(|provider| provider.kind.supports_tool_calling());
         chip.label.set_text(&format!(
             "{}{}",
-            chip.tool.label(),
-            if blocked { " · Unavailable" } else { "" }
+            gettext(chip.tool.label()),
+            if blocked {
+                gettext(" · Unavailable")
+            } else {
+                String::new()
+            }
         ));
     }
     ui.commands.active.set_visible(calculator || web);
@@ -493,15 +519,16 @@ fn apply(ui: &Rc<WindowUi>, backend: &Rc<Backend>, commands: &[Command]) -> bool
     workspace::sync_provider(ui, backend);
     for command in commands {
         if let Some(reason) = unavailable(backend, *command) {
-            ui.toast_overlay.add_toast(adw::Toast::new(reason));
+            ui.toast_overlay
+                .add_toast(adw::Toast::new(&gettext(reason)));
             refresh(ui, backend);
             return false;
         }
     }
     if !workspace::provider_matches(backend) {
-        ui.toast_overlay.add_toast(adw::Toast::new(
+        ui.toast_overlay.add_toast(adw::Toast::new(&gettext(
             "Switch to this chat’s provider before changing tools",
-        ));
+        )));
         return false;
     }
     let was_new = backend.active_conversation_id.borrow().is_none();
@@ -534,7 +561,7 @@ fn apply(ui: &Rc<WindowUi>, backend: &Rc<Backend>, commands: &[Command]) -> bool
                 .map(|command| {
                     format!(
                         "{} {}",
-                        command.tool.label(),
+                        gettext(command.tool.label()),
                         if command.enabled {
                             "enabled"
                         } else {
@@ -548,7 +575,11 @@ fn apply(ui: &Rc<WindowUi>, backend: &Rc<Backend>, commands: &[Command]) -> bool
             true
         }
         Err(error) => {
-            show_error(&ui.window, "Tool settings could not be saved", &error);
+            show_error(
+                &ui.window,
+                &gettext("Tool settings could not be saved"),
+                &error,
+            );
             false
         }
     }

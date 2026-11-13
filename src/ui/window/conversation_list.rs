@@ -1,3 +1,5 @@
+use crate::i18n::{gettext, gettext_f, gettext_noop};
+
 use std::rc::Rc;
 
 use adw::prelude::*;
@@ -22,8 +24,9 @@ pub(super) fn refresh(ui: &Rc<WindowUi>, backend: &Rc<Backend>) {
         .search_summaries(&query, include_archived, 60)
     {
         Ok(summaries) => set(ui, backend, summaries),
-        Err(error) => ui.toast_overlay.add_toast(adw::Toast::new(&format!(
-            "Conversations could not be loaded: {error}"
+        Err(error) => ui.toast_overlay.add_toast(adw::Toast::new(&gettext_f(
+            "Conversations could not be loaded: {error}",
+            &[("error", &(error).to_string())],
         ))),
     }
 }
@@ -70,12 +73,12 @@ fn set(ui: &Rc<WindowUi>, backend: &Rc<Backend>, summaries: Vec<ConversationSumm
 
     if summaries.is_empty() {
         let row = gtk::ListBoxRow::new();
-        let text = if ui.conversation_search_entry.text().is_empty() {
-            "No conversations yet"
+        let text = gettext(if ui.conversation_search_entry.text().is_empty() {
+            gettext_noop("No conversations yet")
         } else {
-            "No matching conversations"
-        };
-        row.set_child(Some(&conversation_row_content(text, false, false, false)));
+            gettext_noop("No matching conversations")
+        });
+        row.set_child(Some(&conversation_row_content(&text, false, false, false)));
         row.set_height_request(45);
         row.set_selectable(false);
         row.set_sensitive(false);
@@ -95,16 +98,16 @@ fn set(ui: &Rc<WindowUi>, backend: &Rc<Backend>, summaries: Vec<ConversationSumm
     for summary in summaries {
         if summary.conversation.archived_at.is_some() {
             if !archived_heading_added {
-                append_heading(ui, &mut ids, "Archived");
+                append_heading(ui, &mut ids, &gettext("Archived"));
                 archived_heading_added = true;
             }
         } else if summary.conversation.pinned_at.is_some() {
             if !pinned_heading_added {
-                append_heading(ui, &mut ids, "Pinned");
+                append_heading(ui, &mut ids, &gettext("Pinned"));
                 pinned_heading_added = true;
             }
         } else if !recent_heading_added {
-            append_heading(ui, &mut ids, "Recent");
+            append_heading(ui, &mut ids, &gettext("Recent"));
             recent_heading_added = true;
         }
 
@@ -129,7 +132,7 @@ fn row(summary: &ConversationSummary, ui: &Rc<WindowUi>, backend: &Rc<Backend>) 
     let is_generating = backend.active_generation.borrow().is_some()
         && backend.generation_context.borrow().conversation_id == summary.conversation.id;
     row.set_child(Some(&conversation_row_content(
-        &summary.conversation.title,
+        &crate::i18n::conversation_title(&summary.conversation.title),
         summary.conversation.pinned_at.is_some(),
         summary.conversation.archived_at.is_some(),
         is_generating,
@@ -140,7 +143,9 @@ fn row(summary: &ConversationSummary, ui: &Rc<WindowUi>, backend: &Rc<Backend>) 
         .unwrap_or_default();
     set_draft_badge(&row, &draft);
     row.set_height_request(45);
-    row.set_tooltip_text(Some(&summary.conversation.title));
+    row.set_tooltip_text(Some(&crate::i18n::conversation_title(
+        &summary.conversation.title,
+    )));
     row.add_css_class("moose-conversation-row");
 
     let click = gtk::GestureClick::builder().button(3).build();
@@ -189,7 +194,7 @@ fn set_draft_badge(row: &gtk::ListBoxRow, draft: &str) {
         }
     }
     if !draft.is_empty() {
-        let label = gtk::Label::new(Some("Draft"));
+        let label = gtk::Label::new(Some(&gettext("Draft")));
         label.set_widget_name("draft-badge");
         label.add_css_class("caption");
         label.add_css_class("dim-label");
@@ -253,7 +258,7 @@ fn conversation_row_content(
     if generating {
         let spinner = gtk::Spinner::new();
         spinner.set_size_request(14, 14);
-        spinner.set_tooltip_text(Some("Generating Response"));
+        spinner.set_tooltip_text(Some(&gettext("Generating Response")));
         spinner.add_css_class("moose-conversation-spinner");
         spinner.start();
         content.append(&spinner);
@@ -291,11 +296,19 @@ fn show_menu(
         .as_ref()
         .and_then(|conversation| conversation.archived_at.as_ref())
         .is_some();
-    let rename_button = gtk::Button::with_label("Rename");
-    let pin_button = gtk::Button::with_label(if is_pinned { "Unpin" } else { "Pin" });
-    let archive_button = gtk::Button::with_label(if is_archived { "Unarchive" } else { "Archive" });
-    let export_button = gtk::Button::with_label("Export Conversation");
-    let delete_button = gtk::Button::with_label("Delete Conversation");
+    let rename_button = gtk::Button::with_label(&gettext("Rename"));
+    let pin_button = gtk::Button::with_label(&gettext(if is_pinned {
+        gettext_noop("Unpin")
+    } else {
+        gettext_noop("Pin")
+    }));
+    let archive_button = gtk::Button::with_label(&gettext(if is_archived {
+        gettext_noop("Unarchive")
+    } else {
+        gettext_noop("Archive")
+    }));
+    let export_button = gtk::Button::with_label(&gettext("Export Conversation"));
+    let delete_button = gtk::Button::with_label(&gettext("Delete Conversation"));
 
     rename_button.add_css_class("flat");
     pin_button.add_css_class("flat");
@@ -386,19 +399,20 @@ fn rename(ui: &Rc<WindowUi>, backend: &Rc<Backend>, conversation_id: &str) {
         Ok(None) => {
             refresh(ui, backend);
             ui.toast_overlay
-                .add_toast(adw::Toast::new("Conversation was not found"));
+                .add_toast(adw::Toast::new(&gettext("Conversation was not found")));
             return;
         }
         Err(error) => {
-            ui.toast_overlay.add_toast(adw::Toast::new(&format!(
-                "Conversation could not be loaded: {error}"
+            ui.toast_overlay.add_toast(adw::Toast::new(&gettext_f(
+                "Conversation could not be loaded: {error}",
+                &[("error", &(error).to_string())],
             )));
             return;
         }
     };
 
     let dialog = adw::Dialog::builder()
-        .title("Rename Conversation")
+        .title(gettext("Rename Conversation"))
         .content_width(420)
         .build();
     let content = gtk::Box::builder()
@@ -410,12 +424,12 @@ fn rename(ui: &Rc<WindowUi>, backend: &Rc<Backend>, conversation_id: &str) {
         .margin_end(18)
         .build();
     let entry = gtk::Entry::builder()
-        .text(&conversation.title)
+        .text(crate::i18n::conversation_title(&conversation.title))
         .activates_default(true)
         .hexpand(true)
         .build();
-    let cancel_button = gtk::Button::with_label("Cancel");
-    let save_button = gtk::Button::with_label("Rename");
+    let cancel_button = gtk::Button::with_label(&gettext("Cancel"));
+    let save_button = gtk::Button::with_label(&gettext("Rename"));
     save_button.add_css_class("suggested-action");
     let actions = gtk::Box::builder()
         .orientation(Orientation::Horizontal)
@@ -451,11 +465,14 @@ fn rename(ui: &Rc<WindowUi>, backend: &Rc<Backend>, conversation_id: &str) {
                 refresh(&target_ui, &target_backend);
                 target_ui
                     .toast_overlay
-                    .add_toast(adw::Toast::new("Conversation renamed"));
+                    .add_toast(adw::Toast::new(&gettext("Conversation renamed")));
             }
-            Err(error) => target_ui.toast_overlay.add_toast(adw::Toast::new(&format!(
-                "Conversation could not be renamed: {error}"
-            ))),
+            Err(error) => target_ui
+                .toast_overlay
+                .add_toast(adw::Toast::new(&gettext_f(
+                    "Conversation could not be renamed: {error}",
+                    &[("error", &(error).to_string())],
+                ))),
         }
     });
 
@@ -469,14 +486,16 @@ fn set_pinned(ui: &Rc<WindowUi>, backend: &Rc<Backend>, conversation_id: &str, p
     {
         Ok(_) => {
             refresh(ui, backend);
-            ui.toast_overlay.add_toast(adw::Toast::new(if pinned {
-                "Conversation pinned"
-            } else {
-                "Conversation unpinned"
-            }));
+            ui.toast_overlay
+                .add_toast(adw::Toast::new(&gettext(if pinned {
+                    gettext_noop("Conversation pinned")
+                } else {
+                    gettext_noop("Conversation unpinned")
+                })));
         }
-        Err(error) => ui.toast_overlay.add_toast(adw::Toast::new(&format!(
-            "Conversation could not be updated: {error}"
+        Err(error) => ui.toast_overlay.add_toast(adw::Toast::new(&gettext_f(
+            "Conversation could not be updated: {error}",
+            &[("error", &(error).to_string())],
         ))),
     }
 }
@@ -485,14 +504,15 @@ fn set_archived(ui: &Rc<WindowUi>, backend: &Rc<Backend>, conversation_id: &str,
     if backend.active_generation.borrow().is_some()
         && backend.generation_context.borrow().conversation_id == conversation_id
     {
-        ui.toast_overlay.add_toast(adw::Toast::new(
+        ui.toast_overlay.add_toast(adw::Toast::new(&gettext(
             "Stop this response before archiving the chat",
-        ));
+        )));
         return;
     }
     if let Err(error) = super::workspace::save(ui, backend) {
-        ui.toast_overlay.add_toast(adw::Toast::new(&format!(
-            "Draft could not be saved: {error}"
+        ui.toast_overlay.add_toast(adw::Toast::new(&gettext_f(
+            "Draft could not be saved: {error}",
+            &[("error", &(error).to_string())],
         )));
         return;
     }
@@ -517,14 +537,16 @@ fn set_archived(ui: &Rc<WindowUi>, backend: &Rc<Backend>, conversation_id: &str,
                 update_profile_indicator(ui, backend, None).ok();
             }
             refresh(ui, backend);
-            ui.toast_overlay.add_toast(adw::Toast::new(if archived {
-                "Conversation archived"
-            } else {
-                "Conversation restored"
-            }));
+            ui.toast_overlay
+                .add_toast(adw::Toast::new(&gettext(if archived {
+                    gettext_noop("Conversation archived")
+                } else {
+                    gettext_noop("Conversation restored")
+                })));
         }
-        Err(error) => ui.toast_overlay.add_toast(adw::Toast::new(&format!(
-            "Conversation could not be updated: {error}"
+        Err(error) => ui.toast_overlay.add_toast(adw::Toast::new(&gettext_f(
+            "Conversation could not be updated: {error}",
+            &[("error", &(error).to_string())],
         ))),
     }
 }
@@ -533,35 +555,40 @@ fn confirm_delete(ui: &Rc<WindowUi>, backend: &Rc<Backend>, conversation_id: &st
     if backend.active_generation.borrow().is_some()
         && backend.generation_context.borrow().conversation_id == conversation_id
     {
-        ui.toast_overlay
-            .add_toast(adw::Toast::new("Finish the active generation first"));
+        ui.toast_overlay.add_toast(adw::Toast::new(&gettext(
+            "Finish the active generation first",
+        )));
         return;
     }
 
     let title = match backend.conversation_repository.get(conversation_id) {
-        Ok(Some(conversation)) => conversation.title,
+        Ok(Some(conversation)) => crate::i18n::conversation_title(&conversation.title),
         Ok(None) => {
             refresh(ui, backend);
             ui.toast_overlay
-                .add_toast(adw::Toast::new("Conversation was not found"));
+                .add_toast(adw::Toast::new(&gettext("Conversation was not found")));
             return;
         }
         Err(error) => {
-            ui.toast_overlay.add_toast(adw::Toast::new(&format!(
-                "Conversation could not be loaded: {error}"
+            ui.toast_overlay.add_toast(adw::Toast::new(&gettext_f(
+                "Conversation could not be loaded: {error}",
+                &[("error", &(error).to_string())],
             )));
             return;
         }
     };
 
     let dialog = adw::AlertDialog::builder()
-        .heading("Delete Conversation?")
-        .body(format!("Delete \"{title}\" and all of its messages?"))
+        .heading(gettext("Delete Conversation?"))
+        .body(gettext_f(
+            "Delete \"{title}\" and all of its messages?",
+            &[("title", &(title).to_string())],
+        ))
         .close_response("cancel")
         .default_response("cancel")
         .build();
-    dialog.add_response("cancel", "Cancel");
-    dialog.add_response("delete", "Delete");
+    dialog.add_response("cancel", &gettext("Cancel"));
+    dialog.add_response("delete", &gettext("Delete"));
     dialog.set_response_appearance("delete", adw::ResponseAppearance::Destructive);
 
     let target_ui = Rc::clone(ui);
@@ -577,15 +604,15 @@ fn delete(ui: &Rc<WindowUi>, backend: &Rc<Backend>, conversation_id: &str) {
     if backend.active_generation.borrow().is_some()
         && backend.generation_context.borrow().conversation_id == conversation_id
     {
-        ui.toast_overlay.add_toast(adw::Toast::new(
+        ui.toast_overlay.add_toast(adw::Toast::new(&gettext(
             "Stop this response before deleting the chat",
-        ));
+        )));
         return;
     }
-    if backend.active_conversation_id.borrow().as_deref() == Some(conversation_id) {
-        if let Some(source) = ui.draft_source.borrow_mut().take() {
-            source.remove();
-        }
+    if backend.active_conversation_id.borrow().as_deref() == Some(conversation_id)
+        && let Some(source) = ui.draft_source.borrow_mut().take()
+    {
+        source.remove();
     }
     match backend.conversation_repository.delete(conversation_id) {
         Ok(()) => {
@@ -601,10 +628,11 @@ fn delete(ui: &Rc<WindowUi>, backend: &Rc<Backend>, conversation_id: &str) {
             }
             refresh(ui, backend);
             ui.toast_overlay
-                .add_toast(adw::Toast::new("Conversation deleted"));
+                .add_toast(adw::Toast::new(&gettext("Conversation deleted")));
         }
-        Err(error) => ui.toast_overlay.add_toast(adw::Toast::new(&format!(
-            "Conversation could not be deleted: {error}"
+        Err(error) => ui.toast_overlay.add_toast(adw::Toast::new(&gettext_f(
+            "Conversation could not be deleted: {error}",
+            &[("error", &(error).to_string())],
         ))),
     }
 }

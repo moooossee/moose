@@ -1,3 +1,5 @@
+use crate::i18n::gettext;
+
 use super::{
     archive::Archive,
     content::{Content, xml},
@@ -46,7 +48,7 @@ pub fn slides(content: &Content) -> Result<Vec<(String, Vec<String>)>, String> {
         }
     }
     if result.is_empty() || result.len() > 300 {
-        return Err("Use a presentation with between 1 and 300 slides.".into());
+        return Err(gettext("Use a presentation with between 1 and 300 slides."));
     }
     Ok(result)
 }
@@ -69,7 +71,7 @@ pub fn pptx(content: &Content) -> Result<Vec<u8>, String> {
         overrides.push_str(&format!(r#"<Override PartName="/ppt/slides/slide{number}.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.slide+xml"/>"#));
         let title = shape(
             2,
-            "Title",
+            &gettext("Title"),
             650_000,
             450_000,
             10_900_000,
@@ -82,7 +84,7 @@ pub fn pptx(content: &Content) -> Result<Vec<u8>, String> {
             .collect::<Vec<_>>();
         let body = shape(
             3,
-            "Content",
+            &gettext("Content"),
             650_000,
             1_650_000,
             10_900_000,
@@ -91,7 +93,7 @@ pub fn pptx(content: &Content) -> Result<Vec<u8>, String> {
         );
         let footer = shape(
             4,
-            "Page",
+            &gettext("Page"),
             650_000,
             6_300_000,
             10_900_000,
@@ -147,6 +149,7 @@ fn shape(
     height: i64,
     paragraphs: &[(String, usize, &str, bool)],
 ) -> String {
+    let name = xml(name);
     let paragraphs = paragraphs.iter().map(|(text, size, color, bold)| format!(r#"<a:p><a:pPr><a:spcAft><a:spcPts val="800"/></a:spcAft></a:pPr><a:r><a:rPr lang="en-US" sz="{size}" b="{}"><a:solidFill><a:srgbClr val="{color}"/></a:solidFill><a:latin typeface="Calibri"/></a:rPr><a:t>{}</a:t></a:r><a:endParaRPr lang="en-US" sz="{size}"/></a:p>"#, usize::from(*bold), xml(text))).collect::<String>();
     format!(
         r#"<p:sp><p:nvSpPr><p:cNvPr id="{id}" name="{name}"/><p:cNvSpPr txBox="1"/><p:nvPr/></p:nvSpPr><p:spPr><a:xfrm><a:off x="{x}" y="{y}"/><a:ext cx="{width}" cy="{height}"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom><a:noFill/></p:spPr><p:txBody><a:bodyPr wrap="square" lIns="0" tIns="0" rIns="0" bIns="0"><a:normAutofit/></a:bodyPr><a:lstStyle/>{paragraphs}</p:txBody></p:sp>"#

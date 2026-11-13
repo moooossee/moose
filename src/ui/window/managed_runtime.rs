@@ -1,3 +1,5 @@
+use crate::i18n::{gettext, gettext_f, gettext_noop};
+
 use std::{
     cell::RefCell,
     rc::Rc,
@@ -60,8 +62,8 @@ pub(super) fn notify_update_available(ui: &Rc<WindowUi>, backend: &Rc<Backend>) 
         return;
     }
     let toast = adw::Toast::builder()
-        .title("An Ollama update is available")
-        .button_label("Review")
+        .title(gettext("An Ollama update is available"))
+        .button_label(gettext("Review"))
         .timeout(10)
         .build();
     let ui = Rc::clone(ui);
@@ -82,7 +84,7 @@ pub(super) fn show_dialog(
     let manager = match ManagedOllamaManager::new(backend.paths.clone()) {
         Ok(manager) => manager,
         Err(error) => {
-            show_error(&ui.window, "Managed Ollama", &error);
+            show_error(&ui.window, &gettext("Managed Ollama"), &error);
             return;
         }
     };
@@ -95,9 +97,9 @@ pub(super) fn show_dialog(
         .cloned()
         .unwrap_or_else(|| included.clone());
     let setup = widgets::SetupDialog::new(
-        "Managed Ollama",
+        &gettext("Managed Ollama"),
         "Ollama",
-        "Your local AI engine, managed by Moose.",
+        &gettext("Your local AI engine, managed by Moose."),
     );
     let dialog = setup.dialog.clone();
     let content = &setup.content;
@@ -113,7 +115,7 @@ pub(super) fn show_dialog(
         .build();
     let group = adw::PreferencesGroup::new();
     let installed_row = adw::ActionRow::builder()
-        .title("Installed Version")
+        .title(gettext("Installed Version"))
         .use_markup(false)
         .build();
     let installed = gtk::Label::builder()
@@ -123,7 +125,7 @@ pub(super) fn show_dialog(
         .build();
     installed_row.add_suffix(&installed);
     let available_row = adw::ActionRow::builder()
-        .title("Available Version")
+        .title(gettext("Available Version"))
         .use_markup(false)
         .build();
     let available = gtk::Label::builder()
@@ -131,9 +133,9 @@ pub(super) fn show_dialog(
         .valign(gtk::Align::Center)
         .css_classes(["dim-label"])
         .build();
-    available_row.set_tooltip_text(Some(&format!(
-        "Official stable release. Included with Moose: {}.",
-        included.version
+    available_row.set_tooltip_text(Some(&gettext_f(
+        "Official stable release. Included with Moose: {arg1}.",
+        &[("arg1", &(included.version).to_string())],
     )));
     available_row.add_suffix(&available);
     group.add(&installed_row);
@@ -143,11 +145,11 @@ pub(super) fn show_dialog(
         .orientation(gtk::Orientation::Vertical)
         .spacing(8)
         .build();
-    let update = gtk::Button::with_label("Update Ollama");
+    let update = gtk::Button::with_label(&gettext("Update Ollama"));
     primary.append(&widgets::primary_action(&update));
     primary.append(
         &gtk::Label::builder()
-            .label("Your models, chats, and connections are kept.")
+            .label(gettext("Your models, chats, and connections are kept."))
             .wrap(true)
             .justify(gtk::Justification::Center)
             .css_classes(["caption", "dim-label"])
@@ -164,7 +166,7 @@ pub(super) fn show_dialog(
         .build();
     let check_spinner = gtk::Spinner::new();
     check_spinner.set_visible(false);
-    let check_label = gtk::Label::new(Some("Check for Updates"));
+    let check_label = gtk::Label::new(Some(&gettext("Check for Updates")));
     check_content.append(&check_spinner);
     check_content.append(&check_label);
     let check = gtk::Button::builder()
@@ -199,7 +201,7 @@ pub(super) fn show_dialog(
         .xalign(0.0)
         .build();
     let cancel = gtk::Button::builder()
-        .label("Cancel")
+        .label(gettext("Cancel"))
         .halign(gtk::Align::Center)
         .visible(false)
         .css_classes(["flat"])
@@ -211,13 +213,13 @@ pub(super) fn show_dialog(
     content.append(&engine);
     let actions = adw::PreferencesGroup::new();
     let configure = adw::ActionRow::builder()
-        .title("Add Managed Connection")
+        .title(gettext("Add Managed Connection"))
         .activatable(true)
         .build();
     configure.add_prefix(&gtk::Image::from_icon_name("list-add-symbolic"));
     configure.add_suffix(&gtk::Image::from_icon_name("go-next-symbolic"));
     let repair = adw::ActionRow::builder()
-        .title("Repair Installation")
+        .title(gettext("Repair Installation"))
         .use_markup(false)
         .activatable(true)
         .build();
@@ -276,7 +278,9 @@ pub(super) fn show_dialog(
         if let Some(token) = target_backend.runtime_install.borrow().as_ref() {
             token.cancel();
             button.set_sensitive(false);
-            target_status.set_label("Cancelling. The partial download will be kept for retry.");
+            target_status.set_label(&gettext(
+                "Cancelling. The partial download will be kept for retry.",
+            ));
         }
     });
     let target_ui = Rc::clone(ui);
@@ -298,9 +302,12 @@ fn last_checked_text(timestamp: &str) -> String {
         .and_then(|time| time.split_once('T'))
         && let Some(time) = time.get(..5)
     {
-        format!("Last checked: {date} at {time} UTC")
+        gettext_f(
+            "Last checked: {date} at {time} UTC",
+            &[("date", (date)), ("time", (time))],
+        )
     } else {
-        format!("Last checked: {timestamp}")
+        gettext_f("Last checked: {timestamp}", &[("timestamp", (timestamp))])
     }
 }
 
@@ -318,18 +325,20 @@ fn update_controls(controls: &Controls, backend: &Backend) {
     };
     let version = manager.installed_version().ok().flatten();
     let exists = manager.is_installed();
-    controls.installed.set_label(if exists {
-        version.as_deref().unwrap_or("Unknown version")
+    controls.installed.set_label(&gettext(if exists {
+        version
+            .as_deref()
+            .unwrap_or(gettext_noop("Unknown version"))
     } else {
-        "Not installed"
-    });
+        gettext_noop("Not installed")
+    }));
     let candidate = controls.candidate.borrow();
     controls.available.set_label(&candidate.version);
-    controls.update.set_label(if exists {
-        "Update Ollama"
+    controls.update.set_label(&gettext(if exists {
+        gettext_noop("Update Ollama")
     } else {
-        "Install Ollama"
-    });
+        gettext_noop("Install Ollama")
+    }));
     let update_available = !exists
         || version
             .as_deref()
@@ -337,16 +346,16 @@ fn update_controls(controls: &Controls, backend: &Backend) {
     controls.primary.set_visible(update_available);
     controls.update.set_sensitive(update_available);
     if !exists {
-        set_summary(controls, "Not installed", "dim-label");
+        set_summary(controls, &gettext("Not installed"), "dim-label");
     } else if version
         .as_deref()
         .is_none_or(|version| releases::RuntimeVersion::parse(version).is_none())
     {
-        set_summary(controls, "Version unavailable", "warning");
+        set_summary(controls, &gettext("Version unavailable"), "warning");
     } else if update_available {
-        set_summary(controls, "Update available", "accent");
+        set_summary(controls, &gettext("Update available"), "accent");
     } else {
-        set_summary(controls, "Installed", "success");
+        set_summary(controls, &gettext("Installed"), "success");
     }
     let repair_version = manager
         .installed_manifest()
@@ -354,9 +363,10 @@ fn update_controls(controls: &Controls, backend: &Backend) {
         .flatten()
         .map(|manifest| manifest.version)
         .unwrap_or_else(|| candidate.version.clone());
-    controls
-        .repair
-        .set_subtitle(&format!("Reinstall {repair_version} and keep your data"));
+    controls.repair.set_subtitle(&gettext_f(
+        "Reinstall {repair_version} and keep your data",
+        &[("repair_version", &(repair_version).to_string())],
+    ));
     let can_repair = backend.paths.ollama_installation_dir().exists();
     controls.repair.set_visible(can_repair);
     controls.repair.set_sensitive(can_repair);
@@ -381,16 +391,18 @@ fn set_busy(controls: &Controls, busy: bool) {
 fn check_updates(controls: &Controls, backend: &Rc<Backend>) {
     set_busy(controls, true);
     controls.activity.set_visible(false);
-    controls.check_label.set_label("Checking for Updates…");
+    controls
+        .check_label
+        .set_label(&gettext("Checking for Updates…"));
     controls.check_spinner.set_visible(true);
     controls.check_spinner.start();
-    set_summary(controls, "Checking for updates", "accent");
+    set_summary(controls, &gettext("Checking for updates"), "accent");
     let (sender, receiver) = mpsc::channel();
     let paths = backend.paths.clone();
     backend.runtime.spawn(async move {
         let result = releases::check_latest_release(&paths)
             .await
-            .map_err(|error| error.to_string());
+            .map_err(|error| crate::i18n::error_message(&error));
         let _ = sender.send(result);
     });
     let controls = controls.clone();
@@ -400,7 +412,7 @@ fn check_updates(controls: &Controls, backend: &Rc<Backend>) {
             Ok(result) => result,
             Err(mpsc::TryRecvError::Empty) => return gtk::glib::ControlFlow::Continue,
             Err(mpsc::TryRecvError::Disconnected) => {
-                Err("The update check stopped. Try again.".into())
+                Err(gettext("The update check stopped. Try again."))
             }
         };
         let failed = result.is_err();
@@ -428,17 +440,19 @@ fn check_updates(controls: &Controls, backend: &Rc<Backend>) {
         }
         controls.check_spinner.stop();
         controls.check_spinner.set_visible(false);
-        controls.check_label.set_label("Check for Updates");
+        controls
+            .check_label
+            .set_label(&gettext("Check for Updates"));
         update_controls(&controls, &backend);
         if failed {
-            set_summary(&controls, "Update check failed", "error");
+            set_summary(&controls, &gettext("Update check failed"), "error");
         } else if releases::RuntimeVersion::parse(controls.installed.text().as_str()).is_some()
             && !releases::is_newer(
                 &controls.candidate.borrow().version,
                 controls.installed.text().as_str(),
             )
         {
-            set_summary(&controls, "Up to date", "success");
+            set_summary(&controls, &gettext("Up to date"), "success");
         }
         gtk::glib::ControlFlow::Break
     });
@@ -467,14 +481,14 @@ fn start_install(
         };
         if !repair && current.is_installed() {
             let installed = current.installed_version()?.ok_or_else(|| {
-                crate::error::MooseError::ManagedOllamaUpdate(
-                    "The installed version is unknown. Use Repair Installation.".into(),
-                )
+                crate::error::MooseError::ManagedOllamaUpdate(gettext(
+                    "The installed version is unknown. Use Repair Installation.",
+                ))
             })?;
             if !releases::is_newer(&manifest.version, &installed) {
-                return Err(crate::error::MooseError::ManagedOllamaUpdate(
-                    "The installed version is already up to date.".into(),
-                ));
+                return Err(crate::error::MooseError::ManagedOllamaUpdate(gettext(
+                    "The installed version is already up to date.",
+                )));
             }
         }
         let managed = active_provider(backend).filter(|provider| provider.is_managed);
@@ -501,7 +515,7 @@ fn start_install(
     let (manager, config, keep_running, needs_configuration) = match setup {
         Ok(setup) => setup,
         Err(error) => {
-            show_error(&ui.window, "Ollama Update", &error);
+            show_error(&ui.window, &gettext("Ollama Update"), &error);
             return;
         }
     };
@@ -513,13 +527,13 @@ fn start_install(
     set_busy(controls, true);
     set_summary(
         controls,
-        if repair {
-            "Repairing Ollama"
+        &gettext(if repair {
+            gettext_noop("Repairing Ollama")
         } else if manager.is_installed() {
-            "Updating Ollama"
+            gettext_noop("Updating Ollama")
         } else {
-            "Installing Ollama"
-        },
+            gettext_noop("Installing Ollama")
+        }),
         "accent",
     );
     controls.primary.set_visible(false);
@@ -533,9 +547,9 @@ fn start_install(
     controls.cancel.set_sensitive(true);
     controls.progress.set_fraction(0.0);
     controls.progress.set_visible(true);
-    controls
-        .status
-        .set_label("Preparing Ollama. You can cancel before installation begins.");
+    controls.status.set_label(&gettext(
+        "Preparing Ollama. You can cancel before installation begins.",
+    ));
     let (sender, receiver) = mpsc::channel();
     let service = Arc::clone(&backend.managed_ollama);
     backend.runtime.spawn(async move {
@@ -554,7 +568,7 @@ fn start_install(
             },
         )
         .await
-        .map_err(|error| error.to_string());
+        .map_err(|error| crate::i18n::error_message(&error));
         let _ = sender.send(Event::Finished(result));
     });
     let controls = controls.clone();
@@ -565,9 +579,9 @@ fn start_install(
             let event = match receiver.try_recv() {
                 Ok(event) => event,
                 Err(mpsc::TryRecvError::Empty) => return gtk::glib::ControlFlow::Continue,
-                Err(mpsc::TryRecvError::Disconnected) => Event::Finished(Err(
-                    "The installation stopped unexpectedly. Reopen Moose to recover it.".into(),
-                )),
+                Err(mpsc::TryRecvError::Disconnected) => Event::Finished(Err(gettext(
+                    "The installation stopped unexpectedly. Reopen Moose to recover it.",
+                ))),
             };
             match event {
                 Event::Progress(progress) => {
@@ -582,11 +596,13 @@ fn start_install(
                     }
                     match &progress {
                         ManagedOllamaInstallProgress::Starting => {
-                            set_summary(&controls, "Starting Ollama", "accent")
+                            set_summary(&controls, &gettext("Starting Ollama"), "accent")
                         }
-                        ManagedOllamaInstallProgress::Restoring => {
-                            set_summary(&controls, "Restoring previous version", "warning")
-                        }
+                        ManagedOllamaInstallProgress::Restoring => set_summary(
+                            &controls,
+                            &gettext("Restoring previous version"),
+                            "warning",
+                        ),
                         _ => {}
                     }
                     managed_install::apply_install_progress(
@@ -608,11 +624,11 @@ fn start_install(
                     match result {
                         Ok(()) => {
                             controls.progress.set_fraction(1.0);
-                            set_summary(&controls, "Ready to use", "success");
+                            set_summary(&controls, &gettext("Ready to use"), "success");
                             controls.status.add_css_class("success");
-                            controls.status.set_label(
+                            controls.status.set_label(&gettext(
                                 "Ollama is ready. Your models and chats have been preserved.",
-                            );
+                            ));
                             if let Some((provider_id, model)) = retry.as_ref()
                                 && active_provider(&backend).is_some_and(|provider| {
                                     provider.is_managed && provider.id == *provider_id
@@ -636,9 +652,13 @@ fn start_install(
                             crate::logging::record("ERROR", "ollama.install", &error);
                             controls.status.set_label(&error);
                             if cancelled {
-                                set_summary(&controls, "Installation cancelled", "dim-label");
+                                set_summary(
+                                    &controls,
+                                    &gettext("Installation cancelled"),
+                                    "dim-label",
+                                );
                             } else {
-                                set_summary(&controls, "Installation failed", "error");
+                                set_summary(&controls, &gettext("Installation failed"), "error");
                                 controls.status.add_css_class("error");
                             }
                             controls.progress.set_fraction(0.0);
@@ -658,15 +678,15 @@ pub(super) fn preferences_page(
     backend: &Rc<Backend>,
 ) -> adw::PreferencesPage {
     let page = adw::PreferencesPage::builder()
-        .title("Ollama & Diagnostics")
+        .title(gettext("Ollama & Diagnostics"))
         .icon_name("network-server-symbolic")
         .build();
     let group = adw::PreferencesGroup::builder()
-        .title("Managed Ollama")
+        .title(gettext("Managed Ollama"))
         .build();
     let row = adw::ActionRow::builder()
-        .title("Manage Ollama")
-        .subtitle("Install, update, or repair the local engine")
+        .title(gettext("Manage Ollama"))
+        .subtitle(gettext("Install, update, or repair the local engine"))
         .activatable(true)
         .build();
     row.add_suffix(&gtk::Image::from_icon_name("go-next-symbolic"));
@@ -680,12 +700,17 @@ pub(super) fn preferences_page(
     group.add(&row);
     page.add(&group);
     let logs = adw::PreferencesGroup::builder()
-        .title("Diagnostics")
-        .description("View and copy recent log entries when reporting a problem.")
+        .title(gettext("Diagnostics"))
+        .description(gettext(
+            "View and copy recent log entries when reporting a problem.",
+        ))
         .build();
-    for (title, ollama) in [("Moose Log", false), ("Ollama Log", true)] {
-        let row = adw::ActionRow::builder().title(title).build();
-        let button = widgets::icon_button("document-open-symbolic", "View Log");
+    for (title, ollama) in [
+        (gettext_noop("Moose Log"), false),
+        (gettext_noop("Ollama Log"), true),
+    ] {
+        let row = adw::ActionRow::builder().title(gettext(title)).build();
+        let button = widgets::icon_button("document-open-symbolic", &gettext("View Log"));
         let ui = Rc::clone(ui);
         let backend = Rc::clone(backend);
         let dialog = dialog.clone();

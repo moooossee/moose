@@ -1,3 +1,5 @@
+use crate::i18n::{gettext, gettext_f, gettext_noop};
+
 use super::*;
 
 #[derive(Clone, Copy)]
@@ -12,7 +14,10 @@ enum Action {
 pub(super) fn menu(ui: &Rc<WindowUi>, backend: &Rc<Backend>, asset: &Asset) -> gtk::MenuButton {
     let button = gtk::MenuButton::builder()
         .icon_name("view-more-symbolic")
-        .tooltip_text(format!("Actions for {}", asset.name))
+        .tooltip_text(gettext_f(
+            "Actions for {arg1}",
+            &[("arg1", &(asset.name).to_string())],
+        ))
         .valign(gtk::Align::Center)
         .build();
     button.add_css_class("flat");
@@ -27,15 +32,31 @@ pub(super) fn menu(ui: &Rc<WindowUi>, backend: &Rc<Backend>, asset: &Asset) -> g
         .ok()
         .flatten();
     for (action, icon, label) in [
-        (Action::Preview, "document-open-symbolic", "Preview"),
-        (Action::Chats, "go-jump-symbolic", "Open Chat…"),
-        (Action::Folder, "folder-open-symbolic", "Show in Folder"),
+        (
+            Action::Preview,
+            "document-open-symbolic",
+            gettext_noop("Preview"),
+        ),
+        (
+            Action::Chats,
+            "go-jump-symbolic",
+            gettext_noop("Open Chat…"),
+        ),
+        (
+            Action::Folder,
+            "folder-open-symbolic",
+            gettext_noop("Show in Folder"),
+        ),
         (
             Action::Attach,
             "mail-attachment-symbolic",
-            "Attach to Current Chat",
+            gettext_noop("Attach to Current Chat"),
         ),
-        (Action::Remove, "user-trash-symbolic", "Remove from Library"),
+        (
+            Action::Remove,
+            "user-trash-symbolic",
+            gettext_noop("Remove from Library"),
+        ),
     ] {
         if matches!(action, Action::Remove) && !asset.in_library {
             continue;
@@ -43,14 +64,12 @@ pub(super) fn menu(ui: &Rc<WindowUi>, backend: &Rc<Backend>, asset: &Asset) -> g
         if matches!(action, Action::Remove) {
             content.append(&gtk::Separator::new(gtk::Orientation::Horizontal));
         }
-        let item = menu_item(icon, label);
+        let item = menu_item(icon, &gettext(label));
         if matches!(action, Action::Folder) {
             item.set_sensitive(source.is_some());
-            item.set_tooltip_text(Some(
-                source
-                    .as_deref()
-                    .unwrap_or("Original location unavailable. Open Preview to save a copy."),
-            ));
+            item.set_tooltip_text(Some(source.as_deref().unwrap_or(&gettext(
+                "Original location unavailable. Open Preview to save a copy.",
+            ))));
         }
         if matches!(action, Action::Attach) {
             item.set_sensitive(active_provider(backend).is_some());
@@ -94,7 +113,13 @@ pub(super) fn open(ui: &Rc<WindowUi>, backend: &Rc<Backend>, asset: &Asset) {
             preview(&ui.window, &backend.conversation_repository, asset, 1)
         }
         Ok(_) => show_chats(ui, backend, asset),
-        Err(error) => toast(ui, &format!("Chats could not be loaded: {error}")),
+        Err(error) => toast(
+            ui,
+            &gettext_f(
+                "Chats could not be loaded: {error}",
+                &[("error", &(error).to_string())],
+            ),
+        ),
     }
 }
 
@@ -105,12 +130,18 @@ fn show_chats(ui: &Rc<WindowUi>, backend: &Rc<Backend>, asset: &Asset) {
     {
         Ok(chats) => chats,
         Err(error) => {
-            toast(ui, &format!("Chats could not be loaded: {error}"));
+            toast(
+                ui,
+                &gettext_f(
+                    "Chats could not be loaded: {error}",
+                    &[("error", &(error).to_string())],
+                ),
+            );
             return;
         }
     };
     let dialog = adw::Dialog::builder()
-        .title("File Chats")
+        .title(gettext("File Chats"))
         .content_width(480)
         .content_height(420)
         .build();
@@ -130,8 +161,10 @@ fn show_chats(ui: &Rc<WindowUi>, backend: &Rc<Backend>, asset: &Asset) {
         content.append(
             &adw::StatusPage::builder()
                 .icon_name("mail-attachment-symbolic")
-                .title("Not Used in a Chat Yet")
-                .description("Attach this file to a chat to start a conversation about it.")
+                .title(gettext("Not Used in a Chat Yet"))
+                .description(gettext(
+                    "Attach this file to a chat to start a conversation about it.",
+                ))
                 .build(),
         );
     } else {
@@ -140,12 +173,12 @@ fn show_chats(ui: &Rc<WindowUi>, backend: &Rc<Backend>, asset: &Asset) {
         list.add_css_class("boxed-list");
         for chat in chats {
             let row = adw::ActionRow::builder()
-                .title(&chat.title)
-                .subtitle(if chat.archived_at.is_some() {
-                    "Archived chat"
+                .title(crate::i18n::conversation_title(&chat.title))
+                .subtitle(gettext(if chat.archived_at.is_some() {
+                    gettext_noop("Archived chat")
                 } else {
-                    "Open conversation"
-                })
+                    gettext_noop("Open conversation")
+                }))
                 .activatable(true)
                 .build();
             row.set_use_markup(false);
@@ -189,9 +222,9 @@ fn attach(ui: &Rc<WindowUi>, backend: &Rc<Backend>, asset: &Asset) {
             show_chat(ui);
             conversation_list::refresh(ui, backend);
             ui.entry.grab_focus();
-            toast(ui, "File attached to the current draft");
+            toast(ui, &gettext("File attached to the current draft"));
         }
-        Err(error) => toast(ui, &error.to_string()),
+        Err(error) => toast(ui, &crate::i18n::error_message(&error)),
     }
 }
 
@@ -201,12 +234,12 @@ fn show_folder(ui: &Rc<WindowUi>, backend: &Backend, asset: &Asset) {
         Ok(None) => {
             toast(
                 ui,
-                "Original location unavailable. Open Preview to save a copy.",
+                &gettext("Original location unavailable. Open Preview to save a copy."),
             );
             return;
         }
         Err(error) => {
-            toast(ui, &error.to_string());
+            toast(ui, &crate::i18n::error_message(&error));
             return;
         }
     };
@@ -217,25 +250,23 @@ fn show_folder(ui: &Rc<WindowUi>, backend: &Backend, asset: &Asset) {
         if let Err(error) = launcher
             .open_containing_folder_future(Some(&target_ui.window))
             .await
-        {
-            if !error.matches(gio::IOErrorEnum::Cancelled)
+            && !error.matches(gio::IOErrorEnum::Cancelled)
                 && !error.matches(gtk::DialogError::Dismissed)
             {
-                toast(&target_ui, "The original folder could not be opened. The file may have moved or access may have expired. Open Preview to save a copy.");
+                toast(&target_ui, &gettext("The original folder could not be opened. The file may have moved or access may have expired. Open Preview to save a copy."));
             }
-        }
     });
 }
 
 fn remove(ui: &Rc<WindowUi>, backend: &Rc<Backend>, asset: &Asset) {
     let confirm = adw::AlertDialog::builder()
-        .heading("Remove from Library?")
-        .body(format!("Remove “{}” from your library? Files attached to chats are kept. The original file is unchanged.", asset.name))
+        .heading(gettext("Remove from Library?"))
+        .body(gettext_f("Remove “{arg1}” from your library? Files attached to chats are kept. The original file is unchanged.", &[("arg1", &(asset.name).to_string())]))
         .close_response("cancel")
         .default_response("cancel")
         .build();
-    confirm.add_response("cancel", "Cancel");
-    confirm.add_response("remove", "Remove");
+    confirm.add_response("cancel", &gettext("Cancel"));
+    confirm.add_response("remove", &gettext("Remove"));
     confirm.set_response_appearance("remove", adw::ResponseAppearance::Destructive);
     let target_ui = Rc::downgrade(ui);
     let target_backend = backend.clone();
@@ -250,9 +281,12 @@ fn remove(ui: &Rc<WindowUi>, backend: &Rc<Backend>, asset: &Asset) {
         {
             Ok(()) => {
                 populate(&ui, &target_backend);
-                toast(&ui, "Removed from library. Chat attachments are kept.");
+                toast(
+                    &ui,
+                    &gettext("Removed from library. Chat attachments are kept."),
+                );
             }
-            Err(error) => toast(&ui, &error.to_string()),
+            Err(error) => toast(&ui, &crate::i18n::error_message(&error)),
         }
     });
     confirm.present(Some(&ui.window));

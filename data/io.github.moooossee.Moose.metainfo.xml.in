@@ -8,6 +8,7 @@
   </developer>
   <metadata_license>CC0-1.0</metadata_license>
   <project_license>GPL-3.0-or-later</project_license>
+  <translation type="gettext">moose</translation>
   <description>
     <p>Ask questions, work on your writing or get help with code. Chat with AI running on your computer through Ollama, or use an online service such as OpenRouter with your own key. Browse models for the things you want to do, or download compatible models from Hugging Face.</p>
     <p>Bring photos, PDFs and text files into the conversation. Your attachments and the documents you create are together in Files, where you can preview them, search your library and return to a related chat. Answers can show passages from your documents so you can check where information came from. Pictures need a model that can understand them, and PDFs need text you can select.</p>

@@ -1,3 +1,5 @@
+use crate::i18n::{gettext, gettext_f, gettext_noop, ngettext_f};
+
 use super::*;
 use crate::attachments::{Asset, MAX_ATTACHMENTS, MAX_FILE_BYTES, error};
 use gtk::{gdk, glib};
@@ -33,16 +35,16 @@ pub(super) struct Controls {
 pub(super) fn build() -> Controls {
     let button = gtk::MenuButton::builder()
         .icon_name("mail-attachment-symbolic")
-        .tooltip_text("Add Attachments")
+        .tooltip_text(gettext("Add Attachments"))
         .valign(gtk::Align::Center)
         .build();
     button.add_css_class("moose-attach-button");
     button.add_css_class("flat");
     let menu = gtk::Box::new(gtk::Orientation::Vertical, 2);
     menu.add_css_class("moose-attachment-menu");
-    let add = menu_item("mail-attachment-symbolic", "Attach Files…");
-    let paste = menu_item("edit-paste-symbolic", "Paste Image");
-    let library = menu_item("folder-documents-symbolic", "Browse Files");
+    let add = menu_item("mail-attachment-symbolic", &gettext("Attach Files…"));
+    let paste = menu_item("edit-paste-symbolic", &gettext("Paste Image"));
+    let library = menu_item("folder-documents-symbolic", &gettext("Browse Files"));
     menu.append(&add);
     menu.append(&paste);
     menu.append(&gtk::Separator::new(gtk::Orientation::Horizontal));
@@ -63,9 +65,9 @@ pub(super) fn build() -> Controls {
     status.add_css_class("dim-label");
     let capability = gtk::Image::from_icon_name("image-x-generic-symbolic");
     capability.set_visible(false);
-    capability.set_tooltip_text(Some("This model supports images"));
+    capability.set_tooltip_text(Some(&gettext("This model supports images")));
     capability.add_css_class("dim-label");
-    let cancel = gtk::Button::with_label("Cancel Import");
+    let cancel = gtk::Button::with_label(&gettext("Cancel Import"));
     cancel.add_css_class("flat");
     cancel.set_visible(false);
     Controls {
@@ -162,7 +164,7 @@ fn draft_id(ui: &WindowUi, backend: &Backend) -> Result<String> {
 
 pub(super) fn choose_files(ui: &Rc<WindowUi>, backend: &Rc<Backend>, library_only: bool) {
     let filter = gtk::FileFilter::new();
-    filter.set_name(Some("Images, documents and source code"));
+    filter.set_name(Some(&gettext("Images, documents and source code")));
     for extension in [
         "txt", "md", "markdown", "pdf", "rs", "py", "js", "jsx", "ts", "tsx", "json", "yaml",
         "yml", "toml", "xml", "html", "css", "csv", "log", "c", "h", "cpp", "hpp", "java", "go",
@@ -177,16 +179,20 @@ pub(super) fn choose_files(ui: &Rc<WindowUi>, backend: &Rc<Backend>, library_onl
     let filters = gio::ListStore::new::<gtk::FileFilter>();
     filters.append(&filter);
     let all = gtk::FileFilter::new();
-    all.set_name(Some("All files"));
+    all.set_name(Some(&gettext("All files")));
     all.add_pattern("*");
     filters.append(&all);
     let dialog = gtk::FileDialog::builder()
-        .title(if library_only {
-            "Import Files"
+        .title(gettext(if library_only {
+            gettext_noop("Import Files")
         } else {
-            "Attach Files"
-        })
-        .accept_label(if library_only { "Import" } else { "Attach" })
+            gettext_noop("Attach Files")
+        }))
+        .accept_label(gettext(if library_only {
+            gettext_noop("Import")
+        } else {
+            gettext_noop("Attach")
+        }))
         .filters(&filters)
         .default_filter(&filter)
         .build();
@@ -203,7 +209,13 @@ pub(super) fn choose_files(ui: &Rc<WindowUi>, backend: &Rc<Backend>, library_onl
             Err(error)
                 if error.matches(gio::IOErrorEnum::Cancelled)
                     || error.matches(gtk::DialogError::Dismissed) => {}
-            Err(error) => toast(&ui, &format!("Files could not be selected: {error}")),
+            Err(error) => toast(
+                &ui,
+                &gettext_f(
+                    "Files could not be selected: {error}",
+                    &[("error", &(error).to_string())],
+                ),
+            ),
         }
     });
 }
@@ -217,10 +229,10 @@ async fn import_step<T>(
         for _ in 0..350 {
             glib::timeout_future(Duration::from_millis(100)).await;
             if ui.attachments.import_epoch.get() != epoch {
-                return Err(error("Import canceled"));
+                return Err(error(gettext("Import canceled")));
             }
         }
-        Err(error("This file took too long to read or process"))
+        Err(error(gettext("This file took too long to read or process")))
     };
     match futures_util::future::select(Box::pin(future), Box::pin(cancellation)).await {
         futures_util::future::Either::Left((result, _))
@@ -232,18 +244,22 @@ async fn read_file(file: &gio::File) -> Result<Vec<u8>> {
     let stream = file
         .read_future(glib::Priority::DEFAULT)
         .await
-        .map_err(|_| error("This file could not be opened. Select it again using Attach Files."))?;
+        .map_err(|_| {
+            error(gettext(
+                "This file could not be opened. Select it again using Attach Files.",
+            ))
+        })?;
     let mut bytes = Vec::new();
     loop {
         let chunk = stream
             .read_bytes_future(64 * 1024, glib::Priority::DEFAULT)
             .await
-            .map_err(|_| error("This file could not be read"))?;
+            .map_err(|_| error(gettext("This file could not be read")))?;
         if chunk.is_empty() {
             return Ok(bytes);
         }
         if bytes.len() + chunk.len() > MAX_FILE_BYTES {
-            return Err(error("Choose a file smaller than 25 MB"));
+            return Err(error(gettext("Choose a file smaller than 25 MB")));
         }
         bytes.extend_from_slice(chunk.as_ref());
     }
@@ -259,13 +275,13 @@ fn import_files(
         return;
     }
     if ui.attachments.busy.get() > 0 {
-        toast(ui, "Finish or cancel the current import first");
+        toast(ui, &gettext("Finish or cancel the current import first"));
         return;
     }
     if files.len() > if library_only { 32 } else { MAX_ATTACHMENTS } {
         toast(
             ui,
-            "Select up to 8 attachments or 32 library files at a time",
+            &gettext("Select up to 8 attachments or 32 library files at a time"),
         );
         return;
     }
@@ -275,7 +291,7 @@ fn import_files(
         match draft_id(ui, backend) {
             Ok(id) => Some(id),
             Err(error) => {
-                toast(ui, &error.to_string());
+                toast(ui, &crate::i18n::error_message(&error));
                 return;
             }
         }
@@ -294,7 +310,7 @@ fn import_files(
             let name = file
                 .basename()
                 .map(|name| name.to_string_lossy().into_owned())
-                .unwrap_or_else(|| "Document".into());
+                .unwrap_or_else(|| gettext("Document"));
             let result = async {
                 let bytes = import_step(&ui, epoch, read_file(&file)).await?;
                 let cache = backend.paths.cache_dir().to_path_buf();
@@ -305,11 +321,11 @@ fn import_files(
                 let asset = import_step(&ui, epoch, async {
                     worker
                         .await
-                        .map_err(|_| error("This file could not be processed"))?
+                        .map_err(|_| error(gettext("This file could not be processed")))?
                 })
                 .await?;
                 if ui.attachments.import_epoch.get() != epoch {
-                    return Err(error("Import canceled"));
+                    return Err(error(gettext("Import canceled")));
                 }
                 backend.conversation_repository.import_asset_from_uri(
                     asset,
@@ -331,15 +347,21 @@ fn import_files(
         if imported > 0 {
             toast(
                 &ui,
-                &format!(
-                    "{imported} file{} {}",
-                    if imported == 1 { "" } else { "s" },
-                    if library_only {
-                        "added to the library"
-                    } else {
-                        "attached to the draft"
-                    }
-                ),
+                &if library_only {
+                    ngettext_f(
+                        "{count} file added to the library",
+                        "{count} files added to the library",
+                        imported as u32,
+                        &[("count", &imported.to_string())],
+                    )
+                } else {
+                    ngettext_f(
+                        "{count} file attached to the draft",
+                        "{count} files attached to the draft",
+                        imported as u32,
+                        &[("count", &imported.to_string())],
+                    )
+                },
             );
         }
     });
@@ -347,14 +369,14 @@ fn import_files(
 
 fn paste_image(ui: &Rc<WindowUi>, backend: &Rc<Backend>) {
     if ui.attachments.busy.get() > 0 {
-        toast(ui, "Finish or cancel the current import first");
+        toast(ui, &gettext("Finish or cancel the current import first"));
         return;
     }
     let epoch = ui.attachments.import_epoch.get();
     let conversation = match draft_id(ui, backend) {
         Ok(id) => id,
         Err(error) => {
-            toast(ui, &error.to_string());
+            toast(ui, &crate::i18n::error_message(&error));
             return;
         }
     };
@@ -367,11 +389,11 @@ fn paste_image(ui: &Rc<WindowUi>, backend: &Rc<Backend>) {
             let bytes = clipboard::read_image(&ui.entry.clipboard()).await?;
             let asset = backend
                 .runtime
-                .spawn_blocking(move || import::image("Pasted image.png".into(), &bytes))
+                .spawn_blocking(move || import::image(gettext("Pasted image.png"), &bytes))
                 .await
-                .map_err(|_| error("The image could not be prepared"))??;
+                .map_err(|_| error(gettext("The image could not be prepared")))??;
             if ui.attachments.import_epoch.get() != epoch {
-                return Err(error("Import canceled"));
+                return Err(error(gettext("Import canceled")));
             }
             backend
                 .conversation_repository
@@ -380,7 +402,7 @@ fn paste_image(ui: &Rc<WindowUi>, backend: &Rc<Backend>) {
         })
         .await;
         if let Err(error) = result {
-            toast(&ui, &error.to_string());
+            toast(&ui, &crate::i18n::error_message(&error));
         }
         ui.attachments
             .busy
@@ -403,7 +425,7 @@ pub(super) fn refresh(ui: &WindowUi, backend: &Backend) {
     let assets = match assets {
         Ok(assets) => assets.unwrap_or_default(),
         Err(error) => {
-            toast(ui, &error.to_string());
+            toast(ui, &crate::i18n::error_message(&error));
             Vec::new()
         }
     };
@@ -413,8 +435,10 @@ pub(super) fn refresh(ui: &WindowUi, backend: &Backend) {
         .set(assets.iter().any(|asset| asset.kind == "image"));
     for asset in assets {
         let row = composer::asset_widget(ui, backend, &asset);
-        let remove =
-            widgets::icon_button("window-close-symbolic", &format!("Remove {}", asset.name));
+        let remove = widgets::icon_button(
+            "window-close-symbolic",
+            &gettext_f("Remove {arg1}", &[("arg1", &(asset.name).to_string())]),
+        );
         remove.set_valign(gtk::Align::Center);
         remove.add_css_class("flat");
         remove.add_css_class("circular");
@@ -436,8 +460,9 @@ pub(super) fn refresh(ui: &WindowUi, backend: &Backend) {
                     previews.set_visible(previews.first_child().is_some());
                     entry.buffer().emit_by_name::<()>("changed", &[]);
                 }
-                Err(error) => overlay.add_toast(adw::Toast::new(&format!(
-                    "Attachment could not be removed: {error}"
+                Err(error) => overlay.add_toast(adw::Toast::new(&gettext_f(
+                    "Attachment could not be removed: {error}",
+                    &[("error", &(error).to_string())],
                 ))),
             }
         });
@@ -468,9 +493,15 @@ fn update_status(ui: &WindowUi, backend: &Backend) {
     library::sync_import(ui);
     let count = ui.attachments.count.get();
     let tooltip = if count > 0 {
-        format!("Add Attachments · {count} of {MAX_ATTACHMENTS}")
+        gettext_f(
+            "Add Attachments · {count} of {MAX_ATTACHMENTS}",
+            &[
+                ("count", &(count).to_string()),
+                ("MAX_ATTACHMENTS", &(MAX_ATTACHMENTS).to_string()),
+            ],
+        )
     } else {
-        "Add Attachments".into()
+        gettext("Add Attachments")
     };
     ui.attachments.button.set_tooltip_text(Some(&tooltip));
     ui.attachments
@@ -487,25 +518,27 @@ fn update_status(ui: &WindowUi, backend: &Backend) {
                 .library_enabled(id)
                 .unwrap_or(false)
         });
-    let status = if ui.attachments.busy.get() > 0 {
-        "Preparing files…"
+    let status = gettext(if ui.attachments.busy.get() > 0 {
+        gettext_noop("Preparing files…")
     } else if ui.attachments.has_images.get() {
         match *ui.attachments.vision.borrow() {
             Some(true) => "",
-            Some(false) => "Select a model with image support to send these attachments",
-            None if ui.attachments.capability_failed.get() => {
-                "Image support could not be checked. Refresh the model list to retry."
+            Some(false) => {
+                gettext_noop("Select a model with image support to send these attachments")
             }
-            None => "Checking image support…",
+            None if ui.attachments.capability_failed.get() => {
+                gettext_noop("Image support could not be checked. Refresh the model list to retry.")
+            }
+            None => gettext_noop("Checking image support…"),
         }
     } else if library {
-        "Library search is on · Relevant excerpts will be sent with your question"
+        gettext_noop("Library search is on · Relevant excerpts will be sent with your question")
     } else if ui.attachments.count.get() > 0 {
-        "Documents are saved in your library"
+        gettext_noop("Documents are saved in your library")
     } else {
         ""
-    };
-    ui.attachments.status.set_label(status);
+    });
+    ui.attachments.status.set_label(&status);
     ui.attachments.status.set_visible(!status.is_empty());
     update_send_button(ui);
 }
@@ -531,7 +564,8 @@ pub(super) fn refresh_capabilities(ui: &Rc<WindowUi>, backend: &Rc<Backend>) {
     *ui.attachments.vision.borrow_mut() = None;
     ui.attachments.capability_failed.set(false);
     ui.attachments.capability.set_visible(false);
-    ui.model_picker.set_tooltip_text(Some("Active Model"));
+    ui.model_picker
+        .set_tooltip_text(Some(&gettext("Active Model")));
     let Some(provider) = active_provider(backend) else {
         update_status(ui, backend);
         return;
@@ -548,11 +582,11 @@ pub(super) fn refresh_capabilities(ui: &Rc<WindowUi>, backend: &Rc<Backend>) {
     if let Some(vision) = cached {
         *ui.attachments.vision.borrow_mut() = Some(vision);
         ui.attachments.capability.set_visible(vision);
-        ui.model_picker.set_tooltip_text(Some(if vision {
-            "Active Model · Supports Images"
+        ui.model_picker.set_tooltip_text(Some(&gettext(if vision {
+            gettext_noop("Active Model · Supports Images")
         } else {
-            "Active Model · Text Only"
-        }));
+            gettext_noop("Active Model · Text Only")
+        })));
         update_status(ui, backend);
         return;
     }
@@ -583,11 +617,11 @@ pub(super) fn refresh_capabilities(ui: &Rc<WindowUi>, backend: &Rc<Backend>) {
                     .insert(key.clone(), vision);
                 *ui.attachments.vision.borrow_mut() = Some(vision);
                 ui.attachments.capability.set_visible(vision);
-                ui.model_picker.set_tooltip_text(Some(if vision {
-                    "Active Model · Supports Images"
+                ui.model_picker.set_tooltip_text(Some(&gettext(if vision {
+                    gettext_noop("Active Model · Supports Images")
                 } else {
-                    "Active Model · Text Only"
-                }));
+                    gettext_noop("Active Model · Text Only")
+                })));
                 update_status(&ui, &backend);
                 glib::ControlFlow::Break
             }
@@ -648,26 +682,25 @@ fn asset_widget(ui: &WindowUi, backend: &Backend, asset: &Asset) -> gtk::Box {
     button.set_hexpand(true);
     let content = gtk::Box::new(gtk::Orientation::Horizontal, 10);
     content.set_size_request(-1, 40);
-    if asset.kind == "image" {
-        if let Ok(bytes) = backend.conversation_repository.asset_bytes(&asset.id) {
-            if let Ok(texture) = gdk::Texture::from_bytes(&glib::Bytes::from_owned(bytes)) {
-                let thumbnail = gtk::Overlay::builder()
-                    .child(&gtk::Box::new(gtk::Orientation::Horizontal, 0))
-                    .width_request(40)
-                    .height_request(40)
-                    .valign(gtk::Align::Center)
-                    .build();
-                thumbnail.add_css_class("moose-attachment-thumbnail");
-                thumbnail.set_overflow(gtk::Overflow::Hidden);
-                let picture = gtk::Picture::for_paintable(&texture);
-                picture.set_content_fit(gtk::ContentFit::Cover);
-                picture.set_can_shrink(true);
-                picture.set_can_target(false);
-                thumbnail.add_overlay(&picture);
-                thumbnail.set_measure_overlay(&picture, false);
-                content.append(&thumbnail);
-            }
-        }
+    if asset.kind == "image"
+        && let Ok(bytes) = backend.conversation_repository.asset_bytes(&asset.id)
+        && let Ok(texture) = gdk::Texture::from_bytes(&glib::Bytes::from_owned(bytes))
+    {
+        let thumbnail = gtk::Overlay::builder()
+            .child(&gtk::Box::new(gtk::Orientation::Horizontal, 0))
+            .width_request(40)
+            .height_request(40)
+            .valign(gtk::Align::Center)
+            .build();
+        thumbnail.add_css_class("moose-attachment-thumbnail");
+        thumbnail.set_overflow(gtk::Overflow::Hidden);
+        let picture = gtk::Picture::for_paintable(&texture);
+        picture.set_content_fit(gtk::ContentFit::Cover);
+        picture.set_can_shrink(true);
+        picture.set_can_target(false);
+        thumbnail.add_overlay(&picture);
+        thumbnail.set_measure_overlay(&picture, false);
+        content.append(&thumbnail);
     }
     let details = gtk::Box::new(gtk::Orientation::Vertical, 3);
     details.set_hexpand(true);
@@ -682,20 +715,21 @@ fn asset_widget(ui: &WindowUi, backend: &Backend, asset: &Asset) -> gtk::Box {
         .build();
     label.add_css_class("moose-attachment-name");
     let size = super::model_actions::format_download_size(asset.byte_size.max(0) as u64);
-    let kind = match asset.kind.as_str() {
-        "image" => "Image",
+    let kind = gettext(match asset.kind.as_str() {
+        "image" => gettext_noop("Image"),
         "pdf" => "PDF",
-        _ => "Text",
-    };
+        _ => gettext_noop("Text"),
+    });
     let description = if asset.kind == "pdf" {
-        format!(
-            "{kind} · {} {} · {size}",
-            asset.page_count,
-            if asset.page_count == 1 {
-                "page"
-            } else {
-                "pages"
-            }
+        ngettext_f(
+            "{kind} · {count} page · {size}",
+            "{kind} · {count} pages · {size}",
+            asset.page_count as u32,
+            &[
+                ("kind", &kind),
+                ("count", &asset.page_count.to_string()),
+                ("size", &size),
+            ],
         )
     } else {
         format!("{kind} · {size}")
@@ -711,7 +745,13 @@ fn asset_widget(ui: &WindowUi, backend: &Backend, asset: &Asset) -> gtk::Box {
     details.append(&metadata);
     content.append(&details);
     button.set_child(Some(&content));
-    button.set_tooltip_text(Some(&format!("Preview {}\n{description}", asset.name)));
+    button.set_tooltip_text(Some(&gettext_f(
+        "Preview {arg1}\n{description}",
+        &[
+            ("arg1", &(asset.name).to_string()),
+            ("description", &(description).to_string()),
+        ],
+    )));
     let repository = backend.conversation_repository.clone();
     let parent = ui.window.clone();
     let asset = asset.clone();
@@ -729,7 +769,7 @@ fn sent_image_widget(
 ) -> Result<gtk::Box> {
     let bytes = backend.conversation_repository.asset_bytes(&asset.id)?;
     let texture = gdk::Texture::from_bytes(&glib::Bytes::from_owned(bytes))
-        .map_err(|_| error("This image could not be displayed"))?;
+        .map_err(|_| error(gettext("This image could not be displayed")))?;
     let viewport = image::preview(&texture, &asset.name, frame);
     let button = gtk::Button::new();
     button.add_css_class("flat");
@@ -737,7 +777,10 @@ fn sent_image_widget(
     button.set_halign(gtk::Align::Center);
     button.set_child(Some(&viewport));
     button.set_cursor_from_name(Some("zoom-in"));
-    button.set_tooltip_text(Some(&format!("Open image: {}", asset.name)));
+    button.set_tooltip_text(Some(&gettext_f(
+        "Open image: {arg1}",
+        &[("arg1", &(asset.name).to_string())],
+    )));
     let repository = backend.conversation_repository.clone();
     let parent = ui.window.clone();
     let asset = asset.clone();
@@ -822,11 +865,13 @@ pub(super) fn append_stored(
     if !sources.is_empty() {
         let content = gtk::Box::new(gtk::Orientation::Vertical, 4);
         for (index, source) in sources.iter().enumerate() {
-            let button = gtk::Button::with_label(&format!(
-                "[{}] {} · Page {}",
-                index + 1,
-                source.name,
-                source.page
+            let button = gtk::Button::with_label(&gettext_f(
+                "[{arg1}] {arg2} · Page {arg3}",
+                &[
+                    ("arg1", &(index + 1).to_string()),
+                    ("arg2", &(source.name).to_string()),
+                    ("arg3", &(source.page).to_string()),
+                ],
             ));
             button.add_css_class("flat");
             if let Some(label) = button.child().and_downcast::<gtk::Label>() {
@@ -856,12 +901,15 @@ pub(super) fn append_stored(
             content.append(&excerpt);
         }
         let expander = gtk::Expander::builder()
-            .label(format!("Sources ({})", sources.len()))
+            .label(gettext_f(
+                "Sources ({arg1})",
+                &[("arg1", &(sources.len()).to_string())],
+            ))
             .child(&content)
             .build();
-        expander.set_tooltip_text(Some(
+        expander.set_tooltip_text(Some(&gettext(
             "Excerpts provided to the model. Check these sources to verify its answer.",
-        ));
+        )));
         row.append(&expander);
     }
     Ok(())

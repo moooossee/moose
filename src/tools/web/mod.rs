@@ -1,3 +1,5 @@
+use crate::i18n::{gettext, gettext_f};
+
 mod duckduckgo;
 mod extract;
 mod network;
@@ -37,7 +39,10 @@ impl WebConfig {
         if self.provider == SearchProvider::Searxng {
             let url = network::public_url(&self.endpoint)?;
             if url.scheme() != "https" || url.query().is_some() || self.endpoint.contains('#') {
-                return Err("Use a public HTTPS SearXNG search URL without query parameters, such as https://search.example.com/search.".into());
+                return Err(gettext_f(
+                    "Use a public HTTPS SearXNG search URL without query parameters, such as {example_url}.",
+                    &[("example_url", "https://search.example.com/search")],
+                ));
             }
         }
         Ok(())
@@ -54,10 +59,15 @@ impl WebConfig {
 
     pub fn description(&self) -> String {
         match self.provider {
-            SearchProvider::LinksOnly => "Read public links. Choose a search provider in Preferences → Web to search the web.".into(),
-            SearchProvider::Brave => "Search with Brave Search and read public links.".into(),
-            SearchProvider::Searxng => format!("Search with SearXNG at {} and read public links.", self.endpoint),
-            SearchProvider::DuckDuckGo => "Search with DuckDuckGo and read public links.".into(),
+            SearchProvider::LinksOnly => gettext(
+                "Read public links. Choose a search provider in Preferences → Web to search the web.",
+            ),
+            SearchProvider::Brave => gettext("Search with Brave Search and read public links."),
+            SearchProvider::Searxng => gettext_f(
+                "Search with SearXNG at {arg1} and read public links.",
+                &[("arg1", &(self.endpoint).to_string())],
+            ),
+            SearchProvider::DuckDuckGo => gettext("Search with DuckDuckGo and read public links."),
         }
     }
 
@@ -129,14 +139,18 @@ impl WebSession {
         network::check_policy(&self.policy)?;
         self.config.validate()?;
         if MAX_SOURCE_BYTES.saturating_sub(self.source_bytes) < 1024 {
-            return Err("The web context limit has been reached. Answer using the sources already available.".into());
+            return Err(gettext(
+                "The web context limit has been reached. Answer using the sources already available.",
+            ));
         }
         let operation = async {
             match name {
                 SEARCH => {
                     let query = argument(arguments, "query", 400)?;
                     if self.searches >= 3 {
-                        return Err("The limit of three searches per response has been reached. Answer using the available results.".into());
+                        return Err(gettext(
+                            "The limit of three searches per response has been reached. Answer using the available results.",
+                        ));
                     }
                     self.searches += 1;
                     self.search(query).await
@@ -152,19 +166,21 @@ impl WebSession {
                         return Ok(vec![source.clone()]);
                     }
                     if self.pages >= 4 {
-                        return Err("The limit of four pages per response has been reached. Answer using the available results.".into());
+                        return Err(gettext(
+                            "The limit of four pages per response has been reached. Answer using the available results.",
+                        ));
                     }
                     self.pages += 1;
                     let (url, content_type, bytes) = network::page(url, &self.policy).await?;
                     let (title, content, truncated) =
                         tokio::task::spawn_blocking(move || extract::page(&bytes, &content_type))
                             .await
-                            .map_err(|_| "Page extraction was interrupted.")??;
+                            .map_err(|_| gettext("Page extraction was interrupted."))??;
                     network::check_policy(&self.policy)?;
                     let source = self.register(WebSource {
                         id: String::new(),
                         title: if title.is_empty() {
-                            url.host_str().unwrap_or("Web page").into()
+                            url.host_str().unwrap_or(&gettext("Web page")).into()
                         } else {
                             title
                         },
@@ -176,12 +192,12 @@ impl WebSession {
                     });
                     Ok(vec![source])
                 }
-                _ => Err("This web tool is not available.".into()),
+                _ => Err(gettext("This web tool is not available.")),
             }
         };
         let sources = tokio::time::timeout(Duration::from_secs(30), operation)
             .await
-            .map_err(|_| "The web request timed out. Try another source.".to_string())??;
+            .map_err(|_| gettext("The web request timed out. Try another source."))??;
         self.fit_sources(sources)
     }
 
@@ -191,7 +207,7 @@ impl WebSession {
         for mut source in sources {
             let remaining = MAX_SOURCE_BYTES.saturating_sub(self.source_bytes);
             let size = serde_json::to_vec(&source)
-                .map_err(|_| "The source could not be prepared.")?
+                .map_err(|_| gettext("The source could not be prepared."))?
                 .len()
                 + 1;
             if size > remaining {
@@ -203,7 +219,7 @@ impl WebSession {
                 source.truncated = true;
             }
             let size = serde_json::to_vec(&source)
-                .map_err(|_| "The source could not be prepared.")?
+                .map_err(|_| gettext("The source could not be prepared."))?
                 .len()
                 + 1;
             if size <= remaining {
@@ -212,7 +228,9 @@ impl WebSession {
             }
         }
         if had_sources && result.is_empty() {
-            return Err("The web context limit has been reached. Answer using the sources already available.".into());
+            return Err(gettext(
+                "The web context limit has been reached. Answer using the sources already available.",
+            ));
         }
         Ok(result)
     }
@@ -236,20 +254,26 @@ impl WebSession {
 
     async fn search(&mut self, query: &str) -> Result<Vec<WebSource>, String> {
         let mut url = match self.config.provider {
-            SearchProvider::LinksOnly => return Err("Choose a search provider in Preferences → Web to search the web. Public links can still be read.".into()),
-            SearchProvider::Brave => Url::parse("https://api.search.brave.com/res/v1/web/search").map_err(|_| "Search is unavailable.")?,
+            SearchProvider::LinksOnly => {
+                return Err(gettext(
+                    "Choose a search provider in Preferences → Web to search the web. Public links can still be read.",
+                ));
+            }
+            SearchProvider::Brave => Url::parse("https://api.search.brave.com/res/v1/web/search")
+                .map_err(|_| gettext("Search is unavailable."))?,
             SearchProvider::Searxng => network::public_url(&self.config.endpoint)?,
             SearchProvider::DuckDuckGo => {
                 if self.duckduckgo_blocked {
-                    return Err(duckduckgo::BLOCKED.into());
+                    return Err(gettext(duckduckgo::BLOCKED));
                 }
                 return match duckduckgo::search(query, &self.policy).await {
-                    Ok(sources) => {
-                        Ok(sources.into_iter().map(|source| self.register(source)).collect())
-                    }
+                    Ok(sources) => Ok(sources
+                        .into_iter()
+                        .map(|source| self.register(source))
+                        .collect()),
                     Err(error) => {
                         self.duckduckgo_blocked = error == duckduckgo::BLOCKED;
-                        Err(error)
+                        Err(gettext(error))
                     }
                 };
             }
@@ -274,30 +298,39 @@ impl WebSession {
             .header("Accept", "application/json")
             .header("Accept-Encoding", "identity");
         if self.config.provider == SearchProvider::Brave {
-            let key = credentials::load_web_key().await.map_err(|_| "The Brave Search key is missing or unavailable. Manage it in Preferences → Web.")?;
+            let key = credentials::load_web_key().await.map_err(|_| gettext("The Brave Search key is missing or unavailable. Manage it in Preferences → Web."))?;
             request = request.header(
                 "X-Subscription-Token",
-                key.header(false).map_err(
-                    |_| "The Brave Search key is invalid. Replace it in Preferences → Web.",
-                )?,
+                key.header(false).map_err(|_| {
+                    gettext("The Brave Search key is invalid. Replace it in Preferences → Web.")
+                })?,
             );
         }
         network::check_policy(&self.policy)?;
         let response = request
             .send()
             .await
-            .map_err(|_| "The search provider could not be reached.")?;
+            .map_err(|_| gettext("The search provider could not be reached."))?;
         network::check_policy(&self.policy)?;
         if !response.status().is_success() {
             return Err(match response.status().as_u16() {
-                401 | 403 if self.config.provider == SearchProvider::Brave => "Brave Search rejected the API key. Check the key and its Search API subscription in Preferences → Web.".into(),
-                403 if self.config.provider == SearchProvider::Searxng => "This SearXNG instance does not allow JSON searches. Choose an instance with its JSON API enabled.".into(),
-                429 => "The search provider's rate or usage limit was reached. Try again later.".into(),
-                status => format!("Search returned HTTP {status}. Check Preferences → Web or try again later."),
+                401 | 403 if self.config.provider == SearchProvider::Brave => gettext(
+                    "Brave Search rejected the API key. Check the key and its Search API subscription in Preferences → Web.",
+                ),
+                403 if self.config.provider == SearchProvider::Searxng => gettext(
+                    "This SearXNG instance does not allow JSON searches. Choose an instance with its JSON API enabled.",
+                ),
+                429 => gettext(
+                    "The search provider's rate or usage limit was reached. Try again later.",
+                ),
+                status => gettext_f(
+                    "Search returned HTTP {status}. Check Preferences → Web or try again later.",
+                    &[("status", &(status).to_string())],
+                ),
             });
         }
         let bytes = network::body(response, &self.policy).await?;
-        let data: Value = serde_json::from_slice(&bytes).map_err(|_| "The search provider returned an invalid response. SearXNG must have its JSON API enabled.")?;
+        let data: Value = serde_json::from_slice(&bytes).map_err(|_| gettext("The search provider returned an invalid response. SearXNG must have its JSON API enabled."))?;
         let results = match self.config.provider {
             SearchProvider::Brave => data.get("web").and_then(|web| web.get("results")),
             SearchProvider::Searxng => data.get("results"),
@@ -346,7 +379,9 @@ impl WebSession {
             || data.get("web").is_some()
             || data.get("type").and_then(Value::as_str) != Some("search")
         {
-            return Err("The search provider returned an unexpected response.".into());
+            return Err(gettext(
+                "The search provider returned an unexpected response.",
+            ));
         }
         Ok(sources)
     }
@@ -355,18 +390,22 @@ impl WebSession {
 fn argument<'a>(arguments: &'a Value, name: &str, limit: usize) -> Result<&'a str, String> {
     let object = arguments
         .as_object()
-        .ok_or("Tool arguments must be an object.")?;
+        .ok_or(&gettext("Tool arguments must be an object."))?;
     if object.len() != 1 {
-        return Err(format!("Provide only the {name} argument."));
+        return Err(gettext_f(
+            "Provide only the {name} argument.",
+            &[("name", (name))],
+        ));
     }
     let value = object
         .get(name)
         .and_then(Value::as_str)
         .map(str::trim)
-        .ok_or_else(|| format!("Provide a {name} string."))?;
+        .ok_or_else(|| gettext_f("Provide a {name} string.", &[("name", (name))]))?;
     if value.is_empty() || value.len() > limit || value.chars().any(char::is_control) {
-        return Err(format!(
-            "The {name} must contain 1–{limit} bytes without control characters."
+        return Err(gettext_f(
+            "The {name} must contain 1–{limit} bytes without control characters.",
+            &[("name", (name)), ("limit", &(limit).to_string())],
         ));
     }
     Ok(value)

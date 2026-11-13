@@ -1,3 +1,5 @@
+use crate::i18n::{gettext, gettext_f, gettext_noop};
+
 use std::collections::{HashMap, HashSet};
 
 use gtk::gdk;
@@ -24,50 +26,50 @@ pub(super) struct ShortcutChord {
 pub(super) const DEFINITIONS: &[ShortcutDefinition] = &[
     ShortcutDefinition {
         id: "new-conversation",
-        title: "New Conversation",
-        description: "Create a new chat and move to the composer.",
+        title: gettext_noop("New Conversation"),
+        description: gettext_noop("Create a new chat and move to the composer."),
         default: "Ctrl+N",
     },
     ShortcutDefinition {
         id: "focus-message",
-        title: "Focus Message",
-        description: "Move keyboard focus to the message composer.",
+        title: gettext_noop("Focus Message"),
+        description: gettext_noop("Move keyboard focus to the message composer."),
         default: "Ctrl+L",
     },
     ShortcutDefinition {
         id: "search-chats",
-        title: "Search Chats",
-        description: "Move keyboard focus to the chat search field.",
+        title: gettext_noop("Search Chats"),
+        description: gettext_noop("Move keyboard focus to the chat search field."),
         default: "Ctrl+F",
     },
     ShortcutDefinition {
         id: "show-models",
-        title: "Show Models",
-        description: "Open the model manager.",
+        title: gettext_noop("Show Models"),
+        description: gettext_noop("Open the model manager."),
         default: "Ctrl+M",
     },
     ShortcutDefinition {
         id: "refresh-models",
-        title: "Refresh Models",
-        description: "Refresh the active provider model list.",
+        title: gettext_noop("Refresh Models"),
+        description: gettext_noop("Refresh the active provider model list."),
         default: "F5",
     },
     ShortcutDefinition {
         id: "preferences",
-        title: "Preferences",
-        description: "Open application preferences.",
+        title: gettext_noop("Preferences"),
+        description: gettext_noop("Open application preferences."),
         default: "Ctrl+,",
     },
     ShortcutDefinition {
         id: "toggle-sidebar",
-        title: "Toggle Sidebar",
-        description: "Show or hide the conversation sidebar.",
+        title: gettext_noop("Toggle Sidebar"),
+        description: gettext_noop("Show or hide the conversation sidebar."),
         default: "F9",
     },
     ShortcutDefinition {
         id: "stop-generation",
-        title: "Stop Generation",
-        description: "Cancel the active response.",
+        title: gettext_noop("Stop Generation"),
+        description: gettext_noop("Cancel the active response."),
         default: "Esc",
     },
 ];
@@ -105,9 +107,9 @@ pub(super) fn normalize_values(
             continue;
         };
         if !chords.insert(chord.clone()) {
-            return Err(format!(
-                "{} uses a shortcut that is already assigned",
-                definition.title
+            return Err(gettext_f(
+                "{arg1} uses a shortcut that is already assigned",
+                &[("arg1", &gettext(definition.title))],
             ));
         }
         normalized.insert(definition.id.to_string(), chord.label());
@@ -131,7 +133,7 @@ pub(super) fn parse(value: &str) -> Result<Option<ShortcutChord>, String> {
     for part in value.split('+') {
         let part = part.trim();
         if part.is_empty() {
-            return Err("Shortcut parts cannot be empty".to_string());
+            return Err(gettext("Shortcut parts cannot be empty"));
         }
 
         match part.to_ascii_lowercase().as_str() {
@@ -141,18 +143,20 @@ pub(super) fn parse(value: &str) -> Result<Option<ShortcutChord>, String> {
             "super" | "meta" | "cmd" | "command" => super_key = true,
             _ => {
                 if key.replace(normalize_key(part)?).is_some() {
-                    return Err("Use only one key per shortcut".to_string());
+                    return Err(gettext("Use only one key per shortcut"));
                 }
             }
         }
     }
 
     let Some(key) = key else {
-        return Err("Add a key to the shortcut".to_string());
+        return Err(gettext("Add a key to the shortcut"));
     };
 
     if !ctrl && !alt && !shift && !super_key && requires_modifier(&key) {
-        return Err("Use Ctrl, Alt, Shift or Super with printable shortcuts".to_string());
+        return Err(gettext(
+            "Use Ctrl, Alt, Shift or Super with printable shortcuts",
+        ));
     }
 
     Ok(Some(ShortcutChord {
@@ -176,6 +180,35 @@ pub(super) fn event_chord(key: gdk::Key, state: gdk::ModifierType) -> Option<Sho
 }
 
 impl ShortcutChord {
+    pub(super) fn display_label(&self) -> String {
+        let name = match self.key.as_str() {
+            "Esc" => "Escape",
+            "Enter" => "Return",
+            "Space" => "space",
+            "Backspace" => "BackSpace",
+            "PageUp" => "Page_Up",
+            "PageDown" => "Page_Down",
+            key => key,
+        };
+        let Some(key) = gdk::Key::from_name(name) else {
+            return self.label();
+        };
+        let mut modifiers = gdk::ModifierType::empty();
+        if self.ctrl {
+            modifiers |= gdk::ModifierType::CONTROL_MASK;
+        }
+        if self.alt {
+            modifiers |= gdk::ModifierType::ALT_MASK;
+        }
+        if self.shift {
+            modifiers |= gdk::ModifierType::SHIFT_MASK;
+        }
+        if self.super_key {
+            modifiers |= gdk::ModifierType::SUPER_MASK;
+        }
+        gtk::accelerator_get_label(key, modifiers).to_string()
+    }
+
     pub(super) fn label(&self) -> String {
         let mut parts = Vec::new();
         if self.ctrl {
@@ -244,7 +277,7 @@ fn normalize_key(value: &str) -> Result<String, String> {
         "right" | "arrowright" | "arrow-right" => "Right".to_string(),
         _ if is_function_key(&lower) => lower.to_ascii_uppercase(),
         _ if value.chars().count() == 1 => normalize_character_key(value),
-        _ => return Err(format!("Unsupported key: {value}")),
+        _ => return Err(gettext_f("Unsupported key: {value}", &[("value", value)])),
     };
     Ok(key)
 }

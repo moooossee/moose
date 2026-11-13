@@ -1,3 +1,5 @@
+use crate::i18n::{gettext, gettext_noop};
+
 use std::rc::Rc;
 
 use adw::prelude::*;
@@ -20,28 +22,28 @@ pub(super) fn build(
         .build();
     suggestions.add_css_class("moose-welcome-suggestions");
     let mut buttons = Vec::new();
-    for (title, prompt, placeholder) in [
+    for (title, prompt) in [
         (
-            "Explain a topic",
-            "Explain [topic] in simple terms, with a practical example.",
-            "[topic]",
+            gettext_noop("Explain a topic"),
+            gettext_noop("Explain [topic] in simple terms, with a practical example."),
         ),
         (
-            "Help me write",
-            "Help me write [what you need]. Ask me about the audience and tone first.",
-            "[what you need]",
+            gettext_noop("Help me write"),
+            gettext_noop(
+                "Help me write [what you need]. Ask me about the audience and tone first.",
+            ),
         ),
         (
-            "Work through code",
-            "Help me with [a coding question]. Explain the approach step by step.",
-            "[a coding question]",
+            gettext_noop("Work through code"),
+            gettext_noop("Help me with [a coding question]. Explain the approach step by step."),
         ),
     ] {
-        let button = gtk::Button::with_label(title);
+        let button = gtk::Button::with_label(&gettext(title));
         button.add_css_class("flat");
         button.add_css_class("moose-welcome-suggestion");
-        button.set_tooltip_text(Some("Start an editable draft"));
+        button.set_tooltip_text(Some(&gettext("Start an editable draft")));
         let weak_entry = entry.downgrade();
+        let prompt = gettext(prompt);
         button.connect_clicked(move |_| {
             let Some(entry) = weak_entry.upgrade() else {
                 return;
@@ -52,10 +54,12 @@ pub(super) fn build(
                 return;
             }
             entry.grab_focus();
-            buffer.set_text(prompt);
-            if let Some(position) = prompt.find(placeholder) {
+            buffer.set_text(&prompt);
+            if let Some(position) = prompt.find('[')
+                && let Some(length) = prompt[position..].find(']')
+            {
                 let start = prompt[..position].chars().count() as i32;
-                let end = start + placeholder.chars().count() as i32;
+                let end = prompt[..position + length + 1].chars().count() as i32;
                 buffer.select_range(&buffer.iter_at_offset(start), &buffer.iter_at_offset(end));
             }
         });
@@ -66,13 +70,13 @@ pub(super) fn build(
         buttons.push(button.downgrade());
     }
     content.append(&suggestions);
-    let files = gtk::Button::with_label("Use an Image or Document");
+    let files = gtk::Button::with_label(&gettext("Use an Image or Document"));
     files.set_halign(Align::Center);
     files.add_css_class("flat");
     files.add_css_class("moose-welcome-files");
-    files.set_tooltip_text(Some(
+    files.set_tooltip_text(Some(&gettext(
         "Add files, paste an image, or open your document library",
-    ));
+    )));
     let weak_attachment_button = attachment_button.downgrade();
     files.connect_clicked(move |_| {
         if let Some(button) = weak_attachment_button.upgrade() {
@@ -82,7 +86,9 @@ pub(super) fn build(
     });
     content.append(&files);
     let hint = gtk::Label::builder()
-        .label("Suggestions fill your draft. You choose when to send.")
+        .label(gettext(
+            "Suggestions fill your draft. You choose when to send.",
+        ))
         .single_line_mode(true)
         .width_chars(1)
         .ellipsize(gtk::pango::EllipsizeMode::End)
@@ -107,15 +113,15 @@ pub(super) fn build(
                 button.set_sensitive(!has_draft);
             }
         }
-        let text = if previews.is_visible() {
-            "Your files are attached. Ask a question about them below."
+        let text = gettext(if previews.is_visible() {
+            gettext_noop("Your files are attached. Ask a question about them below.")
         } else if has_draft {
-            "Your draft is below. Make it yours before sending."
+            gettext_noop("Your draft is below. Make it yours before sending.")
         } else {
-            "Suggestions fill your draft. You choose when to send."
-        };
-        hint.set_label(text);
-        hint.set_tooltip_text(Some(text));
+            gettext_noop("Suggestions fill your draft. You choose when to send.")
+        });
+        hint.set_label(&text);
+        hint.set_tooltip_text(Some(&text));
     });
     let on_change = update.clone();
     entry.buffer().connect_changed(move |_| on_change());
@@ -132,9 +138,9 @@ pub(super) fn build(
 pub(super) fn show(status: &adw::StatusPage, content: &adw::Clamp) {
     status.add_css_class("compact");
     status.add_css_class("moose-chat-welcome");
-    status.set_title("What would you like to explore?");
-    status.set_description(Some(
+    status.set_title(&gettext("What would you like to explore?"));
+    status.set_description(Some(&gettext(
         "Ask a question, work through an idea, or bring a file.",
-    ));
+    )));
     status.set_child(Some(content));
 }

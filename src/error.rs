@@ -6,131 +6,121 @@ pub type Result<T> = std::result::Result<T, MooseError>;
 
 #[derive(Debug, Error)]
 pub enum MooseError {
-    #[error(
-        "secure credential storage is unavailable; unlock your desktop keyring or enable the Secret portal and try again"
-    )]
+    #[error("{}", crate::i18n::moose_error_message(self))]
     CredentialStoreUnavailable,
-    #[error("no API key is saved for this provider; add one in Preferences")]
+    #[error("{}", crate::i18n::moose_error_message(self))]
     MissingApiKey,
-    #[error("invalid API key; enter the key without spaces or line breaks")]
+    #[error("{}", crate::i18n::moose_error_message(self))]
     InvalidApiKey,
-    #[error(
-        "this connection is blocked by Local Only mode; only Ollama managed by Moose is allowed"
-    )]
+    #[error("{}", crate::i18n::moose_error_message(self))]
     LocalOnly,
-    #[error("invalid provider response: {0}")]
+    #[error("{}", crate::i18n::moose_error_message(self))]
     ProviderResponse(String),
-    #[error("Response incomplete: the model reached its generation limit.")]
+    #[error("{}", crate::i18n::moose_error_message(self))]
     ResponseLimit,
-    #[error("{0}")]
+    #[error("{}", crate::i18n::moose_error_message(self))]
     ProviderRequest(String),
-    #[error(
-        "The current message, instructions, attachments or tool results leave too little room for a response. Shorten the message, use fewer attachments, or increase Context Window in Chat Settings."
-    )]
+    #[error("{}", crate::i18n::moose_error_message(self))]
     ContextTooLarge,
-    #[error("{0}")]
+    #[error("{}", crate::i18n::moose_error_message(self))]
     Attachment(String),
-    #[error("I/O failed: {0}")]
+    #[error("{}", crate::i18n::moose_error_message(self))]
     Io(#[from] io::Error),
-    #[error("database operation failed: {0}")]
+    #[error("{}", crate::i18n::moose_error_message(self))]
     Database(#[from] rusqlite::Error),
-    #[error("HTTP request failed: {0}")]
+    #[error("{}", crate::i18n::moose_error_message(self))]
     Http(#[from] reqwest::Error),
-    #[error("generation stream stalled after {seconds} seconds")]
+    #[error("{}", crate::i18n::moose_error_message(self))]
     StreamStalled { seconds: u64 },
-    #[error("HTTP request returned status {status}: {message}")]
+    #[error("{}", crate::i18n::moose_error_message(self))]
     HttpStatus {
         status: reqwest::StatusCode,
         message: String,
     },
-    #[error("JSON parsing failed: {0}")]
+    #[error("{}", crate::i18n::moose_error_message(self))]
     Json(#[from] serde_json::Error),
-    #[error("URL parsing failed: {0}")]
+    #[error("{}", crate::i18n::moose_error_message(self))]
     Url(#[from] url::ParseError),
-    #[error("stream text decoding failed: {0}")]
+    #[error("{}", crate::i18n::moose_error_message(self))]
     Utf8(#[from] Utf8Error),
-    #[error("missing home directory")]
+    #[error("{}", crate::i18n::moose_error_message(self))]
     MissingHomeDirectory,
-    #[error("invalid provider URL")]
+    #[error("{}", crate::i18n::moose_error_message(self))]
     InvalidProviderUrl,
-    #[error("invalid provider name")]
+    #[error("{}", crate::i18n::moose_error_message(self))]
     InvalidProviderName,
-    #[error("invalid model name")]
+    #[error("{}", crate::i18n::moose_error_message(self))]
     InvalidModelName,
-    #[error("invalid conversation title")]
+    #[error("{}", crate::i18n::moose_error_message(self))]
     InvalidConversationTitle,
-    #[error("invalid message content")]
+    #[error("{}", crate::i18n::moose_error_message(self))]
     InvalidMessageContent,
-    #[error("invalid message role")]
+    #[error("{}", crate::i18n::moose_error_message(self))]
     InvalidMessageRole,
-    #[error("invalid message status")]
+    #[error("{}", crate::i18n::moose_error_message(self))]
     InvalidMessageStatus,
-    #[error("invalid identifier")]
+    #[error("{}", crate::i18n::moose_error_message(self))]
     InvalidIdentifier,
-    #[error("invalid generation settings")]
+    #[error("{}", crate::i18n::moose_error_message(self))]
     InvalidGenerationSettings,
-    #[error("invalid profile name")]
+    #[error("{}", crate::i18n::moose_error_message(self))]
     InvalidProfileName,
-    #[error("invalid profile description")]
+    #[error("{}", crate::i18n::moose_error_message(self))]
     InvalidProfileDescription,
-    #[error("invalid system prompt")]
+    #[error("{}", crate::i18n::moose_error_message(self))]
     InvalidSystemPrompt,
-    #[error("invalid download job status")]
+    #[error("{}", crate::i18n::moose_error_message(self))]
     InvalidDownloadJobStatus,
-    #[error("invalid download job progress")]
+    #[error("{}", crate::i18n::moose_error_message(self))]
     InvalidDownloadJobProgress,
-    #[error("conversation was not found")]
+    #[error("{}", crate::i18n::moose_error_message(self))]
     ConversationNotFound,
-    #[error("message was not found")]
+    #[error("{}", crate::i18n::moose_error_message(self))]
     MessageNotFound,
-    #[error("generation settings were not found")]
+    #[error("{}", crate::i18n::moose_error_message(self))]
     GenerationSettingsNotFound,
-    #[error("profile was not found")]
+    #[error("{}", crate::i18n::moose_error_message(self))]
     ProfileNotFound,
-    #[error("a profile with that name already exists")]
+    #[error("{}", crate::i18n::moose_error_message(self))]
     ProfileNameAlreadyExists,
-    #[error("built-in profiles cannot be deleted")]
+    #[error("{}", crate::i18n::moose_error_message(self))]
     BuiltinProfileCannotBeDeleted,
-    #[error("download job was not found")]
+    #[error("{}", crate::i18n::moose_error_message(self))]
     DownloadJobNotFound,
-    #[error("no provider is configured")]
+    #[error("{}", crate::i18n::moose_error_message(self))]
     ProviderNotConfigured,
-    #[error("invalid Ollama response: {0}")]
+    #[error("{}", crate::i18n::moose_error_message(self))]
     InvalidOllamaResponse(String),
-    #[error("Ollama must be updated to download this model: {0}")]
+    #[error("{}", crate::i18n::moose_error_message(self))]
     OllamaUpdateRequired(String),
-    #[error("managed Ollama update failed: {0}")]
+    #[error("{}", crate::i18n::moose_error_message(self))]
     ManagedOllamaUpdate(String),
-    #[error("managed Ollama installation was cancelled")]
+    #[error("{}", crate::i18n::moose_error_message(self))]
     ManagedOllamaCancelled,
-    #[error("managed Ollama does not support architecture {0}")]
+    #[error("{}", crate::i18n::moose_error_message(self))]
     ManagedOllamaUnsupportedArchitecture(String),
-    #[error("managed Ollama manifest is invalid: {0}")]
+    #[error("{}", crate::i18n::moose_error_message(self))]
     ManagedOllamaManifestInvalid(String),
-    #[error("managed Ollama download failed: {0}")]
+    #[error("{}", crate::i18n::moose_error_message(self))]
     ManagedOllamaDownloadFailed(String),
-    #[error("managed Ollama checksum mismatch: expected {expected}, got {actual}")]
+    #[error("{}", crate::i18n::moose_error_message(self))]
     ManagedOllamaChecksumMismatch { expected: String, actual: String },
-    #[error("managed Ollama extraction failed: {0}")]
+    #[error("{}", crate::i18n::moose_error_message(self))]
     ManagedOllamaExtractionFailed(String),
-    #[error("managed Ollama binary is missing at {}", .0.display())]
+    #[error("{}", crate::i18n::moose_error_message(self))]
     ManagedOllamaBinaryMissing(PathBuf),
-    #[error("managed Ollama is unavailable")]
+    #[error("{}", crate::i18n::moose_error_message(self))]
     ManagedOllamaUnavailable,
-    #[error("managed Ollama failed to start: {0}")]
+    #[error("{}", crate::i18n::moose_error_message(self))]
     ManagedOllamaStartFailed(String),
-    #[error("managed Ollama did not become ready in time")]
+    #[error("{}", crate::i18n::moose_error_message(self))]
     ManagedOllamaTimedOut,
-    #[error(
-        "managed Ollama is already running in another Moose instance; close that instance and retry"
-    )]
+    #[error("{}", crate::i18n::moose_error_message(self))]
     ManagedOllamaInUse,
-    #[error(
-        "managed Ollama port is already in use: {0}; close any previous Moose instances or choose another managed port"
-    )]
+    #[error("{}", crate::i18n::moose_error_message(self))]
     ManagedOllamaPortUnavailable(String),
-    #[error("managed Ollama port {0} is invalid; use 1024-65535 except 11434")]
+    #[error("{}", crate::i18n::moose_error_message(self))]
     ManagedOllamaInvalidPort(u16),
-    #[error("numeric conversion failed: {0}")]
+    #[error("{}", crate::i18n::moose_error_message(self))]
     NumericConversion(#[from] TryFromIntError),
 }

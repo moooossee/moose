@@ -1,3 +1,5 @@
+use crate::i18n::gettext;
+
 use crate::error::{MooseError, Result};
 use serde::Serialize;
 
@@ -107,7 +109,7 @@ pub fn decode_text(bytes: &[u8]) -> Result<String> {
     let text = if bytes.starts_with(&[0xff, 0xfe]) || bytes.starts_with(&[0xfe, 0xff]) {
         let (pairs, remainder) = bytes[2..].as_chunks::<2>();
         if !remainder.is_empty() {
-            return Err(error("This UTF-16 file is incomplete"));
+            return Err(error(gettext("This UTF-16 file is incomplete")));
         }
         let little = bytes[0] == 0xff;
         let words = pairs
@@ -121,24 +123,26 @@ pub fn decode_text(bytes: &[u8]) -> Result<String> {
             })
             .collect::<Vec<_>>();
         String::from_utf16(&words)
-            .map_err(|_| error("This document contains invalid UTF-16 text"))?
+            .map_err(|_| error(gettext("This document contains invalid UTF-16 text")))?
     } else {
         std::str::from_utf8(bytes)
-            .map_err(|_| error("Use a UTF-8 or UTF-16 text document"))?
+            .map_err(|_| error(gettext("Use a UTF-8 or UTF-16 text document")))?
             .trim_start_matches('\u{feff}')
             .to_string()
     };
     if text.len() > MAX_TEXT_BYTES {
-        return Err(error("Documents can contain up to 4 MB of extracted text"));
+        return Err(error(gettext(
+            "Documents can contain up to 4 MB of extracted text",
+        )));
     }
     if text
         .chars()
         .any(|ch| ch == '\0' || (ch.is_control() && !matches!(ch, '\n' | '\r' | '\t' | '\u{c}')))
     {
-        return Err(error("This file is not a supported text document"));
+        return Err(error(gettext("This file is not a supported text document")));
     }
     if text.trim().is_empty() {
-        return Err(error("This document is empty"));
+        return Err(error(gettext("This document is empty")));
     }
     Ok(text.replace("\r\n", "\n"))
 }

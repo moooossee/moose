@@ -1,3 +1,5 @@
+use crate::i18n::{gettext, gettext_f, gettext_noop};
+
 use std::{fmt, str::FromStr};
 
 use serde::{Deserialize, Serialize};
@@ -80,8 +82,9 @@ impl ProviderKind {
             "nvidia" => Ok(Self::Nvidia),
             "cloudflare" => Ok(Self::Cloudflare),
             "custom" => Ok(Self::Custom),
-            _ => Err(MooseError::InvalidOllamaResponse(format!(
-                "unknown provider kind {value}"
+            _ => Err(MooseError::InvalidOllamaResponse(gettext_f(
+                "unknown provider kind {value}",
+                &[("value", (value))],
             ))),
         }
     }
@@ -113,7 +116,7 @@ impl ProviderKind {
             Self::OpenRouter => "OpenRouter",
             Self::Nvidia => "NVIDIA NIM",
             Self::Cloudflare => "Cloudflare Workers AI",
-            Self::Custom => "Custom Provider",
+            Self::Custom => gettext_noop("Custom Provider"),
         }
     }
 
@@ -224,7 +227,7 @@ impl NewProvider {
     pub fn managed_ollama(is_default: bool) -> Self {
         Self {
             kind: ProviderKind::Ollama,
-            name: "Managed Ollama".to_string(),
+            name: gettext("Managed Ollama"),
             base_url: MANAGED_OLLAMA_BASE_URL.to_string(),
             is_managed: true,
             is_default,
@@ -234,7 +237,7 @@ impl NewProvider {
     pub fn managed_ollama_with_port(port: u16, is_default: bool) -> Result<Self> {
         Ok(Self {
             kind: ProviderKind::Ollama,
-            name: "Managed Ollama".to_string(),
+            name: gettext("Managed Ollama"),
             base_url: managed_ollama_base_url(port)?,
             is_managed: true,
             is_default,
@@ -244,7 +247,7 @@ impl NewProvider {
     pub fn local_ollama(is_default: bool) -> Self {
         Self {
             kind: ProviderKind::Ollama,
-            name: "Local Ollama".to_string(),
+            name: gettext("Local Ollama"),
             base_url: DEFAULT_OLLAMA_BASE_URL.to_string(),
             is_managed: false,
             is_default,
@@ -301,12 +304,12 @@ impl Provider {
         }
         match (self.kind, &self.custom_config) {
             (ProviderKind::Custom, Some(config)) => config.validate(),
-            (ProviderKind::Custom, None) => Err(MooseError::ProviderRequest(
-                "Custom provider settings are missing.".into(),
-            )),
-            (_, Some(_)) => Err(MooseError::ProviderRequest(
-                "Custom settings require a custom provider.".into(),
-            )),
+            (ProviderKind::Custom, None) => Err(MooseError::ProviderRequest(gettext(
+                "Custom provider settings are missing.",
+            ))),
+            (_, Some(_)) => Err(MooseError::ProviderRequest(gettext(
+                "Custom settings require a custom provider.",
+            ))),
             (_, None) => Ok(()),
         }
     }
@@ -317,11 +320,11 @@ impl Provider {
 
     pub fn location_label(&self) -> &'static str {
         if self.is_managed {
-            "Local · Managed by Moose"
+            gettext_noop("Local · Managed by Moose")
         } else if self.kind.requires_key() {
-            "Cloud"
+            gettext_noop("Cloud")
         } else {
-            "External Ollama · Execution location unverified"
+            gettext_noop("External Ollama · Execution location unverified")
         }
     }
 }
@@ -348,9 +351,9 @@ pub fn validate_base_url(value: &str) -> Result<String> {
         return Err(MooseError::InvalidProviderUrl);
     }
     if url.scheme() == "http" && !is_loopback_url(&url) {
-        return Err(MooseError::ProviderRequest(
-            "Remote providers require HTTPS. HTTP is only allowed on this device.".into(),
-        ));
+        return Err(MooseError::ProviderRequest(gettext(
+            "Remote providers require HTTPS. HTTP is only allowed on this device.",
+        )));
     }
     Ok(trimmed.to_string())
 }

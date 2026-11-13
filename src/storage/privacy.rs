@@ -1,3 +1,5 @@
+use crate::i18n::gettext;
+
 use super::{ConversationRepository, ProviderRepository};
 use crate::{
     error::{MooseError, Result},
@@ -28,9 +30,9 @@ fn save_provider_permissions(
         params![destination(provider), permissions.messages, permissions.files, provider.id, provider.kind.as_str(), provider.base_url],
     )?;
     if updated == 0 {
-        return Err(MooseError::ProviderRequest(
-            "The provider's destination changed or is unavailable. Reopen Privacy settings to review it.".into(),
-        ));
+        return Err(MooseError::ProviderRequest(gettext(
+            "The provider's destination changed or is unavailable. Reopen Privacy settings to review it.",
+        )));
     }
     Ok(())
 }
@@ -170,9 +172,9 @@ impl ConversationRepository {
             params![destination(provider), permissions.messages, permissions.files, conversation, provider.id, provider.kind.as_str(), provider.base_url],
         )?;
         if updated == 0 {
-            return Err(MooseError::ProviderRequest(
-                "The chat or provider changed. Send the message again to review it.".into(),
-            ));
+            return Err(MooseError::ProviderRequest(gettext(
+                "The chat or provider changed. Send the message again to review it.",
+            )));
         }
         Ok(())
     }

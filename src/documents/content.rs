@@ -1,3 +1,5 @@
+use crate::i18n::gettext;
+
 use comrak::{
     Arena, Options,
     nodes::{AstNode, NodeValue},
@@ -33,13 +35,17 @@ pub struct Content {
 impl Content {
     pub fn parse(title: &str, source: &str) -> Result<Self, String> {
         if source.trim().is_empty() || source.len() > MAX_CONTENT_BYTES {
-            return Err("Use a non-empty document with up to 512 KB of text.".into());
+            return Err(gettext(
+                "Use a non-empty document with up to 512 KB of text.",
+            ));
         }
         if source
             .chars()
             .any(|ch| ch == '\0' || (ch.is_control() && !matches!(ch, '\n' | '\r' | '\t')))
         {
-            return Err("The document contains unsupported control characters.".into());
+            return Err(gettext(
+                "The document contains unsupported control characters.",
+            ));
         }
         let source = unwrap_fence(source);
         let arena = Arena::new();
@@ -49,7 +55,7 @@ impl Content {
         options.extension.tasklist = true;
         let root = parse_document(&arena, &source, &options);
         let mut blocks = Vec::new();
-        let mut table_name = "Sheet 1".to_string();
+        let mut table_name = gettext("Sheet 1");
         for node in root.children() {
             append(node, &mut blocks, &mut table_name);
         }
@@ -57,7 +63,7 @@ impl Content {
             blocks.push(Block::Paragraph(source.clone()));
         }
         if blocks.len() > 10_000 {
-            return Err("The document contains too many sections.".into());
+            return Err(gettext("The document contains too many sections."));
         }
         for block in &blocks {
             if let Block::Table(table) = block
@@ -67,7 +73,9 @@ impl Content {
                             || row.iter().any(|cell| cell.encode_utf16().count() > 32_767)
                     }))
             {
-                return Err("Use tables with up to 100 columns, 20,000 rows, and 32,767 characters per cell.".into());
+                return Err(gettext(
+                    "Use tables with up to 100 columns, 20,000 rows, and 32,767 characters per cell.",
+                ));
             }
         }
         let inferred = blocks.iter().find_map(|block| match block {
@@ -75,9 +83,11 @@ impl Content {
             _ => None,
         });
         let title = if title.trim().is_empty() || title == "Untitled Document" {
-            inferred.unwrap_or("Document")
+            inferred
+                .map(str::to_string)
+                .unwrap_or_else(|| gettext("Document"))
         } else {
-            title
+            title.to_string()
         };
         Ok(Self {
             title: title.chars().take(120).collect(),

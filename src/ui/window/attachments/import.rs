@@ -1,3 +1,5 @@
+use crate::i18n::gettext;
+
 use crate::attachments::{ImportedAsset, MAX_FILE_BYTES, MAX_TEXT_BYTES, decode_text, error};
 use crate::error::Result;
 use gtk::{gdk_pixbuf, prelude::*};
@@ -12,10 +14,10 @@ use std::{
 
 pub(super) fn parse(name: String, bytes: Vec<u8>, cache: &Path) -> Result<ImportedAsset> {
     if bytes.is_empty() {
-        return Err(error("This file is empty"));
+        return Err(error(gettext("This file is empty")));
     }
     if bytes.len() > MAX_FILE_BYTES {
-        return Err(error("Choose a file smaller than 25 MB"));
+        return Err(error(gettext("Choose a file smaller than 25 MB")));
     }
     let extension = Path::new(&name)
         .extension()
@@ -39,12 +41,12 @@ pub(super) fn parse(name: String, bytes: Vec<u8>, cache: &Path) -> Result<Import
         return image(name, &bytes);
     }
     if matches!(extension.as_str(), "png" | "jpg" | "jpeg" | "webp") {
-        return Err(error(
+        return Err(error(gettext(
             "This file is not a supported PNG, JPEG or WebP image",
-        ));
+        )));
     }
     if extension == "pdf" {
-        return Err(error("This file is not a valid PDF"));
+        return Err(error(gettext("This file is not a valid PDF")));
     }
     let text = decode_text(&bytes)?;
     Ok(ImportedAsset {
@@ -72,24 +74,28 @@ pub(super) fn image(name: String, bytes: &[u8]) -> Result<ImportedAsset> {
             );
         }
     });
-    loader
-        .write(bytes)
-        .map_err(|_| error("This image could not be decoded. Use PNG, JPEG or WebP."))?;
+    loader.write(bytes).map_err(|_| {
+        error(gettext(
+            "This image could not be decoded. Use PNG, JPEG or WebP.",
+        ))
+    })?;
     loader
         .close()
-        .map_err(|_| error("This image is incomplete or damaged"))?;
+        .map_err(|_| error(gettext("This image is incomplete or damaged")))?;
     if oversized.get() {
-        return Err(error("Choose an image with fewer than 40 million pixels"));
+        return Err(error(gettext(
+            "Choose an image with fewer than 40 million pixels",
+        )));
     }
     let pixbuf = loader
         .pixbuf()
-        .ok_or_else(|| error("This image could not be opened"))?;
+        .ok_or_else(|| error(gettext("This image could not be opened")))?;
     let pixbuf = pixbuf.apply_embedded_orientation().unwrap_or(pixbuf);
     let payload = pixbuf
         .save_to_bufferv("png", &[])
-        .map_err(|_| error("This image could not be prepared"))?;
+        .map_err(|_| error(gettext("This image could not be prepared")))?;
     if payload.len() > crate::attachments::MAX_IMAGE_BYTES {
-        return Err(error("This image is too large after processing"));
+        return Err(error(gettext("This image is too large after processing")));
     }
     Ok(ImportedAsset {
         name,
@@ -124,11 +130,11 @@ fn pdf_text(bytes: &[u8], cache: &Path) -> Result<Vec<String>> {
     let deadline = Instant::now() + Duration::from_secs(30);
     let mut child = Command::new("pdftotext").args(["-layout", "-enc", "UTF-8", "-f", "1", "-l", "1001"]).arg(&temporary.0).arg("-")
         .stdin(Stdio::null()).stdout(Stdio::piped()).stderr(Stdio::null()).spawn()
-        .map_err(|_| error("PDF support requires Poppler (pdftotext). Reinstall the Flatpak or install poppler-utils for a native build."))?;
+        .map_err(|_| error(gettext("PDF support requires Poppler (pdftotext). Reinstall the Flatpak or install poppler-utils for a native build.")))?;
     let stdout = child
         .stdout
         .take()
-        .ok_or_else(|| error("The PDF reader did not return any text"))?;
+        .ok_or_else(|| error(gettext("The PDF reader did not return any text")))?;
     let (sender, receiver) = mpsc::channel();
     std::thread::spawn(move || {
         let mut output = Vec::new();
@@ -143,16 +149,16 @@ fn pdf_text(bytes: &[u8], cache: &Path) -> Result<Vec<String>> {
         Ok(Ok(_)) => {
             let _ = child.kill();
             let _ = child.wait();
-            return Err(error(
+            return Err(error(gettext(
                 "This PDF contains too much text. Import a smaller document.",
-            ));
+            )));
         }
         _ => {
             let _ = child.kill();
             let _ = child.wait();
-            return Err(error(
+            return Err(error(gettext(
                 "PDF extraction could not finish. The document may be damaged or too complex.",
-            ));
+            )));
         }
     };
     let status = loop {
@@ -162,31 +168,32 @@ fn pdf_text(bytes: &[u8], cache: &Path) -> Result<Vec<String>> {
             _ => {
                 let _ = child.kill();
                 let _ = child.wait();
-                return Err(error(
+                return Err(error(gettext(
                     "PDF extraction could not finish. Try a smaller document.",
-                ));
+                )));
             }
         }
     };
     if !status.success() {
-        return Err(error(
+        return Err(error(gettext(
             "This PDF could not be read. It may be password-protected or damaged.",
-        ));
+        )));
     }
-    let text = String::from_utf8(output).map_err(|_| error("PDF text could not be decoded"))?;
+    let text =
+        String::from_utf8(output).map_err(|_| error(gettext("PDF text could not be decoded")))?;
     let mut pages = text.split('\u{c}').map(str::to_string).collect::<Vec<_>>();
     if pages.last().is_some_and(|page| page.trim().is_empty()) {
         pages.pop();
     }
     if pages.len() > 1000 {
-        return Err(error(
+        return Err(error(gettext(
             "PDFs can contain up to 1,000 pages. Split this document before importing.",
-        ));
+        )));
     }
     if pages.iter().all(|page| page.trim().is_empty()) {
-        return Err(error(
+        return Err(error(gettext(
             "This PDF has no selectable text. Scan-only PDFs need OCR before importing.",
-        ));
+        )));
     }
     Ok(pages)
 }

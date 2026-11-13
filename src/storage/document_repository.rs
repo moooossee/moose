@@ -1,3 +1,5 @@
+use crate::i18n::gettext;
+
 use super::*;
 use crate::documents::{
     CreatedDocument, DocumentFormat, DocumentJob, DocumentRequest, MAX_CONTENT_BYTES,
@@ -13,7 +15,7 @@ impl ConversationRepository {
         value
             .map(|(title, format, content, state, error)| {
                 let format = DocumentFormat::parse(&format).ok_or_else(|| {
-                    crate::attachments::error("This document format is not supported.")
+                    crate::attachments::error(gettext("This document format is not supported."))
                 })?;
                 Ok(DocumentJob {
                     request: DocumentRequest { title, format },
@@ -32,9 +34,9 @@ impl ConversationRepository {
         content: &str,
     ) -> Result<()> {
         if content.len() > MAX_CONTENT_BYTES {
-            return Err(crate::attachments::error(
+            return Err(crate::attachments::error(gettext(
                 "The document content is too large.",
-            ));
+            )));
         }
         self.connection.execute(
             "INSERT INTO document_requests (message_id, title, format, content) VALUES (?1, ?2, ?3, ?4)
@@ -46,9 +48,9 @@ impl ConversationRepository {
 
     pub fn save_document_content(&self, message: &str, content: &str) -> Result<()> {
         if content.len() > MAX_CONTENT_BYTES {
-            return Err(crate::attachments::error(
+            return Err(crate::attachments::error(gettext(
                 "The document content is too large.",
-            ));
+            )));
         }
         self.connection.execute(
             "UPDATE document_requests SET content = ?2 WHERE message_id = ?1",
@@ -75,9 +77,9 @@ impl ConversationRepository {
     ) -> Result<CreatedDocument> {
         if payload.is_empty() || payload.len() > MAX_FILE_BYTES || content.len() > MAX_CONTENT_BYTES
         {
-            return Err(crate::attachments::error(
+            return Err(crate::attachments::error(gettext(
                 "The generated document is empty or exceeds the size limit.",
-            ));
+            )));
         }
         let id = crate::core::new_id();
         let created_at = crate::core::utc_now();
@@ -120,7 +122,7 @@ impl ConversationRepository {
         rows.into_iter()
             .map(|(id, message_id, title, format, byte_size, created_at)| {
                 let format = DocumentFormat::parse(&format).ok_or_else(|| {
-                    crate::attachments::error("This document format is not supported.")
+                    crate::attachments::error(gettext("This document format is not supported."))
                 })?;
                 Ok(CreatedDocument {
                     id,

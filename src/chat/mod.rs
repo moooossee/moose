@@ -1,3 +1,5 @@
+use crate::i18n::gettext_noop;
+
 use serde::{Deserialize, Serialize};
 
 use crate::conversations::{Message, MessageRole, MessageStatus};
@@ -9,7 +11,10 @@ use crate::tools::{ToolCall, ToolDefinition};
 pub mod context;
 pub mod runner;
 
-pub const CONTINUE_PROMPT: &str = "Continue the previous response from where it stopped. Do not repeat what is already written. Preserve its language, style and continuity.";
+pub const CONTINUE_PROMPT: &str = gettext_noop(
+    "Continue the previous response from where it stopped. Do not repeat what is already written. Preserve its language, style and continuity.",
+);
+pub const EMPTY_RESPONSE: &str = gettext_noop("No response generated.");
 
 pub enum ChatSubmission {
     New(String),

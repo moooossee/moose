@@ -1,14 +1,18 @@
+use crate::i18n::{gettext, gettext_f, gettext_noop, ngettext_f};
+
 use super::*;
 use crate::providers::policy::RemotePermissions;
 
 pub(super) fn message_permission_row() -> adw::ComboRow {
     adw::ComboRow::builder()
-        .title("Message Sharing")
-        .subtitle("Prompts, instructions, and history. Files require separate permission.")
+        .title(gettext("Message Sharing"))
+        .subtitle(gettext(
+            "Prompts, instructions, and history. Files require separate permission.",
+        ))
         .subtitle_lines(2)
         .model(&gtk::StringList::new(&[
-            "Ask in Each Chat",
-            "Allow in All Chats",
+            &gettext("Ask in Each Chat"),
+            &gettext("Allow in All Chats"),
         ]))
         .selected(0)
         .build()
@@ -16,12 +20,12 @@ pub(super) fn message_permission_row() -> adw::ComboRow {
 
 pub(super) fn settings_group(ui: &Rc<WindowUi>, backend: &Rc<Backend>) -> adw::PreferencesGroup {
     let group = adw::PreferencesGroup::builder()
-        .title("Connections")
+        .title(gettext("Connections"))
         .build();
     let row = adw::SwitchRow::builder()
-        .title("Local Only")
+        .title(gettext("Local Only"))
         .subtitle(
-            "Only use Ollama managed by Moose. Web tools, cloud and external Ollama connections are blocked.",
+            gettext("Only use Ollama managed by Moose. Web tools, cloud and external Ollama connections are blocked."),
         )
         .active(backend.network_policy.local_only())
         .build();
@@ -46,7 +50,11 @@ pub(super) fn settings_group(ui: &Rc<WindowUi>, backend: &Rc<Backend>) -> adw::P
             }
             Err(error) => {
                 row.set_active(backend.network_policy.local_only());
-                show_error(&ui.window, "Privacy setting could not be saved", &error);
+                show_error(
+                    &ui.window,
+                    &gettext("Privacy setting could not be saved"),
+                    &error,
+                );
             }
         }
     });
@@ -55,19 +63,27 @@ pub(super) fn settings_group(ui: &Rc<WindowUi>, backend: &Rc<Backend>) -> adw::P
 }
 
 fn permission_summary(provider: &Provider, permissions: RemotePermissions) -> String {
-    format!(
-        "Messages: {}\nFiles: {}\n{}",
-        if permissions.messages {
-            "allowed in all chats"
-        } else {
-            "ask in each chat"
-        },
-        if permissions.files {
-            "allowed in all chats"
-        } else {
-            "ask in each chat"
-        },
-        provider.base_url,
+    gettext_f(
+        "Messages: {arg1}\nFiles: {arg2}\n{arg3}",
+        &[
+            (
+                "arg1",
+                (if permissions.messages {
+                    "allowed in all chats"
+                } else {
+                    "ask in each chat"
+                }),
+            ),
+            (
+                "arg2",
+                (if permissions.files {
+                    "allowed in all chats"
+                } else {
+                    "ask in each chat"
+                }),
+            ),
+            ("arg3", &(provider.base_url).to_string()),
+        ],
     )
 }
 
@@ -76,8 +92,8 @@ pub(super) fn sharing_group(
     backend: &Rc<Backend>,
 ) -> Result<adw::PreferencesGroup> {
     let group = adw::PreferencesGroup::builder()
-        .title("Sharing Permissions")
-        .description("Remembered permissions apply only to the selected provider and server. Reset clears them and permissions in existing chats. Local Only blocks remote connections regardless of these permissions.")
+        .title(gettext("Sharing Permissions"))
+        .description(gettext("Remembered permissions apply only to the selected provider and server. Reset clears them and permissions in existing chats. Local Only blocks remote connections regardless of these permissions."))
         .build();
     let providers = backend.repository.list()?;
     let mut has_remote = false;
@@ -90,9 +106,9 @@ pub(super) fn sharing_group(
             .subtitle_lines(3)
             .use_markup(false)
             .build();
-        let button = gtk::Button::with_label("Reset");
+        let button = gtk::Button::with_label(&gettext("Reset"));
         button.set_valign(gtk::Align::Center);
-        button.set_tooltip_text(Some("Reset Permissions in All Chats"));
+        button.set_tooltip_text(Some(&gettext("Reset Permissions in All Chats")));
         row.add_suffix(&button);
         group.add(&row);
         let weak_row = row.downgrade();
@@ -110,19 +126,25 @@ pub(super) fn sharing_group(
                             RemotePermissions::default(),
                         ));
                     }
-                    ui.toast_overlay.add_toast(adw::Toast::new(
+                    ui.toast_overlay.add_toast(adw::Toast::new(&gettext(
                         "Sharing permissions reset for this provider",
-                    ));
+                    )));
                 }
-                Err(error) => show_error(&ui.window, "Permissions could not be reset", &error),
+                Err(error) => show_error(
+                    &ui.window,
+                    &gettext("Permissions could not be reset"),
+                    &error,
+                ),
             }
         });
     }
     if !has_remote {
         group.add(
             &adw::ActionRow::builder()
-                .title("No Remote Providers")
-                .subtitle("Managed Ollama runs on this device and needs no sharing permission.")
+                .title(gettext("No Remote Providers"))
+                .subtitle(gettext(
+                    "Managed Ollama runs on this device and needs no sharing permission.",
+                ))
                 .build(),
         );
     }
@@ -133,19 +155,19 @@ pub(super) fn conversation_group(
     ui: &Rc<WindowUi>,
     backend: &Rc<Backend>,
 ) -> adw::PreferencesGroup {
-    let group=adw::PreferencesGroup::builder().title("Remote Context")
-        .description("Remote requests can include recent messages, instructions, and approved attachments. Document search stays on this device.").build();
+    let group=adw::PreferencesGroup::builder().title(gettext("Remote Context"))
+        .description(gettext("Remote requests can include recent messages, instructions, and approved attachments. Document search stays on this device.")).build();
     let Some(provider) = active_provider(backend) else {
         return group;
     };
-    let button = gtk::Button::with_label("Reset");
+    let button = gtk::Button::with_label(&gettext("Reset"));
     button.set_valign(gtk::Align::Center);
-    button.set_tooltip_text(Some("Reset Permissions in All Chats"));
+    button.set_tooltip_text(Some(&gettext("Reset Permissions in All Chats")));
     let row = adw::ActionRow::builder()
-        .title("Provider Sharing Permissions")
-        .subtitle(format!(
-            "Ask again in all chats with {}. Also resets file sharing.",
-            provider.name
+        .title(gettext("Provider Sharing Permissions"))
+        .subtitle(gettext_f(
+            "Ask again in all chats with {arg1}. Also resets file sharing.",
+            &[("arg1", &(provider.name).to_string())],
         ))
         .subtitle_lines(2)
         .use_markup(false)
@@ -159,10 +181,14 @@ pub(super) fn conversation_group(
             return;
         }
         match backend.repository.reset_remote_permissions(&provider.id) {
-            Ok(()) => ui.toast_overlay.add_toast(adw::Toast::new(
+            Ok(()) => ui.toast_overlay.add_toast(adw::Toast::new(&gettext(
                 "Sharing permissions reset for this provider",
-            )),
-            Err(error) => show_error(&ui.window, "Permissions could not be reset", &error),
+            ))),
+            Err(error) => show_error(
+                &ui.window,
+                &gettext("Permissions could not be reset"),
+                &error,
+            ),
         }
     });
     group
@@ -185,7 +211,11 @@ pub(super) fn authorize(ui: &Rc<WindowUi>, backend: &Rc<Backend>, pending: Pendi
     {
         Ok(value) => value,
         Err(error) => {
-            show_error(&ui.window, "Sharing permission could not be loaded", &error);
+            show_error(
+                &ui.window,
+                &gettext("Sharing permission could not be loaded"),
+                &error,
+            );
             return false;
         }
     };
@@ -195,18 +225,24 @@ pub(super) fn authorize(ui: &Rc<WindowUi>, backend: &Rc<Backend>, pending: Pendi
     let remembered = match backend.repository.remote_permissions(&pending.provider) {
         Ok(value) => value,
         Err(error) => {
-            show_error(&ui.window, "Sharing permission could not be loaded", &error);
+            show_error(
+                &ui.window,
+                &gettext("Sharing permission could not be loaded"),
+                &error,
+            );
             return false;
         }
     };
 
-    let mut description = format!(
-        "Send this conversation's context to {} at {}?\n\nThis request includes {} messages (including instructions and history), {} images and {} document excerpts. The provider processes this content under its own data policy.\n\nPermission is saved for this chat. Choose the options below to allow sharing in all chats with this provider and server. Messages and files have separate permissions. You can reset them in Preferences → Privacy or Chat Settings.",
-        pending.provider.name,
-        pending.provider.base_url,
-        pending.request.messages.len(),
-        images,
-        pending.sources.len()
+    let mut description = gettext_f(
+        "Send this conversation's context to {arg1} at {arg2}?\n\nThis request includes {arg3} messages (including instructions and history), {arg4} images and {arg5} document excerpts. The provider processes this content under its own data policy.\n\nPermission is saved for this chat. Choose the options below to allow sharing in all chats with this provider and server. Messages and files have separate permissions. You can reset them in Preferences → Privacy or Chat Settings.",
+        &[
+            ("arg1", &(pending.provider.name).to_string()),
+            ("arg2", &(pending.provider.base_url).to_string()),
+            ("arg3", &(pending.request.messages.len()).to_string()),
+            ("arg4", &(images).to_string()),
+            ("arg5", &(pending.sources.len()).to_string()),
+        ],
     );
     if pending
         .request
@@ -214,19 +250,19 @@ pub(super) fn authorize(ui: &Rc<WindowUi>, backend: &Rc<Backend>, pending: Pendi
         .iter()
         .any(|tool| tool.function.name == crate::tools::CALCULATOR)
     {
-        description.push_str("\n\nCalculator runs on this device. Its results are also sent to this provider to complete the response.");
+        description.push_str(&gettext("\n\nCalculator runs on this device. Its results are also sent to this provider to complete the response."));
     }
     if pending.web.is_some() {
-        description.push_str("\n\nWeb results and page excerpts are also sent to this provider. Web access requires separate permission, which can be remembered for all chats in Preferences → Web.");
+        description.push_str(&gettext("\n\nWeb results and page excerpts are also sent to this provider. Web access requires separate permission, which can be remembered for all chats in Preferences → Web."));
     }
     let dialog = adw::Dialog::builder()
-        .title(if permissions.messages && includes_files {
-            "Share Files with Provider?"
+        .title(gettext(if permissions.messages && includes_files {
+            gettext_noop("Share Files with Provider?")
         } else if includes_files {
-            "Share Context and Files?"
+            gettext_noop("Share Context and Files?")
         } else {
-            "Share Context with Provider?"
-        })
+            gettext_noop("Share Context with Provider?")
+        }))
         .content_width(560)
         .content_height(580)
         .build();
@@ -256,13 +292,23 @@ pub(super) fn authorize(ui: &Rc<WindowUi>, backend: &Rc<Backend>, pending: Pendi
         .iter()
         .map(|m| {
             format!(
-                "{:?}:\n{}\n{}",
-                m.role,
+                "{}:\n{}\n{}",
+                match m.role {
+                    crate::chat::ChatRole::System => gettext("System"),
+                    crate::chat::ChatRole::User => gettext("You"),
+                    crate::chat::ChatRole::Assistant => gettext("Assistant"),
+                    crate::chat::ChatRole::Tool => gettext("Tool"),
+                },
                 m.content,
                 if m.images.is_empty() {
                     String::new()
                 } else {
-                    format!("[{} attached images]", m.images.len())
+                    ngettext_f(
+                        "[{count} attached image]",
+                        "[{count} attached images]",
+                        m.images.len() as u32,
+                        &[("count", &m.images.len().to_string())],
+                    )
                 }
             )
         })
@@ -277,7 +323,7 @@ pub(super) fn authorize(ui: &Rc<WindowUi>, backend: &Rc<Backend>, pending: Pendi
         .propagate_natural_height(true)
         .build();
     let expander = gtk::Expander::builder()
-        .label("Review text being sent")
+        .label(gettext("Review text being sent"))
         .child(&scroll)
         .build();
     let content = gtk::Box::builder()
@@ -287,21 +333,21 @@ pub(super) fn authorize(ui: &Rc<WindowUi>, backend: &Rc<Backend>, pending: Pendi
     content.add_css_class("moose-instance-content");
     content.append(&description);
     let remember_group = adw::PreferencesGroup::builder()
-        .title("Remember Permission")
+        .title(gettext("Remember Permission"))
         .build();
     let remember_messages = adw::SwitchRow::builder()
-        .title("Messages in All Chats")
-        .subtitle(
+        .title(gettext("Messages in All Chats"))
+        .subtitle(gettext(
             "Allow prompts, instructions, and history with this provider without asking again.",
-        )
+        ))
         .subtitle_lines(2)
         .visible(!remembered.messages)
         .build();
     let remember_files = adw::SwitchRow::builder()
-        .title("Files in All Chats")
-        .subtitle(
+        .title(gettext("Files in All Chats"))
+        .subtitle(gettext(
             "Allow attached images and document excerpts with this provider without asking again.",
-        )
+        ))
         .subtitle_lines(2)
         .visible(includes_files && !remembered.files)
         .build();
@@ -314,8 +360,8 @@ pub(super) fn authorize(ui: &Rc<WindowUi>, backend: &Rc<Backend>, pending: Pendi
         .vexpand(true)
         .child(&content)
         .build();
-    let cancel_button = gtk::Button::with_label("Cancel");
-    let allow_button = gtk::Button::with_label("Allow");
+    let cancel_button = gtk::Button::with_label(&gettext("Cancel"));
+    let allow_button = gtk::Button::with_label(&gettext("Allow"));
     cancel_button.set_hexpand(true);
     allow_button.set_hexpand(true);
     allow_button.add_css_class("suggested-action");
@@ -351,7 +397,7 @@ pub(super) fn authorize(ui: &Rc<WindowUi>, backend: &Rc<Backend>, pending: Pendi
         };
         target_dialog.close();
         if let Err(error) = backend.network_policy.check(&pending.provider) {
-            show_error(&ui.window, "Connection blocked", &error);
+            show_error(&ui.window, &gettext("Connection blocked"), &error);
             return;
         }
         if active_provider(&backend).is_none_or(|provider| {
@@ -362,9 +408,9 @@ pub(super) fn authorize(ui: &Rc<WindowUi>, backend: &Rc<Backend>, pending: Pendi
         }) || backend.active_conversation_id.borrow().as_deref()
             != Some(pending.conversation_id.as_str())
         {
-            ui.toast_overlay.add_toast(adw::Toast::new(
+            ui.toast_overlay.add_toast(adw::Toast::new(&gettext(
                 "The active chat or provider changed. Send the message again to review it.",
-            ));
+            )));
             return;
         }
         if let Err(error) = backend.conversation_repository.grant_remote_permissions(
@@ -379,7 +425,11 @@ pub(super) fn authorize(ui: &Rc<WindowUi>, backend: &Rc<Backend>, pending: Pendi
                 files: includes_files && !remembered.files && remember_files.is_active(),
             },
         ) {
-            show_error(&ui.window, "Sharing permission could not be saved", &error);
+            show_error(
+                &ui.window,
+                &gettext("Sharing permission could not be saved"),
+                &error,
+            );
             return;
         }
         start_prepared_chat(&ui, &backend, pending);

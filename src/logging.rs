@@ -1,3 +1,5 @@
+use crate::i18n::{gettext, gettext_f};
+
 use std::{
     fs::{self, File, OpenOptions},
     io::{Read, Seek, SeekFrom, Write},
@@ -97,7 +99,13 @@ pub fn record(level: &str, event: &str, detail: &str) {
         && let Ok(mut writer) = logger.lock()
         && let Err(error) = writer.write(&line)
     {
-        eprintln!("Could not write Moose log: {error}");
+        eprintln!(
+            "{}",
+            gettext_f(
+                "Could not write Moose log: {error}",
+                &[("error", &error.to_string())]
+            )
+        );
     }
 }
 
@@ -134,7 +142,7 @@ pub fn redact(input: &str) -> String {
             .iter()
             .any(|key| lowercase.contains(key))
             {
-                "[Sensitive log line omitted]".to_string()
+                gettext("[Sensitive log line omitted]")
             } else {
                 redact_urls(line)
             }
@@ -166,7 +174,7 @@ fn redact_urls(mut remaining: &str) -> String {
                 url.set_fragment(None);
                 output.push_str(url.as_str());
             }
-            Err(_) => output.push_str("[Invalid URL omitted]"),
+            Err(_) => output.push_str(&gettext("[Invalid URL omitted]")),
         }
         remaining = &remaining[end..];
     }

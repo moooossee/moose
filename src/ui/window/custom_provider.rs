@@ -1,3 +1,5 @@
+use crate::i18n::gettext;
+
 use std::{cell::RefCell, rc::Rc};
 
 use adw::prelude::*;
@@ -30,13 +32,14 @@ pub(super) struct CustomProviderFields {
 impl CustomProviderFields {
     pub fn new(config: &CustomProviderConfig) -> Self {
         let connection_group = adw::PreferencesGroup::builder()
-            .title("API Compatibility")
-            .description("Choose the API format supported by your provider.")
+            .title(gettext("API Compatibility"))
+            .description(gettext("Choose the API format supported by your provider."))
             .build();
+        let protocol_labels = ApiProtocol::ALL.map(|protocol| gettext(protocol.label()));
         let protocol = adw::ComboRow::builder()
-            .title("API Format")
+            .title(gettext("API Format"))
             .model(&gtk::StringList::new(
-                &ApiProtocol::ALL.map(ApiProtocol::label),
+                &protocol_labels.each_ref().map(String::as_str),
             ))
             .selected(
                 ApiProtocol::ALL
@@ -46,11 +49,11 @@ impl CustomProviderFields {
             )
             .build();
         let authentication = adw::ComboRow::builder()
-            .title("Authentication")
+            .title(gettext("Authentication"))
             .model(&gtk::StringList::new(&[
-                "Bearer token",
-                "API key header",
-                "None",
+                &gettext("Bearer token"),
+                &gettext("API key header"),
+                &gettext("None"),
             ]))
             .selected(match &config.authentication {
                 CustomAuthentication::Bearer => 0,
@@ -59,7 +62,7 @@ impl CustomProviderFields {
             })
             .build();
         let header = adw::EntryRow::builder()
-            .title("API Key Header")
+            .title(gettext("API Key Header"))
             .text(match &config.authentication {
                 CustomAuthentication::Header(name) => name.as_str(),
                 _ => "x-api-key",
@@ -71,16 +74,18 @@ impl CustomProviderFields {
         connection_group.add(&header);
 
         let models_group = adw::PreferencesGroup::builder()
-            .title("Models")
-            .description("Add exact model IDs from your provider. Enable Images only for models that accept image input. Saved IDs remain available if discovery is unavailable.")
+            .title(gettext("Models"))
+            .description(gettext("Add exact model IDs from your provider. Enable Images only for models that accept image input. Saved IDs remain available if discovery is unavailable."))
             .build();
         let discover_models = adw::SwitchRow::builder()
-            .title("Discover Models Automatically")
-            .subtitle("Turn off if your provider does not offer a model catalog")
+            .title(gettext("Discover Models Automatically"))
+            .subtitle(gettext(
+                "Turn off if your provider does not offer a model catalog",
+            ))
             .active(config.discover_models)
             .build();
         models_group.add(&discover_models);
-        let add_button = gtk::Button::with_label("Add Model");
+        let add_button = gtk::Button::with_label(&gettext("Add Model"));
         add_button.set_valign(gtk::Align::Center);
         models_group.set_header_suffix(Some(&add_button));
         let models = Rc::new(RefCell::new(Vec::new()));
@@ -186,16 +191,16 @@ fn add_model(group: &adw::PreferencesGroup, models: &ModelRows, model: &CustomMo
         return;
     }
     let entry = adw::EntryRow::builder()
-        .title("Model ID")
+        .title(gettext("Model ID"))
         .text(&model.id)
         .build();
     let images = gtk::CheckButton::builder()
-        .label("Images")
+        .label(gettext("Images"))
         .active(model.vision)
         .valign(gtk::Align::Center)
-        .tooltip_text("This model supports image input")
+        .tooltip_text(gettext("This model supports image input"))
         .build();
-    let remove = widgets::icon_button("user-trash-symbolic", "Remove Model");
+    let remove = widgets::icon_button("user-trash-symbolic", &gettext("Remove Model"));
     remove.set_valign(gtk::Align::Center);
     entry.add_suffix(&images);
     entry.add_suffix(&remove);

@@ -1,3 +1,5 @@
+use crate::i18n::{gettext, gettext_f, gettext_noop};
+
 use super::*;
 use crate::{conversations::Message, storage::MessageDetails};
 use std::time::Instant;
@@ -74,18 +76,18 @@ pub(super) fn sync_controls(ui: &WindowUi, backend: &Backend) {
     let visible =
         is_visible(backend) && ui.content_stack.visible_child_name().as_deref() == Some("chat");
     ui.stop_button.set_sensitive(running);
-    ui.stop_button.set_tooltip_text(Some(if visible {
-        "Stop Response"
+    ui.stop_button.set_tooltip_text(Some(&gettext(if visible {
+        gettext_noop("Stop Response")
     } else {
-        "Stop Background Response"
-    }));
+        gettext_noop("Stop Background Response")
+    })));
     ui.generation_banner.set_revealed(running && !visible);
     message_actions::set_enabled(ui, !running);
-    ui.send_button.set_tooltip_text(Some(if running {
-        "Wait for the current response, or stop it to send this draft"
+    ui.send_button.set_tooltip_text(Some(&gettext(if running {
+        gettext_noop("Wait for the current response, or stop it to send this draft")
     } else {
-        "Send Message"
-    }));
+        gettext_noop("Send Message")
+    })));
     update_send_button(ui);
     composer_commands::refresh(ui, backend);
     document_creation::sync_controls(ui, backend);
@@ -129,8 +131,9 @@ pub(super) fn open(ui: &Rc<WindowUi>, backend: &Rc<Backend>, id: &str) {
             reasoning::refresh(ui, backend);
             conversation_list::select(ui, id);
         }
-        Err(error) => ui.toast_overlay.add_toast(adw::Toast::new(&format!(
-            "Chat could not be opened: {error}"
+        Err(error) => ui.toast_overlay.add_toast(adw::Toast::new(&gettext_f(
+            "Chat could not be opened: {error}",
+            &[("error", &(error).to_string())],
         ))),
     }
 }
@@ -167,11 +170,11 @@ pub(super) fn append_live(ui: &WindowUi, backend: &Backend, message: &Message) {
     let live = chat_view::append_streaming_message(&ui.messages, &model, Some(&message.created_at));
     if let Some(row) = ui.messages.last_child() {
         row.set_widget_name(&message.id);
-        if let Some(row) = row.downcast_ref::<gtk::Box>() {
-            if let Err(error) = document_creation::append(backend, row, message) {
-                ui.toast_overlay
-                    .add_toast(adw::Toast::new(&error.to_string()));
-            }
+        if let Some(row) = row.downcast_ref::<gtk::Box>()
+            && let Err(error) = document_creation::append(backend, row, message)
+        {
+            ui.toast_overlay
+                .add_toast(adw::Toast::new(&crate::i18n::error_message(&error)));
         }
     }
     *ui.streaming_message.borrow_mut() = Some(live);
@@ -228,8 +231,9 @@ pub(super) fn start(
     if clear_draft {
         clear_prompt(&ui.entry);
         if let Err(error) = workspace::save(ui, backend) {
-            ui.toast_overlay.add_toast(adw::Toast::new(&format!(
-                "Draft could not be cleared: {error}"
+            ui.toast_overlay.add_toast(adw::Toast::new(&gettext_f(
+                "Draft could not be cleared: {error}",
+                &[("error", &(error).to_string())],
             )));
         }
     }
@@ -255,9 +259,9 @@ pub(super) fn start(
                     ResponseEvent::Notice(notice) => ChatUiEvent::ToolNotice(notice),
                     ResponseEvent::Done => ChatUiEvent::Done,
                 };
-                sender
-                    .send(event)
-                    .map_err(|_| MooseError::ProviderRequest("The conversation was closed.".into()))
+                sender.send(event).map_err(|_| {
+                    MooseError::ProviderRequest(gettext("The conversation was closed."))
+                })
             })
             .await
         }
@@ -265,7 +269,7 @@ pub(super) fn start(
         if let Err(error) = result {
             let event = match error {
                 MooseError::ResponseLimit => ChatUiEvent::Incomplete,
-                error => ChatUiEvent::Failed(error.to_string()),
+                error => ChatUiEvent::Failed(crate::i18n::error_message(&error)),
             };
             let _ = sender.send(event);
         }
@@ -339,7 +343,9 @@ pub(super) fn start(
                 Err(mpsc::TryRecvError::Disconnected) => {
                     end = Some((
                         AssistantMessageEnd::Failed,
-                        Some("The connection closed before the response finished".into()),
+                        Some(gettext(
+                            "The connection closed before the response finished",
+                        )),
                     ));
                     break;
                 }
@@ -350,7 +356,8 @@ pub(super) fn start(
             let completed = matches!(status, AssistantMessageEnd::Complete);
             let incomplete = matches!(status, AssistantMessageEnd::Incomplete);
             if completed && backend.active_assistant_content.borrow().trim().is_empty() {
-                *backend.active_assistant_content.borrow_mut() = "No response generated.".into();
+                *backend.active_assistant_content.borrow_mut() =
+                    crate::chat::EMPTY_RESPONSE.to_string();
             }
             backend.active_generation.borrow_mut().take();
             let saved = match persist_active_assistant_message(&backend, status) {
@@ -370,8 +377,9 @@ pub(super) fn start(
                         );
                         chat_view::update_tool_activity(live, &context.tools, &context.tool_notice);
                     }
-                    ui.toast_overlay.add_toast(adw::Toast::new(&format!(
-                        "Response could not be saved: {error}"
+                    ui.toast_overlay.add_toast(adw::Toast::new(&gettext_f(
+                        "Response could not be saved: {error}",
+                        &[("error", &(error).to_string())],
                     )));
                     false
                 }
@@ -388,22 +396,24 @@ pub(super) fn start(
             conversation_list::refresh(&ui, &backend);
             if let Some(error) = error {
                 crate::logging::record("ERROR", "generation.failed", &error);
-                ui.toast_overlay
-                    .add_toast(adw::Toast::new(&format!("Generation failed: {error}")));
+                ui.toast_overlay.add_toast(adw::Toast::new(&gettext_f(
+                    "Generation failed: {error}",
+                    &[("error", &(error).to_string())],
+                )));
             }
             if incomplete {
                 let notice = MooseError::ResponseLimit.to_string();
                 crate::logging::record("WARN", "generation.incomplete", &notice);
                 ui.toast_overlay.add_toast(adw::Toast::new(&notice));
             }
-            let title = if completed {
-                "Response ready"
+            let title = gettext(if completed {
+                gettext_noop("Response ready")
             } else if incomplete {
-                "Response incomplete"
+                gettext_noop("Response incomplete")
             } else {
-                "Response interrupted"
-            };
-            notify(&ui, &backend, &conversation_id, title);
+                gettext_noop("Response interrupted")
+            });
+            notify(&ui, &backend, &conversation_id, &title);
             if saved
                 && (completed || incomplete)
                 && let Some(prompt) = title_prompt.take()
@@ -430,8 +440,9 @@ pub(super) fn start(
             if let Err(error) = persist(&backend, "streaming") {
                 let mut context = backend.generation_context.borrow_mut();
                 if !context.save_error_shown {
-                    ui.toast_overlay.add_toast(adw::Toast::new(&format!(
-                        "Response could not be saved: {error}"
+                    ui.toast_overlay.add_toast(adw::Toast::new(&gettext_f(
+                        "Response could not be saved: {error}",
+                        &[("error", &(error).to_string())],
                     )));
                     context.save_error_shown = true;
                 }
@@ -446,7 +457,7 @@ fn notify(ui: &Rc<WindowUi>, backend: &Rc<Backend>, conversation_id: &str, title
     if !is_visible(backend) || ui.content_stack.visible_child_name().as_deref() != Some("chat") {
         let toast = adw::Toast::builder()
             .title(title)
-            .button_label("Open")
+            .button_label(gettext("Open"))
             .timeout(8)
             .build();
         let target_ui = Rc::clone(ui);
@@ -455,18 +466,18 @@ fn notify(ui: &Rc<WindowUi>, backend: &Rc<Backend>, conversation_id: &str, title
         toast.connect_button_clicked(move |_| open(&target_ui, &target_backend, &id));
         ui.toast_overlay.add_toast(toast);
     }
-    if !ui.window.is_active() {
-        if let Some(app) = ui.window.application() {
-            let notification = gio::Notification::new(title);
-            if let Ok(Some(conversation)) = backend.conversation_repository.get(conversation_id) {
-                notification.set_body(Some(&conversation.title));
-            }
-            notification.set_default_action_and_target_value(
-                "app.open-conversation",
-                Some(&conversation_id.to_variant()),
-            );
-            app.send_notification(Some(conversation_id), &notification);
+    if !ui.window.is_active()
+        && let Some(app) = ui.window.application()
+    {
+        let notification = gio::Notification::new(title);
+        if let Ok(Some(conversation)) = backend.conversation_repository.get(conversation_id) {
+            notification.set_body(Some(&crate::i18n::conversation_title(&conversation.title)));
         }
+        notification.set_default_action_and_target_value(
+            "app.open-conversation",
+            Some(&conversation_id.to_variant()),
+        );
+        app.send_notification(Some(conversation_id), &notification);
     }
 }
 

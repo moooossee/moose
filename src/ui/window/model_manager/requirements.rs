@@ -1,3 +1,5 @@
+use crate::i18n::{gettext, gettext_f};
+
 use std::rc::Rc;
 
 use adw::prelude::*;
@@ -20,44 +22,42 @@ impl RequirementRows {
         let bytes = candidate.variant.download_bytes;
         let ram = MemoryBudget::estimate_bytes(bytes).div_ceil(GIB);
         self.model.set_subtitle(candidate.variant.name);
-        self.ram.set_subtitle(&format!(
-            "About {ram} GiB of available RAM for CPU-only use. Leave additional memory for the system and other apps."
-        ));
-        self.vram.set_subtitle(&format!(
-            "Model files are about {}. Full GPU execution also needs VRAM for context and runtime. The exact VRAM minimum is not verified.",
-            format_size(Some(bytes)),
-        ));
-        self.storage.set_subtitle(&format!(
-            "About {} for model files. Ollama and its runtime need additional disk space. Shared files may reduce the additional space used.",
-            format_size(Some(bytes)),
-        ));
+        self.ram.set_subtitle(&gettext_f("About {ram} GiB of available RAM for CPU-only use. Leave additional memory for the system and other apps.", &[("ram", &(ram).to_string())]));
+        self.vram.set_subtitle(&gettext_f("Model files are about {arg1}. Full GPU execution also needs VRAM for context and runtime. The exact VRAM minimum is not verified.", &[("arg1", &(format_size(Some(bytes))).to_string())]));
+        self.storage.set_subtitle(&gettext_f("About {arg1} for model files. Ollama and its runtime need additional disk space. Shared files may reduce the additional space used.", &[("arg1", &(format_size(Some(bytes))).to_string())]));
         self.available
             .set_subtitle(&candidate.memory.available.map_or_else(
-                || {
-                    "Not available for this connection. Check the hardware of the Ollama server."
-                        .to_string()
-                },
-                |available| {
-                    format!(
-                        "{:.1} GiB available on this device. {}.",
-                        available as f64 / GIB as f64,
-                        candidate.memory.guidance(bytes),
-                    )
-                },
-            ));
+            || {
+                gettext(
+                    "Not available for this connection. Check the hardware of the Ollama server.",
+                )
+            },
+            |available| {
+                gettext_f(
+                    "{arg1_formatted} GiB available on this device. {arg2}.",
+                    &[
+                        (
+                            "arg1_formatted",
+                            &format!("{:.1}", available as f64 / GIB as f64),
+                        ),
+                        ("arg2", &gettext(candidate.memory.guidance(bytes))),
+                    ],
+                )
+            },
+        ));
     }
 }
 
 pub(super) fn build(parent: &adw::ApplicationWindow, candidate: Candidate) -> adw::ExpanderRow {
     let technical = adw::ExpanderRow::builder()
-        .title("Technical Details")
+        .title(gettext("Technical Details"))
         .build();
     let rows = Rc::new(RequirementRows {
-        model: detail_row("Model", ""),
-        ram: detail_row("RAM for CPU Use (Estimated)", ""),
-        vram: detail_row("VRAM for Full GPU Use", ""),
-        storage: detail_row("Disk Space", ""),
-        available: detail_row("Available System RAM", ""),
+        model: detail_row(&gettext("Model"), ""),
+        ram: detail_row(&gettext("RAM for CPU Use (Estimated)"), ""),
+        vram: detail_row(&gettext("VRAM for Full GPU Use"), ""),
+        storage: detail_row(&gettext("Disk Space"), ""),
+        available: detail_row(&gettext("Available System RAM"), ""),
     });
     rows.update(candidate);
 
@@ -76,7 +76,7 @@ pub(super) fn build(parent: &adw::ApplicationWindow, candidate: Candidate) -> ad
             .map(|variant| variant.title)
             .collect::<Vec<_>>();
         let version = adw::ComboRow::builder()
-            .title("Requirements for Version")
+            .title(gettext("Requirements for Version"))
             .model(&gtk::StringList::new(&names))
             .selected(0)
             .build();
@@ -95,22 +95,21 @@ pub(super) fn build(parent: &adw::ApplicationWindow, candidate: Candidate) -> ad
     technical.add_row(&rows.model);
     technical.add_row(&detail_row(
         "CPU",
-        "64-bit x86_64 or ARM64 CPU supported by Ollama. CPU-only execution is available; speed depends on the processor and model.",
+        &gettext("64-bit x86_64 or ARM64 CPU supported by Ollama. CPU-only execution is available; speed depends on the processor and model."),
     ));
     technical.add_row(&rows.ram);
     technical.add_row(&rows.vram);
     technical.add_row(&rows.storage);
     technical.add_row(&rows.available);
     technical.add_row(&detail_row(
-        "Context Window",
-        &format!(
-            "Moose defaults to {} tokens. Chat settings can override this value; longer contexts and images can use substantially more memory.",
-            crate::ollama::DEFAULT_CONTEXT_WINDOW,
-        ),
+        &gettext("Context Window"),
+        &gettext_f("Moose defaults to {arg1} tokens. Chat settings can override this value; longer contexts and images can use substantially more memory.", &[("arg1", &(crate::ollama::DEFAULT_CONTEXT_WINDOW).to_string())]),
     ));
     let gpu = detail_row(
-        "GPU Compatibility",
-        "A dedicated GPU is optional. Acceleration requires a supported GPU and driver; RAM and VRAM can also be used together. View Ollama's supported hardware.",
+        &gettext("GPU Compatibility"),
+        &gettext(
+            "A dedicated GPU is optional. Acceleration requires a supported GPU and driver; RAM and VRAM can also be used together. View Ollama's supported hardware.",
+        ),
     );
     gpu.set_activatable(true);
     gpu.add_suffix(&gtk::Image::from_icon_name("external-link-symbolic"));
@@ -126,11 +125,11 @@ pub(super) fn build(parent: &adw::ApplicationWindow, candidate: Candidate) -> ad
     });
     technical.add_row(&gpu);
     technical.add_row(&detail_row(
-        "About These Estimates",
-        "The RAM budget uses model file size with runtime headroom. It is a planning estimate, not a verified minimum or a guarantee that the model will fit. Requirements depend on context, architecture, images, and backend settings.",
+        &gettext("About These Estimates"),
+        &gettext("The RAM budget uses model file size with runtime headroom. It is a planning estimate, not a verified minimum or a guarantee that the model will fit. Requirements depend on context, architecture, images, and backend settings."),
     ));
     technical.add_row(&detail_row(
-        "Model Tags",
+        &gettext("Model Tags"),
         &candidate.family.tags.join(" · "),
     ));
     technical

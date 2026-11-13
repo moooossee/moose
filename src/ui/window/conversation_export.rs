@@ -1,3 +1,5 @@
+use crate::i18n::{gettext, gettext_f, gettext_noop};
+
 use std::rc::Rc;
 
 use adw::prelude::*;
@@ -93,21 +95,22 @@ pub(super) fn show_dialog(ui: &Rc<WindowUi>, backend: &Rc<Backend>, conversation
     if backend.active_generation.borrow().is_some()
         && backend.generation_context.borrow().conversation_id == conversation_id
     {
-        ui.toast_overlay
-            .add_toast(adw::Toast::new("Finish the active generation first"));
+        ui.toast_overlay.add_toast(adw::Toast::new(&gettext(
+            "Finish the active generation first",
+        )));
         return;
     }
 
     let dialog = adw::AlertDialog::builder()
-        .heading("Export Conversation")
-        .body("JSON includes copies of attachments and created documents. Markdown and plain text include their names. All formats include document source excerpts.")
+        .heading(gettext("Export Conversation"))
+        .body(gettext("JSON includes copies of attachments and created documents. Markdown and plain text include their names. All formats include document source excerpts."))
         .close_response("cancel")
         .default_response("markdown")
         .build();
-    dialog.add_response("cancel", "Cancel");
+    dialog.add_response("cancel", &gettext("Cancel"));
     dialog.add_response("markdown", "Markdown");
     dialog.add_response("json", "JSON");
-    dialog.add_response("text", "Plain Text");
+    dialog.add_response("text", &gettext("Plain Text"));
     dialog.set_response_appearance("markdown", adw::ResponseAppearance::Suggested);
 
     let target_ui = Rc::clone(ui);
@@ -129,8 +132,9 @@ fn export(ui: &Rc<WindowUi>, backend: &Rc<Backend>, conversation_id: &str, forma
     let data = match load_export_data(ui, backend, conversation_id, format) {
         Ok(data) => data,
         Err(error) => {
-            ui.toast_overlay.add_toast(adw::Toast::new(&format!(
-                "Conversation could not be exported: {error}"
+            ui.toast_overlay.add_toast(adw::Toast::new(&gettext_f(
+                "Conversation could not be exported: {error}",
+                &[("error", &(error).to_string())],
             )));
             return;
         }
@@ -139,8 +143,9 @@ fn export(ui: &Rc<WindowUi>, backend: &Rc<Backend>, conversation_id: &str, forma
     let content = match format_content(&data, format) {
         Ok(content) => content,
         Err(error) => {
-            ui.toast_overlay.add_toast(adw::Toast::new(&format!(
-                "Conversation could not be exported: {error}"
+            ui.toast_overlay.add_toast(adw::Toast::new(&gettext_f(
+                "Conversation could not be exported: {error}",
+                &[("error", &(error).to_string())],
             )));
             return;
         }
@@ -148,7 +153,10 @@ fn export(ui: &Rc<WindowUi>, backend: &Rc<Backend>, conversation_id: &str, forma
 
     save(
         ui,
-        default_filename(&data.conversation.title, format),
+        default_filename(
+            &crate::i18n::conversation_title(&data.conversation.title),
+            format,
+        ),
         content,
         format,
     );
@@ -282,23 +290,23 @@ fn format_content(data: &ExportData, format: ExportFormat) -> Result<String> {
 fn markdown(data: &ExportData) -> String {
     let mut output = String::new();
     output.push_str("# ");
-    output.push_str(&data.conversation.title);
+    output.push_str(&crate::i18n::conversation_title(&data.conversation.title));
     output.push_str("\n\n");
-    output.push_str("Provider: ");
+    output.push_str(&gettext("Provider: "));
     output.push_str(&data.provider.name);
     output.push('\n');
-    output.push_str("Model: ");
-    output.push_str(data.model.as_deref().unwrap_or("Not set"));
+    output.push_str(&gettext("Model: "));
+    output.push_str(data.model.as_deref().unwrap_or(&gettext("Not set")));
     output.push('\n');
-    output.push_str("Exported: ");
+    output.push_str(&gettext("Exported: "));
     output.push_str(&data.exported_at);
     output.push_str("\n\n");
 
     for message in &data.messages {
         output.push_str("## ");
-        output.push_str(message_heading(message));
+        output.push_str(&gettext(message_heading(message)));
         output.push_str("\n\n");
-        output.push_str(message.content.trim_end());
+        output.push_str(crate::i18n::message_text(&message.content).trim_end());
         output.push_str("\n\n");
         append_references(&mut output, data, message);
     }
@@ -308,22 +316,22 @@ fn markdown(data: &ExportData) -> String {
 
 fn text(data: &ExportData) -> String {
     let mut output = String::new();
-    output.push_str(&data.conversation.title);
+    output.push_str(&crate::i18n::conversation_title(&data.conversation.title));
     output.push_str("\n\n");
-    output.push_str("Provider: ");
+    output.push_str(&gettext("Provider: "));
     output.push_str(&data.provider.name);
     output.push('\n');
-    output.push_str("Model: ");
-    output.push_str(data.model.as_deref().unwrap_or("Not set"));
+    output.push_str(&gettext("Model: "));
+    output.push_str(data.model.as_deref().unwrap_or(&gettext("Not set")));
     output.push('\n');
-    output.push_str("Exported: ");
+    output.push_str(&gettext("Exported: "));
     output.push_str(&data.exported_at);
     output.push_str("\n\n");
 
     for message in &data.messages {
-        output.push_str(message_heading(message));
+        output.push_str(&gettext(message_heading(message)));
         output.push_str("\n\n");
-        output.push_str(message.content.trim_end());
+        output.push_str(crate::i18n::message_text(&message.content).trim_end());
         output.push_str("\n\n");
         append_references(&mut output, data, message);
     }
@@ -334,10 +342,12 @@ fn text(data: &ExportData) -> String {
 fn append_references(output: &mut String, data: &ExportData, message: &Message) {
     if let Some(documents) = data.documents.get(&message.id) {
         for document in documents {
-            output.push_str(&format!(
-                "Created document: {} ({})\n\n",
-                document.metadata.filename(),
-                document.metadata.format.label()
+            output.push_str(&gettext_f(
+                "Created document: {arg1} ({arg2})\n\n",
+                &[
+                    ("arg1", &(document.metadata.filename()).to_string()),
+                    ("arg2", &gettext(document.metadata.format.label())),
+                ],
             ));
         }
     }
@@ -351,25 +361,37 @@ fn append_references(output: &mut String, data: &ExportData, message: &Message) 
             output.push_str("\n\n");
         }
         for tool in &details.tools {
-            output.push_str(&format!("{}:\n{}\n\n", tool.label(), tool.summary()));
+            output.push_str(&format!(
+                "{}:\n{}\n\n",
+                gettext(tool.label()),
+                tool.summary()
+            ));
         }
         for source in crate::tools::web::sources(&details.tools) {
-            output.push_str(&format!(
-                "Web source [{}]: {}\n{}\n{} · Retrieved {}{}\n\n",
-                source.id,
-                source.title,
-                source.url,
-                if source.page_read {
-                    "Page read"
-                } else {
-                    "Search snippet"
-                },
-                source.retrieved_at,
-                if source.truncated {
-                    " · Excerpt truncated"
-                } else {
-                    ""
-                }
+            output.push_str(&gettext_f(
+                "Web source [{arg1}]: {arg2}\n{arg3}\n{arg4} · Retrieved {arg5}{arg6}\n\n",
+                &[
+                    ("arg1", &(source.id).to_string()),
+                    ("arg2", &(source.title).to_string()),
+                    ("arg3", &(source.url).to_string()),
+                    (
+                        "arg4",
+                        (if source.page_read {
+                            "Page read"
+                        } else {
+                            "Search snippet"
+                        }),
+                    ),
+                    ("arg5", &(source.retrieved_at).to_string()),
+                    (
+                        "arg6",
+                        (if source.truncated {
+                            " · Excerpt truncated"
+                        } else {
+                            ""
+                        }),
+                    ),
+                ],
             ));
             for line in source.content.lines() {
                 output.push_str("> ");
@@ -381,19 +403,24 @@ fn append_references(output: &mut String, data: &ExportData, message: &Message) 
     }
     if let Some(assets) = data.attachments.get(&message.id) {
         for asset in assets {
-            output.push_str(&format!(
-                "Attachment: {} ({})\n\n",
-                asset.name, asset.mime_type
+            output.push_str(&gettext_f(
+                "Attachment: {arg1} ({arg2})\n\n",
+                &[
+                    ("arg1", &(asset.name).to_string()),
+                    ("arg2", &(asset.mime_type).to_string()),
+                ],
             ));
         }
     }
     if let Some(sources) = data.sources.get(&message.id) {
         for (index, source) in sources.iter().enumerate() {
-            output.push_str(&format!(
-                "Source [{}]: {} — page {}\n\n",
-                index + 1,
-                source.name,
-                source.page
+            output.push_str(&gettext_f(
+                "Source [{arg1}]: {arg2} — page {arg3}\n\n",
+                &[
+                    ("arg1", &(index + 1).to_string()),
+                    ("arg2", &(source.name).to_string()),
+                    ("arg3", &(source.page).to_string()),
+                ],
             ));
             for line in source.content.lines() {
                 output.push_str("> ");
@@ -460,19 +487,19 @@ fn json(data: &ExportData) -> Result<String> {
 
 fn message_heading(message: &Message) -> &'static str {
     match message.role.as_str() {
-        "user" => "You",
-        "assistant" => "Assistant",
-        "system" => "System",
-        "tool" => "Tool",
-        _ => "Message",
+        "user" => gettext_noop("You"),
+        "assistant" => gettext_noop("Assistant"),
+        "system" => gettext_noop("System"),
+        "tool" => gettext_noop("Tool"),
+        _ => gettext_noop("Message"),
     }
 }
 
 fn save(ui: &Rc<WindowUi>, filename: String, content: String, format: ExportFormat) {
     let filter = file_filter(format);
     let dialog = gtk::FileDialog::builder()
-        .title("Export Conversation")
-        .accept_label("Export")
+        .title(gettext("Export Conversation"))
+        .accept_label(gettext("Export"))
         .initial_name(filename)
         .default_filter(&filter)
         .build();
@@ -484,8 +511,9 @@ fn save(ui: &Rc<WindowUi>, filename: String, content: String, format: ExportForm
             Ok(file) => file,
             Err(error) if error.matches(gio::IOErrorEnum::Cancelled) => return,
             Err(error) => {
-                toast_overlay.add_toast(adw::Toast::new(&format!(
-                    "Export destination could not be opened: {error}"
+                toast_overlay.add_toast(adw::Toast::new(&gettext_f(
+                    "Export destination could not be opened: {error}",
+                    &[("error", &(error).to_string())],
                 )));
                 return;
             }
@@ -500,10 +528,11 @@ fn save(ui: &Rc<WindowUi>, filename: String, content: String, format: ExportForm
             )
             .await
         {
-            Ok(_) => toast_overlay.add_toast(adw::Toast::new("Conversation exported")),
+            Ok(_) => toast_overlay.add_toast(adw::Toast::new(&gettext("Conversation exported"))),
             Err((_, error)) if error.matches(gio::IOErrorEnum::Cancelled) => {}
-            Err((_, error)) => toast_overlay.add_toast(adw::Toast::new(&format!(
-                "Conversation could not be saved: {error}"
+            Err((_, error)) => toast_overlay.add_toast(adw::Toast::new(&gettext_f(
+                "Conversation could not be saved: {error}",
+                &[("error", &(error).to_string())],
             ))),
         }
     });
@@ -523,7 +552,7 @@ fn file_filter(format: ExportFormat) -> gtk::FileFilter {
             filter.add_mime_type("application/json");
         }
         ExportFormat::Text => {
-            filter.set_name(Some("Plain Text"));
+            filter.set_name(Some(&gettext("Plain Text")));
             filter.add_suffix("txt");
             filter.add_mime_type("text/plain");
         }

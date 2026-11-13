@@ -1,3 +1,5 @@
+use crate::i18n::{gettext, gettext_f, gettext_noop};
+
 use reqwest::{
     StatusCode,
     header::{ACCEPT, ACCEPT_ENCODING, CONTENT_TYPE, REFERER, USER_AGENT},
@@ -9,8 +11,12 @@ use super::{WebSource, extract, network};
 use crate::providers::policy::NetworkPolicy;
 
 const SEARCH_URL: &str = "https://html.duckduckgo.com/html/";
-pub(super) const BLOCKED: &str = "DuckDuckGo is temporarily limiting searches or requires verification. Try again later or choose another search provider in Preferences → Web.";
-const UNREADABLE: &str = "DuckDuckGo returned an unreadable search page. Try another search provider in Preferences → Web.";
+pub(super) const BLOCKED: &str = gettext_noop(
+    "DuckDuckGo is temporarily limiting searches or requires verification. Try again later or choose another search provider in Preferences → Web.",
+);
+const UNREADABLE: &str = gettext_noop(
+    "DuckDuckGo returned an unreadable search page. Try another search provider in Preferences → Web.",
+);
 
 pub(super) async fn search(query: &str, policy: &NetworkPolicy) -> Result<Vec<WebSource>, String> {
     let url = network::public_url(SEARCH_URL)?;
@@ -32,7 +38,7 @@ pub(super) async fn search(query: &str, policy: &NetworkPolicy) -> Result<Vec<We
         .form(&[("q", query), ("b", ""), ("kl", "wt-wt")])
         .send()
         .await
-        .map_err(|_| "DuckDuckGo could not be reached. Try again later.")?;
+        .map_err(|_| gettext("DuckDuckGo could not be reached. Try again later."))?;
     network::check_policy(policy)?;
     if matches!(
         response.status(),
@@ -41,12 +47,14 @@ pub(super) async fn search(query: &str, policy: &NetworkPolicy) -> Result<Vec<We
         return Err(BLOCKED.into());
     }
     if response.status().is_redirection() {
-        return Err("DuckDuckGo redirected the search. Try a query without !bang shortcuts or choose another search provider in Preferences → Web.".into());
+        return Err(gettext(
+            "DuckDuckGo redirected the search. Try a query without !bang shortcuts or choose another search provider in Preferences → Web.",
+        ));
     }
     if !response.status().is_success() {
-        return Err(format!(
-            "DuckDuckGo returned HTTP {}. Try again later or choose another search provider in Preferences → Web.",
-            response.status().as_u16()
+        return Err(gettext_f(
+            "DuckDuckGo returned HTTP {arg1}. Try again later or choose another search provider in Preferences → Web.",
+            &[("arg1", &(response.status().as_u16()).to_string())],
         ));
     }
     let content_type = response
@@ -64,7 +72,7 @@ pub(super) async fn search(query: &str, policy: &NetworkPolicy) -> Result<Vec<We
     let bytes = network::body(response, policy).await?;
     let sources = tokio::task::spawn_blocking(move || parse(&bytes))
         .await
-        .map_err(|_| "DuckDuckGo result extraction was interrupted.")??;
+        .map_err(|_| gettext("DuckDuckGo result extraction was interrupted."))??;
     network::check_policy(policy)?;
     Ok(sources)
 }
@@ -145,5 +153,5 @@ fn result_url(href: &str, base: &Url) -> Option<Url> {
 }
 
 fn selector(value: &str) -> Result<Selector, String> {
-    Selector::parse(value).map_err(|_| "DuckDuckGo result extraction is unavailable.".into())
+    Selector::parse(value).map_err(|_| gettext("DuckDuckGo result extraction is unavailable."))
 }

@@ -1,3 +1,5 @@
+use crate::i18n::gettext;
+
 use super::ProviderKind;
 use crate::{
     chat::ChatStreamEvent,
@@ -76,13 +78,15 @@ impl Decoder {
 }
 
 fn invalid() -> MooseError {
-    MooseError::ProviderResponse("The provider returned an invalid stream.".into())
+    MooseError::ProviderResponse(gettext("The provider returned an invalid stream."))
 }
 fn incomplete() -> MooseError {
-    MooseError::ProviderResponse("The provider stopped before completing the answer. Try a shorter context or another model.".into())
+    MooseError::ProviderResponse(gettext(
+        "The provider stopped before completing the answer. Try a shorter context or another model.",
+    ))
 }
 fn blocked() -> MooseError {
-    MooseError::ProviderResponse("The provider declined this request.".into())
+    MooseError::ProviderResponse(gettext("The provider declined this request."))
 }
 fn token(events: &mut Vec<ChatStreamEvent>, value: &Value, thinking: bool) {
     if let Some(text) = value.as_str().filter(|s| !s.is_empty()) {
@@ -128,9 +132,9 @@ fn parse(kind: ProviderKind, data: &[u8]) -> Result<Vec<ChatStreamEvent>> {
         || v["type"] == "error"
         || (kind == ProviderKind::Cloudflare && v["success"].as_bool() == Some(false))
     {
-        return Err(MooseError::ProviderResponse(
-            "The provider reported an error while generating the answer.".into(),
-        ));
+        return Err(MooseError::ProviderResponse(gettext(
+            "The provider reported an error while generating the answer.",
+        )));
     }
     let mut out = Vec::new();
     match kind {

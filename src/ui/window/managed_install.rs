@@ -1,3 +1,5 @@
+use crate::i18n::{gettext, gettext_f};
+
 use std::{
     rc::Rc,
     sync::{Arc, mpsc},
@@ -69,42 +71,59 @@ pub(super) fn apply_install_progress(
         }
         ManagedOllamaInstallProgress::Verifying { downloaded_bytes } => {
             progress_bar.set_fraction(0.75);
-            status.set_label(&format!(
-                "Verifying {}",
-                format_download_size(*downloaded_bytes)
+            status.set_label(&gettext_f(
+                "Verifying {arg1}",
+                &[(
+                    "arg1",
+                    &(format_download_size(*downloaded_bytes)).to_string(),
+                )],
             ));
         }
         ManagedOllamaInstallProgress::Extracting => {
             progress_bar.set_fraction(0.86);
-            status.set_label("Extracting Ollama");
+            status.set_label(&gettext("Extracting Ollama"));
         }
         ManagedOllamaInstallProgress::Installing => {
             progress_bar.set_fraction(0.94);
-            status.set_label("Installing Ollama");
+            status.set_label(&gettext("Installing Ollama"));
         }
         ManagedOllamaInstallProgress::Starting => {
             progress_bar.set_fraction(0.97);
-            status.set_label("Checking the new Ollama server");
+            status.set_label(&gettext("Checking the new Ollama server"));
         }
         ManagedOllamaInstallProgress::Restoring => {
             progress_bar.pulse();
-            status.set_label("Restoring the previous installation");
+            status.set_label(&gettext("Restoring the previous installation"));
         }
         ManagedOllamaInstallProgress::Installed { version } => {
             progress_bar.set_fraction(1.0);
-            status.set_label(&format!("Ollama {version} installed"));
+            status.set_label(&gettext_f(
+                "Ollama {version} installed",
+                &[("version", &(version).to_string())],
+            ));
         }
     }
 }
 
 fn download_status_text(downloaded_bytes: u64, total_bytes: Option<u64>) -> String {
     match total_bytes {
-        Some(total_bytes) if total_bytes > 0 => format!(
-            "Downloading {} of {}",
-            format_download_size(downloaded_bytes),
-            format_download_size(total_bytes)
+        Some(total_bytes) if total_bytes > 0 => gettext_f(
+            "Downloading {arg1} of {arg2}",
+            &[
+                (
+                    "arg1",
+                    &(format_download_size(downloaded_bytes)).to_string(),
+                ),
+                ("arg2", &(format_download_size(total_bytes)).to_string()),
+            ],
         ),
-        _ => format!("Downloading {}", format_download_size(downloaded_bytes)),
+        _ => gettext_f(
+            "Downloading {arg1}",
+            &[(
+                "arg1",
+                &(format_download_size(downloaded_bytes)).to_string(),
+            )],
+        ),
     }
 }
 
@@ -114,7 +133,7 @@ pub(super) fn show_configuration_dialog(ui: &Rc<WindowUi>, backend: &Rc<Backend>
     }
 
     let dialog = adw::Dialog::builder()
-        .title("Configure Managed Instance")
+        .title(gettext("Configure Managed Instance"))
         .content_width(460)
         .content_height(430)
         .build();
@@ -122,10 +141,13 @@ pub(super) fn show_configuration_dialog(ui: &Rc<WindowUi>, backend: &Rc<Backend>
         .show_start_title_buttons(false)
         .show_end_title_buttons(false)
         .build();
-    let title = adw::WindowTitle::new("Configure Managed Instance", "Managed by Moose");
+    let title = adw::WindowTitle::new(
+        &gettext("Configure Managed Instance"),
+        &gettext("Managed by Moose"),
+    );
     header_bar.set_title_widget(Some(&title));
 
-    let close_button = widgets::icon_button("window-close-symbolic", "Close");
+    let close_button = widgets::icon_button("window-close-symbolic", &gettext("Close"));
     let target_dialog = dialog.clone();
     close_button.connect_clicked(move |_| {
         target_dialog.close();
@@ -141,7 +163,9 @@ pub(super) fn show_configuration_dialog(ui: &Rc<WindowUi>, backend: &Rc<Backend>
     content.add_css_class("moose-install-content");
 
     let body = gtk::Label::builder()
-        .label("Choose the local settings Moose should use for this managed Ollama instance.")
+        .label(gettext(
+            "Choose the local settings Moose should use for this managed Ollama instance.",
+        ))
         .wrap(true)
         .wrap_mode(gtk::pango::WrapMode::WordChar)
         .halign(gtk::Align::Start)
@@ -150,21 +174,21 @@ pub(super) fn show_configuration_dialog(ui: &Rc<WindowUi>, backend: &Rc<Backend>
     body.add_css_class("dim-label");
 
     let name_row = adw::EntryRow::builder()
-        .title("Name")
+        .title(gettext("Name"))
         .text(provider_controls::next_managed_provider_name(backend))
         .build();
     let host_row = adw::EntryRow::builder()
-        .title("Host")
+        .title(gettext("Host"))
         .text(MANAGED_OLLAMA_BIND_ADDRESS)
         .editable(false)
         .build();
     let port_row = adw::EntryRow::builder()
-        .title("Managed Port")
+        .title(gettext("Managed Port"))
         .text(provider_controls::next_managed_port(backend).to_string())
         .build();
     let settings_group = adw::PreferencesGroup::builder()
-        .title("Instance Settings")
-        .description("Moose selects an available port starting at 11435, skipping ports already assigned to managed connections. Port 11434 is reserved for external Ollama.")
+        .title(gettext("Instance Settings"))
+        .description(gettext("Moose selects an available port starting at 11435, skipping ports already assigned to managed connections. Port 11434 is reserved for external Ollama."))
         .build();
     settings_group.add(&name_row);
     settings_group.add(&host_row);
@@ -177,7 +201,7 @@ pub(super) fn show_configuration_dialog(ui: &Rc<WindowUi>, backend: &Rc<Backend>
     progress.add_css_class("moose-pull-progress");
 
     let status = gtk::Label::builder()
-        .label("Ready to create managed Ollama")
+        .label(gettext("Ready to create managed Ollama"))
         .wrap(true)
         .wrap_mode(gtk::pango::WrapMode::WordChar)
         .halign(gtk::Align::Start)
@@ -185,7 +209,7 @@ pub(super) fn show_configuration_dialog(ui: &Rc<WindowUi>, backend: &Rc<Backend>
         .build();
     status.add_css_class("dim-label");
 
-    let create_button = gtk::Button::with_label("Create Managed Instance");
+    let create_button = gtk::Button::with_label(&gettext("Create Managed Instance"));
     create_button.add_css_class("suggested-action");
     let actions = gtk::Box::builder()
         .orientation(gtk::Orientation::Horizontal)
@@ -251,7 +275,7 @@ pub(super) fn show_configuration_dialog(ui: &Rc<WindowUi>, backend: &Rc<Backend>
 }
 
 fn managed_provider_name_from_entry(row: &adw::EntryRow) -> std::result::Result<String, String> {
-    validate_provider_name(&row.text()).map_err(|_| "Enter a provider name".to_string())
+    validate_provider_name(&row.text()).map_err(|_| gettext("Enter a provider name"))
 }
 
 fn managed_port_from_entry(row: &adw::EntryRow) -> std::result::Result<u16, String> {
@@ -259,9 +283,9 @@ fn managed_port_from_entry(row: &adw::EntryRow) -> std::result::Result<u16, Stri
         .text()
         .trim()
         .parse::<u16>()
-        .map_err(|_| "Use a port from 1024 to 65535 except 11434".to_string())?;
+        .map_err(|_| gettext("Use a port from 1024 to 65535 except 11434"))?;
     validate_managed_ollama_port(port)
-        .map_err(|_| "Use a port from 1024 to 65535 except 11434".to_string())
+        .map_err(|_| gettext("Use a port from 1024 to 65535 except 11434"))
 }
 
 fn start_managed_ollama_after_configuration(
@@ -272,9 +296,9 @@ fn start_managed_ollama_after_configuration(
     backend: &Rc<Backend>,
 ) {
     controls.progress.set_fraction(0.0);
-    controls.status.set_label("Starting Ollama");
+    controls.status.set_label(&gettext("Starting Ollama"));
     controls.create_button.set_sensitive(false);
-    controls.create_button.set_label("Starting");
+    controls.create_button.set_label(&gettext("Starting"));
     controls.close_button.set_sensitive(false);
 
     let (sender, receiver) = mpsc::channel();
@@ -287,7 +311,7 @@ fn start_managed_ollama_after_configuration(
                 .await
             {
                 Ok(models) => ManagedOllamaStartUiEvent::Ready(models),
-                Err(error) => ManagedOllamaStartUiEvent::Failed(error.to_string()),
+                Err(error) => ManagedOllamaStartUiEvent::Failed(crate::i18n::error_message(&error)),
             };
         let _ = sender.send(event);
     });
@@ -307,29 +331,34 @@ fn start_managed_ollama_after_configuration(
                             models,
                         );
                         target_controls.progress.set_fraction(1.0);
-                        target_controls.status.set_label("Managed Ollama is ready");
-                        target_ui.provider_switcher.set_status("Ready");
+                        target_controls
+                            .status
+                            .set_label(&gettext("Managed Ollama is ready"));
+                        target_ui.provider_switcher.set_status(&gettext("Ready"));
                         target_ui
                             .toast_overlay
-                            .add_toast(adw::Toast::new("Managed instance ready"));
+                            .add_toast(adw::Toast::new(&gettext("Managed instance ready")));
                         target_controls.dialog.close();
                     }
                     Err(error) => {
                         target_controls.close_button.set_sensitive(true);
-                        target_controls.create_button.set_label("Retry");
+                        target_controls.create_button.set_label(&gettext("Retry"));
                         target_controls.create_button.set_sensitive(true);
-                        target_controls.status.set_label(&error.to_string());
+                        target_controls
+                            .status
+                            .set_label(&crate::i18n::error_message(&error));
                     }
                 }
                 gtk::glib::ControlFlow::Break
             }
             Ok(ManagedOllamaStartUiEvent::Failed(error)) => {
                 target_controls.close_button.set_sensitive(true);
-                target_controls.create_button.set_label("Retry");
+                target_controls.create_button.set_label(&gettext("Retry"));
                 target_controls.create_button.set_sensitive(true);
-                target_controls
-                    .status
-                    .set_label(&format!("Ollama start failed: {error}"));
+                target_controls.status.set_label(&gettext_f(
+                    "Ollama start failed: {error}",
+                    &[("error", &(error).to_string())],
+                ));
                 target_controls.progress.set_fraction(0.0);
                 gtk::glib::ControlFlow::Break
             }
@@ -339,9 +368,11 @@ fn start_managed_ollama_after_configuration(
             }
             Err(mpsc::TryRecvError::Disconnected) => {
                 target_controls.close_button.set_sensitive(true);
-                target_controls.create_button.set_label("Retry");
+                target_controls.create_button.set_label(&gettext("Retry"));
                 target_controls.create_button.set_sensitive(true);
-                target_controls.status.set_label("Ollama start failed");
+                target_controls
+                    .status
+                    .set_label(&gettext("Ollama start failed"));
                 target_controls.progress.set_fraction(0.0);
                 gtk::glib::ControlFlow::Break
             }

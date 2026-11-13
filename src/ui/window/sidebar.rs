@@ -1,3 +1,5 @@
+use crate::i18n::gettext;
+
 use adw::prelude::*;
 use gtk::{Align, Orientation, PolicyType};
 
@@ -38,9 +40,9 @@ pub(super) fn build() -> Sidebar {
     title.add_css_class("title");
     title.add_css_class("moose-sidebar-title");
 
-    let new_chat_button = icon_button("list-add-symbolic", "New Conversation");
-    let model_manager_button = icon_button("view-list-symbolic", "Models");
-    let files_button = icon_button("folder-documents-symbolic", "Files and Library");
+    let new_chat_button = icon_button("list-add-symbolic", &gettext("New Conversation"));
+    let model_manager_button = icon_button("view-list-symbolic", &gettext("Models"));
+    let files_button = icon_button("folder-documents-symbolic", &gettext("Files and Library"));
     new_chat_button.add_css_class("moose-sidebar-button");
     model_manager_button.add_css_class("moose-sidebar-button");
     files_button.add_css_class("moose-sidebar-button");
@@ -51,14 +53,14 @@ pub(super) fn build() -> Sidebar {
     header_bar.append(&new_chat_button);
 
     let search_entry = gtk::SearchEntry::builder()
-        .placeholder_text("Search chats")
+        .placeholder_text(gettext("Search chats"))
         .hexpand(true)
         .build();
     search_entry.add_css_class("moose-chat-search");
 
     let archived_button = gtk::ToggleButton::builder()
         .icon_name("folder-symbolic")
-        .tooltip_text("Show Archived Chats")
+        .tooltip_text(gettext("Show Archived Chats"))
         .build();
     archived_button.add_css_class("flat");
     archived_button.add_css_class("moose-sidebar-button");
@@ -86,7 +88,7 @@ pub(super) fn build() -> Sidebar {
     scrolled.add_css_class("moose-sidebar-scroll");
 
     let chats_label = gtk::Label::builder()
-        .label("Chats")
+        .label(gettext("Chats"))
         .halign(Align::Start)
         .xalign(0.0)
         .build();

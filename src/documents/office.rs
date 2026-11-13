@@ -1,3 +1,5 @@
+use crate::i18n::gettext;
+
 use super::{
     archive::Archive,
     content::{Block, Content, Table, formula, numeric, xml},
@@ -58,7 +60,7 @@ pub fn docx(content: &Content) -> Result<Vec<u8>, String> {
             Block::Rule => body.push_str(r#"<w:p><w:pPr><w:pBdr><w:bottom w:val="single" w:sz="6" w:color="D0D0D0"/></w:pBdr></w:pPr></w:p>"#),
             Block::Table(table) => {
                 let columns = table.rows.iter().map(Vec::len).max().unwrap_or(1).max(1);
-                if columns > 100 { return Err("Tables can contain up to 100 columns.".into()); }
+                if columns > 100 { return Err(gettext("Tables can contain up to 100 columns.")); }
                 body.push_str(r#"<w:tbl><w:tblPr><w:tblW w:w="0" w:type="auto"/><w:tblBorders><w:top w:val="single" w:sz="4" w:color="D0D0D0"/><w:left w:val="single" w:sz="4" w:color="D0D0D0"/><w:bottom w:val="single" w:sz="4" w:color="D0D0D0"/><w:right w:val="single" w:sz="4" w:color="D0D0D0"/><w:insideH w:val="single" w:sz="4" w:color="D0D0D0"/><w:insideV w:val="single" w:sz="4" w:color="D0D0D0"/></w:tblBorders></w:tblPr><w:tblGrid>"#);
                 for _ in 0..columns { body.push_str(&format!(r#"<w:gridCol w:w="{}"/>"#, 9000 / columns)); }
                 body.push_str("</w:tblGrid>");
@@ -106,7 +108,9 @@ fn paragraph(value: &str, style: &str, bold: bool) -> String {
 
 pub fn xlsx(tables: &[Table]) -> Result<Vec<u8>, String> {
     if tables.is_empty() || tables.len() > 64 {
-        return Err("A workbook needs between 1 and 64 tables or worksheets.".into());
+        return Err(gettext(
+            "A workbook needs between 1 and 64 tables or worksheets.",
+        ));
     }
     let mut archive = Archive::new();
     let mut overrides = String::from(
@@ -146,7 +150,9 @@ pub fn xlsx(tables: &[Table]) -> Result<Vec<u8>, String> {
 fn worksheet(table: &Table) -> Result<String, String> {
     let columns = table.rows.iter().map(Vec::len).max().unwrap_or(0);
     if columns == 0 || columns > 100 || table.rows.len() > 20_000 {
-        return Err("Use tables with 1 to 100 columns and up to 20,000 rows.".into());
+        return Err(gettext(
+            "Use tables with 1 to 100 columns and up to 20,000 rows.",
+        ));
     }
     let mut rows = String::new();
     for (row_index, row) in table.rows.iter().enumerate() {
@@ -154,7 +160,9 @@ fn worksheet(table: &Table) -> Result<String, String> {
         rows.push_str(&format!(r#"<row r="{number}">"#));
         for (column, value) in row.iter().enumerate() {
             if value.encode_utf16().count() > 32_767 {
-                return Err("A spreadsheet cell can contain up to 32,767 characters.".into());
+                return Err(gettext(
+                    "A spreadsheet cell can contain up to 32,767 characters.",
+                ));
             }
             let reference = format!("{}{number}", column_name(column));
             let style = usize::from(row_index == 0);
@@ -207,7 +215,11 @@ fn sheet_name(value: &str, existing: &[String]) -> String {
         })
         .collect::<String>();
     let base = value.trim().trim_matches('\'');
-    let base = if base.is_empty() { "Sheet" } else { base };
+    let base = if base.is_empty() {
+        gettext("Sheet")
+    } else {
+        base.to_string()
+    };
     let mut name = base.to_string();
     let mut suffix = 2;
     while existing
