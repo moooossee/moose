@@ -32,6 +32,7 @@ pub(super) fn bind(ui: &Rc<WindowUi>, backend: &Rc<Backend>) {
         "preview-document",
         "open-document",
         "save-document",
+        "document-chat",
     ] {
         let action = gio::SimpleAction::new(name, Some(gtk::glib::VariantTy::STRING));
         let weak_ui = Rc::downgrade(ui);
@@ -55,6 +56,7 @@ pub(super) fn bind(ui: &Rc<WindowUi>, backend: &Rc<Backend>) {
             match name {
                 "preview-document" => preview(&ui, &target_backend, &document),
                 "open-document" => open(&ui, &target_backend, &document),
+                "document-chat" => open_chat(&ui, &target_backend, &document),
                 _ => save(&ui, &target_backend, &document),
             }
         });
@@ -470,6 +472,7 @@ pub(super) fn generate(
             }
         }
         message_actions::refresh_message(&ui, &backend, &message);
+        attachments::library::refresh_if_visible(&ui, &backend);
     });
 }
 
@@ -663,6 +666,65 @@ fn preview(ui: &Rc<WindowUi>, backend: &Rc<Backend>, document: &CreatedDocument)
     toolbar.add_top_bar(&header);
     dialog.set_child(Some(&toolbar));
     dialog.present(Some(&ui.window));
+}
+
+fn open_chat(ui: &Rc<WindowUi>, backend: &Rc<Backend>, document: &CreatedDocument) {
+    let result = (|| -> Result<Message> {
+        let repository = &backend.conversation_repository;
+        let message = repository
+            .get_message(&document.message_id)?
+            .ok_or(MooseError::MessageNotFound)?;
+        if !repository
+            .list_messages(&message.conversation_id)?
+            .iter()
+            .any(|item| item.id == message.id)
+        {
+            if backend.active_generation.borrow().is_some() {
+                return Err(crate::attachments::error(
+                    "Finish or stop the current response before opening another response version.",
+                ));
+            }
+            generation::retry_pending(backend)?;
+            repository.select_message_path(&message.id)?;
+        }
+        Ok(message)
+    })();
+    let message = match result {
+        Ok(message) => message,
+        Err(error) => {
+            toast(ui, &format!("Chat could not be opened: {error}"));
+            return;
+        }
+    };
+    generation::open(ui, backend, &message.conversation_id);
+    ui.messages_scroll.pause();
+    let weak_ui = Rc::downgrade(ui);
+    let attempts = Cell::new(0);
+    ui.messages.add_tick_callback(move |messages, _| {
+        if let Some(ui) = weak_ui.upgrade() {
+            if ui.content_stack.visible_child_name().as_deref() != Some("chat") {
+                return gtk::glib::ControlFlow::Break;
+            }
+            let mut child = messages.first_child();
+            while let Some(row) = child {
+                child = row.next_sibling();
+                if row.widget_name() == message.id {
+                    if let Some(bounds) = row
+                        .compute_bounds(&ui.messages_scrolled)
+                        .filter(|_| row.height() > 0)
+                    {
+                        let adjustment = ui.messages_scrolled.vadjustment();
+                        adjustment.set_value(adjustment.value() + f64::from(bounds.y()) - 12.0);
+                    } else if attempts.get() < 3 {
+                        attempts.set(attempts.get() + 1);
+                        return gtk::glib::ControlFlow::Continue;
+                    }
+                    break;
+                }
+            }
+        }
+        gtk::glib::ControlFlow::Break
+    });
 }
 
 fn open(ui: &Rc<WindowUi>, backend: &Rc<Backend>, document: &CreatedDocument) {

@@ -1,4 +1,5 @@
 use super::*;
+use crate::attachments::FileEntry;
 
 #[path = "library_actions.rs"]
 mod actions;
@@ -40,7 +41,7 @@ pub(in crate::ui::window) fn build() -> Library {
     let title = gtk::Label::builder().label("Files").xalign(0.0).build();
     title.add_css_class("moose-files-title");
     let subtitle = gtk::Label::builder()
-        .label("Everything you bring to a conversation.")
+        .label("Files you upload and create in your chats.")
         .xalign(0.0)
         .wrap(true)
         .build();
@@ -92,13 +93,15 @@ pub(in crate::ui::window) fn build() -> Library {
         .placeholder_text("Search files…")
         .hexpand(true)
         .build();
-    search.set_tooltip_text(Some("Search by file name or contents"));
+    search.set_tooltip_text(Some(
+        "Search by file name or contents, or a generated document's chat",
+    ));
     search.add_css_class("moose-files-search");
     content.append(&search);
     let filter_row = gtk::Box::new(gtk::Orientation::Horizontal, 4);
     filter_row.add_css_class("moose-files-filters");
     let mut filters = Vec::<gtk::ToggleButton>::new();
-    for name in ["All", "Library", "Documents", "Images"] {
+    for name in ["All", "Library", "Documents", "Images", "Generated"] {
         let filter = gtk::ToggleButton::with_label(name);
         filter.add_css_class("flat");
         filter.add_css_class("moose-files-filter");
@@ -113,10 +116,10 @@ pub(in crate::ui::window) fn build() -> Library {
     let grid = gtk::FlowBox::builder()
         .selection_mode(gtk::SelectionMode::None)
         .homogeneous(true)
-        .min_children_per_line(1)
-        .max_children_per_line(3)
-        .column_spacing(12)
-        .row_spacing(12)
+        .min_children_per_line(2)
+        .max_children_per_line(2)
+        .column_spacing(18)
+        .row_spacing(14)
         .valign(gtk::Align::Start)
         .hexpand(true)
         .build();
@@ -124,7 +127,9 @@ pub(in crate::ui::window) fn build() -> Library {
     let empty = adw::StatusPage::builder()
         .icon_name("folder-documents-symbolic")
         .title("A Place for Your Files")
-        .description("Drop files here or choose Import. Chat attachments appear here too.")
+        .description(
+            "Import files or create a document in a chat. They will appear here automatically.",
+        )
         .build();
     empty.add_css_class("moose-files-empty");
     empty.add_css_class("compact");
@@ -147,7 +152,6 @@ pub(in crate::ui::window) fn build() -> Library {
         .tightening_threshold(650)
         .child(&content)
         .build();
-    root.append(&header_clamp);
     let body = gtk::Box::new(gtk::Orientation::Vertical, 16);
     body.add_css_class("moose-files-body");
     body.append(&empty);
@@ -158,10 +162,13 @@ pub(in crate::ui::window) fn build() -> Library {
         .tightening_threshold(650)
         .child(&body)
         .build();
+    let page = gtk::Box::new(gtk::Orientation::Vertical, 0);
+    page.append(&header_clamp);
+    page.append(&clamp);
     let scroll = gtk::ScrolledWindow::builder()
         .hscrollbar_policy(gtk::PolicyType::Never)
         .vexpand(true)
-        .child(&clamp)
+        .child(&page)
         .build();
     root.append(&scroll);
     Library {
@@ -324,121 +331,196 @@ fn populate(ui: &Rc<WindowUi>, backend: &Rc<Backend>) {
         1 => "library",
         2 => "documents",
         3 => "images",
+        4 => "generated",
         _ => "all",
     };
     let limit = page.limit.get();
-    let assets = match backend.conversation_repository.file_assets(
-        page.search.text().as_str(),
-        filter,
-        limit + 1,
-    ) {
-        Ok(assets) => assets,
-        Err(error) => {
-            while let Some(row) = page.grid.first_child() {
-                page.grid.remove(&row);
+    let files =
+        match backend
+            .conversation_repository
+            .files(page.search.text().as_str(), filter, limit + 1)
+        {
+            Ok(files) => files,
+            Err(error) => {
+                while let Some(row) = page.grid.first_child() {
+                    page.grid.remove(&row);
+                }
+                page.grid.set_visible(false);
+                page.more.set_visible(false);
+                page.results.set_visible(false);
+                page.empty.set_title("Files Could Not Be Loaded");
+                page.empty.set_description(Some("Try opening Files again."));
+                page.empty.set_visible(true);
+                toast(ui, &error.to_string());
+                return;
             }
-            page.grid.set_visible(false);
-            page.more.set_visible(false);
-            page.results.set_visible(false);
-            page.empty.set_title("Files Could Not Be Loaded");
-            page.empty.set_description(Some("Try opening Files again."));
-            page.empty.set_visible(true);
-            toast(ui, &error.to_string());
-            return;
-        }
-    };
+        };
     while let Some(row) = page.grid.first_child() {
         page.grid.remove(&row);
     }
-    let filtered = !page.search.text().trim().is_empty() || filter != "all";
-    page.empty.set_title(if filtered {
-        "No Matching Files"
-    } else {
-        "A Place for Your Files"
-    });
-    page.empty.set_description(Some(if filtered {
-        "Try another search or select All."
-    } else {
-        "Drop files here or choose Import. Chat attachments appear here too."
-    }));
-    page.empty.set_visible(assets.is_empty());
-    page.grid.set_visible(!assets.is_empty());
-    page.more.set_visible(assets.len() > limit);
-    page.results.set_visible(!assets.is_empty());
-    let count = assets.len().min(limit);
-    page.results.set_label(&if assets.len() > limit {
+    let searching = !page.search.text().trim().is_empty();
+    let filtered = searching || filter != "all";
+    page.empty
+        .set_title(if filter == "generated" && !searching {
+            "No Generated Documents Yet"
+        } else if filtered {
+            "No Matching Files"
+        } else {
+            "A Place for Your Files"
+        });
+    page.empty
+        .set_description(Some(if filter == "generated" && !searching {
+            "Use Create Document in a chat. Your finished documents will appear here automatically."
+        } else if filtered {
+            "Try another search or select All."
+        } else {
+            "Import files or create a document in a chat. They will appear here automatically."
+        }));
+    page.empty.set_visible(files.is_empty());
+    page.grid.set_visible(!files.is_empty());
+    page.more.set_visible(files.len() > limit);
+    page.results.set_visible(!files.is_empty());
+    let count = files.len().min(limit);
+    page.results.set_label(&if files.len() > limit {
         format!("Showing {count} files")
     } else {
         format!("{count} file{}", if count == 1 { "" } else { "s" })
     });
-    for asset in assets.into_iter().take(limit) {
-        let kind = match asset.kind.as_str() {
-            "image" => "Image",
-            "pdf" => "PDF",
-            _ => "Document",
+    for file in files.into_iter().take(limit) {
+        let (filename, icon, kind, size) = match &file {
+            FileEntry::Uploaded(asset) => (
+                asset.name.clone(),
+                if asset.kind == "image" {
+                    "image-x-generic-symbolic"
+                } else {
+                    "text-x-generic-symbolic"
+                },
+                match asset.kind.as_str() {
+                    "image" => "Image",
+                    "pdf" => "PDF",
+                    _ => "Document",
+                },
+                asset.byte_size,
+            ),
+            FileEntry::Generated { document, .. } => (
+                document.filename(),
+                document.format.icon(),
+                document.format.label(),
+                document.byte_size,
+            ),
         };
-        let content = gtk::Box::new(gtk::Orientation::Vertical, 12);
-        let icon = gtk::Image::from_icon_name(if asset.kind == "image" {
-            "image-x-generic-symbolic"
-        } else {
-            "text-x-generic-symbolic"
-        });
+        let content = gtk::Box::new(gtk::Orientation::Horizontal, 14);
+        content.set_margin_end(28);
+        let icon = gtk::Image::from_gicon(&gio::ThemedIcon::from_names(&[
+            icon,
+            "text-x-generic-symbolic",
+        ]));
         icon.set_pixel_size(28);
         icon.set_halign(gtk::Align::Start);
+        icon.set_valign(gtk::Align::Center);
         icon.add_css_class("moose-file-icon");
+        let text = gtk::Box::new(gtk::Orientation::Vertical, 5);
+        text.set_hexpand(true);
+        text.set_valign(gtk::Align::Center);
         let name = gtk::Label::builder()
-            .label(&asset.name)
+            .label(&filename)
             .xalign(0.0)
             .yalign(0.0)
             .wrap(true)
             .wrap_mode(gtk::pango::WrapMode::WordChar)
             .lines(2)
             .width_chars(1)
-            .max_width_chars(24)
-            .height_request(40)
+            .max_width_chars(36)
             .ellipsize(gtk::pango::EllipsizeMode::Middle)
             .build();
         name.add_css_class("moose-file-name");
         let details = gtk::Label::builder()
             .label(format!(
                 "{kind} · {}",
-                super::super::model_actions::format_download_size(asset.byte_size.max(0) as u64),
+                super::super::model_actions::format_download_size(size.max(0) as u64),
             ))
             .xalign(0.0)
             .ellipsize(gtk::pango::EllipsizeMode::End)
             .build();
         details.add_css_class("moose-file-details");
         content.append(&icon);
-        content.append(&name);
-        content.append(&details);
+        text.append(&name);
+        text.append(&details);
+        content.append(&text);
         let open = gtk::Button::builder()
             .child(&content)
-            .width_request(208)
             .hexpand(true)
             .vexpand(true)
-            .tooltip_text(format!("{} — Open chat or preview", asset.name))
+            .tooltip_text(match &file {
+                FileEntry::Generated {
+                    conversation_title, ..
+                } => {
+                    format!("{filename}\nGenerated in {conversation_title}\nPreview document")
+                }
+                FileEntry::Uploaded(_) => format!("{filename} — Open chat or preview"),
+            })
             .build();
         open.add_css_class("moose-file-card");
-        let menu = actions::menu(ui, backend, &asset);
+        let menu = match file {
+            FileEntry::Uploaded(asset) => {
+                let menu = actions::menu(ui, backend, &asset);
+                let target_ui = Rc::downgrade(ui);
+                let target_backend = backend.clone();
+                open.connect_clicked(move |_| {
+                    if let Some(ui) = target_ui.upgrade() {
+                        actions::open(&ui, &target_backend, &asset);
+                    }
+                });
+                menu
+            }
+            FileEntry::Generated { document, .. } => {
+                open.set_action_name(Some("message.preview-document"));
+                open.set_action_target_value(Some(&document.id.to_variant()));
+                generated_menu(&document)
+            }
+        };
         menu.set_halign(gtk::Align::End);
-        menu.set_valign(gtk::Align::Start);
-        menu.set_margin_top(8);
+        menu.set_valign(gtk::Align::Center);
         menu.set_margin_end(8);
         let card = gtk::Overlay::builder().child(&open).build();
         card.add_css_class("moose-file-tile");
         card.add_overlay(&menu);
-        let target_ui = Rc::downgrade(ui);
-        let target_backend = backend.clone();
-        open.connect_clicked(move |_| {
-            if let Some(ui) = target_ui.upgrade() {
-                actions::open(&ui, &target_backend, &asset);
-            }
-        });
         let child = gtk::FlowBoxChild::new();
         child.set_focusable(false);
         child.set_child(Some(&card));
         page.grid.insert(&child, -1);
     }
+}
+
+fn generated_menu(document: &crate::documents::CreatedDocument) -> gtk::MenuButton {
+    let content = gtk::Box::new(gtk::Orientation::Vertical, 2);
+    content.add_css_class("moose-attachment-menu");
+    let popover = gtk::Popover::builder().child(&content).build();
+    let button = gtk::MenuButton::builder()
+        .icon_name("view-more-symbolic")
+        .tooltip_text(format!("Actions for {}", document.filename()))
+        .popover(&popover)
+        .build();
+    button.add_css_class("flat");
+    button.add_css_class("moose-file-actions");
+    for (label, icon, action) in [
+        ("Preview", "document-open-symbolic", "preview-document"),
+        ("Open", "go-next-symbolic", "open-document"),
+        ("Save As…", "document-save-as-symbolic", "save-document"),
+        ("Open Chat", "go-jump-symbolic", "document-chat"),
+    ] {
+        let item = menu_item(icon, label);
+        item.set_action_target_value(Some(&document.id.to_variant()));
+        item.set_action_name(Some(&format!("message.{action}")));
+        let weak_popover = popover.downgrade();
+        item.connect_clicked(move |_| {
+            if let Some(popover) = weak_popover.upgrade() {
+                popover.popdown();
+            }
+        });
+        content.append(&item);
+    }
+    button
 }
 
 pub(super) fn preview(

@@ -17,6 +17,14 @@ pub struct Asset {
     pub in_library: bool,
 }
 
+pub enum FileEntry {
+    Uploaded(Asset),
+    Generated {
+        document: crate::documents::CreatedDocument,
+        conversation_title: String,
+    },
+}
+
 pub struct ImportedAsset {
     pub name: String,
     pub kind: String,

@@ -127,6 +127,22 @@ impl ConversationRepository {
         Ok(())
     }
 
+    pub fn select_message_path(&self, id: &str) -> Result<()> {
+        let transaction = self.connection.unchecked_transaction()?;
+        let message = self.get_message_required(id)?;
+        let mut current = Some(message.id);
+        while let Some(id) = current {
+            let parent = self.parent_id(&id)?;
+            self.deselect_siblings(&message.conversation_id, parent.as_deref())?;
+            self.connection
+                .execute("UPDATE messages SET is_selected = 1 WHERE id = ?1", [&id])?;
+            current = parent;
+        }
+        self.touch_conversation(&message.conversation_id)?;
+        transaction.commit()?;
+        Ok(())
+    }
+
     pub fn message_versions(&self, conversation_id: &str) -> Result<Vec<Vec<String>>> {
         let mut statement = self.connection.prepare(
             "SELECT id, parent_id FROM messages WHERE conversation_id = ?1 ORDER BY created_at, id",

@@ -1,7 +1,8 @@
 use super::*;
 use crate::attachments::{
-    Asset, ImportedAsset, MAX_ATTACHMENTS, Source, chunks, error, search_expression,
+    Asset, FileEntry, ImportedAsset, MAX_ATTACHMENTS, Source, chunks, error, search_expression,
 };
+use crate::documents::{CreatedDocument, DocumentFormat};
 use sha2::{Digest, Sha256};
 
 const ASSET_COLUMNS: &str =
@@ -117,7 +118,7 @@ impl ConversationRepository {
             .optional()?)
     }
 
-    pub fn file_assets(&self, query: &str, filter: &str, limit: usize) -> Result<Vec<Asset>> {
+    pub fn files(&self, query: &str, filter: &str, limit: usize) -> Result<Vec<FileEntry>> {
         let search = search_expression(query);
         let content_match = if search.is_empty() {
             "?2 != ''"
@@ -127,20 +128,61 @@ impl ConversationRepository {
                 WHERE document_search MATCH ?2)"
         };
         let mut statement = self.connection.prepare(&format!(
-            "SELECT {ASSET_COLUMNS} FROM assets a
+            "SELECT {ASSET_COLUMNS}, a.created_at, '' AS message_id,
+                    '' AS format, '' AS conversation_title FROM assets a
              WHERE (?1 = '' OR instr(lower(a.name), lower(?1)) > 0
                 OR ({content_match}))
              AND (?3 = 'all' OR (?3 = 'library' AND a.in_library = 1)
                 OR (?3 = 'documents' AND a.kind != 'image')
                 OR (?3 = 'images' AND a.kind = 'image'))
-             ORDER BY a.created_at DESC, a.id DESC LIMIT ?4"
+             UNION ALL
+             SELECT d.id, d.title, 'generated', '', length(d.payload), 0, 0,
+                    d.created_at, d.message_id, d.format, c.title
+             FROM created_documents d
+             JOIN messages m ON m.id = d.message_id
+             JOIN conversations c ON c.id = m.conversation_id
+             WHERE ?3 IN ('all', 'generated')
+                AND (?1 = '' OR instr(lower(d.title || '.' || d.format), lower(?1)) > 0
+                    OR instr(lower(c.title), lower(?1)) > 0
+                    OR instr(lower(d.content), lower(?1)) > 0)
+             ORDER BY created_at DESC, id DESC LIMIT ?4"
         ))?;
-        Ok(statement
+        let rows = statement
             .query_map(
                 params![query.trim(), search, filter, i64::try_from(limit)?],
-                asset_from_row,
+                |row| {
+                    Ok((
+                        asset_from_row(row)?,
+                        row.get::<_, String>(7)?,
+                        row.get::<_, String>(8)?,
+                        row.get::<_, String>(9)?,
+                        row.get::<_, String>(10)?,
+                    ))
+                },
             )?
-            .collect::<rusqlite::Result<_>>()?)
+            .collect::<rusqlite::Result<Vec<_>>>()?;
+        rows.into_iter()
+            .map(
+                |(asset, created_at, message_id, format, conversation_title)| {
+                    if message_id.is_empty() {
+                        return Ok(FileEntry::Uploaded(asset));
+                    }
+                    let format = DocumentFormat::parse(&format)
+                        .ok_or_else(|| error("This document format is not supported."))?;
+                    Ok(FileEntry::Generated {
+                        document: CreatedDocument {
+                            id: asset.id,
+                            message_id,
+                            title: asset.name,
+                            format,
+                            byte_size: asset.byte_size,
+                            created_at,
+                        },
+                        conversation_title,
+                    })
+                },
+            )
+            .collect()
     }
 
     pub fn asset_conversations(&self, asset: &str) -> Result<Vec<Conversation>> {
