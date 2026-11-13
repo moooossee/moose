@@ -5,6 +5,6 @@ Exec=moose
 Type=Application
 Icon=io.github.moooossee.Moose
 Categories=Network;Chat;
-Keywords=AI;Artificial intelligence;Local AI;Cloud AI;Ollama;OpenRouter;Hugging Face;GGUF;LLM;Chatbot;Models;PDF;Documents;Vision;Reasoning;Web search;
+Keywords=AI;Artificial intelligence;Local AI;Cloud AI;Ollama;OpenRouter;Hugging Face;GGUF;LLM;Chatbot;Models;PDF;Documents;Spreadsheets;Presentations;OpenDocument;Vision;Reasoning;Web search;
 StartupNotify=true
 DBusActivatable=true

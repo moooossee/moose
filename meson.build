@@ -1,7 +1,7 @@
 project(
   'moose',
   'rust',
-  version: '0.8.0',
+  version: '0.8.5',
   meson_version: '>= 1.4.0',
   default_options: ['buildtype=debugoptimized']
 )

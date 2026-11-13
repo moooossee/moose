@@ -10,7 +10,8 @@
   <project_license>GPL-3.0-or-later</project_license>
   <description>
     <p>Ask questions, work on your writing or get help with code. Chat with AI running on your computer through Ollama, or use an online service such as OpenRouter with your own key. Browse models for the things you want to do, or download compatible models from Hugging Face.</p>
-    <p>Bring photos, PDFs and text files into the conversation. In Files, you can find your attachments, preview documents, search your library and return to related chats. Answers can show passages from your documents so you can check where information came from. Pictures need a model that can understand them, and PDFs need text you can select.</p>
+    <p>Bring photos, PDFs and text files into the conversation. Your attachments and the documents you create are together in Files, where you can preview them, search your library and return to a related chat. Answers can show passages from your documents so you can check where information came from. Pictures need a model that can understand them, and PDFs need text you can select.</p>
+    <p>Ask Moose to write a report, put together a budget or prepare a presentation. Describe what you need or use an answer you already have, then choose PDF, Word, Excel, PowerPoint, OpenDocument or a text or data format. Your documents stay with the answer, so you can preview them, open them in another application or save a copy whenever you need.</p>
     <p>Edit a message, try a different answer or go back to an earlier version. If an answer reaches its limit, you can ask it to continue. Drafts save as you go, and code and math are formatted to make them easier to read.</p>
     <p>When you want to look something up or check a calculation, turn on Web or Calculator with a compatible Ollama or Ollama Cloud model. You can read the sources and see what the tools did alongside the answer.</p>
     <p>Your chats, drafts and document library are saved on your device. You decide whether messages or files can be shared with an online service, with separate permissions you can reset in Privacy settings. Web asks for its own permission: search services receive your searches, websites receive requests for the pages you read, and results are shared with the model answering your chat. Each service's privacy policy applies to what you share. Local Only uses only Ollama managed by Moose and turns off web tools. Keys for online services are kept in your desktop's secure key storage.</p>
@@ -29,6 +30,9 @@
     <keyword>Models</keyword>
     <keyword>PDF</keyword>
     <keyword>Documents</keyword>
+    <keyword>Spreadsheets</keyword>
+    <keyword>Presentations</keyword>
+    <keyword>OpenDocument</keyword>
     <keyword>Vision</keyword>
     <keyword>Reasoning</keyword>
     <keyword>Web search</keyword>
@@ -70,6 +74,14 @@
   </screenshots>
   <content_rating type="oars-1.1" />
   <releases>
+    <release version="0.8.5" date="2026-11-12" type="stable">
+      <url type="details">https://github.com/moooossee/moose/releases/tag/v0.8.5</url>
+      <description>
+        <p>You can now ask Moose to put together a report, a budget or a set of slides right in your chat. Use Create Document to describe what you need, or turn an answer you already have into a file. Choose PDF, Word, Excel, PowerPoint or OpenDocument, as well as Markdown, plain text, CSV, HTML, JSON and XML. Your finished files stay with the answer, so you can come back to preview, open or save them later.</p>
+        <p>You'll also find these documents in Files. There's a new Generated filter, and you can look them up by name, contents or chat title. We've made the layout easier to browse, and Open Chat takes you straight to the answer behind a document. When you export a chat, JSON includes copies of the files, while Markdown and plain text include their names.</p>
+        <p>You can now search for a model in the chat picker and Chat Settings. Attachments leave more room for writing, and document attachments show the file type, size and PDF page count before you open them. When viewing an image, you can fit it to the window, see it at its original size or use the buttons and arrow keys to browse the other images in that message. We also fixed a freeze when pasting images on X11.</p>
+      </description>
+    </release>
     <release version="0.8.0" date="2026-11-07" type="stable">
       <url type="details">https://github.com/moooossee/moose/releases/tag/v0.8.0</url>
       <description>
