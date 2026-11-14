@@ -1,0 +1,8092 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
+# This file is distributed under the same license as the moose package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: moose 0.8.5\n"
+"Report-Msgid-Bugs-To: https://github.com/moooossee/moose/issues\n"
+"POT-Creation-Date: 2026-11-13 15:25-0600\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: Automatically generated\n"
+"Language-Team: none\n"
+"Language: pt\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=n > 1;\n"
+
+#: data/io.github.moooossee.Moose.desktop
+#: data/io.github.moooossee.Moose.metainfo.xml.in
+msgid "Moose"
+msgstr ""
+
+#: data/io.github.moooossee.Moose.desktop
+#: data/io.github.moooossee.Moose.metainfo.xml.in
+msgid "Chat with local and cloud AI"
+msgstr ""
+
+#: data/io.github.moooossee.Moose.desktop
+msgid ""
+"AI;Artificial intelligence;Local AI;Cloud AI;Ollama;OpenRouter;Hugging "
+"Face;GGUF;LLM;Chatbot;Models;PDF;Documents;Spreadsheets;Presentations;OpenDocument;Vision;Reasoning;Web "
+"search;"
+msgstr ""
+
+#: data/io.github.moooossee.Moose.metainfo.xml.in
+msgid "moooossee"
+msgstr ""
+
+#: data/io.github.moooossee.Moose.metainfo.xml.in
+msgid ""
+"Ask questions, work on your writing or get help with code. Chat with AI "
+"running on your computer through Ollama, or use an online service such as "
+"OpenRouter with your own key. Browse models for the things you want to do, "
+"or download compatible models from Hugging Face."
+msgstr ""
+
+#: data/io.github.moooossee.Moose.metainfo.xml.in
+msgid ""
+"Bring photos, PDFs and text files into the conversation. Your attachments "
+"and the documents you create are together in Files, where you can preview "
+"them, search your library and return to a related chat. Answers can show "
+"passages from your documents so you can check where information came from. "
+"Pictures need a model that can understand them, and PDFs need text you can "
+"select."
+msgstr ""
+
+#: data/io.github.moooossee.Moose.metainfo.xml.in
+msgid ""
+"Ask Moose to write a report, put together a budget or prepare a "
+"presentation. Describe what you need or use an answer you already have, then "
+"choose PDF, Word, Excel, PowerPoint, OpenDocument or a text or data format. "
+"Your documents stay with the answer, so you can preview them, open them in "
+"another application or save a copy whenever you need."
+msgstr ""
+
+#: data/io.github.moooossee.Moose.metainfo.xml.in
+msgid ""
+"Edit a message, try a different answer or go back to an earlier version. If "
+"an answer reaches its limit, you can ask it to continue. Drafts save as you "
+"go, and code and math are formatted to make them easier to read."
+msgstr ""
+
+#: data/io.github.moooossee.Moose.metainfo.xml.in
+msgid ""
+"When you want to look something up or check a calculation, turn on Web or "
+"Calculator with a compatible Ollama or Ollama Cloud model. You can read the "
+"sources and see what the tools did alongside the answer."
+msgstr ""
+
+#: data/io.github.moooossee.Moose.metainfo.xml.in
+msgid ""
+"Your chats, drafts and document library are saved on your device. You decide "
+"whether messages or files can be shared with an online service, with "
+"separate permissions you can reset in Privacy settings. Web asks for its own "
+"permission: search services receive your searches, websites receive requests "
+"for the pages you read, and results are shared with the model answering your "
+"chat. Each service's privacy policy applies to what you share. Local Only "
+"uses only Ollama managed by Moose and turns off web tools. Keys for online "
+"services are kept in your desktop's secure key storage."
+msgstr ""
+
+#: data/io.github.moooossee.Moose.metainfo.xml.in
+msgid "AI"
+msgstr ""
+
+#: data/io.github.moooossee.Moose.metainfo.xml.in
+msgid "Artificial intelligence"
+msgstr ""
+
+#: data/io.github.moooossee.Moose.metainfo.xml.in
+msgid "Local AI"
+msgstr ""
+
+#: data/io.github.moooossee.Moose.metainfo.xml.in
+msgid "Cloud AI"
+msgstr ""
+
+#: data/io.github.moooossee.Moose.metainfo.xml.in
+msgid "Ollama"
+msgstr ""
+
+#: data/io.github.moooossee.Moose.metainfo.xml.in
+msgid "OpenRouter"
+msgstr ""
+
+#: data/io.github.moooossee.Moose.metainfo.xml.in
+msgid "Hugging Face"
+msgstr ""
+
+#: data/io.github.moooossee.Moose.metainfo.xml.in
+msgid "GGUF"
+msgstr ""
+
+#: data/io.github.moooossee.Moose.metainfo.xml.in
+msgid "LLM"
+msgstr ""
+
+#: data/io.github.moooossee.Moose.metainfo.xml.in
+msgid "Chatbot"
+msgstr ""
+
+#: data/io.github.moooossee.Moose.metainfo.xml.in
+#: src/ui/window/custom_provider.rs src/ui/window/model_manager.rs
+#: src/ui/window/sidebar.rs
+msgid "Models"
+msgstr ""
+
+#: data/io.github.moooossee.Moose.metainfo.xml.in
+msgid "PDF"
+msgstr ""
+
+#: data/io.github.moooossee.Moose.metainfo.xml.in
+#: src/ui/window/attachments/library.rs src/ui/window/model_manager.rs
+msgid "Documents"
+msgstr ""
+
+#: data/io.github.moooossee.Moose.metainfo.xml.in
+msgid "Spreadsheets"
+msgstr ""
+
+#: data/io.github.moooossee.Moose.metainfo.xml.in
+msgid "Presentations"
+msgstr ""
+
+#: data/io.github.moooossee.Moose.metainfo.xml.in
+msgid "OpenDocument"
+msgstr ""
+
+#: data/io.github.moooossee.Moose.metainfo.xml.in
+msgid "Vision"
+msgstr ""
+
+#: data/io.github.moooossee.Moose.metainfo.xml.in src/i18n.rs
+#: src/ui/window/chat_view.rs src/ui/window/model_manager/discovery.rs
+msgid "Reasoning"
+msgstr ""
+
+#: data/io.github.moooossee.Moose.metainfo.xml.in
+msgid "Web search"
+msgstr ""
+
+#: data/io.github.moooossee.Moose.metainfo.xml.in
+msgid "Chat with AI models and read formatted answers"
+msgstr ""
+
+#: data/io.github.moooossee.Moose.metainfo.xml.in
+msgid "Ask questions about images with vision models"
+msgstr ""
+
+#: data/io.github.moooossee.Moose.metainfo.xml.in
+msgid "Browse, search and filter attachments in Files"
+msgstr ""
+
+#: data/io.github.moooossee.Moose.metainfo.xml.in
+msgid "Explore math with clear, formatted explanations"
+msgstr ""
+
+#: data/io.github.moooossee.Moose.metainfo.xml.in
+msgid "Review and approve context shared with cloud providers"
+msgstr ""
+
+#: data/io.github.moooossee.Moose.metainfo.xml.in
+msgid "Control remote connections and reset sharing permissions"
+msgstr ""
+
+#: data/io.github.moooossee.Moose.metainfo.xml.in
+msgid ""
+"You can now ask Moose to put together a report, a budget or a set of slides "
+"right in your chat. Use Create Document to describe what you need, or turn "
+"an answer you already have into a file. Choose PDF, Word, Excel, PowerPoint "
+"or OpenDocument, as well as Markdown, plain text, CSV, HTML, JSON and XML. "
+"Your finished files stay with the answer, so you can come back to preview, "
+"open or save them later."
+msgstr ""
+
+#: data/io.github.moooossee.Moose.metainfo.xml.in
+msgid ""
+"You'll also find these documents in Files. There's a new Generated filter, "
+"and you can look them up by name, contents or chat title. We've made the "
+"layout easier to browse, and Open Chat takes you straight to the answer "
+"behind a document. When you export a chat, JSON includes copies of the "
+"files, while Markdown and plain text include their names."
+msgstr ""
+
+#: data/io.github.moooossee.Moose.metainfo.xml.in
+msgid ""
+"You can now search for a model in the chat picker and Chat Settings. "
+"Attachments leave more room for writing, and document attachments show the "
+"file type, size and PDF page count before you open them. When viewing an "
+"image, you can fit it to the window, see it at its original size or use the "
+"buttons and arrow keys to browse the other images in that message. We also "
+"fixed a freeze when pasting images on X11."
+msgstr ""
+
+#: data/io.github.moooossee.Moose.metainfo.xml.in
+msgid ""
+"You can now look things up on the web and check calculations without leaving "
+"your chat. With a compatible Ollama or Ollama Cloud model, turn on Web or "
+"Calculator in Chat Settings, or type /web or /calculator. Web uses "
+"DuckDuckGo by default, without a search account, and you can choose another "
+"search service in Preferences. It asks for permission first and stays off in "
+"Local Only mode. Sources and tool results stay with your chats when you "
+"return to them, export them or continue in a new chat."
+msgstr ""
+
+#: data/io.github.moooossee.Moose.metainfo.xml.in
+msgid ""
+"The redesigned Models view helps you find a model for everyday questions, "
+"coding, pictures or documents. Filters let you narrow the choices, and model "
+"details show download size and estimated memory and storage needs. If Moose "
+"manages Ollama, suggestions also consider the memory available on your "
+"computer. You can start a chat with an installed model right away, and "
+"progress messages make downloads and removals easier to follow."
+msgstr ""
+
+#: data/io.github.moooossee.Moose.metainfo.xml.in
+msgid ""
+"OpenRouter is now available as another way to chat. Add your key and choose "
+"a model, with pictures and reasoning options where supported. We've also "
+"made it easier to switch between services and find your chat settings. Chat "
+"titles now better reflect your topic and language."
+msgstr ""
+
+#: data/io.github.moooossee.Moose.metainfo.xml.in
+msgid ""
+"Longer chats with Ollama now leave more room for an answer. If an answer "
+"stops because it reaches its length limit, the text stays saved and you can "
+"choose Continue to pick up where it stopped. Moose remembers your reasoning "
+"preference, with reasoning off by default where supported. We've also "
+"improved message spacing to make conversations easier to read."
+msgstr ""
+
+#: data/io.github.moooossee.Moose.metainfo.xml.in
+msgid ""
+"Download compatible GGUF models from Hugging Face through your Ollama "
+"connection. Paste a model link, an Ollama model name or an ollama run or "
+"ollama pull command, and optionally choose a quantization or GGUF filename."
+msgstr ""
+
+#: data/io.github.moooossee.Moose.metainfo.xml.in
+msgid ""
+"Start a new chat from a completed download or use an already installed model "
+"from the download dialog. Failed downloads offer an Edit and Retry action "
+"with clearer guidance, and download progress now clears when a transfer "
+"finishes, fails or is cancelled."
+msgstr ""
+
+#: data/io.github.moooossee.Moose.metainfo.xml.in
+msgid ""
+"The initial setup now opens the provider chooser so you can select a local "
+"or cloud connection. Chat bubble backgrounds display correctly with custom "
+"GTK themes, and model search fits better in narrow windows."
+msgstr ""
+
+#: data/io.github.moooossee.Moose.metainfo.xml.in
+msgid ""
+"You can now check for updates, update or repair the Ollama installation "
+"managed by Moose right from Preferences. Your models and chats stay put. "
+"This release comes with Ollama 0.40.6, lets you pick up interrupted engine "
+"downloads and brings back the previous installation if an update fails."
+msgstr ""
+
+#: data/io.github.moooossee.Moose.metainfo.xml.in
+msgid ""
+"We've tidied up the setup screens for local and cloud providers. If "
+"something goes wrong, you can view and copy Moose and Ollama logs from "
+"Diagnostics, or copy the details of a model download or deletion. If a model "
+"needs a newer Ollama version, Moose offers to update its managed "
+"installation and try the download again."
+msgstr ""
+
+#: data/io.github.moooossee.Moose.metainfo.xml.in
+msgid ""
+"Tables now fit better in chats and have a button to copy them as Markdown. "
+"We also fixed chat bubble sizing. When selecting a long passage, you can "
+"drag toward the edge of the chat to scroll and keep selecting."
+msgstr ""
+
+#: data/io.github.moooossee.Moose.metainfo.xml.in
+msgid ""
+"Connect to NVIDIA NIM and Cloudflare Workers AI, with model discovery, "
+"streamed responses, reasoning and image support on compatible models. Model "
+"IDs containing spaces now work with compatible cloud providers and custom "
+"connections."
+msgstr ""
+
+#: data/io.github.moooossee.Moose.metainfo.xml.in
+msgid ""
+"Select text more reliably and read Markdown, code and formulas as answers "
+"arrive, with scrolling that lets you review earlier content. Chat messages "
+"now size correctly, and completed responses remain visible if saving fails."
+msgstr ""
+
+#: data/io.github.moooossee.Moose.metainfo.xml.in
+msgid ""
+"Managed Ollama now stops when Moose closes and prevents conflicting "
+"instances from using the same installation. Model downloads report provider "
+"errors and incomplete transfers instead of appearing to finish successfully."
+msgstr ""
+
+#: data/io.github.moooossee.Moose.metainfo.xml.in
+msgid ""
+"Connect to Mistral AI and DeepSeek, or add a custom cloud provider with your "
+"own server address and authentication settings."
+msgstr ""
+
+#: data/io.github.moooossee.Moose.metainfo.xml.in
+msgid ""
+"Discover models automatically or add them manually, with image support "
+"configurable for each saved model."
+msgstr ""
+
+#: data/io.github.moooossee.Moose.metainfo.xml.in
+msgid ""
+"This update also adds reasoning controls for supported Mistral and DeepSeek "
+"models and fixes managed Ollama installation in folders accessed through "
+"symbolic links."
+msgstr ""
+
+#: data/io.github.moooossee.Moose.metainfo.xml.in
+msgid ""
+"Connect securely to cloud providers using your own API key and control what "
+"you share."
+msgstr ""
+
+#: data/io.github.moooossee.Moose.metainfo.xml.in
+msgid ""
+"Enable Local Only mode to restrict inference to Ollama managed by Moose."
+msgstr ""
+
+#: data/io.github.moooossee.Moose.metainfo.xml.in
+msgid ""
+"Allow messages in all chats with a provider or ask in each chat. File "
+"sharing requires separate permission. Review context before sending and "
+"reset permissions in Privacy settings."
+msgstr ""
+
+#: data/io.github.moooossee.Moose.metainfo.xml.in
+msgid ""
+"Open Files from the sidebar to browse, search and filter attachments and "
+"library documents. Preview files, find their original folder, reopen related "
+"chats or attach them to the current chat."
+msgstr ""
+
+#: data/io.github.moooossee.Moose.metainfo.xml.in
+msgid "Browse more local models for chat, vision, reasoning and coding."
+msgstr ""
+
+#: data/io.github.moooossee.Moose.metainfo.xml.in
+msgid ""
+"See clearer waiting and reasoning indicators that disappear when the answer "
+"starts arriving."
+msgstr ""
+
+#: data/io.github.moooossee.Moose.metainfo.xml.in
+msgid ""
+"External Ollama connections now require HTTPS, with HTTP available only for "
+"connections on this device."
+msgstr ""
+
+#: data/io.github.moooossee.Moose.metainfo.xml.in
+msgid ""
+"Bring images and documents into your conversations. Attach photos, PDFs, "
+"text and code, or search your local document library with source excerpts "
+"and page references."
+msgstr ""
+
+#: data/io.github.moooossee.Moose.metainfo.xml.in
+msgid ""
+"Edit messages in place, regenerate answers and switch between saved versions "
+"or continue in a separate chat."
+msgstr ""
+
+#: data/io.github.moooossee.Moose.metainfo.xml.in
+msgid ""
+"View model reasoning separately and choose the reasoning options supported "
+"by your model."
+msgstr ""
+
+#: data/io.github.moooossee.Moose.metainfo.xml.in
+msgid ""
+"Keep drafts and attachments between sessions, move between chats during a "
+"response and receive a completion notification."
+msgstr ""
+
+#: data/io.github.moooossee.Moose.metainfo.xml.in
+msgid ""
+"Review model download history, retry interrupted downloads and keep chatting "
+"while a model downloads."
+msgstr ""
+
+#: data/io.github.moooossee.Moose.metainfo.xml.in
+msgid ""
+"Read mathematical formulas with local rendering, scrolling for long "
+"expressions and access to the original LaTeX."
+msgstr ""
+
+#: data/io.github.moooossee.Moose.metainfo.xml.in
+msgid ""
+"Use a wider, aligned chat and composer, compact model controls, clearer "
+"attachment previews and helpful starting suggestions."
+msgstr ""
+
+#: data/io.github.moooossee.Moose.metainfo.xml.in
+msgid ""
+"Adds GPU acceleration support for managed Ollama through Vulkan when "
+"available."
+msgstr ""
+
+#: data/io.github.moooossee.Moose.metainfo.xml.in
+msgid ""
+"Adds a managed hardware preference so GPU acceleration can be enabled or "
+"disabled."
+msgstr ""
+
+#: data/io.github.moooossee.Moose.metainfo.xml.in
+msgid ""
+"Shows the active managed Ollama acceleration backend in the provider status."
+msgstr ""
+
+#: data/io.github.moooossee.Moose.metainfo.xml.in
+msgid ""
+"Adds configurable keyboard shortcuts for common chat, model and navigation "
+"actions."
+msgstr ""
+
+#: data/io.github.moooossee.Moose.metainfo.xml.in
+msgid ""
+"Adds a shortcuts page to preferences so shortcuts can be changed, cleared or "
+"reset."
+msgstr ""
+
+#: data/io.github.moooossee.Moose.metainfo.xml.in
+msgid ""
+"Shows when the active conversation is generating a response in the "
+"conversation list."
+msgstr ""
+
+#: data/io.github.moooossee.Moose.metainfo.xml.in
+msgid ""
+"Adds tools to organize conversation history so older chats are easier to "
+"review and manage."
+msgstr ""
+
+#: data/io.github.moooossee.Moose.metainfo.xml.in
+msgid "Adds conversation export support for saving chats outside Moose."
+msgstr ""
+
+#: data/io.github.moooossee.Moose.metainfo.xml.in
+msgid ""
+"Conversations now include recent message history so models can follow the "
+"thread."
+msgstr ""
+
+#: data/io.github.moooossee.Moose.metainfo.xml.in
+msgid ""
+"Adds per-chat settings for system prompts, preferred models, context limits "
+"and Ollama generation options."
+msgstr ""
+
+#: data/io.github.moooossee.Moose.metainfo.xml.in
+msgid ""
+"Introduces built-in chat profiles and reusable custom profiles that stay on "
+"your device."
+msgstr ""
+
+#: data/io.github.moooossee.Moose.metainfo.xml.in
+msgid "Improves the sidebar and provider switcher with a cleaner layout."
+msgstr ""
+
+#: data/io.github.moooossee.Moose.metainfo.xml.in
+msgid "Fixes visual bugs that appeared when using light mode."
+msgstr ""
+
+#: data/io.github.moooossee.Moose.metainfo.xml.in
+msgid ""
+"Moose now renders chat messages with Markdown formatting for clearer model "
+"responses."
+msgstr ""
+
+#: data/io.github.moooossee.Moose.metainfo.xml.in
+msgid ""
+"Code blocks include syntax highlighting, line numbers and a copy action so "
+"generated code is easier to read and reuse."
+msgstr ""
+
+#: data/io.github.moooossee.Moose.metainfo.xml.in
+msgid "Moose now opens just once when launched from Flathub."
+msgstr ""
+
+#: data/io.github.moooossee.Moose.metainfo.xml.in
+msgid ""
+"Adds Moose-managed Ollama so the Flatpak works without a host Ollama "
+"installation."
+msgstr ""
+
+#: data/io.github.moooossee.Moose.metainfo.xml.in
+msgid "Fresh installs can create an instance, download a model and chat. Nice."
+msgstr ""
+
+#: data/io.github.moooossee.Moose.metainfo.xml.in
+msgid ""
+"First version of Moose, with local Ollama chat, saved conversations, "
+"provider settings and basic model management."
+msgstr ""
+
+#: data/io.github.moooossee.Moose.gschema.xml
+msgid "Selected models"
+msgstr ""
+
+#: data/io.github.moooossee.Moose.gschema.xml
+msgid "The last model selected by the user for each provider."
+msgstr ""
+
+#: data/io.github.moooossee.Moose.gschema.xml
+msgid "Keyboard shortcuts"
+msgstr ""
+
+#: data/io.github.moooossee.Moose.gschema.xml
+msgid "User-defined global keyboard shortcuts."
+msgstr ""
+
+#: data/io.github.moooossee.Moose.gschema.xml
+msgid "Managed GPU acceleration"
+msgstr ""
+
+#: data/io.github.moooossee.Moose.gschema.xml
+msgid ""
+"Whether Moose should ask managed Ollama to use Vulkan acceleration when "
+"available."
+msgstr ""
+
+#: src/attachments.rs
+msgid "This UTF-16 file is incomplete"
+msgstr ""
+
+#: src/attachments.rs
+msgid "This document contains invalid UTF-16 text"
+msgstr ""
+
+#: src/attachments.rs
+msgid "Use a UTF-8 or UTF-16 text document"
+msgstr ""
+
+#: src/attachments.rs
+msgid "Documents can contain up to 4 MB of extracted text"
+msgstr ""
+
+#: src/attachments.rs
+msgid "This file is not a supported text document"
+msgstr ""
+
+#: src/attachments.rs
+msgid "This document is empty"
+msgstr ""
+
+#: src/chat/mod.rs
+msgid ""
+"Continue the previous response from where it stopped. Do not repeat what is "
+"already written. Preserve its language, style and continuity."
+msgstr ""
+
+#: src/chat/mod.rs
+msgid "No response generated."
+msgstr ""
+
+#: src/chat/runner.rs
+msgid "This tool is not available."
+msgstr ""
+
+#: src/chat/runner.rs
+msgid "Tools are unavailable for this model. This response does not use tools."
+msgstr ""
+
+#: src/chat/runner.rs
+msgid ""
+"Tool availability could not be checked. This response does not use tools."
+msgstr ""
+
+#: src/chat/runner.rs
+msgid "The model requested a tool that is not enabled for this chat."
+msgstr ""
+
+#: src/chat/runner.rs
+msgid "The response took too long. Try a more specific question."
+msgstr ""
+
+#: src/chat/runner.rs
+msgid ""
+"The context budget for tools was reached. Answering with the available "
+"context."
+msgstr ""
+
+#: src/chat/runner.rs
+msgid "The model reached the tool limit. Try a more specific question."
+msgstr ""
+
+#: src/chat/runner.rs
+msgid "The model requested a tool operation that is too large."
+msgstr ""
+
+#: src/chat/runner.rs
+msgid ""
+"The model did not provide an answer. Try another model or turn off tools in "
+"Chat Settings."
+msgstr ""
+
+#: src/chat/runner.rs
+msgid "The model could not finish this response."
+msgstr ""
+
+#: src/conversations/mod.rs
+msgid "Empty conversation"
+msgstr ""
+
+#: src/conversations/mod.rs src/ui/window/chat_view.rs
+msgid "Generating response..."
+msgstr ""
+
+#: src/conversations/mod.rs src/ui/window/generation.rs
+msgid "Response incomplete"
+msgstr ""
+
+#: src/conversations/mod.rs src/ui/window/chat_view.rs src/ui/window.rs
+msgid "Generation cancelled"
+msgstr ""
+
+#: src/conversations/mod.rs src/ui/window/chat_view.rs
+msgid "Generation failed"
+msgstr ""
+
+#: src/documents/archive.rs
+msgid "The document is too large to package."
+msgstr ""
+
+#: src/documents/archive.rs
+msgid "The document contains too many parts."
+msgstr ""
+
+#: src/documents/archive.rs
+msgid "The generated document exceeds the size limit."
+msgstr ""
+
+#: src/documents/content.rs
+msgid "Use a non-empty document with up to 512 KB of text."
+msgstr ""
+
+#: src/documents/content.rs
+msgid "The document contains unsupported control characters."
+msgstr ""
+
+#: src/documents/content.rs
+msgid "Sheet 1"
+msgstr ""
+
+#: src/documents/content.rs
+msgid "The document contains too many sections."
+msgstr ""
+
+#: src/documents/content.rs
+msgid ""
+"Use tables with up to 100 columns, 20,000 rows, and 32,767 characters per "
+"cell."
+msgstr ""
+
+#: src/documents/content.rs src/documents/mod.rs
+#: src/ui/window/attachments/document.rs src/ui/window/attachments/library.rs
+#: src/ui/window/attachments.rs
+msgid "Document"
+msgstr ""
+
+#: src/documents/mod.rs
+msgid "PDF Document"
+msgstr ""
+
+#: src/documents/mod.rs
+msgid "Word Document"
+msgstr ""
+
+#: src/documents/mod.rs
+msgid "Excel Workbook"
+msgstr ""
+
+#: src/documents/mod.rs
+msgid "PowerPoint Presentation"
+msgstr ""
+
+#: src/documents/mod.rs
+msgid "OpenDocument Text"
+msgstr ""
+
+#: src/documents/mod.rs
+msgid "OpenDocument Spreadsheet"
+msgstr ""
+
+#: src/documents/mod.rs
+msgid "OpenDocument Presentation"
+msgstr ""
+
+#: src/documents/mod.rs
+msgid "Markdown"
+msgstr ""
+
+#: src/documents/mod.rs src/ui/window/conversation_export.rs
+msgid "Plain Text"
+msgstr ""
+
+#: src/documents/mod.rs
+msgid "CSV Table"
+msgstr ""
+
+#: src/documents/mod.rs
+msgid "HTML Document"
+msgstr ""
+
+#: src/documents/mod.rs
+msgid "JSON Data"
+msgstr ""
+
+#: src/documents/mod.rs
+msgid "XML Document"
+msgstr ""
+
+#: src/documents/office.rs
+msgid "Tables can contain up to 100 columns."
+msgstr ""
+
+#: src/documents/office.rs
+msgid "A workbook needs between 1 and 64 tables or worksheets."
+msgstr ""
+
+#: src/documents/office.rs
+msgid "Use tables with 1 to 100 columns and up to 20,000 rows."
+msgstr ""
+
+#: src/documents/office.rs
+msgid "A spreadsheet cell can contain up to 32,767 characters."
+msgstr ""
+
+#: src/documents/office.rs
+msgid "Sheet"
+msgstr ""
+
+#: src/documents/opendocument.rs
+msgid "This OpenDocument format is not supported."
+msgstr ""
+
+#: src/documents/opendocument.rs
+msgid "A spreadsheet needs between 1 and 64 Markdown tables."
+msgstr ""
+
+#: src/documents/opendocument.rs
+#, rust-format
+msgid "Slide {number}"
+msgstr ""
+
+#: src/documents/presentation.rs
+msgid "Use a presentation with between 1 and 300 slides."
+msgstr ""
+
+#: src/documents/presentation.rs
+msgid "Title"
+msgstr ""
+
+#: src/documents/presentation.rs
+msgid "Content"
+msgstr ""
+
+#: src/documents/presentation.rs src/ui/window/attachments/library.rs
+msgid "Page"
+msgstr ""
+
+#: src/documents/render.rs
+msgid "PDF documents must be rendered through the native print service."
+msgstr ""
+
+#: src/documents/render.rs
+msgid ""
+"The response is not valid JSON. Ask the model to correct the JSON and try "
+"again."
+msgstr ""
+
+#: src/documents/render.rs
+msgid "The JSON document could not be formatted."
+msgstr ""
+
+#: src/documents/render.rs
+msgid "The generated file exceeds the 32 MB limit."
+msgstr ""
+
+#: src/documents/render.rs
+msgid ""
+"No table was found. Ask for a spreadsheet with a header row and columns, or "
+"choose a text document format."
+msgstr ""
+
+#: src/documents/render.rs
+msgid ""
+"CSV supports one table. Choose Excel or OpenDocument Spreadsheet to keep "
+"multiple tables."
+msgstr ""
+
+#: src/documents/render.rs
+msgid ""
+"The response contains malformed CSV. Ask the model to return only a CSV "
+"table."
+msgstr ""
+
+#: src/documents/render.rs
+msgid "Use up to 100 columns and 20,000 rows."
+msgstr ""
+
+#: src/documents/render.rs
+msgid ""
+"The CSV response ends inside a quoted field. Continue or retry the response."
+msgstr ""
+
+#: src/documents/render.rs
+msgid "Each CSV row must have the same number of columns."
+msgstr ""
+
+#: src/i18n.rs src/ui/window/document_creation.rs
+msgid "Untitled Document"
+msgstr ""
+
+#: src/i18n.rs
+msgid ""
+"secure credential storage is unavailable; unlock your desktop keyring or "
+"enable the Secret portal and try again"
+msgstr ""
+
+#: src/i18n.rs
+msgid "no API key is saved for this provider; add one in Preferences"
+msgstr ""
+
+#: src/i18n.rs
+msgid "invalid API key; enter the key without spaces or line breaks"
+msgstr ""
+
+#: src/i18n.rs
+msgid ""
+"this connection is blocked by Local Only mode; only Ollama managed by Moose "
+"is allowed"
+msgstr ""
+
+#: src/i18n.rs
+#, rust-format
+msgid "invalid provider response: {detail}"
+msgstr ""
+
+#: src/i18n.rs
+msgid "Response incomplete: the model reached its generation limit."
+msgstr ""
+
+#: src/i18n.rs
+msgid ""
+"The current message, instructions, attachments or tool results leave too "
+"little room for a response. Shorten the message, use fewer attachments, or "
+"increase Context Window in Chat Settings."
+msgstr ""
+
+#: src/i18n.rs
+#, rust-format
+msgid "I/O failed: {detail}"
+msgstr ""
+
+#: src/i18n.rs
+#, rust-format
+msgid "database operation failed: {detail}"
+msgstr ""
+
+#: src/i18n.rs
+#, rust-format
+msgid "HTTP request failed: {detail}"
+msgstr ""
+
+#: src/i18n.rs
+#, rust-format
+msgid "generation stream stalled after {seconds} second"
+msgid_plural "generation stream stalled after {seconds} seconds"
+msgstr[0] ""
+msgstr[1] ""
+
+#: src/i18n.rs
+#, rust-format
+msgid "HTTP request returned status {status}: {message}"
+msgstr ""
+
+#: src/i18n.rs
+#, rust-format
+msgid "JSON parsing failed: {detail}"
+msgstr ""
+
+#: src/i18n.rs
+#, rust-format
+msgid "URL parsing failed: {detail}"
+msgstr ""
+
+#: src/i18n.rs
+#, rust-format
+msgid "stream text decoding failed: {detail}"
+msgstr ""
+
+#: src/i18n.rs
+msgid "missing home directory"
+msgstr ""
+
+#: src/i18n.rs
+msgid "invalid provider URL"
+msgstr ""
+
+#: src/i18n.rs
+msgid "invalid provider name"
+msgstr ""
+
+#: src/i18n.rs
+msgid "invalid model name"
+msgstr ""
+
+#: src/i18n.rs
+msgid "invalid conversation title"
+msgstr ""
+
+#: src/i18n.rs
+msgid "invalid message content"
+msgstr ""
+
+#: src/i18n.rs
+msgid "invalid message role"
+msgstr ""
+
+#: src/i18n.rs
+msgid "invalid message status"
+msgstr ""
+
+#: src/i18n.rs
+msgid "invalid identifier"
+msgstr ""
+
+#: src/i18n.rs
+msgid "invalid generation settings"
+msgstr ""
+
+#: src/i18n.rs
+msgid "invalid profile name"
+msgstr ""
+
+#: src/i18n.rs
+msgid "invalid profile description"
+msgstr ""
+
+#: src/i18n.rs
+msgid "invalid system prompt"
+msgstr ""
+
+#: src/i18n.rs
+msgid "invalid download job status"
+msgstr ""
+
+#: src/i18n.rs
+msgid "invalid download job progress"
+msgstr ""
+
+#: src/i18n.rs
+msgid "conversation was not found"
+msgstr ""
+
+#: src/i18n.rs
+msgid "message was not found"
+msgstr ""
+
+#: src/i18n.rs
+msgid "generation settings were not found"
+msgstr ""
+
+#: src/i18n.rs
+msgid "profile was not found"
+msgstr ""
+
+#: src/i18n.rs
+msgid "a profile with that name already exists"
+msgstr ""
+
+#: src/i18n.rs
+msgid "built-in profiles cannot be deleted"
+msgstr ""
+
+#: src/i18n.rs
+msgid "download job was not found"
+msgstr ""
+
+#: src/i18n.rs
+msgid "no provider is configured"
+msgstr ""
+
+#: src/i18n.rs
+#, rust-format
+msgid "invalid Ollama response: {detail}"
+msgstr ""
+
+#: src/i18n.rs
+#, rust-format
+msgid "Ollama must be updated to download this model: {detail}"
+msgstr ""
+
+#: src/i18n.rs
+#, rust-format
+msgid "managed Ollama update failed: {detail}"
+msgstr ""
+
+#: src/i18n.rs
+msgid "managed Ollama installation was cancelled"
+msgstr ""
+
+#: src/i18n.rs
+#, rust-format
+msgid "managed Ollama does not support architecture {detail}"
+msgstr ""
+
+#: src/i18n.rs
+#, rust-format
+msgid "managed Ollama manifest is invalid: {detail}"
+msgstr ""
+
+#: src/i18n.rs
+#, rust-format
+msgid "managed Ollama download failed: {detail}"
+msgstr ""
+
+#: src/i18n.rs
+#, rust-format
+msgid "managed Ollama checksum mismatch: expected {expected}, got {actual}"
+msgstr ""
+
+#: src/i18n.rs
+#, rust-format
+msgid "managed Ollama extraction failed: {detail}"
+msgstr ""
+
+#: src/i18n.rs
+#, rust-format
+msgid "managed Ollama binary is missing at {detail}"
+msgstr ""
+
+#: src/i18n.rs
+msgid "managed Ollama is unavailable"
+msgstr ""
+
+#: src/i18n.rs
+#, rust-format
+msgid "managed Ollama failed to start: {detail}"
+msgstr ""
+
+#: src/i18n.rs
+msgid "managed Ollama did not become ready in time"
+msgstr ""
+
+#: src/i18n.rs
+msgid ""
+"managed Ollama is already running in another Moose instance; close that "
+"instance and retry"
+msgstr ""
+
+#: src/i18n.rs
+#, rust-format
+msgid ""
+"managed Ollama port is already in use: {detail}; close any previous Moose "
+"instances or choose another managed port"
+msgstr ""
+
+#: src/i18n.rs
+#, rust-format
+msgid "managed Ollama port {detail} is invalid; use 1024-65535 except 11434"
+msgstr ""
+
+#: src/i18n.rs
+#, rust-format
+msgid "numeric conversion failed: {detail}"
+msgstr ""
+
+#: src/i18n.rs
+msgid "General"
+msgstr ""
+
+#: src/i18n.rs
+msgid "Code"
+msgstr ""
+
+#: src/i18n.rs
+msgid "Writing"
+msgstr ""
+
+#: src/i18n.rs src/ui/window/model_manager/discovery.rs
+msgid "Translation"
+msgstr ""
+
+#: src/i18n.rs
+msgid "Everyday questions, explanations and practical help"
+msgstr ""
+
+#: src/i18n.rs
+msgid "Programming, debugging and technical explanations"
+msgstr ""
+
+#: src/i18n.rs
+msgid "Drafting, rewriting, ideas and tone"
+msgstr ""
+
+#: src/i18n.rs
+msgid "Translation and language adaptation"
+msgstr ""
+
+#: src/i18n.rs
+msgid "Complex problems, analysis and decisions"
+msgstr ""
+
+#: src/i18n.rs
+msgid ""
+"Be clear, helpful and direct. Give practical answers and explain important "
+"details without unnecessary complexity."
+msgstr ""
+
+#: src/i18n.rs
+msgid ""
+"Respond with technical precision. Ask for missing context when it affects "
+"the solution, prioritize verifiable approaches and clearly identify "
+"assumptions."
+msgstr ""
+
+#: src/i18n.rs
+msgid ""
+"Help write with clarity, purpose and a consistent style. Preserve the "
+"intended voice while improving structure and wording."
+msgstr ""
+
+#: src/i18n.rs
+msgid ""
+"Translate while preserving meaning, tone, formatting and relevant cultural "
+"context. Flag genuine ambiguities instead of silently guessing."
+msgstr ""
+
+#: src/i18n.rs
+msgid ""
+"Analyze carefully, break complex problems into useful parts and distinguish "
+"conclusions from assumptions and uncertainty."
+msgstr ""
+
+#: src/i18n.rs src/ui/window/shortcuts.rs src/ui/window/sidebar.rs
+msgid "New Conversation"
+msgstr ""
+
+#: src/i18n.rs src/ui/window/composer_commands.rs
+msgid "On"
+msgstr ""
+
+#: src/i18n.rs
+msgid "Off"
+msgstr ""
+
+#: src/i18n.rs src/ui/window/custom_provider.rs
+msgid "None"
+msgstr ""
+
+#: src/i18n.rs
+msgid "Minimal"
+msgstr ""
+
+#: src/i18n.rs
+msgid "Low"
+msgstr ""
+
+#: src/i18n.rs
+msgid "Medium"
+msgstr ""
+
+#: src/i18n.rs
+msgid "High"
+msgstr ""
+
+#: src/i18n.rs
+msgid "Extra High"
+msgstr ""
+
+#: src/logging.rs
+#, rust-format
+msgid "Could not write Moose log: {error}"
+msgstr ""
+
+#: src/logging.rs
+msgid "[Sensitive log line omitted]"
+msgstr ""
+
+#: src/logging.rs
+msgid "[Invalid URL omitted]"
+msgstr ""
+
+#: src/models/reference.rs
+msgid "Enter a model name or link."
+msgstr ""
+
+#: src/models/reference.rs
+msgid "Paste an ollama run or ollama pull command."
+msgstr ""
+
+#: src/models/reference.rs
+msgid "The command needs a model name."
+msgstr ""
+
+#: src/models/reference.rs
+msgid "Enter one model, without extra command arguments."
+msgstr ""
+
+#: src/models/reference.rs
+msgid "Paste the link to a specific model repository."
+msgstr ""
+
+#: src/models/reference.rs
+msgid "The model reference is too long."
+msgstr ""
+
+#: src/models/reference.rs
+msgid "Enter a complete model name or repository link."
+msgstr ""
+
+#: src/models/reference.rs
+msgid "Enter a model name, with an optional tag after :."
+msgstr ""
+
+#: src/models/reference.rs
+msgid "Check the model name or paste a repository link."
+msgstr ""
+
+#: src/models/reference.rs
+msgid "Enter a quantization such as Q4_K_M, or a GGUF filename."
+msgstr ""
+
+#: src/models/reference.rs
+msgid "Check the model link."
+msgstr ""
+
+#: src/models/reference.rs
+msgid "Use an Ollama or Hugging Face repository link."
+msgstr ""
+
+#: src/models/reference.rs
+msgid "Include both the Hugging Face owner and repository name."
+msgstr ""
+
+#: src/models/reference.rs
+msgid "Paste the repository link, without a branch or file path."
+msgstr ""
+
+#: src/models/reference.rs
+msgid "Check the Hugging Face owner and repository name."
+msgstr ""
+
+#: src/models/reference.rs
+msgid "Enter a quantization such as Q4_K_M, or a GGUF filename after :."
+msgstr ""
+
+#: src/models/reference.rs
+msgid "Paste the link to a specific Ollama model."
+msgstr ""
+
+#: src/ollama/manager/download.rs
+msgid "The download has no valid resume position."
+msgstr ""
+
+#: src/ollama/manager/download.rs
+msgid "The download has an invalid byte range."
+msgstr ""
+
+#: src/ollama/manager/download.rs
+msgid ""
+"The server returned a different package while resuming. Retry the update."
+msgstr ""
+
+#: src/ollama/manager/download.rs
+msgid "The package size does not match the release metadata."
+msgstr ""
+
+#: src/ollama/manager/download.rs
+#, rust-format
+msgid "HTTP {arg1} while downloading Ollama"
+msgstr ""
+
+#: src/ollama/manager/download.rs
+msgid "The package is larger than expected."
+msgstr ""
+
+#: src/ollama/manager/download.rs
+msgid "The package download is incomplete. Retry to resume it."
+msgstr ""
+
+#: src/ollama/manager/transaction.rs
+msgid "An earlier update needs recovery before installing."
+msgstr ""
+
+#: src/ollama/manager/transaction.rs src/ollama/update.rs
+#, rust-format
+msgid "{error}; recovery failed: {recovery}"
+msgstr ""
+
+#: src/ollama/manager/transaction.rs
+msgid "Another Ollama installation or update is already in progress."
+msgstr ""
+
+#: src/ollama/manager/transaction.rs
+msgid "The completed installation is missing. Its backup has been retained."
+msgstr ""
+
+#: src/ollama/manager/transaction.rs
+msgid ""
+"The previous installation and its backup are missing. Recovery cannot "
+"continue."
+msgstr ""
+
+#: src/ollama/manager/transaction.rs
+msgid "Completed update cleanup"
+msgstr ""
+
+#: src/ollama/manager/transaction.rs
+msgid "Restored the previous installation"
+msgstr ""
+
+#: src/ollama/manager/transaction.rs
+msgid "The installation path is invalid."
+msgstr ""
+
+#: src/ollama/manager/transaction.rs
+msgid ""
+"There is not enough free disk space to prepare Ollama. Free some space and "
+"retry."
+msgstr ""
+
+#: src/ollama/manager.rs
+#, rust-format
+msgid "could not parse JSON: {error}"
+msgstr ""
+
+#: src/ollama/manager.rs
+msgid "version must be a fixed release tag beginning with v"
+msgstr ""
+
+#: src/ollama/manager.rs
+msgid "no supported packages"
+msgstr ""
+
+#: src/ollama/manager.rs
+#, rust-format
+msgid "invalid asset URL: {error}"
+msgstr ""
+
+#: src/ollama/manager.rs
+#, rust-format
+msgid "asset URL for {arg1} must point to the official Ollama GitHub release"
+msgstr ""
+
+#: src/ollama/manager.rs
+#, rust-format
+msgid "asset checksum for {arg1} must be a SHA-256 hex digest"
+msgstr ""
+
+#: src/ollama/manager.rs
+#, rust-format
+msgid "asset size for {arg1} must be greater than zero"
+msgstr ""
+
+#: src/ollama/manager.rs
+#, rust-format
+msgid "unsupported manifest architecture {value}"
+msgstr ""
+
+#: src/ollama/manager.rs
+#, rust-format
+msgid "could not open archive {arg1}: {error}"
+msgstr ""
+
+#: src/ollama/manager.rs
+#, rust-format
+msgid "could not decode zstd archive: {error}"
+msgstr ""
+
+#: src/ollama/manager.rs
+#, rust-format
+msgid "could not create extraction directory {arg1}: {error}"
+msgstr ""
+
+#: src/ollama/manager.rs
+#, rust-format
+msgid "could not resolve extraction directory {arg1}: {error}"
+msgstr ""
+
+#: src/ollama/manager.rs
+#, rust-format
+msgid "could not read archive entries: {error}"
+msgstr ""
+
+#: src/ollama/manager.rs
+#, rust-format
+msgid "could not read archive entry: {error}"
+msgstr ""
+
+#: src/ollama/manager.rs
+#, rust-format
+msgid "invalid archive path: {error}"
+msgstr ""
+
+#: src/ollama/manager.rs
+#, rust-format
+msgid "duplicate archive entry {arg1}"
+msgstr ""
+
+#: src/ollama/manager.rs
+#, rust-format
+msgid "unsupported archive entry type {arg1_formatted} for {arg2}"
+msgstr ""
+
+#: src/ollama/manager.rs
+msgid "archive entry has no parent directory"
+msgstr ""
+
+#: src/ollama/manager.rs
+#, rust-format
+msgid "could not create {arg1}: {error}"
+msgstr ""
+
+#: src/ollama/manager.rs
+#, rust-format
+msgid "invalid symlink target: {error}"
+msgstr ""
+
+#: src/ollama/manager.rs
+msgid "symlink entry is missing a target"
+msgstr ""
+
+#: src/ollama/manager.rs
+msgid "symlink entry has no parent directory"
+msgstr ""
+
+#: src/ollama/manager.rs
+#, rust-format
+msgid "could not create symlink {arg1} -> {arg2}: {error}"
+msgstr ""
+
+#: src/ollama/manager.rs
+msgid "symlink extraction requires Unix"
+msgstr ""
+
+#: src/ollama/manager.rs
+#, rust-format
+msgid "invalid hardlink target: {error}"
+msgstr ""
+
+#: src/ollama/manager.rs
+msgid "hardlink entry is missing a target"
+msgstr ""
+
+#: src/ollama/manager.rs
+msgid "hardlink entry has no parent directory"
+msgstr ""
+
+#: src/ollama/manager.rs
+#, rust-format
+msgid "could not create hardlink {arg1} -> {arg2}: {error}"
+msgstr ""
+
+#: src/ollama/manager.rs
+#, rust-format
+msgid "archive path {arg1} is not a safe relative path"
+msgstr ""
+
+#: src/ollama/manager.rs
+msgid "archive path is empty"
+msgstr ""
+
+#: src/ollama/manager.rs
+#, rust-format
+msgid "{arg1} is not a safe directory"
+msgstr ""
+
+#: src/ollama/manager.rs
+#, rust-format
+msgid "could not create directory {arg1}: {error}"
+msgstr ""
+
+#: src/ollama/manager.rs
+#, rust-format
+msgid "could not inspect directory {arg1}: {error}"
+msgstr ""
+
+#: src/ollama/manager.rs
+#, rust-format
+msgid "{arg1} already exists during extraction"
+msgstr ""
+
+#: src/ollama/manager.rs
+#, rust-format
+msgid "could not inspect {arg1}: {error}"
+msgstr ""
+
+#: src/ollama/manager.rs
+#, rust-format
+msgid "could not inspect hardlink target {arg1}: {error}"
+msgstr ""
+
+#: src/ollama/manager.rs
+#, rust-format
+msgid "hardlink target {arg1} is not a regular file"
+msgstr ""
+
+#: src/ollama/mod.rs
+msgid "The model download ended before completion"
+msgstr ""
+
+#: src/ollama/mod.rs
+msgid ""
+"Ollama did not respect the token counting limit. Update Ollama and try again."
+msgstr ""
+
+#: src/ollama/mod.rs
+msgid ""
+"Ollama did not report the input token count. Update Ollama and try again."
+msgstr ""
+
+#: src/ollama/mod.rs
+msgid "The response ended before completion"
+msgstr ""
+
+#: src/ollama/mod.rs
+msgid ""
+"Model capabilities are unavailable. Update Ollama to check model support."
+msgstr ""
+
+#: src/ollama/mod.rs
+msgid "Ollama returned an invalid model download error"
+msgstr ""
+
+#: src/ollama/mod.rs
+msgid "missing pull status"
+msgstr ""
+
+#: src/ollama/releases.rs
+msgid "The update cache is unavailable. Try checking again."
+msgstr ""
+
+#: src/ollama/releases.rs
+msgid ""
+"GitHub temporarily limited update checks. Try again later. Your installed "
+"Ollama is still available."
+msgstr ""
+
+#: src/ollama/releases.rs
+#, rust-format
+msgid "Could not check for updates: HTTP {arg1}"
+msgstr ""
+
+#: src/ollama/releases.rs
+msgid "The release response is too large."
+msgstr ""
+
+#: src/ollama/releases.rs
+msgid "The release is not a supported stable Ollama version."
+msgstr ""
+
+#: src/ollama/releases.rs
+msgid "The release contains duplicate packages."
+msgstr ""
+
+#: src/ollama/releases.rs
+#, rust-format
+msgid "The {name} package has no verifiable SHA-256 checksum."
+msgstr ""
+
+#: src/ollama/service.rs
+msgid "Unknown"
+msgstr ""
+
+#: src/ollama/service.rs
+msgid "CPU"
+msgstr ""
+
+#: src/ollama/service.rs
+msgid "Vulkan"
+msgstr ""
+
+#: src/ollama/service.rs
+msgid "ROCm"
+msgstr ""
+
+#: src/ollama/service.rs
+msgid "CUDA"
+msgstr ""
+
+#: src/ollama/service.rs
+#, rust-format
+msgid "Starting managed Ollama at {arg1}"
+msgstr ""
+
+#: src/ollama/service.rs
+msgid "Moose is shutting down"
+msgstr ""
+
+#: src/ollama/service.rs
+#, rust-format
+msgid "process exited with {status}"
+msgstr ""
+
+#: src/ollama/service.rs
+#, rust-format
+msgid "could not check {host}: {error}"
+msgstr ""
+
+#: src/ollama/service.rs
+msgid "process exited before Ollama became ready"
+msgstr ""
+
+#: src/ollama/service.rs
+#, rust-format
+msgid "could not lock the managed Ollama installation: {error}"
+msgstr ""
+
+#: src/ollama/update.rs
+#, rust-format
+msgid "Preparing {version}"
+msgstr ""
+
+#: src/ollama/update.rs
+#, rust-format
+msgid "{error}; recovery failed: {recovery}. Restart Moose to retry recovery."
+msgstr ""
+
+#: src/ollama/update.rs
+#, rust-format
+msgid ""
+"{error}. The previous installation was restored but could not restart: "
+"{restart}"
+msgstr ""
+
+#: src/ollama/update.rs
+#, rust-format
+msgid ""
+"{error}. The previous installation was restored but is unavailable: {restart}"
+msgstr ""
+
+#: src/ollama/update.rs
+#, rust-format
+msgid ""
+"{error}. The installation was rolled back; your models and chats were "
+"preserved."
+msgstr ""
+
+#: src/ollama/update.rs
+#, rust-format
+msgid "Verified Ollama {version}"
+msgstr ""
+
+#: src/ollama/update.rs
+#, rust-format
+msgid ""
+"Ollama {installed} is already installed. Installing {target} would not "
+"upgrade it. Use Repair Installation to reinstall the same version."
+msgstr ""
+
+#: src/ollama/update.rs
+#, rust-format
+msgid "Expected Ollama {expected}, but the server reported {actual}."
+msgstr ""
+
+#: src/providers/client.rs
+#, rust-format
+msgid "Model discovery failed: {error}. Using your saved model IDs."
+msgstr ""
+
+#: src/providers/client.rs
+msgid "The model list exceeded its pagination limit."
+msgstr ""
+
+#: src/providers/client.rs
+msgid "Tools are not supported by this provider yet."
+msgstr ""
+
+#: src/providers/client.rs
+msgid "This model does not support images. Select a model with image support."
+msgstr ""
+
+#: src/providers/client.rs
+msgid "The model returned no text. Select a model that supports chat."
+msgstr ""
+
+#: src/providers/client.rs
+msgid "The connection ended before the answer was complete."
+msgstr ""
+
+#: src/providers/client.rs
+msgid "The provider returned invalid model capabilities."
+msgstr ""
+
+#: src/providers/client.rs
+msgid "Cloud models do not need to be downloaded."
+msgstr ""
+
+#: src/providers/client.rs
+msgid "Cloud models cannot be deleted from Moose."
+msgstr ""
+
+#: src/providers/client.rs
+msgid "Invalid API key header name."
+msgstr ""
+
+#: src/providers/client.rs
+msgid "The secure connection failed. Check your network and try again."
+msgstr ""
+
+#: src/providers/client.rs
+msgid ""
+"Authentication failed. Check your API key and model access in Preferences."
+msgstr ""
+
+#: src/providers/client.rs
+msgid ""
+"The provider's rate or spending limit was reached. Wait before retrying or "
+"check your account."
+msgstr ""
+
+#: src/providers/client.rs
+msgid ""
+"The provider rejected the model or request options. Check the selected model "
+"and attachments."
+msgstr ""
+
+#: src/providers/client.rs
+msgid "This model or API endpoint is unavailable. Refresh the model list."
+msgstr ""
+
+#: src/providers/client.rs
+msgid ""
+"The provider tried to redirect the request. Redirects are blocked to protect "
+"your API key."
+msgstr ""
+
+#: src/providers/client.rs
+msgid "The provider is temporarily unavailable. Try again later."
+msgstr ""
+
+#: src/providers/client.rs
+msgid "The provider could not process this request."
+msgstr ""
+
+#: src/providers/client.rs
+msgid "The provider response is too large."
+msgstr ""
+
+#: src/providers/client.rs
+msgid "The provider returned invalid JSON."
+msgstr ""
+
+#: src/providers/client.rs
+msgid ""
+"The provider rejected the request. Check your API token, account ID and "
+"permissions."
+msgstr ""
+
+#: src/providers/client.rs
+msgid "The provider returned an invalid model list."
+msgstr ""
+
+#: src/providers/credentials.rs
+#, rust-format
+msgid "Moose · {arg1} API key"
+msgstr ""
+
+#: src/providers/credentials.rs
+msgid "Moose · Brave Search API key"
+msgstr ""
+
+#: src/providers/custom.rs
+msgid "OpenAI Chat Completions"
+msgstr ""
+
+#: src/providers/custom.rs
+msgid "OpenAI Responses"
+msgstr ""
+
+#: src/providers/custom.rs
+msgid "Anthropic Messages"
+msgstr ""
+
+#: src/providers/custom.rs
+msgid "Google Gemini"
+msgstr ""
+
+#: src/providers/custom.rs
+msgid "Enter a valid API key header name."
+msgstr ""
+
+#: src/providers/custom.rs
+msgid "This header cannot be used for an API key."
+msgstr ""
+
+#: src/providers/custom.rs
+msgid "A provider can have up to 1,000 manual models."
+msgstr ""
+
+#: src/providers/custom.rs
+msgid "Enter a model ID for each manual model, or remove empty rows."
+msgstr ""
+
+#: src/providers/custom.rs
+msgid "Each manual model must have a unique ID."
+msgstr ""
+
+#: src/providers/custom.rs
+msgid ""
+"Gemini model IDs can contain letters, numbers, hyphens, underscores and "
+"periods."
+msgstr ""
+
+#: src/providers/custom.rs
+msgid "Add a model ID or enable automatic model discovery."
+msgstr ""
+
+#: src/providers/mod.rs
+#, rust-format
+msgid "unknown provider kind {value}"
+msgstr ""
+
+#: src/providers/mod.rs
+msgid "Custom Provider"
+msgstr ""
+
+#: src/providers/mod.rs src/ui/window/managed_runtime.rs
+#: src/ui/window/provider_controls.rs
+msgid "Managed Ollama"
+msgstr ""
+
+#: src/providers/mod.rs
+msgid "Local Ollama"
+msgstr ""
+
+#: src/providers/mod.rs
+msgid "Custom provider settings are missing."
+msgstr ""
+
+#: src/providers/mod.rs
+msgid "Custom settings require a custom provider."
+msgstr ""
+
+#: src/providers/mod.rs
+msgid "Local · Managed by Moose"
+msgstr ""
+
+#: src/providers/mod.rs
+msgid "Cloud"
+msgstr ""
+
+#: src/providers/mod.rs
+msgid "External Ollama · Execution location unverified"
+msgstr ""
+
+#: src/providers/mod.rs
+msgid "Remote providers require HTTPS. HTTP is only allowed on this device."
+msgstr ""
+
+#: src/providers/stream.rs
+msgid "The provider returned an invalid stream."
+msgstr ""
+
+#: src/providers/stream.rs
+msgid ""
+"The provider stopped before completing the answer. Try a shorter context or "
+"another model."
+msgstr ""
+
+#: src/providers/stream.rs
+msgid "The provider declined this request."
+msgstr ""
+
+#: src/providers/stream.rs
+msgid "The provider reported an error while generating the answer."
+msgstr ""
+
+#: src/providers/wire.rs
+msgid "This image format is not supported. Use PNG, JPEG, WebP or GIF."
+msgstr ""
+
+#: src/providers/wire.rs
+msgid "Tool messages are not supported by this chat."
+msgstr ""
+
+#: src/providers/wire.rs
+msgid "Images are only supported in user messages for this provider."
+msgstr ""
+
+#: src/storage/attachment_repository.rs src/storage/document_repository.rs
+msgid "This document format is not supported."
+msgstr ""
+
+#: src/storage/attachment_repository.rs
+msgid "Attach up to 8 files per message"
+msgstr ""
+
+#: src/storage/document_repository.rs
+msgid "The document content is too large."
+msgstr ""
+
+#: src/storage/document_repository.rs
+msgid "The generated document is empty or exceeds the size limit."
+msgstr ""
+
+#: src/storage/migrations.rs
+msgid "Database migration would break existing references"
+msgstr ""
+
+#: src/storage/privacy.rs
+msgid ""
+"The provider's destination changed or is unavailable. Reopen Privacy "
+"settings to review it."
+msgstr ""
+
+#: src/storage/privacy.rs
+msgid "The chat or provider changed. Send the message again to review it."
+msgstr ""
+
+#: src/storage/provider_repository.rs
+msgid "Only custom providers can be configured here."
+msgstr ""
+
+#: src/storage/provider_repository.rs src/ui/window/cloud_setup.rs
+msgid "The provider changed. Reopen its settings and try again."
+msgstr ""
+
+#: src/storage/web_settings_repository.rs
+msgid "Web settings changed. Review Web settings and send your message again."
+msgstr ""
+
+#: src/storage/web_settings_repository.rs
+msgid "Web was turned off in this chat. Enable it and send your message again."
+msgstr ""
+
+#: src/tools/calculator.rs
+msgid "Provide an object with an expression string."
+msgstr ""
+
+#: src/tools/calculator.rs
+msgid "Provide only the expression argument."
+msgstr ""
+
+#: src/tools/calculator.rs
+msgid "Provide an expression string."
+msgstr ""
+
+#: src/tools/calculator.rs
+msgid "Use an expression between 1 and 512 bytes long."
+msgstr ""
+
+#: src/tools/calculator.rs
+msgid "Unexpected text. Use explicit operators and supported functions only."
+msgstr ""
+
+#: src/tools/calculator.rs
+msgid "The result could not be formatted."
+msgstr ""
+
+#: src/tools/calculator.rs
+msgid "This expression is too complex. Split it into smaller calculations."
+msgstr ""
+
+#: src/tools/calculator.rs
+msgid "A closing parenthesis is missing."
+msgstr ""
+
+#: src/tools/calculator.rs
+msgid "Division by zero is not defined."
+msgstr ""
+
+#: src/tools/calculator.rs
+msgid "The result is outside the supported finite real numbers."
+msgstr ""
+
+#: src/tools/calculator.rs
+msgid "Expected a number, a parenthesis, or a supported function."
+msgstr ""
+
+#: src/tools/calculator.rs
+msgid "Scientific notation needs an exponent, such as 1e3."
+msgstr ""
+
+#: src/tools/calculator.rs
+msgid "Use a finite number with a decimal point and no digit separators."
+msgstr ""
+
+#: src/tools/calculator.rs
+msgid "Supported functions are sqrt, abs, round, floor, and ceil."
+msgstr ""
+
+#: src/tools/calculator.rs
+msgid "Function arguments need parentheses."
+msgstr ""
+
+#: src/tools/calculator.rs
+msgid "The square root of a negative number is not real."
+msgstr ""
+
+#: src/tools/mod.rs src/ui/window/chat_settings.rs
+#: src/ui/window/composer_commands.rs
+msgid "Calculator"
+msgstr ""
+
+#: src/tools/mod.rs
+msgid "Web Search"
+msgstr ""
+
+#: src/tools/mod.rs
+msgid "Read Page"
+msgstr ""
+
+#: src/tools/mod.rs
+msgid "Unavailable tool"
+msgstr ""
+
+#: src/tools/mod.rs
+msgid "Stopped"
+msgstr ""
+
+#: src/tools/mod.rs
+#, rust-format
+msgid "{count} source found"
+msgid_plural "{count} sources found"
+msgstr[0] ""
+msgstr[1] ""
+
+#: src/tools/mod.rs src/ui/window/chat_view.rs
+msgid "Page read"
+msgstr ""
+
+#: src/tools/mod.rs
+#, rust-format
+msgid ""
+"{input}\n"
+"Calculating…"
+msgstr ""
+
+#: src/tools/mod.rs
+#, rust-format
+msgid ""
+"{input}\n"
+"Calculation stopped"
+msgstr ""
+
+#: src/tools/mod.rs
+msgid "Calculating…"
+msgstr ""
+
+#: src/tools/mod.rs
+msgid "Searching the web…"
+msgstr ""
+
+#: src/tools/mod.rs
+msgid "Reading page…"
+msgstr ""
+
+#: src/tools/mod.rs
+msgid "Using tool…"
+msgstr ""
+
+#: src/tools/mod.rs
+msgid "No usable results found. Try a more specific query."
+msgstr ""
+
+#: src/tools/mod.rs
+msgid "Web access is not enabled for this chat."
+msgstr ""
+
+#: src/tools/mod.rs
+msgid "This tool is not available. Use only the provided tools."
+msgstr ""
+
+#: src/tools/mod.rs
+msgid "This tool is not enabled for this chat. Use only the provided tools."
+msgstr ""
+
+#: src/tools/web/duckduckgo.rs
+msgid ""
+"DuckDuckGo is temporarily limiting searches or requires verification. Try "
+"again later or choose another search provider in Preferences → Web."
+msgstr ""
+
+#: src/tools/web/duckduckgo.rs
+msgid ""
+"DuckDuckGo returned an unreadable search page. Try another search provider "
+"in Preferences → Web."
+msgstr ""
+
+#: src/tools/web/duckduckgo.rs
+msgid "DuckDuckGo could not be reached. Try again later."
+msgstr ""
+
+#: src/tools/web/duckduckgo.rs
+msgid ""
+"DuckDuckGo redirected the search. Try a query without !bang shortcuts or "
+"choose another search provider in Preferences → Web."
+msgstr ""
+
+#: src/tools/web/duckduckgo.rs
+#, rust-format
+msgid ""
+"DuckDuckGo returned HTTP {arg1}. Try again later or choose another search "
+"provider in Preferences → Web."
+msgstr ""
+
+#: src/tools/web/duckduckgo.rs
+msgid "DuckDuckGo result extraction was interrupted."
+msgstr ""
+
+#: src/tools/web/duckduckgo.rs
+msgid "DuckDuckGo result extraction is unavailable."
+msgstr ""
+
+#: src/tools/web/extract.rs
+msgid "This page uses an unsupported text encoding. Try another source."
+msgstr ""
+
+#: src/tools/web/extract.rs
+msgid "This page does not contain readable text. Try another source."
+msgstr ""
+
+#: src/tools/web/extract.rs
+msgid "Page extraction is unavailable."
+msgstr ""
+
+#: src/tools/web/extract.rs
+msgid ""
+"This page has too little readable text. It may require JavaScript or sign-"
+"in. Try another source."
+msgstr ""
+
+#: src/tools/web/mod.rs
+#, rust-format
+msgid ""
+"Use a public HTTPS SearXNG search URL without query parameters, such as "
+"{example_url}."
+msgstr ""
+
+#: src/tools/web/mod.rs
+msgid ""
+"Read public links. Choose a search provider in Preferences → Web to search "
+"the web."
+msgstr ""
+
+#: src/tools/web/mod.rs
+msgid "Search with Brave Search and read public links."
+msgstr ""
+
+#: src/tools/web/mod.rs
+#, rust-format
+msgid "Search with SearXNG at {arg1} and read public links."
+msgstr ""
+
+#: src/tools/web/mod.rs
+msgid "Search with DuckDuckGo and read public links."
+msgstr ""
+
+#: src/tools/web/mod.rs
+msgid ""
+"The web context limit has been reached. Answer using the sources already "
+"available."
+msgstr ""
+
+#: src/tools/web/mod.rs
+msgid ""
+"The limit of three searches per response has been reached. Answer using the "
+"available results."
+msgstr ""
+
+#: src/tools/web/mod.rs
+msgid ""
+"The limit of four pages per response has been reached. Answer using the "
+"available results."
+msgstr ""
+
+#: src/tools/web/mod.rs
+msgid "Page extraction was interrupted."
+msgstr ""
+
+#: src/tools/web/mod.rs
+msgid "Web page"
+msgstr ""
+
+#: src/tools/web/mod.rs
+msgid "This web tool is not available."
+msgstr ""
+
+#: src/tools/web/mod.rs
+msgid "The web request timed out. Try another source."
+msgstr ""
+
+#: src/tools/web/mod.rs
+msgid "The source could not be prepared."
+msgstr ""
+
+#: src/tools/web/mod.rs
+msgid ""
+"Choose a search provider in Preferences → Web to search the web. Public "
+"links can still be read."
+msgstr ""
+
+#: src/tools/web/mod.rs
+msgid "Search is unavailable."
+msgstr ""
+
+#: src/tools/web/mod.rs
+msgid ""
+"The Brave Search key is missing or unavailable. Manage it in Preferences → "
+"Web."
+msgstr ""
+
+#: src/tools/web/mod.rs
+msgid "The Brave Search key is invalid. Replace it in Preferences → Web."
+msgstr ""
+
+#: src/tools/web/mod.rs
+msgid "The search provider could not be reached."
+msgstr ""
+
+#: src/tools/web/mod.rs
+msgid ""
+"Brave Search rejected the API key. Check the key and its Search API "
+"subscription in Preferences → Web."
+msgstr ""
+
+#: src/tools/web/mod.rs
+msgid ""
+"This SearXNG instance does not allow JSON searches. Choose an instance with "
+"its JSON API enabled."
+msgstr ""
+
+#: src/tools/web/mod.rs
+msgid "The search provider's rate or usage limit was reached. Try again later."
+msgstr ""
+
+#: src/tools/web/mod.rs
+#, rust-format
+msgid ""
+"Search returned HTTP {status}. Check Preferences → Web or try again later."
+msgstr ""
+
+#: src/tools/web/mod.rs
+msgid ""
+"The search provider returned an invalid response. SearXNG must have its JSON "
+"API enabled."
+msgstr ""
+
+#: src/tools/web/mod.rs
+msgid "The search provider returned an unexpected response."
+msgstr ""
+
+#: src/tools/web/mod.rs
+msgid "Tool arguments must be an object."
+msgstr ""
+
+#: src/tools/web/mod.rs
+#, rust-format
+msgid "Provide only the {name} argument."
+msgstr ""
+
+#: src/tools/web/mod.rs
+#, rust-format
+msgid "Provide a {name} string."
+msgstr ""
+
+#: src/tools/web/mod.rs
+#, rust-format
+msgid "The {name} must contain 1–{limit} bytes without control characters."
+msgstr ""
+
+#: src/tools/web/network.rs
+msgid ""
+"Web access is blocked by Local Only. Turn it off in Preferences → Privacy to "
+"use the web."
+msgstr ""
+
+#: src/tools/web/network.rs
+msgid "Enter a complete public HTTP or HTTPS URL."
+msgstr ""
+
+#: src/tools/web/network.rs
+msgid ""
+"Only public HTTP and HTTPS pages without credentials on ports 80 or 443 can "
+"be read."
+msgstr ""
+
+#: src/tools/web/network.rs
+msgid "Local, private and reserved network addresses cannot be read."
+msgstr ""
+
+#: src/tools/web/network.rs
+msgid "The URL has no host."
+msgstr ""
+
+#: src/tools/web/network.rs
+msgid "The URL has no port."
+msgstr ""
+
+#: src/tools/web/network.rs
+msgid "The website address could not be resolved."
+msgstr ""
+
+#: src/tools/web/network.rs
+msgid "Local, private and reserved network addresses cannot be accessed."
+msgstr ""
+
+#: src/tools/web/network.rs
+msgid "The web connection could not be prepared."
+msgstr ""
+
+#: src/tools/web/network.rs
+msgid "The page exceeds the 1 MB download limit."
+msgstr ""
+
+#: src/tools/web/network.rs
+msgid "The website stopped responding."
+msgstr ""
+
+#: src/tools/web/network.rs
+msgid "The page could not be reached. Try another source."
+msgstr ""
+
+#: src/tools/web/network.rs
+msgid "The website redirected too many times."
+msgstr ""
+
+#: src/tools/web/network.rs
+msgid "The website returned an invalid redirect."
+msgstr ""
+
+#: src/tools/web/network.rs
+msgid "The website redirected to an insecure connection."
+msgstr ""
+
+#: src/tools/web/network.rs
+#, rust-format
+msgid "The website returned HTTP {arg1}. Try another source."
+msgstr ""
+
+#: src/tools/web/network.rs
+msgid ""
+"This link is not an HTML or plain-text page. Downloads, images and PDFs are "
+"not supported by Web."
+msgstr ""
+
+#: src/tools/web/network.rs
+msgid "The page could not be read."
+msgstr ""
+
+#: src/ui/window/attachments/clipboard.rs
+msgid "No image could be read from the clipboard"
+msgstr ""
+
+#: src/ui/window/attachments/clipboard.rs
+msgid "Copy an image or screenshot first"
+msgstr ""
+
+#: src/ui/window/attachments/clipboard.rs src/ui/window/attachments/import.rs
+#: src/ui/window/attachments.rs
+msgid "Choose a file smaller than 25 MB"
+msgstr ""
+
+#: src/ui/window/attachments/composer.rs
+#, rust-format
+msgid ""
+"Preview {arg1}\n"
+"{size}"
+msgstr ""
+
+#: src/ui/window/attachments/document.rs src/ui/window/attachments.rs
+#, rust-format
+msgid "{kind} · {count} page · {size}"
+msgid_plural "{kind} · {count} pages · {size}"
+msgstr[0] ""
+msgstr[1] ""
+
+#: src/ui/window/attachments/document.rs src/ui/window/attachments.rs
+#, rust-format
+msgid ""
+"Preview {arg1}\n"
+"{description}"
+msgstr ""
+
+#: src/ui/window/attachments/import.rs
+msgid "This file is empty"
+msgstr ""
+
+#: src/ui/window/attachments/import.rs
+msgid "This file is not a supported PNG, JPEG or WebP image"
+msgstr ""
+
+#: src/ui/window/attachments/import.rs
+msgid "This file is not a valid PDF"
+msgstr ""
+
+#: src/ui/window/attachments/import.rs
+msgid "This image could not be decoded. Use PNG, JPEG or WebP."
+msgstr ""
+
+#: src/ui/window/attachments/import.rs
+msgid "This image is incomplete or damaged"
+msgstr ""
+
+#: src/ui/window/attachments/import.rs
+msgid "Choose an image with fewer than 40 million pixels"
+msgstr ""
+
+#: src/ui/window/attachments/import.rs
+msgid "This image could not be opened"
+msgstr ""
+
+#: src/ui/window/attachments/import.rs
+msgid "This image could not be prepared"
+msgstr ""
+
+#: src/ui/window/attachments/import.rs
+msgid "This image is too large after processing"
+msgstr ""
+
+#: src/ui/window/attachments/import.rs
+msgid ""
+"PDF support requires Poppler (pdftotext). Reinstall the Flatpak or install "
+"poppler-utils for a native build."
+msgstr ""
+
+#: src/ui/window/attachments/import.rs
+msgid "The PDF reader did not return any text"
+msgstr ""
+
+#: src/ui/window/attachments/import.rs
+msgid "This PDF contains too much text. Import a smaller document."
+msgstr ""
+
+#: src/ui/window/attachments/import.rs
+msgid ""
+"PDF extraction could not finish. The document may be damaged or too complex."
+msgstr ""
+
+#: src/ui/window/attachments/import.rs
+msgid "PDF extraction could not finish. Try a smaller document."
+msgstr ""
+
+#: src/ui/window/attachments/import.rs
+msgid "This PDF could not be read. It may be password-protected or damaged."
+msgstr ""
+
+#: src/ui/window/attachments/import.rs
+msgid "PDF text could not be decoded"
+msgstr ""
+
+#: src/ui/window/attachments/import.rs
+msgid ""
+"PDFs can contain up to 1,000 pages. Split this document before importing."
+msgstr ""
+
+#: src/ui/window/attachments/import.rs
+msgid ""
+"This PDF has no selectable text. Scan-only PDFs need OCR before importing."
+msgstr ""
+
+#: src/ui/window/attachments/library.rs
+msgid "Back to Chat"
+msgstr ""
+
+#: src/ui/window/attachments/library.rs
+msgid "Chat"
+msgstr ""
+
+#: src/ui/window/attachments/library.rs
+msgid "Files"
+msgstr ""
+
+#: src/ui/window/attachments/library.rs
+msgid "Files you upload and create in your chats."
+msgstr ""
+
+#: src/ui/window/attachments/library.rs
+msgid "Import…"
+msgstr ""
+
+#: src/ui/window/attachments/library.rs
+msgid "Add files to your library"
+msgstr ""
+
+#: src/ui/window/attachments/library.rs src/ui/window/attachments.rs
+msgid "Cancel Import"
+msgstr ""
+
+#: src/ui/window/attachments/library.rs
+msgid "Search Library in This Chat"
+msgstr ""
+
+#: src/ui/window/attachments/library.rs
+msgid "Include relevant text when you send a message."
+msgstr ""
+
+#: src/ui/window/attachments/library.rs
+msgid "Chat Library Settings"
+msgstr ""
+
+#: src/ui/window/attachments/library.rs
+msgid "Search files…"
+msgstr ""
+
+#: src/ui/window/attachments/library.rs
+msgid "Search by file name or contents, or a generated document's chat"
+msgstr ""
+
+#: src/ui/window/attachments/library.rs src/ui/window/model_manager.rs
+msgid "All"
+msgstr ""
+
+#: src/ui/window/attachments/library.rs
+msgid "Library"
+msgstr ""
+
+#: src/ui/window/attachments/library.rs src/ui/window/custom_provider.rs
+#: src/ui/window/model_manager.rs
+msgid "Images"
+msgstr ""
+
+#: src/ui/window/attachments/library.rs
+msgid "Generated"
+msgstr ""
+
+#: src/ui/window/attachments/library.rs
+msgid "A Place for Your Files"
+msgstr ""
+
+#: src/ui/window/attachments/library.rs
+msgid ""
+"Import files or create a document in a chat. They will appear here "
+"automatically."
+msgstr ""
+
+#: src/ui/window/attachments/library.rs
+msgid "Show More"
+msgstr ""
+
+#: src/ui/window/attachments/library.rs
+#, rust-format
+msgid "Library setting could not be saved: {error}"
+msgstr ""
+
+#: src/ui/window/attachments/library.rs src/ui/window/conversation_list.rs
+#: src/ui/window/workspace.rs src/ui/window.rs
+#, rust-format
+msgid "Draft could not be saved: {error}"
+msgstr ""
+
+#: src/ui/window/attachments/library.rs
+msgid "Importing…"
+msgstr ""
+
+#: src/ui/window/attachments/library.rs
+msgid "Files Could Not Be Loaded"
+msgstr ""
+
+#: src/ui/window/attachments/library.rs
+msgid "Try opening Files again."
+msgstr ""
+
+#: src/ui/window/attachments/library.rs
+msgid "No Generated Documents Yet"
+msgstr ""
+
+#: src/ui/window/attachments/library.rs
+msgid "No Matching Files"
+msgstr ""
+
+#: src/ui/window/attachments/library.rs
+msgid ""
+"Use Create Document in a chat. Your finished documents will appear here "
+"automatically."
+msgstr ""
+
+#: src/ui/window/attachments/library.rs
+msgid "Try another search or select All."
+msgstr ""
+
+#: src/ui/window/attachments/library.rs
+#, rust-format
+msgid "Showing {count} file"
+msgid_plural "Showing {count} files"
+msgstr[0] ""
+msgstr[1] ""
+
+#: src/ui/window/attachments/library.rs
+#, rust-format
+msgid "{count} file"
+msgid_plural "{count} files"
+msgstr[0] ""
+msgstr[1] ""
+
+#: src/ui/window/attachments/library.rs src/ui/window/attachments.rs
+msgid "Image"
+msgstr ""
+
+#: src/ui/window/attachments/library.rs
+#, rust-format
+msgid ""
+"{filename}\n"
+"Generated in {conversation_title}\n"
+"Preview document"
+msgstr ""
+
+#: src/ui/window/attachments/library.rs
+#, rust-format
+msgid "{filename} — Open chat or preview"
+msgstr ""
+
+#: src/ui/window/attachments/library.rs
+#: src/ui/window/attachments/library_actions.rs
+#, rust-format
+msgid "Actions for {arg1}"
+msgstr ""
+
+#: src/ui/window/attachments/library.rs
+#: src/ui/window/attachments/library_actions.rs
+#: src/ui/window/document_creation.rs
+msgid "Preview"
+msgstr ""
+
+#: src/ui/window/attachments/library.rs src/ui/window/document_creation.rs
+#: src/ui/window/generation.rs
+msgid "Open"
+msgstr ""
+
+#: src/ui/window/attachments/library.rs src/ui/window/document_creation.rs
+msgid "Save As…"
+msgstr ""
+
+#: src/ui/window/attachments/library.rs
+msgid "Open Chat"
+msgstr ""
+
+#: src/ui/window/attachments/library.rs
+msgid "Save Copy…"
+msgstr ""
+
+#: src/ui/window/attachments/library.rs src/ui/window/attachments.rs
+msgid "This image could not be displayed"
+msgstr ""
+
+#: src/ui/window/attachments/library.rs
+msgid "Fit Image to Window"
+msgstr ""
+
+#: src/ui/window/attachments/library.rs
+msgid "View at Actual Size"
+msgstr ""
+
+#: src/ui/window/attachments/library.rs
+msgid "This image could not be displayed."
+msgstr ""
+
+#: src/ui/window/attachments/library.rs
+msgid "Previous Image"
+msgstr ""
+
+#: src/ui/window/attachments/library.rs
+msgid "Next Image"
+msgstr ""
+
+#: src/ui/window/attachments/library.rs
+#, rust-format
+msgid "{current} of {total}"
+msgstr ""
+
+#: src/ui/window/attachments/library.rs
+#, rust-format
+msgid "of {total}"
+msgstr ""
+
+#: src/ui/window/attachments/library.rs
+msgid "No selectable text on this page."
+msgstr ""
+
+#: src/ui/window/attachments/library.rs
+#, rust-format
+msgid "Page could not be loaded: {error}"
+msgstr ""
+
+#: src/ui/window/attachments/library.rs
+msgid "Extracted text · Original layout is available in the saved PDF"
+msgstr ""
+
+#: src/ui/window/attachments/library.rs
+msgid "Save Attachment"
+msgstr ""
+
+#: src/ui/window/attachments/library.rs
+msgid "File Could Not Be Saved"
+msgstr ""
+
+#: src/ui/window/attachments/library.rs src/ui/window/diagnostics.rs
+#: src/ui/window/managed_install.rs src/ui/window/model_actions.rs
+#: src/ui/window/model_manager.rs
+msgid "Close"
+msgstr ""
+
+#: src/ui/window/attachments/library_actions.rs
+msgid "Open Chat…"
+msgstr ""
+
+#: src/ui/window/attachments/library_actions.rs
+msgid "Show in Folder"
+msgstr ""
+
+#: src/ui/window/attachments/library_actions.rs
+msgid "Attach to Current Chat"
+msgstr ""
+
+#: src/ui/window/attachments/library_actions.rs
+msgid "Remove from Library"
+msgstr ""
+
+#: src/ui/window/attachments/library_actions.rs
+msgid "Original location unavailable. Open Preview to save a copy."
+msgstr ""
+
+#: src/ui/window/attachments/library_actions.rs
+#, rust-format
+msgid "Chats could not be loaded: {error}"
+msgstr ""
+
+#: src/ui/window/attachments/library_actions.rs
+msgid "File Chats"
+msgstr ""
+
+#: src/ui/window/attachments/library_actions.rs
+msgid "Not Used in a Chat Yet"
+msgstr ""
+
+#: src/ui/window/attachments/library_actions.rs
+msgid "Attach this file to a chat to start a conversation about it."
+msgstr ""
+
+#: src/ui/window/attachments/library_actions.rs
+msgid "Archived chat"
+msgstr ""
+
+#: src/ui/window/attachments/library_actions.rs
+msgid "Open conversation"
+msgstr ""
+
+#: src/ui/window/attachments/library_actions.rs
+msgid "File attached to the current draft"
+msgstr ""
+
+#: src/ui/window/attachments/library_actions.rs
+msgid ""
+"The original folder could not be opened. The file may have moved or access "
+"may have expired. Open Preview to save a copy."
+msgstr ""
+
+#: src/ui/window/attachments/library_actions.rs
+msgid "Remove from Library?"
+msgstr ""
+
+#: src/ui/window/attachments/library_actions.rs
+#, rust-format
+msgid ""
+"Remove “{arg1}” from your library? Files attached to chats are kept. The "
+"original file is unchanged."
+msgstr ""
+
+#: src/ui/window/attachments/library_actions.rs src/ui/window/chat_settings.rs
+#: src/ui/window/cloud_setup.rs src/ui/window/conversation_export.rs
+#: src/ui/window/conversation_list.rs src/ui/window/document_creation.rs
+#: src/ui/window/managed_runtime.rs src/ui/window/message_actions.rs
+#: src/ui/window/model_actions.rs src/ui/window/model_download.rs
+#: src/ui/window/preferences.rs src/ui/window/privacy.rs
+#: src/ui/window/provider_controls.rs src/ui/window/web_tools.rs
+msgid "Cancel"
+msgstr ""
+
+#: src/ui/window/attachments/library_actions.rs
+msgid "Remove"
+msgstr ""
+
+#: src/ui/window/attachments/library_actions.rs
+msgid "Removed from library. Chat attachments are kept."
+msgstr ""
+
+#: src/ui/window/attachments/request.rs
+msgid "Wait for your files to finish importing"
+msgstr ""
+
+#: src/ui/window/attachments/request.rs
+msgid "This conversation includes images. Choose a model with image support."
+msgstr ""
+
+#: src/ui/window/attachments/request.rs
+msgid ""
+"Image support has not been confirmed for this model. Refresh the model list "
+"and try again."
+msgstr ""
+
+#: src/ui/window/attachments/request.rs
+msgid ""
+"There is too little room for document excerpts. Shorten the message or chat "
+"instructions, use fewer attachments, or increase Context Window in Chat "
+"Settings."
+msgstr ""
+
+#: src/ui/window/attachments/request.rs
+msgid "The image context is too large. Use fewer images or start a new chat."
+msgstr ""
+
+#: src/ui/window/attachments.rs
+msgid "Add Attachments"
+msgstr ""
+
+#: src/ui/window/attachments.rs
+msgid "Attach Files…"
+msgstr ""
+
+#: src/ui/window/attachments.rs
+msgid "Paste Image"
+msgstr ""
+
+#: src/ui/window/attachments.rs
+msgid "Browse Files"
+msgstr ""
+
+#: src/ui/window/attachments.rs
+msgid "This model supports images"
+msgstr ""
+
+#: src/ui/window/attachments.rs
+msgid "Images, documents and source code"
+msgstr ""
+
+#: src/ui/window/attachments.rs
+msgid "All files"
+msgstr ""
+
+#: src/ui/window/attachments.rs
+msgid "Import Files"
+msgstr ""
+
+#: src/ui/window/attachments.rs
+msgid "Attach Files"
+msgstr ""
+
+#: src/ui/window/attachments.rs
+msgid "Import"
+msgstr ""
+
+#: src/ui/window/attachments.rs
+msgid "Attach"
+msgstr ""
+
+#: src/ui/window/attachments.rs
+#, rust-format
+msgid "Files could not be selected: {error}"
+msgstr ""
+
+#: src/ui/window/attachments.rs
+msgid "Import canceled"
+msgstr ""
+
+#: src/ui/window/attachments.rs
+msgid "This file took too long to read or process"
+msgstr ""
+
+#: src/ui/window/attachments.rs
+msgid "This file could not be opened. Select it again using Attach Files."
+msgstr ""
+
+#: src/ui/window/attachments.rs
+msgid "This file could not be read"
+msgstr ""
+
+#: src/ui/window/attachments.rs
+msgid "Finish or cancel the current import first"
+msgstr ""
+
+#: src/ui/window/attachments.rs
+msgid "Select up to 8 attachments or 32 library files at a time"
+msgstr ""
+
+#: src/ui/window/attachments.rs
+msgid "This file could not be processed"
+msgstr ""
+
+#: src/ui/window/attachments.rs
+#, rust-format
+msgid "{count} file added to the library"
+msgid_plural "{count} files added to the library"
+msgstr[0] ""
+msgstr[1] ""
+
+#: src/ui/window/attachments.rs
+#, rust-format
+msgid "{count} file attached to the draft"
+msgid_plural "{count} files attached to the draft"
+msgstr[0] ""
+msgstr[1] ""
+
+#: src/ui/window/attachments.rs
+msgid "Pasted image.png"
+msgstr ""
+
+#: src/ui/window/attachments.rs
+msgid "The image could not be prepared"
+msgstr ""
+
+#: src/ui/window/attachments.rs
+#, rust-format
+msgid "Remove {arg1}"
+msgstr ""
+
+#: src/ui/window/attachments.rs
+#, rust-format
+msgid "Attachment could not be removed: {error}"
+msgstr ""
+
+#: src/ui/window/attachments.rs
+#, rust-format
+msgid "Add Attachments · {count} of {MAX_ATTACHMENTS}"
+msgstr ""
+
+#: src/ui/window/attachments.rs
+msgid "Preparing files…"
+msgstr ""
+
+#: src/ui/window/attachments.rs
+msgid "Select a model with image support to send these attachments"
+msgstr ""
+
+#: src/ui/window/attachments.rs
+msgid "Image support could not be checked. Refresh the model list to retry."
+msgstr ""
+
+#: src/ui/window/attachments.rs
+msgid "Checking image support…"
+msgstr ""
+
+#: src/ui/window/attachments.rs
+msgid ""
+"Library search is on · Relevant excerpts will be sent with your question"
+msgstr ""
+
+#: src/ui/window/attachments.rs
+msgid "Documents are saved in your library"
+msgstr ""
+
+#: src/ui/window/attachments.rs src/ui/window/chat_view.rs
+msgid "Active Model"
+msgstr ""
+
+#: src/ui/window/attachments.rs
+msgid "Active Model · Supports Images"
+msgstr ""
+
+#: src/ui/window/attachments.rs
+msgid "Active Model · Text Only"
+msgstr ""
+
+#: src/ui/window/attachments.rs src/ui/window/code_view.rs
+msgid "Text"
+msgstr ""
+
+#: src/ui/window/attachments.rs
+#, rust-format
+msgid "Open image: {arg1}"
+msgstr ""
+
+#: src/ui/window/attachments.rs
+#, rust-format
+msgid "[{arg1}] {arg2} · Page {arg3}"
+msgstr ""
+
+#: src/ui/window/attachments.rs
+#, rust-format
+msgid "Sources ({arg1})"
+msgstr ""
+
+#: src/ui/window/attachments.rs
+msgid ""
+"Excerpts provided to the model. Check these sources to verify its answer."
+msgstr ""
+
+#: src/ui/window/chat_settings.rs src/ui/window/chat_view.rs
+msgid "Chat Settings"
+msgstr ""
+
+#: src/ui/window/chat_settings.rs
+msgid "Save as Profile…"
+msgstr ""
+
+#: src/ui/window/chat_settings.rs
+msgid "Delete Profile…"
+msgstr ""
+
+#: src/ui/window/chat_settings.rs
+msgid "Reset to Defaults"
+msgstr ""
+
+#: src/ui/window/chat_settings.rs src/ui/window/model_manager.rs
+msgid "More Options"
+msgstr ""
+
+#: src/ui/window/chat_settings.rs src/ui/window/cloud_setup.rs
+msgid "Save Changes"
+msgstr ""
+
+#: src/ui/window/chat_settings.rs
+msgid "Conversation"
+msgstr ""
+
+#: src/ui/window/chat_settings.rs
+msgid "Profile"
+msgstr ""
+
+#: src/ui/window/chat_settings.rs
+msgid "Response"
+msgstr ""
+
+#: src/ui/window/chat_settings.rs
+msgid "Preferred Model"
+msgstr ""
+
+#: src/ui/window/chat_settings.rs
+msgid "Choose a model to always use in this chat"
+msgstr ""
+
+#: src/ui/window/chat_settings.rs
+msgid "Temperature"
+msgstr ""
+
+#: src/ui/window/chat_settings.rs
+msgid "Lower is more focused; higher is more creative"
+msgstr ""
+
+#: src/ui/window/chat_settings.rs
+msgid "Context Messages"
+msgstr ""
+
+#: src/ui/window/chat_settings.rs
+msgid "Maximum recent messages, keeping questions and answers together"
+msgstr ""
+
+#: src/ui/window/chat_settings.rs
+msgid "Applies when reasoning is off; higher is more creative"
+msgstr ""
+
+#: src/ui/window/chat_settings.rs src/ui/window/chat_view.rs
+#: src/ui/window/model_manager/discovery.rs
+msgid "Tools"
+msgstr ""
+
+#: src/ui/window/chat_settings.rs
+msgid "Allow tools in this chat. Requires a model with tool support."
+msgstr ""
+
+#: src/ui/window/chat_settings.rs
+msgid "Run calculations on this device"
+msgstr ""
+
+#: src/ui/window/chat_settings.rs
+msgid "Available with compatible Ollama and Ollama Cloud models"
+msgstr ""
+
+#: src/ui/window/chat_settings.rs
+msgid "Calculate on this device and share results with this chat’s provider"
+msgstr ""
+
+#: src/ui/window/chat_settings.rs src/ui/window/composer_commands.rs
+#: src/ui/window/web_tools.rs
+msgid "Web"
+msgstr ""
+
+#: src/ui/window/chat_settings.rs
+msgid "Search and read public pages with your permission"
+msgstr ""
+
+#: src/ui/window/chat_settings.rs src/ui/window/composer_commands.rs
+msgid "Blocked by Local Only in Preferences → Privacy"
+msgstr ""
+
+#: src/ui/window/chat_settings.rs src/ui/window/web_tools.rs
+msgid "Web Settings"
+msgstr ""
+
+#: src/ui/window/chat_settings.rs
+msgid "Manage search and web permissions for all chats."
+msgstr ""
+
+#: src/ui/window/chat_settings.rs
+msgid "System Prompt"
+msgstr ""
+
+#: src/ui/window/chat_settings.rs
+msgid "Instructions sent with every message in this chat."
+msgstr ""
+
+#: src/ui/window/chat_settings.rs
+msgid "Ollama Options"
+msgstr ""
+
+#: src/ui/window/chat_settings.rs
+msgid ""
+"Context Window defaults to 16,384 tokens. Other empty fields use the model "
+"defaults."
+msgstr ""
+
+#: src/ui/window/chat_settings.rs
+msgid "Top P"
+msgstr ""
+
+#: src/ui/window/chat_settings.rs
+msgid "Probability-based token selection"
+msgstr ""
+
+#: src/ui/window/chat_settings.rs
+msgid "Top K"
+msgstr ""
+
+#: src/ui/window/chat_settings.rs
+msgid "Maximum token choices per step"
+msgstr ""
+
+#: src/ui/window/chat_settings.rs
+msgid "Seed"
+msgstr ""
+
+#: src/ui/window/chat_settings.rs
+msgid "Fixed seed for more reproducible responses"
+msgstr ""
+
+#: src/ui/window/chat_settings.rs src/ui/window/model_manager/requirements.rs
+msgid "Context Window"
+msgstr ""
+
+#: src/ui/window/chat_settings.rs
+msgid "Defaults to 16,384 tokens. Larger values use more memory."
+msgstr ""
+
+#: src/ui/window/chat_settings.rs
+msgid "Settings Guide"
+msgstr ""
+
+#: src/ui/window/chat_settings.rs
+msgid "Learn what each parameter does"
+msgstr ""
+
+#: src/ui/window/chat_settings.rs
+msgid "Advanced"
+msgstr ""
+
+#: src/ui/window/chat_settings.rs
+msgid "Customize"
+msgstr ""
+
+#: src/ui/window/chat_settings.rs
+msgid "Response style and conversation history"
+msgstr ""
+
+#: src/ui/window/chat_settings.rs src/ui/window/cloud_setup.rs
+#: src/ui/window/privacy.rs src/ui/window/provider_controls.rs
+msgid "Sharing Permissions"
+msgstr ""
+
+#: src/ui/window/chat_settings.rs
+msgid "Manage access for this chat’s provider"
+msgstr ""
+
+#: src/ui/window/chat_settings.rs
+msgid "Defaults restored. Save to apply changes."
+msgstr ""
+
+#: src/ui/window/chat_settings.rs
+#, rust-format
+msgid "Profile indicator could not be updated: {error}"
+msgstr ""
+
+#: src/ui/window/chat_settings.rs
+msgid "Chat settings saved"
+msgstr ""
+
+#: src/ui/window/chat_settings.rs
+#, rust-format
+msgid "Chat settings could not be saved: {error}"
+msgstr ""
+
+#: src/ui/window/chat_settings.rs
+msgid "Start with the defaults, then adjust one setting at a time."
+msgstr ""
+
+#: src/ui/window/chat_settings.rs
+msgid ""
+"Applies a temperature and system prompt as a starting point. You can still "
+"edit every setting."
+msgstr ""
+
+#: src/ui/window/chat_settings.rs
+msgid ""
+"Keeps this conversation on one model. Use Selected Model follows the model "
+"picker in the chat."
+msgstr ""
+
+#: src/ui/window/chat_settings.rs
+msgid ""
+"Gives the model lasting instructions for this conversation, such as its "
+"role, tone or response style."
+msgstr ""
+
+#: src/ui/window/chat_settings.rs
+msgid ""
+"Controls response variety. Lower values are more focused and predictable; "
+"higher values are more varied. Some providers or reasoning modes use their "
+"own defaults."
+msgstr ""
+
+#: src/ui/window/chat_settings.rs
+msgid ""
+"Sets the maximum number of recent user and assistant messages sent to the "
+"model, including your next message. Questions and answers stay together. "
+"With Ollama, Moose also estimates their size and leaves out older exchanges "
+"when needed to make room for reasoning and the response. All messages stay "
+"saved in the chat."
+msgstr ""
+
+#: src/ui/window/chat_settings.rs
+msgid ""
+"Available with Ollama. Context Window defaults to 16,384 tokens; other empty "
+"fields use the model defaults."
+msgstr ""
+
+#: src/ui/window/chat_settings.rs
+msgid ""
+"Limits token choices by their combined probability. Lower values reduce "
+"variety by keeping a smaller set of likely choices."
+msgstr ""
+
+#: src/ui/window/chat_settings.rs
+msgid ""
+"Limits each token choice to the most likely options. Lower values reduce "
+"variety."
+msgstr ""
+
+#: src/ui/window/chat_settings.rs
+msgid ""
+"Uses a fixed random seed to make repeated requests more reproducible. "
+"Identical results are not guaranteed."
+msgstr ""
+
+#: src/ui/window/chat_settings.rs
+msgid ""
+"Sets Ollama’s context size in tokens, shared by the conversation, reasoning, "
+"and response. Moose uses 16,384 when this field is empty. Up to half the "
+"window, capped at 8,192 tokens, is reserved for reasoning and the response, "
+"with an additional safety margin. Text and image sizes are estimates, so "
+"very long responses can still reach the limit. Larger windows use more "
+"memory; Moose does not increase this setting automatically."
+msgstr ""
+
+#: src/ui/window/chat_settings.rs
+#, rust-format
+msgid "{count} character"
+msgid_plural "{count} characters"
+msgstr[0] ""
+msgstr[1] ""
+
+#: src/ui/window/chat_settings.rs
+msgid "Add instructions for this chat"
+msgstr ""
+
+#: src/ui/window/chat_settings.rs
+msgid "Calculator · Web"
+msgstr ""
+
+#: src/ui/window/chat_settings.rs
+msgid "None enabled"
+msgstr ""
+
+#: src/ui/window/chat_settings.rs
+msgid "Save as Profile"
+msgstr ""
+
+#: src/ui/window/chat_settings.rs src/ui/window/document_creation.rs
+msgid "Save"
+msgstr ""
+
+#: src/ui/window/chat_settings.rs
+msgid "Profile Details"
+msgstr ""
+
+#: src/ui/window/chat_settings.rs
+msgid "Reuse this chat’s instructions and temperature in other conversations."
+msgstr ""
+
+#: src/ui/window/chat_settings.rs src/ui/window/cloud_setup.rs
+#: src/ui/window/managed_install.rs src/ui/window/preferences.rs
+msgid "Name"
+msgstr ""
+
+#: src/ui/window/chat_settings.rs
+msgid "Short Description"
+msgstr ""
+
+#: src/ui/window/chat_settings.rs
+#, rust-format
+msgid "Profile could not be created: {error}"
+msgstr ""
+
+#: src/ui/window/chat_settings.rs
+msgid "Delete Profile?"
+msgstr ""
+
+#: src/ui/window/chat_settings.rs
+#, rust-format
+msgid "Delete \"{arg1}\"? Existing chats will keep their current settings."
+msgstr ""
+
+#: src/ui/window/chat_settings.rs src/ui/window/conversation_list.rs
+#: src/ui/window/model_actions.rs src/ui/window/provider_controls.rs
+msgid "Delete"
+msgstr ""
+
+#: src/ui/window/chat_settings.rs
+msgid "Profile deleted"
+msgstr ""
+
+#: src/ui/window/chat_settings.rs
+#, rust-format
+msgid "Profile could not be deleted: {error}"
+msgstr ""
+
+#: src/ui/window/chat_settings.rs
+msgid "No Profile"
+msgstr ""
+
+#: src/ui/window/chat_settings.rs
+msgid "Choose a profile to apply instructions and response settings"
+msgstr ""
+
+#: src/ui/window/chat_settings.rs
+msgid "Use Selected Model"
+msgstr ""
+
+#: src/ui/window/chat_settings.rs
+#, rust-format
+msgid "{model} (Unavailable)"
+msgstr ""
+
+#: src/ui/window/chat_settings.rs
+#, rust-format
+msgid "{field} must be between 0 and 1"
+msgstr ""
+
+#: src/ui/window/chat_settings.rs
+#, rust-format
+msgid "{field} must be a number"
+msgstr ""
+
+#: src/ui/window/chat_settings.rs
+#, rust-format
+msgid "{field} must be 0 or greater"
+msgstr ""
+
+#: src/ui/window/chat_settings.rs
+#, rust-format
+msgid "{field} must be greater than 0"
+msgstr ""
+
+#: src/ui/window/chat_settings.rs
+#, rust-format
+msgid "{field} must be a whole number"
+msgstr ""
+
+#: src/ui/window/chat_view.rs
+msgid "No Conversation Selected"
+msgstr ""
+
+#: src/ui/window/chat_view.rs
+msgid "Choose a model and start a conversation."
+msgstr ""
+
+#: src/ui/window/chat_view.rs
+msgid "Ask anything, or type / for tools"
+msgstr ""
+
+#: src/ui/window/chat_view.rs src/ui/window/generation.rs
+msgid "Stop Response"
+msgstr ""
+
+#: src/ui/window/chat_view.rs src/ui/window.rs
+msgid "Send Message (Enter)"
+msgstr ""
+
+#: src/ui/window/chat_view.rs
+msgid "Enter to send · Shift+Enter for a new line"
+msgstr ""
+
+#: src/ui/window/chat_view.rs src/ui/window/document_creation.rs
+msgid "Create Document"
+msgstr ""
+
+#: src/ui/window/chat_view.rs src/ui/window/document_creation.rs
+msgid "Create a document, spreadsheet, or presentation"
+msgstr ""
+
+#: src/ui/window/chat_view.rs
+msgid "Ask about your files…"
+msgstr ""
+
+#: src/ui/window/chat_view.rs
+msgid "Write your next message…"
+msgstr ""
+
+#: src/ui/window/chat_view.rs
+msgid "Responding… You can keep writing"
+msgstr ""
+
+#: src/ui/window/chat_view.rs src/ui/window.rs
+msgid "No model selected"
+msgstr ""
+
+#: src/ui/window/chat_view.rs src/ui/window/reasoning.rs
+msgid "Reasoning: Auto"
+msgstr ""
+
+#: src/ui/window/chat_view.rs
+msgid "Use the model’s default reasoning behavior"
+msgstr ""
+
+#: src/ui/window/chat_view.rs
+msgid "Waiting for response…"
+msgstr ""
+
+#: src/ui/window/chat_view.rs
+msgid "Writing response"
+msgstr ""
+
+#: src/ui/window/chat_view.rs
+msgid "Waiting for response"
+msgstr ""
+
+#: src/ui/window/chat_view.rs
+#, rust-format
+msgid "Reasoning · {arg1}s"
+msgstr ""
+
+#: src/ui/window/chat_view.rs
+msgid "Tools · Check results"
+msgstr ""
+
+#: src/ui/window/chat_view.rs
+#, rust-format
+msgid "Tools · {count} action"
+msgid_plural "Tools · {count} actions"
+msgstr[0] ""
+msgstr[1] ""
+
+#: src/ui/window/chat_view.rs
+msgid "Web Sources"
+msgstr ""
+
+#: src/ui/window/chat_view.rs
+#, rust-format
+msgid "Web Sources · {arg1}"
+msgstr ""
+
+#: src/ui/window/chat_view.rs
+msgid "Page read · excerpt"
+msgstr ""
+
+#: src/ui/window/chat_view.rs
+msgid "Search snippet"
+msgstr ""
+
+#: src/ui/window/chat_view.rs
+#, rust-format
+msgid "Retrieved {arg1}"
+msgstr ""
+
+#: src/ui/window/chat_view.rs
+msgid "View source text"
+msgstr ""
+
+#: src/ui/window/chat_view.rs
+msgid "%B %-d, %-I:%M %p"
+msgstr ""
+
+#: src/ui/window/chat_view.rs src/ui/window/conversation_export.rs
+#: src/ui/window/privacy.rs
+msgid "System"
+msgstr ""
+
+#: src/ui/window/chat_view.rs src/ui/window/conversation_export.rs
+#: src/ui/window/privacy.rs
+msgid "You"
+msgstr ""
+
+#: src/ui/window/chat_view.rs src/ui/window/conversation_export.rs
+#: src/ui/window/privacy.rs
+msgid "Assistant"
+msgstr ""
+
+#: src/ui/window/chat_view.rs src/ui/window/conversation_export.rs
+#: src/ui/window/privacy.rs
+msgid "Tool"
+msgstr ""
+
+#: src/ui/window/chat_welcome.rs
+msgid "Explain a topic"
+msgstr ""
+
+#: src/ui/window/chat_welcome.rs
+msgid "Explain [topic] in simple terms, with a practical example."
+msgstr ""
+
+#: src/ui/window/chat_welcome.rs
+msgid "Help me write"
+msgstr ""
+
+#: src/ui/window/chat_welcome.rs
+msgid ""
+"Help me write [what you need]. Ask me about the audience and tone first."
+msgstr ""
+
+#: src/ui/window/chat_welcome.rs
+msgid "Work through code"
+msgstr ""
+
+#: src/ui/window/chat_welcome.rs
+msgid "Help me with [a coding question]. Explain the approach step by step."
+msgstr ""
+
+#: src/ui/window/chat_welcome.rs
+msgid "Start an editable draft"
+msgstr ""
+
+#: src/ui/window/chat_welcome.rs
+msgid "Use an Image or Document"
+msgstr ""
+
+#: src/ui/window/chat_welcome.rs
+msgid "Add files, paste an image, or open your document library"
+msgstr ""
+
+#: src/ui/window/chat_welcome.rs
+msgid "Suggestions fill your draft. You choose when to send."
+msgstr ""
+
+#: src/ui/window/chat_welcome.rs
+msgid "Your files are attached. Ask a question about them below."
+msgstr ""
+
+#: src/ui/window/chat_welcome.rs
+msgid "Your draft is below. Make it yours before sending."
+msgstr ""
+
+#: src/ui/window/chat_welcome.rs
+msgid "What would you like to explore?"
+msgstr ""
+
+#: src/ui/window/chat_welcome.rs
+msgid "Ask a question, work through an idea, or bring a file."
+msgstr ""
+
+#: src/ui/window/cloud_setup.rs
+msgid "Configure Custom Provider"
+msgstr ""
+
+#: src/ui/window/cloud_setup.rs
+msgid "Connect Cloud Provider"
+msgstr ""
+
+#: src/ui/window/cloud_setup.rs
+msgid "Manage your custom AI connection."
+msgstr ""
+
+#: src/ui/window/cloud_setup.rs
+msgid "Connect using your own API key."
+msgstr ""
+
+#: src/ui/window/cloud_setup.rs
+msgid ""
+"Changing the server, API format or authentication resets sharing permissions "
+"and requires a new API key. Leave the key blank to keep it when these "
+"settings stay the same."
+msgstr ""
+
+#: src/ui/window/cloud_setup.rs src/ui/window/provider_controls.rs
+msgid "Connection"
+msgstr ""
+
+#: src/ui/window/cloud_setup.rs src/ui/window/preferences.rs
+msgid "Provider"
+msgstr ""
+
+#: src/ui/window/cloud_setup.rs
+msgid "Server"
+msgstr ""
+
+#: src/ui/window/cloud_setup.rs
+msgid "Cloudflare Account ID"
+msgstr ""
+
+#: src/ui/window/cloud_setup.rs
+msgid ""
+"Find your account ID in the Cloudflare dashboard. Enter an API token with "
+"Workers AI permission below."
+msgstr ""
+
+#: src/ui/window/cloud_setup.rs src/ui/window/preferences.rs
+msgid "Base URL"
+msgstr ""
+
+#: src/ui/window/cloud_setup.rs
+#, rust-format
+msgid ""
+"Enter the API base URL, including its version, such as {example_url}. Do not "
+"append /chat/completions or another endpoint."
+msgstr ""
+
+#: src/ui/window/cloud_setup.rs
+msgid ""
+"Connecting enables remote connections. Shared messages and files are "
+"processed under the provider's own data policy."
+msgstr ""
+
+#: src/ui/window/cloud_setup.rs
+msgid "Leave blank to keep the saved key"
+msgstr ""
+
+#: src/ui/window/cloud_setup.rs
+msgid "Enter your API key"
+msgstr ""
+
+#: src/ui/window/cloud_setup.rs
+msgid "Enter a valid account ID"
+msgstr ""
+
+#: src/ui/window/cloud_setup.rs src/ui/window/preferences.rs
+msgid "API Key"
+msgstr ""
+
+#: src/ui/window/cloud_setup.rs
+msgid ""
+"Saved securely in your desktop keyring and excluded from chats and exports."
+msgstr ""
+
+#: src/ui/window/cloud_setup.rs
+msgid "Save and Connect"
+msgstr ""
+
+#: src/ui/window/cloud_setup.rs
+msgid "Connect to a service using your own connection settings."
+msgstr ""
+
+#: src/ui/window/cloud_setup.rs
+msgid "Enter your Cloudflare account ID"
+msgstr ""
+
+#: src/ui/window/cloud_setup.rs
+msgid "Enter a valid Cloudflare account ID (32 hexadecimal characters)."
+msgstr ""
+
+#: src/ui/window/cloud_setup.rs
+msgid "Enter an API key for this server and authentication method."
+msgstr ""
+
+#: src/ui/window/cloud_setup.rs src/ui/window/preferences.rs
+msgid "Provider could not be saved"
+msgstr ""
+
+#: src/ui/window/cloud_setup.rs
+msgid "Draft could not be saved"
+msgstr ""
+
+#: src/ui/window/cloud_setup.rs
+msgid "Saving key securely… Unlock your desktop keyring if requested."
+msgstr ""
+
+#: src/ui/window/cloud_setup.rs
+msgid "API key could not be saved securely"
+msgstr ""
+
+#: src/ui/window/cloud_setup.rs src/ui/window/web_tools.rs
+msgid "Credential operation stopped. Try again."
+msgstr ""
+
+#: src/ui/window/cloud_setup.rs
+msgid ""
+"Provider saved. Remove the unused key for the previous connection using your "
+"keyring manager."
+msgstr ""
+
+#: src/ui/window/cloud_setup.rs
+msgid "Provider settings saved"
+msgstr ""
+
+#: src/ui/window/cloud_setup.rs src/ui/window/provider_controls.rs
+msgid "Provider added"
+msgstr ""
+
+#: src/ui/window/cloud_setup.rs
+msgid ""
+"The keyring could not be restored. Review this provider's API key in "
+"Preferences."
+msgstr ""
+
+#: src/ui/window/cloud_setup.rs
+msgid "Enable Zero Data Retention in your Groq console for stricter privacy."
+msgstr ""
+
+#: src/ui/window/cloud_setup.rs
+msgid "Use a billing-enabled project for Gemini's paid-service data policy."
+msgstr ""
+
+#: src/ui/window/cloud_setup.rs
+msgid "Shared content is processed under the provider's own data policy."
+msgstr ""
+
+#: src/ui/window/cloud_setup.rs
+#, rust-format
+msgid "{arg1} API Key"
+msgstr ""
+
+#: src/ui/window/cloud_setup.rs
+msgid ""
+"Enter a replacement key, or remove the saved key. Existing keys are never "
+"displayed. Your desktop may ask you to unlock its keyring."
+msgstr ""
+
+#: src/ui/window/cloud_setup.rs src/ui/window/web_tools.rs
+msgid "Remove Key"
+msgstr ""
+
+#: src/ui/window/cloud_setup.rs src/ui/window/web_tools.rs
+msgid "Save Key"
+msgstr ""
+
+#: src/ui/window/cloud_setup.rs src/ui/window/web_tools.rs
+msgid "Invalid API key"
+msgstr ""
+
+#: src/ui/window/cloud_setup.rs
+msgid "Provider settings changed"
+msgstr ""
+
+#: src/ui/window/cloud_setup.rs
+msgid "Reopen the provider's key settings and try again."
+msgstr ""
+
+#: src/ui/window/cloud_setup.rs src/ui/window/preferences.rs
+msgid "Provider could not be loaded"
+msgstr ""
+
+#: src/ui/window/cloud_setup.rs src/ui/window/web_tools.rs
+msgid "Updating the desktop keyring…"
+msgstr ""
+
+#: src/ui/window/cloud_setup.rs
+msgid "API key removed"
+msgstr ""
+
+#: src/ui/window/cloud_setup.rs
+msgid "API key saved securely"
+msgstr ""
+
+#: src/ui/window/cloud_setup.rs
+msgid "API Key Required"
+msgstr ""
+
+#: src/ui/window/cloud_setup.rs src/ui/window/web_tools.rs
+msgid "Secure key operation failed"
+msgstr ""
+
+#: src/ui/window/cloud_setup.rs
+msgid ""
+"This provider has saved chats. Remove its API key in Preferences, or delete "
+"those chats first."
+msgstr ""
+
+#: src/ui/window/cloud_setup.rs
+msgid ""
+"This provider has saved chats. Delete those chats before removing the "
+"provider."
+msgstr ""
+
+#: src/ui/window/cloud_setup.rs src/ui/window/provider_controls.rs
+msgid "Provider could not be deleted"
+msgstr ""
+
+#: src/ui/window/cloud_setup.rs
+msgid "API key could not be removed; provider kept"
+msgstr ""
+
+#: src/ui/window/cloud_setup.rs
+msgid "Credential operation stopped. Provider kept."
+msgstr ""
+
+#: src/ui/window/code_view.rs
+msgid "Copy code"
+msgstr ""
+
+#: src/ui/window/code_view.rs
+msgid "Shell"
+msgstr ""
+
+#: src/ui/window/composer_commands.rs
+#, rust-format
+msgid "Turn off {arg1} in this chat"
+msgstr ""
+
+#: src/ui/window/composer_commands.rs
+msgid ""
+"Tools for this chat · ↑↓ to choose · Enter or Tab to select · Esc to dismiss"
+msgstr ""
+
+#: src/ui/window/composer_commands.rs
+msgid "Finish or stop the current response to change tools"
+msgstr ""
+
+#: src/ui/window/composer_commands.rs
+msgid "Finish the keyring operation to change tools"
+msgstr ""
+
+#: src/ui/window/composer_commands.rs
+msgid "Requires a compatible Ollama or Ollama Cloud model"
+msgstr ""
+
+#: src/ui/window/composer_commands.rs
+msgid "Tool settings could not be loaded. Reopen this chat."
+msgstr ""
+
+#: src/ui/window/composer_commands.rs
+msgid "Turn off this tool for the conversation"
+msgstr ""
+
+#: src/ui/window/composer_commands.rs
+msgid "Calculate on this device · Requires a model with tool support"
+msgstr ""
+
+#: src/ui/window/composer_commands.rs
+msgid "Read public links · Set up search in Preferences → Web"
+msgstr ""
+
+#: src/ui/window/composer_commands.rs
+msgid "Search and read public pages · Permission required before first use"
+msgstr ""
+
+#: src/ui/window/composer_commands.rs
+msgid " · Unavailable"
+msgstr ""
+
+#: src/ui/window/composer_commands.rs
+msgid "Switch to this chat’s provider before changing tools"
+msgstr ""
+
+#: src/ui/window/composer_commands.rs
+msgid "Tool settings could not be saved"
+msgstr ""
+
+#: src/ui/window/conversation_export.rs src/ui/window/conversation_list.rs
+#: src/ui/window/model_actions.rs src/ui/window.rs
+msgid "Finish the active generation first"
+msgstr ""
+
+#: src/ui/window/conversation_export.rs src/ui/window/conversation_list.rs
+msgid "Export Conversation"
+msgstr ""
+
+#: src/ui/window/conversation_export.rs
+msgid ""
+"JSON includes copies of attachments and created documents. Markdown and "
+"plain text include their names. All formats include document source excerpts."
+msgstr ""
+
+#: src/ui/window/conversation_export.rs
+#, rust-format
+msgid "Conversation could not be exported: {error}"
+msgstr ""
+
+#: src/ui/window/conversation_export.rs
+msgid "Provider: "
+msgstr ""
+
+#: src/ui/window/conversation_export.rs
+msgid "Model: "
+msgstr ""
+
+#: src/ui/window/conversation_export.rs
+msgid "Not set"
+msgstr ""
+
+#: src/ui/window/conversation_export.rs
+msgid "Exported: "
+msgstr ""
+
+#: src/ui/window/conversation_export.rs
+#, rust-format
+msgid ""
+"Created document: {arg1} ({arg2})\n"
+"\n"
+msgstr ""
+
+#: src/ui/window/conversation_export.rs
+#, rust-format
+msgid ""
+"Web source [{arg1}]: {arg2}\n"
+"{arg3}\n"
+"{arg4} · Retrieved {arg5}{arg6}\n"
+"\n"
+msgstr ""
+
+#: src/ui/window/conversation_export.rs
+#, rust-format
+msgid ""
+"Attachment: {arg1} ({arg2})\n"
+"\n"
+msgstr ""
+
+#: src/ui/window/conversation_export.rs
+#, rust-format
+msgid ""
+"Source [{arg1}]: {arg2} — page {arg3}\n"
+"\n"
+msgstr ""
+
+#: src/ui/window/conversation_export.rs
+msgid "Message"
+msgstr ""
+
+#: src/ui/window/conversation_export.rs
+msgid "Export"
+msgstr ""
+
+#: src/ui/window/conversation_export.rs
+#, rust-format
+msgid "Export destination could not be opened: {error}"
+msgstr ""
+
+#: src/ui/window/conversation_export.rs
+msgid "Conversation exported"
+msgstr ""
+
+#: src/ui/window/conversation_export.rs src/ui/window.rs
+#, rust-format
+msgid "Conversation could not be saved: {error}"
+msgstr ""
+
+#: src/ui/window/conversation_list.rs
+#, rust-format
+msgid "Conversations could not be loaded: {error}"
+msgstr ""
+
+#: src/ui/window/conversation_list.rs
+msgid "No conversations yet"
+msgstr ""
+
+#: src/ui/window/conversation_list.rs
+msgid "No matching conversations"
+msgstr ""
+
+#: src/ui/window/conversation_list.rs
+msgid "Archived"
+msgstr ""
+
+#: src/ui/window/conversation_list.rs
+msgid "Pinned"
+msgstr ""
+
+#: src/ui/window/conversation_list.rs
+msgid "Recent"
+msgstr ""
+
+#: src/ui/window/conversation_list.rs
+msgid "Draft"
+msgstr ""
+
+#: src/ui/window/conversation_list.rs
+msgid "Generating Response"
+msgstr ""
+
+#: src/ui/window/conversation_list.rs
+msgid "Rename"
+msgstr ""
+
+#: src/ui/window/conversation_list.rs
+msgid "Unpin"
+msgstr ""
+
+#: src/ui/window/conversation_list.rs
+msgid "Pin"
+msgstr ""
+
+#: src/ui/window/conversation_list.rs
+msgid "Unarchive"
+msgstr ""
+
+#: src/ui/window/conversation_list.rs
+msgid "Archive"
+msgstr ""
+
+#: src/ui/window/conversation_list.rs
+msgid "Delete Conversation"
+msgstr ""
+
+#: src/ui/window/conversation_list.rs
+msgid "Conversation was not found"
+msgstr ""
+
+#: src/ui/window/conversation_list.rs src/ui/window.rs
+#, rust-format
+msgid "Conversation could not be loaded: {error}"
+msgstr ""
+
+#: src/ui/window/conversation_list.rs
+msgid "Rename Conversation"
+msgstr ""
+
+#: src/ui/window/conversation_list.rs
+msgid "Conversation renamed"
+msgstr ""
+
+#: src/ui/window/conversation_list.rs
+#, rust-format
+msgid "Conversation could not be renamed: {error}"
+msgstr ""
+
+#: src/ui/window/conversation_list.rs
+msgid "Conversation pinned"
+msgstr ""
+
+#: src/ui/window/conversation_list.rs
+msgid "Conversation unpinned"
+msgstr ""
+
+#: src/ui/window/conversation_list.rs
+#, rust-format
+msgid "Conversation could not be updated: {error}"
+msgstr ""
+
+#: src/ui/window/conversation_list.rs
+msgid "Stop this response before archiving the chat"
+msgstr ""
+
+#: src/ui/window/conversation_list.rs
+msgid "Conversation archived"
+msgstr ""
+
+#: src/ui/window/conversation_list.rs
+msgid "Conversation restored"
+msgstr ""
+
+#: src/ui/window/conversation_list.rs
+msgid "Delete Conversation?"
+msgstr ""
+
+#: src/ui/window/conversation_list.rs
+#, rust-format
+msgid "Delete \"{title}\" and all of its messages?"
+msgstr ""
+
+#: src/ui/window/conversation_list.rs
+msgid "Stop this response before deleting the chat"
+msgstr ""
+
+#: src/ui/window/conversation_list.rs
+msgid "Conversation deleted"
+msgstr ""
+
+#: src/ui/window/conversation_list.rs
+#, rust-format
+msgid "Conversation could not be deleted: {error}"
+msgstr ""
+
+#: src/ui/window/custom_provider.rs
+msgid "API Compatibility"
+msgstr ""
+
+#: src/ui/window/custom_provider.rs
+msgid "Choose the API format supported by your provider."
+msgstr ""
+
+#: src/ui/window/custom_provider.rs src/ui/window/preferences.rs
+msgid "API Format"
+msgstr ""
+
+#: src/ui/window/custom_provider.rs
+msgid "Authentication"
+msgstr ""
+
+#: src/ui/window/custom_provider.rs
+msgid "Bearer token"
+msgstr ""
+
+#: src/ui/window/custom_provider.rs
+msgid "API key header"
+msgstr ""
+
+#: src/ui/window/custom_provider.rs
+msgid "API Key Header"
+msgstr ""
+
+#: src/ui/window/custom_provider.rs
+msgid ""
+"Add exact model IDs from your provider. Enable Images only for models that "
+"accept image input. Saved IDs remain available if discovery is unavailable."
+msgstr ""
+
+#: src/ui/window/custom_provider.rs
+msgid "Discover Models Automatically"
+msgstr ""
+
+#: src/ui/window/custom_provider.rs
+msgid "Turn off if your provider does not offer a model catalog"
+msgstr ""
+
+#: src/ui/window/custom_provider.rs
+msgid "Add Model"
+msgstr ""
+
+#: src/ui/window/custom_provider.rs
+msgid "Model ID"
+msgstr ""
+
+#: src/ui/window/custom_provider.rs
+msgid "This model supports image input"
+msgstr ""
+
+#: src/ui/window/custom_provider.rs
+msgid "Remove Model"
+msgstr ""
+
+#: src/ui/window/diagnostics.rs src/ui/window/model_manager.rs
+msgid "Copy Details"
+msgstr ""
+
+#: src/ui/window/diagnostics.rs src/ui/window/managed_runtime.rs
+msgid "Ollama Log"
+msgstr ""
+
+#: src/ui/window/diagnostics.rs src/ui/window/managed_runtime.rs
+msgid "Moose Log"
+msgstr ""
+
+#: src/ui/window/diagnostics.rs
+#, rust-format
+msgid "The log could not be read: {error}"
+msgstr ""
+
+#: src/ui/window/diagnostics.rs
+#, rust-format
+msgid ""
+"Moose {arg1}\n"
+"{arg2}\n"
+"\n"
+"{arg3}"
+msgstr ""
+
+#: src/ui/window/diagnostics.rs
+#, rust-format
+msgid "Moose {arg1}"
+msgstr ""
+
+#: src/ui/window/diagnostics.rs
+msgid "Copy Log"
+msgstr ""
+
+#: src/ui/window/document_creation/pdf.rs
+msgid "The document cache could not be opened."
+msgstr ""
+
+#: src/ui/window/document_creation/pdf.rs
+msgid "A temporary PDF could not be created."
+msgstr ""
+
+#: src/ui/window/document_creation/pdf.rs
+msgid "Sans 11"
+msgstr ""
+
+#: src/ui/window/document_creation/pdf.rs
+msgid ""
+"The PDF exceeds the limit of 300 pages. Split the document into smaller "
+"parts."
+msgstr ""
+
+#: src/ui/window/document_creation/pdf.rs
+msgid "The PDF text could not be rendered. Try another format."
+msgstr ""
+
+#: src/ui/window/document_creation/pdf.rs
+msgid "Sans 9"
+msgstr ""
+
+#: src/ui/window/document_creation/pdf.rs
+#, rust-format
+msgid "The PDF page could not be drawn: {error}"
+msgstr ""
+
+#: src/ui/window/document_creation/pdf.rs
+#, rust-format
+msgid "PDF generation failed: {error}"
+msgstr ""
+
+#: src/ui/window/document_creation/pdf.rs
+msgid "PDF generation did not finish."
+msgstr ""
+
+#: src/ui/window/document_creation/pdf.rs
+msgid "The generated PDF could not be read."
+msgstr ""
+
+#: src/ui/window/document_creation/pdf.rs
+msgid "The PDF is invalid or exceeds the size limit."
+msgstr ""
+
+#: src/ui/window/document_creation/pdf.rs
+msgid "Column"
+msgstr ""
+
+#: src/ui/window/document_creation.rs
+msgid "This document is no longer available."
+msgstr ""
+
+#: src/ui/window/document_creation.rs
+msgid "Finish or stop the current response to create a document"
+msgstr ""
+
+#: src/ui/window/document_creation.rs
+msgid "Finish or stop the current response to create a document."
+msgstr ""
+
+#: src/ui/window/document_creation.rs
+msgid "This response is no longer available."
+msgstr ""
+
+#: src/ui/window/document_creation.rs
+msgid "Create"
+msgstr ""
+
+#: src/ui/window/document_creation.rs
+msgid "Turn this response into a file you can open and save."
+msgstr ""
+
+#: src/ui/window/document_creation.rs
+msgid ""
+"Describe what you need. Moose will write the content and create a file you "
+"can open and save."
+msgstr ""
+
+#: src/ui/window/document_creation.rs
+msgid "Document Name"
+msgstr ""
+
+#: src/ui/window/document_creation.rs
+msgid "File Format"
+msgstr ""
+
+#: src/ui/window/document_creation.rs
+msgid "What Would You Like to Create?"
+msgstr ""
+
+#: src/ui/window/document_creation.rs
+msgid ""
+"For example: a project proposal, a monthly budget, or a presentation for a "
+"class."
+msgstr ""
+
+#: src/ui/window/document_creation.rs
+msgid "Report"
+msgstr ""
+
+#: src/ui/window/document_creation.rs
+msgid ""
+"Write a report about [topic], with a summary, key findings, and "
+"recommendations."
+msgstr ""
+
+#: src/ui/window/document_creation.rs
+msgid "Letter"
+msgstr ""
+
+#: src/ui/window/document_creation.rs
+msgid "Write a letter to [recipient] about [purpose]."
+msgstr ""
+
+#: src/ui/window/document_creation.rs
+msgid "Budget"
+msgstr ""
+
+#: src/ui/window/document_creation.rs
+msgid ""
+"Create a monthly budget with categories, planned and actual amounts, and "
+"formulas for totals and differences."
+msgstr ""
+
+#: src/ui/window/document_creation.rs
+msgid "Slides"
+msgstr ""
+
+#: src/ui/window/document_creation.rs
+msgid ""
+"Create a presentation about [topic] with an introduction, key points, and a "
+"conclusion."
+msgstr ""
+
+#: src/ui/window/document_creation.rs
+#, rust-format
+msgid ""
+"Create a {format}.\n"
+"\n"
+"{instructions}"
+msgstr ""
+
+#: src/ui/window/document_creation.rs
+#, rust-format
+msgid ""
+"Create a {format} named “{title}”.\n"
+"\n"
+"{instructions}"
+msgstr ""
+
+#: src/ui/window/document_creation.rs
+msgid "Finish or retry the response before creating its document."
+msgstr ""
+
+#: src/ui/window/document_creation.rs
+msgid "This document is already being created."
+msgstr ""
+
+#: src/ui/window/document_creation.rs
+msgid "The model did not provide document content. Retry the response."
+msgstr ""
+
+#: src/ui/window/document_creation.rs
+msgid "Choose a document format first."
+msgstr ""
+
+#: src/ui/window/document_creation.rs
+msgid "Document creation was interrupted. Try again."
+msgstr ""
+
+#: src/ui/window/document_creation.rs
+msgid "Creating your file…"
+msgstr ""
+
+#: src/ui/window/document_creation.rs
+msgid "Writing your document…"
+msgstr ""
+
+#: src/ui/window/document_creation.rs
+msgid "Ready to create your file"
+msgstr ""
+
+#: src/ui/window/document_creation.rs
+msgid "Continue or retry the response to finish this document"
+msgstr ""
+
+#: src/ui/window/document_creation.rs
+msgid "Create File"
+msgstr ""
+
+#: src/ui/window/document_creation.rs src/ui/window/message_actions.rs
+msgid "Retry Response"
+msgstr ""
+
+#: src/ui/window/document_creation.rs
+msgid "Content preview · Open the file to see its final layout"
+msgstr ""
+
+#: src/ui/window/document_creation.rs
+msgid ""
+"Finish or stop the current response before opening another response version."
+msgstr ""
+
+#: src/ui/window/document_creation.rs src/ui/window/generation.rs
+#, rust-format
+msgid "Chat could not be opened: {error}"
+msgstr ""
+
+#: src/ui/window/document_creation.rs
+#, rust-format
+msgid "Document could not be opened: {error}"
+msgstr ""
+
+#: src/ui/window/document_creation.rs
+msgid "Save Document"
+msgstr ""
+
+#: src/ui/window/document_creation.rs
+#, rust-format
+msgid "Save location could not be opened: {error}"
+msgstr ""
+
+#: src/ui/window/document_creation.rs
+msgid "Document saved"
+msgstr ""
+
+#: src/ui/window/document_creation.rs
+#, rust-format
+msgid "Document could not be saved: {error}"
+msgstr ""
+
+#: src/ui/window/first_run.rs
+msgid "Start Guide"
+msgstr ""
+
+#: src/ui/window/first_run.rs
+msgid "Welcome to Moose"
+msgstr ""
+
+#: src/ui/window/first_run.rs
+msgid ""
+"Start with local Ollama, or connect an optional cloud provider. Your chats "
+"stay on this device."
+msgstr ""
+
+#: src/ui/window/first_run.rs
+msgid "Create Ollama Instance"
+msgstr ""
+
+#: src/ui/window/first_run.rs
+msgid "Connect a Provider"
+msgstr ""
+
+#: src/ui/window/first_run.rs src/ui/window/provider_controls.rs
+msgid "Providers"
+msgstr ""
+
+#: src/ui/window/first_run.rs
+msgid ""
+"Choose local Ollama for private, offline chat, or connect a provider using "
+"your own API key."
+msgstr ""
+
+#: src/ui/window/generation.rs
+msgid "Stop Background Response"
+msgstr ""
+
+#: src/ui/window/generation.rs
+msgid "Wait for the current response, or stop it to send this draft"
+msgstr ""
+
+#: src/ui/window/generation.rs
+msgid "Send Message"
+msgstr ""
+
+#: src/ui/window/generation.rs
+#, rust-format
+msgid "Draft could not be cleared: {error}"
+msgstr ""
+
+#: src/ui/window/generation.rs
+msgid "The conversation was closed."
+msgstr ""
+
+#: src/ui/window/generation.rs
+msgid "The connection closed before the response finished"
+msgstr ""
+
+#: src/ui/window/generation.rs src/ui/window/workspace.rs
+#, rust-format
+msgid "Response could not be saved: {error}"
+msgstr ""
+
+#: src/ui/window/generation.rs
+#, rust-format
+msgid "Generation failed: {error}"
+msgstr ""
+
+#: src/ui/window/generation.rs
+msgid "Response ready"
+msgstr ""
+
+#: src/ui/window/generation.rs
+msgid "Response interrupted"
+msgstr ""
+
+#: src/ui/window/managed_install.rs
+#, rust-format
+msgid "Verifying {arg1}"
+msgstr ""
+
+#: src/ui/window/managed_install.rs
+msgid "Extracting Ollama"
+msgstr ""
+
+#: src/ui/window/managed_install.rs src/ui/window/managed_runtime.rs
+msgid "Installing Ollama"
+msgstr ""
+
+#: src/ui/window/managed_install.rs
+msgid "Checking the new Ollama server"
+msgstr ""
+
+#: src/ui/window/managed_install.rs
+msgid "Restoring the previous installation"
+msgstr ""
+
+#: src/ui/window/managed_install.rs
+#, rust-format
+msgid "Ollama {version} installed"
+msgstr ""
+
+#: src/ui/window/managed_install.rs
+#, rust-format
+msgid "Downloading {arg1} of {arg2}"
+msgstr ""
+
+#: src/ui/window/managed_install.rs
+#, rust-format
+msgid "Downloading {arg1}"
+msgstr ""
+
+#: src/ui/window/managed_install.rs
+msgid "Configure Managed Instance"
+msgstr ""
+
+#: src/ui/window/managed_install.rs src/ui/window/preferences.rs
+msgid "Managed by Moose"
+msgstr ""
+
+#: src/ui/window/managed_install.rs
+msgid ""
+"Choose the local settings Moose should use for this managed Ollama instance."
+msgstr ""
+
+#: src/ui/window/managed_install.rs
+msgid "Host"
+msgstr ""
+
+#: src/ui/window/managed_install.rs src/ui/window/preferences.rs
+msgid "Managed Port"
+msgstr ""
+
+#: src/ui/window/managed_install.rs
+msgid "Instance Settings"
+msgstr ""
+
+#: src/ui/window/managed_install.rs
+msgid ""
+"Moose selects an available port starting at 11435, skipping ports already "
+"assigned to managed connections. Port 11434 is reserved for external Ollama."
+msgstr ""
+
+#: src/ui/window/managed_install.rs
+msgid "Ready to create managed Ollama"
+msgstr ""
+
+#: src/ui/window/managed_install.rs
+msgid "Create Managed Instance"
+msgstr ""
+
+#: src/ui/window/managed_install.rs
+msgid "Enter a provider name"
+msgstr ""
+
+#: src/ui/window/managed_install.rs
+msgid "Use a port from 1024 to 65535 except 11434"
+msgstr ""
+
+#: src/ui/window/managed_install.rs src/ui/window/managed_runtime.rs
+msgid "Starting Ollama"
+msgstr ""
+
+#: src/ui/window/managed_install.rs src/ui/window.rs
+msgid "Starting"
+msgstr ""
+
+#: src/ui/window/managed_install.rs
+msgid "Managed Ollama is ready"
+msgstr ""
+
+#: src/ui/window/managed_install.rs src/ui/window.rs
+msgid "Ready"
+msgstr ""
+
+#: src/ui/window/managed_install.rs
+msgid "Managed instance ready"
+msgstr ""
+
+#: src/ui/window/managed_install.rs src/ui/window/message_actions.rs
+msgid "Retry"
+msgstr ""
+
+#: src/ui/window/managed_install.rs
+#, rust-format
+msgid "Ollama start failed: {error}"
+msgstr ""
+
+#: src/ui/window/managed_install.rs
+msgid "Ollama start failed"
+msgstr ""
+
+#: src/ui/window/managed_runtime.rs
+msgid "An Ollama update is available"
+msgstr ""
+
+#: src/ui/window/managed_runtime.rs
+msgid "Review"
+msgstr ""
+
+#: src/ui/window/managed_runtime.rs
+msgid "Your local AI engine, managed by Moose."
+msgstr ""
+
+#: src/ui/window/managed_runtime.rs
+msgid "Installed Version"
+msgstr ""
+
+#: src/ui/window/managed_runtime.rs
+msgid "Available Version"
+msgstr ""
+
+#: src/ui/window/managed_runtime.rs
+#, rust-format
+msgid "Official stable release. Included with Moose: {arg1}."
+msgstr ""
+
+#: src/ui/window/managed_runtime.rs
+msgid "Update Ollama"
+msgstr ""
+
+#: src/ui/window/managed_runtime.rs
+msgid "Your models, chats, and connections are kept."
+msgstr ""
+
+#: src/ui/window/managed_runtime.rs
+msgid "Check for Updates"
+msgstr ""
+
+#: src/ui/window/managed_runtime.rs
+msgid "Add Managed Connection"
+msgstr ""
+
+#: src/ui/window/managed_runtime.rs
+msgid "Repair Installation"
+msgstr ""
+
+#: src/ui/window/managed_runtime.rs
+msgid "Cancelling. The partial download will be kept for retry."
+msgstr ""
+
+#: src/ui/window/managed_runtime.rs
+#, rust-format
+msgid "Last checked: {date} at {time} UTC"
+msgstr ""
+
+#: src/ui/window/managed_runtime.rs
+#, rust-format
+msgid "Last checked: {timestamp}"
+msgstr ""
+
+#: src/ui/window/managed_runtime.rs
+msgid "Unknown version"
+msgstr ""
+
+#: src/ui/window/managed_runtime.rs
+msgid "Not installed"
+msgstr ""
+
+#: src/ui/window/managed_runtime.rs
+msgid "Install Ollama"
+msgstr ""
+
+#: src/ui/window/managed_runtime.rs
+msgid "Version unavailable"
+msgstr ""
+
+#: src/ui/window/managed_runtime.rs
+msgid "Update available"
+msgstr ""
+
+#: src/ui/window/managed_runtime.rs src/ui/window/model_manager.rs
+msgid "Installed"
+msgstr ""
+
+#: src/ui/window/managed_runtime.rs
+#, rust-format
+msgid "Reinstall {repair_version} and keep your data"
+msgstr ""
+
+#: src/ui/window/managed_runtime.rs
+msgid "Checking for Updates…"
+msgstr ""
+
+#: src/ui/window/managed_runtime.rs
+msgid "Checking for updates"
+msgstr ""
+
+#: src/ui/window/managed_runtime.rs
+msgid "The update check stopped. Try again."
+msgstr ""
+
+#: src/ui/window/managed_runtime.rs
+msgid "Update check failed"
+msgstr ""
+
+#: src/ui/window/managed_runtime.rs
+msgid "Up to date"
+msgstr ""
+
+#: src/ui/window/managed_runtime.rs
+msgid "The installed version is unknown. Use Repair Installation."
+msgstr ""
+
+#: src/ui/window/managed_runtime.rs
+msgid "The installed version is already up to date."
+msgstr ""
+
+#: src/ui/window/managed_runtime.rs
+msgid "Ollama Update"
+msgstr ""
+
+#: src/ui/window/managed_runtime.rs
+msgid "Repairing Ollama"
+msgstr ""
+
+#: src/ui/window/managed_runtime.rs
+msgid "Updating Ollama"
+msgstr ""
+
+#: src/ui/window/managed_runtime.rs
+msgid "Preparing Ollama. You can cancel before installation begins."
+msgstr ""
+
+#: src/ui/window/managed_runtime.rs
+msgid "The installation stopped unexpectedly. Reopen Moose to recover it."
+msgstr ""
+
+#: src/ui/window/managed_runtime.rs
+msgid "Restoring previous version"
+msgstr ""
+
+#: src/ui/window/managed_runtime.rs src/ui/window/model_manager.rs
+msgid "Ready to use"
+msgstr ""
+
+#: src/ui/window/managed_runtime.rs
+msgid "Ollama is ready. Your models and chats have been preserved."
+msgstr ""
+
+#: src/ui/window/managed_runtime.rs
+msgid "Installation cancelled"
+msgstr ""
+
+#: src/ui/window/managed_runtime.rs
+msgid "Installation failed"
+msgstr ""
+
+#: src/ui/window/managed_runtime.rs
+msgid "Ollama & Diagnostics"
+msgstr ""
+
+#: src/ui/window/managed_runtime.rs
+msgid "Manage Ollama"
+msgstr ""
+
+#: src/ui/window/managed_runtime.rs
+msgid "Install, update, or repair the local engine"
+msgstr ""
+
+#: src/ui/window/managed_runtime.rs
+msgid "Diagnostics"
+msgstr ""
+
+#: src/ui/window/managed_runtime.rs
+msgid "View and copy recent log entries when reporting a problem."
+msgstr ""
+
+#: src/ui/window/managed_runtime.rs
+msgid "View Log"
+msgstr ""
+
+#: src/ui/window/markdown_view/table_view.rs
+msgid "Copy table"
+msgstr ""
+
+#: src/ui/window/markdown_view/table_view.rs
+msgid "Spreadsheet"
+msgstr ""
+
+#: src/ui/window/math_view.rs
+#, rust-format
+msgid "Copy formula: {arg1}"
+msgstr ""
+
+#: src/ui/window/math_view.rs
+msgid "Formula"
+msgstr ""
+
+#: src/ui/window/math_view.rs
+msgid "Formula source"
+msgstr ""
+
+#: src/ui/window/math_view.rs
+msgid "Copy formula"
+msgstr ""
+
+#: src/ui/window/math_view.rs
+msgid "LaTeX source"
+msgstr ""
+
+#: src/ui/window/message_actions.rs
+#, rust-format
+msgid "Message action could not be completed: {error}"
+msgstr ""
+
+#: src/ui/window/message_actions.rs
+#, rust-format
+msgid "Conversation could not be displayed: {error}"
+msgstr ""
+
+#: src/ui/window/message_actions.rs
+#, rust-format
+msgid "Message could not be displayed: {error}"
+msgstr ""
+
+#: src/ui/window/message_actions.rs
+msgid "Copy Message"
+msgstr ""
+
+#: src/ui/window/message_actions.rs
+msgid "Copied"
+msgstr ""
+
+#: src/ui/window/message_actions.rs
+msgid "Edit Message"
+msgstr ""
+
+#: src/ui/window/message_actions.rs
+msgid "Create Document from Response"
+msgstr ""
+
+#: src/ui/window/message_actions.rs
+msgid "Regenerate Response"
+msgstr ""
+
+#: src/ui/window/message_actions.rs
+msgid "Continue Response"
+msgstr ""
+
+#: src/ui/window/message_actions.rs src/ui/window/provider_controls.rs
+msgid "Continue"
+msgstr ""
+
+#: src/ui/window/message_actions.rs
+msgid "Previous Version"
+msgstr ""
+
+#: src/ui/window/message_actions.rs
+msgid "Next Version"
+msgstr ""
+
+#: src/ui/window/message_actions.rs
+msgid "Switch versions to restore their conversation"
+msgstr ""
+
+#: src/ui/window/message_actions.rs
+msgid "Continue in New Chat"
+msgstr ""
+
+#: src/ui/window/message_actions.rs
+msgid "More Message Actions"
+msgstr ""
+
+#: src/ui/window/message_actions.rs
+msgid "New chat created. The original conversation is unchanged."
+msgstr ""
+
+#: src/ui/window/message_actions.rs
+msgid "Edit message"
+msgstr ""
+
+#: src/ui/window/message_actions.rs
+msgid "Previous versions are kept."
+msgstr ""
+
+#: src/ui/window/message_actions.rs
+msgid "Attachments and previous versions are kept."
+msgstr ""
+
+#: src/ui/window/message_actions.rs
+msgid "Cancel editing (Esc)"
+msgstr ""
+
+#: src/ui/window/message_actions.rs
+msgid "Save & Send"
+msgstr ""
+
+#: src/ui/window/message_actions.rs
+msgid "Save and generate a new response (Ctrl+Enter)"
+msgstr ""
+
+#: src/ui/window/model_actions.rs
+msgid "Model name is invalid"
+msgstr ""
+
+#: src/ui/window/model_actions.rs
+msgid "Download on Remote Provider?"
+msgstr ""
+
+#: src/ui/window/model_actions.rs
+#, rust-format
+msgid "The model will be downloaded by {arg1} at {arg2}."
+msgstr ""
+
+#: src/ui/window/model_actions.rs src/ui/window/model_download.rs
+#: src/ui/window/model_manager.rs
+msgid "Download"
+msgstr ""
+
+#: src/ui/window/model_actions.rs
+msgid "The connection changed. Try downloading the model again."
+msgstr ""
+
+#: src/ui/window/model_actions.rs
+#, rust-format
+msgid "Download jobs could not be loaded: {error}"
+msgstr ""
+
+#: src/ui/window/model_actions.rs
+msgid "Download Jobs"
+msgstr ""
+
+#: src/ui/window/model_actions.rs
+msgid "Clear Download History"
+msgstr ""
+
+#: src/ui/window/model_actions.rs
+msgid "No Download Jobs"
+msgstr ""
+
+#: src/ui/window/model_actions.rs
+msgid "Model downloads will appear here."
+msgstr ""
+
+#: src/ui/window/model_actions.rs src/ui/window.rs
+msgid "Finish the active model download first"
+msgstr ""
+
+#: src/ui/window/model_actions.rs
+msgid "Clear Download History?"
+msgstr ""
+
+#: src/ui/window/model_actions.rs
+msgid "Remove all model download jobs for the active provider?"
+msgstr ""
+
+#: src/ui/window/model_actions.rs src/ui/window/preferences.rs
+msgid "Clear"
+msgstr ""
+
+#: src/ui/window/model_actions.rs
+msgid "Download history cleared"
+msgstr ""
+
+#: src/ui/window/model_actions.rs
+#, rust-format
+msgid "Download history could not be cleared: {error}"
+msgstr ""
+
+#: src/ui/window/model_actions.rs
+#, rust-format
+msgid "Updated {arg1}"
+msgstr ""
+
+#: src/ui/window/model_actions.rs
+msgid "Queued"
+msgstr ""
+
+#: src/ui/window/model_actions.rs
+msgid "Running"
+msgstr ""
+
+#: src/ui/window/model_actions.rs
+msgid "Complete"
+msgstr ""
+
+#: src/ui/window/model_actions.rs
+msgid "Cancelled"
+msgstr ""
+
+#: src/ui/window/model_actions.rs
+msgid "Failed"
+msgstr ""
+
+#: src/ui/window/model_actions.rs
+#, rust-format
+msgid "{completed} of {total}"
+msgstr ""
+
+#: src/ui/window/model_actions.rs
+#, rust-format
+msgid "{size} downloaded"
+msgstr ""
+
+#: src/ui/window/model_actions.rs
+#, rust-format
+msgid "{size} total"
+msgstr ""
+
+#: src/ui/window/model_actions.rs src/ui/window/model_download.rs
+msgid "A model download is already running"
+msgstr ""
+
+#: src/ui/window/model_actions.rs src/ui/window.rs
+msgid "Finish the active model deletion first"
+msgstr ""
+
+#: src/ui/window/model_actions.rs src/ui/window.rs
+#, rust-format
+msgid "Download job could not be saved: {error}"
+msgstr ""
+
+#: src/ui/window/model_actions.rs
+#, rust-format
+msgid "Model: {target_model}; server: {arg1}"
+msgstr ""
+
+#: src/ui/window/model_actions.rs
+#, rust-format
+msgid ""
+"Model: {target_model}\n"
+"Server: {arg1}\n"
+"\n"
+"{error}"
+msgstr ""
+
+#: src/ui/window/model_actions.rs
+#, rust-format
+msgid "Download progress could not be saved: {error}"
+msgstr ""
+
+#: src/ui/window/model_actions.rs
+msgid "Model download complete"
+msgstr ""
+
+#: src/ui/window/model_actions.rs
+#, rust-format
+msgid "Download job could not be saved: {save_error}"
+msgstr ""
+
+#: src/ui/window/model_actions.rs
+#, rust-format
+msgid ""
+"Provider: {arg1} at {arg2}\n"
+"{error}"
+msgstr ""
+
+#: src/ui/window/model_actions.rs
+msgid "Model download failed"
+msgstr ""
+
+#: src/ui/window/model_actions.rs src/ui/window/model_manager.rs
+msgid "Details"
+msgstr ""
+
+#: src/ui/window/model_actions.rs
+msgid "Download stopped before completion."
+msgstr ""
+
+#: src/ui/window/model_actions.rs
+msgid "Model download stopped before completion"
+msgstr ""
+
+#: src/ui/window/model_actions.rs
+msgid "A model deletion is already running"
+msgstr ""
+
+#: src/ui/window/model_actions.rs
+#, rust-format
+msgid "Delete \"{model}\" from Ollama? You can download it again later."
+msgstr ""
+
+#: src/ui/window/model_actions.rs
+#, rust-format
+msgid ""
+"Delete \"{model}\" from {arg1} at {arg2}? This changes the remote provider."
+msgstr ""
+
+#: src/ui/window/model_actions.rs
+msgid "Delete Model?"
+msgstr ""
+
+#: src/ui/window/model_actions.rs
+msgid "Delete Failed"
+msgstr ""
+
+#: src/ui/window/model_actions.rs
+msgid "Create or connect an Ollama instance first."
+msgstr ""
+
+#: src/ui/window/model_actions.rs
+msgid "Model Deleted"
+msgstr ""
+
+#: src/ui/window/model_actions.rs
+#, rust-format
+msgid "{model} was removed from Ollama."
+msgstr ""
+
+#: src/ui/window/model_actions.rs
+msgid "Model deleted"
+msgstr ""
+
+#: src/ui/window/model_actions.rs
+msgid "Model Deletion Failed"
+msgstr ""
+
+#: src/ui/window/model_actions.rs
+msgid "Delete Stopped"
+msgstr ""
+
+#: src/ui/window/model_actions.rs
+msgid "The model deletion stopped before completion."
+msgstr ""
+
+#: src/ui/window/model_actions.rs
+msgid ""
+"Cloud models are managed by the provider. Refresh the model list to see "
+"available models."
+msgstr ""
+
+#: src/ui/window/model_actions.rs src/ui/window/model_download.rs
+msgid "New Chat"
+msgstr ""
+
+#: src/ui/window/model_actions.rs
+msgid "Select the original connection and refresh its models to start a chat."
+msgstr ""
+
+#: src/ui/window/model_actions.rs
+#, rust-format
+msgid ""
+"Moose {arg1}\n"
+"Model: {model}\n"
+"Provider: {arg2}\n"
+"Address: {arg3}\n"
+"\n"
+"{error}"
+msgstr ""
+
+#: src/ui/window/model_actions.rs
+msgid "Ollama Update Required"
+msgstr ""
+
+#: src/ui/window/model_actions.rs
+msgid "Model Download Failed"
+msgstr ""
+
+#: src/ui/window/model_actions.rs
+msgid ""
+"Update the Ollama engine managed by Moose, then retry this model download."
+msgstr ""
+
+#: src/ui/window/model_actions.rs
+msgid "Update Ollama and Retry"
+msgstr ""
+
+#: src/ui/window/model_actions.rs
+msgid ""
+"Update Ollama on this provider's server, restart that server, and retry the "
+"download."
+msgstr ""
+
+#: src/ui/window/model_actions.rs
+msgid ""
+"Check repository access. Private Hugging Face models require the Ollama "
+"instance's SSH key to be added to your Hugging Face account."
+msgstr ""
+
+#: src/ui/window/model_actions.rs
+msgid ""
+"Check the repository and variant. The model must be a GGUF supported by your "
+"Ollama version."
+msgstr ""
+
+#: src/ui/window/model_actions.rs
+msgid "Check the model name and connection, then try again."
+msgstr ""
+
+#: src/ui/window/model_actions.rs
+msgid "Edit and Retry"
+msgstr ""
+
+#: src/ui/window/model_actions.rs
+msgid "Select the original connection before retrying this download."
+msgstr ""
+
+#: src/ui/window/model_download.rs
+msgid " · Already installed"
+msgstr ""
+
+#: src/ui/window/model_download.rs
+msgid "Automatic"
+msgstr ""
+
+#: src/ui/window/model_download.rs
+msgid "This model is already installed and does not support chat."
+msgstr ""
+
+#: src/ui/window/model_download.rs src/ui/window/model_manager.rs
+msgid "Download Model"
+msgstr ""
+
+#: src/ui/window/model_download.rs
+msgid "Model Name or Link"
+msgstr ""
+
+#: src/ui/window/model_download.rs
+msgid ""
+"Use an Ollama name like llama3.2:1b, a Hugging Face GGUF link, or an ollama "
+"run command."
+msgstr ""
+
+#: src/ui/window/model_download.rs
+msgid "Quantization or Filename"
+msgstr ""
+
+#: src/ui/window/model_download.rs
+msgid "Overrides the variant in the model name or link"
+msgstr ""
+
+#: src/ui/window/model_download.rs
+msgid "Variant"
+msgstr ""
+
+#: src/ui/window/model_download.rs
+msgid ""
+"Optional. Enter a quantization such as Q4_K_M or an exact GGUF filename."
+msgstr ""
+
+#: src/ui/window/model_download.rs
+msgid "Browse Hugging Face Models"
+msgstr ""
+
+#: src/ui/window/model_download.rs
+#, rust-format
+msgid "Downloads to {arg1} on this device."
+msgstr ""
+
+#: src/ui/window/model_download.rs
+#, rust-format
+msgid "Downloads to {arg1} at {arg2}."
+msgstr ""
+
+#: src/ui/window/model_download.rs
+msgid "The connection changed. Reopen this dialog to choose the destination."
+msgstr ""
+
+#: src/ui/window/model_download.rs
+msgid "Wait for the current model operation to finish."
+msgstr ""
+
+#: src/ui/window/model_manager/discovery.rs
+msgid "For everyday questions, writing, and learning."
+msgstr ""
+
+#: src/ui/window/model_manager/discovery.rs
+msgid "For writing, explaining, and troubleshooting code."
+msgstr ""
+
+#: src/ui/window/model_manager/discovery.rs
+msgid "For questions about photos, screenshots, and charts."
+msgstr ""
+
+#: src/ui/window/model_manager/discovery.rs
+msgid "For summarizing text and asking questions about documents."
+msgstr ""
+
+#: src/ui/window/model_manager/discovery.rs
+msgid "Explore every model family, including specialized models."
+msgstr ""
+
+#: src/ui/window/model_manager/discovery.rs
+msgid "Memory needs depend on the Ollama server"
+msgstr ""
+
+#: src/ui/window/model_manager/discovery.rs
+msgid "Lower memory pressure expected"
+msgstr ""
+
+#: src/ui/window/model_manager/discovery.rs
+msgid "May leave little memory for other apps"
+msgstr ""
+
+#: src/ui/window/model_manager/discovery.rs
+msgid "May need more memory than is available"
+msgstr ""
+
+#: src/ui/window/model_manager/discovery.rs
+msgid "Text and images"
+msgstr ""
+
+#: src/ui/window/model_manager/discovery.rs
+msgid "Text only"
+msgstr ""
+
+#: src/ui/window/model_manager/discovery.rs
+msgid "Specialized tasks"
+msgstr ""
+
+#: src/ui/window/model_manager/discovery.rs
+msgid "Coding and debugging"
+msgstr ""
+
+#: src/ui/window/model_manager/discovery.rs
+msgid "Chat and images"
+msgstr ""
+
+#: src/ui/window/model_manager/discovery.rs
+msgid "Documents and summaries"
+msgstr ""
+
+#: src/ui/window/model_manager/discovery.rs
+msgid "Complex questions"
+msgstr ""
+
+#: src/ui/window/model_manager/discovery.rs
+msgid "Chat and writing"
+msgstr ""
+
+#: src/ui/window/model_manager/requirements.rs
+#, rust-format
+msgid ""
+"About {ram} GiB of available RAM for CPU-only use. Leave additional memory "
+"for the system and other apps."
+msgstr ""
+
+#: src/ui/window/model_manager/requirements.rs
+#, rust-format
+msgid ""
+"Model files are about {arg1}. Full GPU execution also needs VRAM for context "
+"and runtime. The exact VRAM minimum is not verified."
+msgstr ""
+
+#: src/ui/window/model_manager/requirements.rs
+#, rust-format
+msgid ""
+"About {arg1} for model files. Ollama and its runtime need additional disk "
+"space. Shared files may reduce the additional space used."
+msgstr ""
+
+#: src/ui/window/model_manager/requirements.rs
+msgid ""
+"Not available for this connection. Check the hardware of the Ollama server."
+msgstr ""
+
+#: src/ui/window/model_manager/requirements.rs
+#, rust-format
+msgid "{arg1_formatted} GiB available on this device. {arg2}."
+msgstr ""
+
+#: src/ui/window/model_manager/requirements.rs
+msgid "Technical Details"
+msgstr ""
+
+#: src/ui/window/model_manager/requirements.rs
+msgid "Model"
+msgstr ""
+
+#: src/ui/window/model_manager/requirements.rs
+msgid "RAM for CPU Use (Estimated)"
+msgstr ""
+
+#: src/ui/window/model_manager/requirements.rs
+msgid "VRAM for Full GPU Use"
+msgstr ""
+
+#: src/ui/window/model_manager/requirements.rs
+msgid "Disk Space"
+msgstr ""
+
+#: src/ui/window/model_manager/requirements.rs
+msgid "Available System RAM"
+msgstr ""
+
+#: src/ui/window/model_manager/requirements.rs
+msgid "Requirements for Version"
+msgstr ""
+
+#: src/ui/window/model_manager/requirements.rs
+msgid ""
+"64-bit x86_64 or ARM64 CPU supported by Ollama. CPU-only execution is "
+"available; speed depends on the processor and model."
+msgstr ""
+
+#: src/ui/window/model_manager/requirements.rs
+#, rust-format
+msgid ""
+"Moose defaults to {arg1} tokens. Chat settings can override this value; "
+"longer contexts and images can use substantially more memory."
+msgstr ""
+
+#: src/ui/window/model_manager/requirements.rs
+msgid "GPU Compatibility"
+msgstr ""
+
+#: src/ui/window/model_manager/requirements.rs
+msgid ""
+"A dedicated GPU is optional. Acceleration requires a supported GPU and "
+"driver; RAM and VRAM can also be used together. View Ollama's supported "
+"hardware."
+msgstr ""
+
+#: src/ui/window/model_manager/requirements.rs
+msgid "About These Estimates"
+msgstr ""
+
+#: src/ui/window/model_manager/requirements.rs
+msgid ""
+"The RAM budget uses model file size with runtime headroom. It is a planning "
+"estimate, not a verified minimum or a guarantee that the model will fit. "
+"Requirements depend on context, architecture, images, and backend settings."
+msgstr ""
+
+#: src/ui/window/model_manager/requirements.rs
+msgid "Model Tags"
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid "Meta general chat models with tool-capable instruct variants"
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid ""
+"Balanced general-purpose chat models from Meta. The 8B tag is the practical "
+"default for local machines, while 70B and 405B target larger systems."
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid "Recommended local default for everyday chat."
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid "Larger model for stronger reasoning and writing."
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid "Very large model for high-memory systems."
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid "Small Meta models for fast local chat"
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid ""
+"Compact Llama models made for responsive local use. Good first downloads "
+"when you want speed and lower memory use."
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid "Very small and fast for quick responses."
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid "Small but more capable than 1B."
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid "Popular 70B Meta model with strong quality for its size"
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid ""
+"A newer Llama 70B option that Ollama lists among the popular models. Use "
+"this when you want high quality and have enough memory for a large model."
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid "Default Llama 3.3 70B tag."
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid "Quantized instruction variant for large local systems."
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid "Older but still heavily used Meta chat models"
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid ""
+"Still one of the high-pull Llama families on Ollama. The 8B variant remains "
+"a useful baseline when comparing newer local models."
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid "Classic local Llama 3 baseline."
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid "Quantized instruct variant."
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid "Large Llama 3 variant."
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid "Popular reasoning model family"
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid ""
+"Reasoning-focused models and distilled variants. Smaller tags are useful "
+"locally; larger tags need much more memory."
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid "Tiny reasoning distill for light machines."
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid "Popular local reasoning default."
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid "Qwen3-based refreshed distill."
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid "Stronger reasoning on mid-range hardware."
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid "High quality reasoning for large local setups."
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid "Large reasoning model for high-memory systems."
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid "Efficient Google models with small and vision-capable sizes"
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid ""
+"A broad family that scales from tiny local assistants to larger, more "
+"capable models. Useful when you want efficient everyday chat."
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid "Very small instruction model."
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid "Small and responsive local chat."
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid "Recommended local balance for Gemma."
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid "Better quality for machines with more memory."
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid "Large Gemma model for stronger answers."
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid "Efficient Gemma models for everyday devices"
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid ""
+"Compact Gemma 3n variants designed for efficient execution on laptops and "
+"everyday devices. Good when you want newer Gemma behavior without a huge "
+"model."
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid "Smaller efficient Gemma 3n variant."
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid "More capable efficient Gemma 3n variant."
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid "Quantized instruction-tuned tag."
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid "Very popular efficient Google model family"
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid ""
+"Older than Gemma 3, but still high on Ollama's popularity list. Useful for "
+"comparing small and medium Google models."
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid "Small Gemma 2 model."
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid "Balanced Gemma 2 model."
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid "Large Gemma 2 model."
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid "Newer Gemma family with local and larger variants"
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid ""
+"Recent Gemma models with compact expert variants and larger instruction "
+"tags. Good to try when you want the newest Google family available in Ollama."
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid "Compact expert variant for lighter local use."
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid "Small expert variant with more capacity."
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid "Mid-sized Gemma 4 model for chat and image understanding."
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid "Larger instruction model."
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid "Large Gemma 4 variant for strong quality."
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid "Recent Gemma translation models"
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid ""
+"A newer Gemma-based translation family for communication across many "
+"languages. Useful when translation is the main workflow."
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid "Small translation model."
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid "Medium translation model."
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid "Large translation model."
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid "Recent specialized Gemma medical models"
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid ""
+"Specialized Gemma variants for medical text and image comprehension. They "
+"are included for specialized workflows and should not replace professional "
+"medical judgment."
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid "Small specialized medical model."
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid "Large specialized medical model."
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid "Strong multilingual general models"
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid ""
+"Popular multilingual chat models with many sizes. The 7B tag is a reliable "
+"local default, and larger tags improve quality when hardware allows."
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid "Tiny multilingual model."
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid "Small multilingual chat."
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid "Lightweight everyday chat."
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid "Recommended local default."
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid "Stronger multilingual answers."
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid "Large local model for better quality."
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid "Very large multilingual model."
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid "Popular multilingual reasoning models"
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid ""
+"Reasoning-capable Qwen models with small dense tags and larger mixture-of-"
+"experts tags. Strong choice for multilingual work."
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid "Tiny Qwen 3 chat."
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid "Small reasoning model."
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid "Recommended small reasoning model."
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid "Balanced reasoning and chat."
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid "Mixture-of-experts model with active 3B path."
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid "Large dense Qwen 3 model."
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid "Newer Qwen family with compact and MoE tags"
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid ""
+"Recent Qwen models with small local sizes and larger expert variants. Useful "
+"for multilingual chat, coding and reasoning."
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid "Tiny fast model."
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid "Small general model."
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid "Practical recent Qwen model for local chat."
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid "Stronger recent Qwen model for local systems."
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid "Large dense model with coding variants."
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid "Mixture-of-experts model for larger local setups."
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid "Recent Qwen upgrade for coding and thinking"
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid ""
+"A newer Qwen generation shown in Ollama's recent model listings. It focuses "
+"on agentic coding and better thinking preservation."
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid "Dense recent Qwen model."
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid "Quantized dense recent Qwen model."
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid "Mixture-of-experts recent Qwen model."
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid "Quantized MoE variant."
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid "Multimodal Qwen model for reasoning and coding"
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid ""
+"A 27B model for chat, programming, research and image understanding. "
+"Suitable for local systems with more memory or a remote Ollama provider."
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid "Large Qwen model with image support and reasoning."
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid "Open-weight GPT-style models"
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid ""
+"Open-weight models intended for capable local and workstation setups. The "
+"20B tag is the practical local starting point."
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid "Recommended local GPT OSS variant."
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid "Very large GPT OSS variant."
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid "Fast general chat model"
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid ""
+"Classic Mistral 7B family. Still useful for fast local chat and lightweight "
+"instruction tasks."
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid "Default Mistral local chat model."
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid "Quantized instruction variant."
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid "Popular 12B Mistral model with long context"
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid ""
+"A high-pull Mistral family built with NVIDIA collaboration. Useful as a "
+"stronger local alternative to classic Mistral 7B."
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid "Default Mistral Nemo model."
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid "Popular 22B and 24B Mistral Small models"
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid ""
+"A widely used Mistral family below 70B. Good for stronger local chat when 7B "
+"models feel too small."
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid "Earlier Mistral Small tag."
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid "Newer Mistral Small tag."
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid "Modern 24B Mistral instruction model"
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid ""
+"A newer 24B Mistral model for stronger general chat when you have enough "
+"memory."
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid "Default 24B instruction model."
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid "Recent 128B flagship Mistral model"
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid ""
+"A recent Mistral model shown in Ollama's newest listings. It is large, but "
+"useful to expose for users with workstation or remote Ollama providers."
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid "Default Mistral Medium 3.5 tag."
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid "Quantized large Mistral Medium tag."
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid "Recent edge-friendly Mistral family"
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid ""
+"A newer Mistral family designed for edge deployment with 3B, 8B and 14B "
+"sizes. Good fit for laptops and local-first use."
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid "Small edge-friendly model."
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid "Balanced local Ministral model."
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid "Stronger local Ministral model."
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid "Multimodal Meta model for chat and reasoning"
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid ""
+"A 30B model for multilingual chat, programming and questions about images, "
+"screenshots and charts. Suitable for local systems with more memory or a "
+"remote Ollama provider."
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid "Large local model with image understanding and reasoning support."
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid "Multilingual IBM models for chat and document questions"
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid ""
+"Text models for summarization, document questions, coding and structured "
+"output. Supports Spanish and other languages, with built-in reasoning."
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid "Small model for multilingual chat and document summaries."
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid "Recommended variant for document questions and everyday chat."
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid "Compact Microsoft model for reasoning and chat"
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid ""
+"A compact 14B model that works well for practical local assistant tasks."
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid "Default Phi 4 model."
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid "Quantized Phi 4 variant."
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid "Lightweight multilingual Microsoft model"
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid ""
+"A compact 3.8B text model for everyday chat, mathematics and logical "
+"reasoning. Designed for responsive local use on systems with limited memory."
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid "Small local model for multilingual chat and practical reasoning."
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid "Microsoft reasoning model in a compact 14B size"
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid ""
+"A reasoning-focused Phi 4 family. Useful when you want a smaller model for "
+"multi-step reasoning without jumping to very large models."
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid "Default Phi 4 reasoning model."
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid "Quantized reasoning variant."
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid "Reasoning-plus variant."
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid "Small Microsoft models"
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid ""
+"Older but useful compact Microsoft models for low-memory local machines."
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid "Small Phi 3 mini model."
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid "Medium Phi 3 model."
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid "Coding-specialized Qwen models"
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid ""
+"Popular code-focused models for completion, explanation and software tasks. "
+"The 7B tag is a good local start."
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid "Small code model."
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid "Recommended local coding model."
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid "Stronger coding model."
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid "Large coding model."
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid "Popular Qwen coding models for agentic tasks"
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid ""
+"Qwen's newer coding family appears high in Ollama's popular list. The 30B "
+"A3B tag is the practical local starting point."
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid "Default local Qwen 3 Coder tag."
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid "Quantized local coding variant."
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid "Very large Qwen coding model."
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid "Recent coding-focused Qwen model"
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid ""
+"A newer Qwen coding model from Ollama's recent list. Include it for users "
+"who want the freshest coding tag."
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid "Quantized local coding tag."
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid "Higher precision local coding tag."
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid "Compact coding and STEM model from Essential AI"
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid ""
+"An 8B text model for code generation, programming explanations, mathematics "
+"and science. A smaller option alongside the larger coding families."
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid "Local coding model for programming and technical questions."
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid "Mistral model for software engineering and image understanding"
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid ""
+"A 24B model specialized in software engineering, code understanding and tool "
+"use, with image support. Requires Ollama 0.13.3 or later."
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid "Coding-focused model for systems with more available memory."
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid "Popular coding model family"
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid ""
+"A high-pull coding model family on Ollama. Useful for users who want a "
+"lightweight code-specific model."
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid "Balanced local code model."
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid "Large code model."
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid "Popular open code model family"
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid ""
+"A code-focused family with small, medium and larger tags. Good to expose "
+"alongside Qwen and DeepSeek coder models."
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid "Balanced code model."
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid "Larger code model."
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid "Google code models in compact sizes"
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid ""
+"A popular coding family with 2B and 7B variants for code completion and "
+"instruction-style coding tasks."
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid "Small code completion model."
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid "Recommended CodeGemma local tag."
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid "Code-focused Llama family"
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid ""
+"Established coding models for code generation and explanation. Useful as a "
+"fallback coding family."
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid "Small coding model."
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid "Medium coding model."
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid "Vision-capable Llama models"
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid ""
+"Multimodal Llama variants. Moose can download them through Ollama; text chat "
+"support depends on how you use the provider."
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid "Smaller vision-capable Llama model."
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid "Large vision-capable Llama model."
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid "Vision-language Qwen models"
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid ""
+"Vision-language Qwen variants with instruct and thinking tags. Useful for "
+"multimodal workflows once the UI supports image input."
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid "Small vision-language variant."
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid "Compact vision-language model."
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid "Balanced vision-language model."
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid "Larger mixture-of-experts vision model."
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid "Popular Qwen vision-language model family"
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid ""
+"Qwen's earlier flagship vision-language family remains popular on Ollama and "
+"includes practical 3B and 7B local sizes."
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid "Small vision-language model."
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid "Recommended local vision-language model."
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid "Large vision-language model."
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid "Classic high-pull vision-language model"
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid ""
+"One of the most pulled multimodal model families in Ollama. Useful for users "
+"who want broad compatibility with older vision workflows."
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid "Small LLaVA vision model."
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid "Medium LLaVA vision model."
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid "Large LLaVA vision model."
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid "Popular compact multimodal model"
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid ""
+"A popular vision-language model designed for multimodal understanding in a "
+"comparatively compact size."
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid "Default MiniCPM-V local tag."
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid "Small vision model for images and screenshots"
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid ""
+"A compact multimodal model designed for efficient image understanding. "
+"Useful for questions about images and screenshots on lower-memory systems."
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid "Lightweight model for image questions and visual understanding."
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid "Local vision model for chat and image questions"
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid ""
+"A 9B multimodal model for text conversations and questions about images. A "
+"practical local alternative for understanding screenshots, charts and visual "
+"content."
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid "Balanced local model for chat and image understanding."
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid "Fully open 7B and 13B models"
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid ""
+"Popular fully open models from Ai2. Good to include for users who prefer "
+"open training data and transparent model families."
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid "Small OLMo 2 model."
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid "Recommended OLMo 2 model."
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid "Quantized instruction tag."
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid "Popular Mistral mixture-of-experts models"
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid ""
+"Older but still widely used MoE models from Mistral. Useful for larger local "
+"and remote Ollama systems."
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid "Classic Mixtral MoE model."
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid "Large Mixtral MoE model."
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid "Mixture-of-experts model for reasoning and coding"
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid ""
+"A text model with 30B total parameters and 3B active parameters per token "
+"for programming and multi-step reasoning. Requires a higher-memory system "
+"and Ollama 0.14.3 or later."
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid "Quantized model for local coding and reasoning with lower memory use."
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid "Qwen reasoning model"
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid ""
+"A popular Qwen reasoning model. Useful as a dedicated thinking model "
+"alongside DeepSeek R1 and Qwen 3."
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid "Default QwQ reasoning model."
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid "Quantized QwQ reasoning tag."
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid "Very large MoE model for remote providers"
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid ""
+"A high-pull DeepSeek MoE model. It is too large for most local machines, but "
+"useful when Moose points to a powerful remote Ollama provider."
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid "Default very large DeepSeek V3 tag."
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid "Quantized very large DeepSeek V3 tag."
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid "Updated local coding model from Poolside"
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid ""
+"An updated Laguna model for programming and code understanding, with 33B "
+"total parameters and 3B active parameters per token. Supports reasoning and "
+"requires more memory than smaller coding models."
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid "Quantized Laguna XS 2.1 model for local programming assistance."
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid "Recent local MoE model for coding and long-horizon work"
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid ""
+"A recent model in Ollama's newest list, designed for agentic coding with a "
+"compact active parameter count."
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid "Quantized Laguna XS.2 tag."
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid "Higher precision Laguna XS.2 tag."
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid "Recent hybrid model for on-device deployment"
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid ""
+"A newer hybrid model family shown in Ollama's recent list. The 24B A2B tag "
+"offers an efficient active-parameter path."
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid "Default efficient LFM2 tag."
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid "Quantized LFM2 variant."
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid "Efficient local assistant from Liquid AI"
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid ""
+"A text model designed for local assistants and instruction following. Its "
+"mixture-of-experts architecture has 8B total parameters and 1B active "
+"parameters per token."
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid "Efficient local assistant model with reasoning support."
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid "Lightweight multilingual reasoning model"
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid ""
+"A small text-only model designed for local deployment and reasoning. "
+"Supports Spanish and other languages for everyday questions on lower-memory "
+"devices."
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid "Compact reasoning model for lightweight local use."
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid "Recent NVIDIA 120B MoE model"
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid ""
+"A recent NVIDIA MoE model. Exposed for remote Ollama providers and high-"
+"memory systems."
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid "Default Nemotron 3 Super MoE tag."
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid "Quantized Nemotron 3 Super tag."
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid "Very small instruction models"
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid "Tiny instruction models for low-resource machines and quick tests."
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid "Tiny test model."
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid "Very small local model."
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid "Small instruction model."
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid "Add Model…"
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid "Download a model from Ollama or Hugging Face"
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid "Downloads"
+msgstr ""
+
+#: src/ui/window/model_manager.rs src/ui/window/provider_controls.rs
+#: src/ui/window/shortcuts.rs
+msgid "Refresh Models"
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid "Search models or paste a link"
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid "Search by name or task, or paste a model link"
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid "Browse every model family"
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid "Everyday"
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid "Questions, writing, and learning"
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid "Coding"
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid "Write, explain, and troubleshoot code"
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid "Ask questions about photos and screenshots"
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid "Summarize text and work with documents"
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid "Available model category"
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid "Preference"
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid "Balanced"
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid "Lighter Downloads"
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid "Larger Models"
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid ""
+"Choose a balance, smaller downloads, or larger versions. Speed depends on "
+"your hardware."
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid "Model preference"
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid "Reset Filters"
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid "Clear the search and restore the default filters"
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid "Filters"
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid "Model filters"
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid "Download Size"
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid "Any size"
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid "Under 2 GB"
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid "Under 5 GB"
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid "Under 10 GB"
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid "Under 20 GB"
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid "Image Input"
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid "Models that can understand images"
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid "Tool Use"
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid "Models with tool-calling support"
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid "Multiple Languages"
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid "Language quality varies by model"
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid "Model Download"
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid "Preparing download…"
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid "Cancel Download"
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid "Cancel download"
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid "Transfer details"
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid "Model download progress"
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid "Available"
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid "No Models Loaded"
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid "Loading Models"
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+#, rust-format
+msgid "Filters ({extra_count} active)"
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid "Memory guidance is unavailable for this connection."
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+#, rust-format
+msgid "{arg1_formatted} GiB available · Memory estimates are approximate"
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid ""
+"Memory guidance uses download size with a rough runtime allowance. Context "
+"length, graphics memory, and other apps affect actual requirements. It does "
+"not predict response speed."
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid "No installed models"
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid "No installed matches"
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid "Clear Filters"
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid "No Matching Models"
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid "Try another task or clear your search and filters."
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+#, rust-format
+msgid ""
+"Model: {model}\n"
+"Preparing download"
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid "Verifying download…"
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid "Finishing up…"
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid "Downloading…"
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+#, rust-format
+msgid "Downloading · {arg1} of {arg2}"
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+#, rust-format
+msgid ""
+"Model: {model}\n"
+"Status: {arg1}\n"
+"{subtitle}"
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+#, rust-format
+msgid ""
+"\n"
+"Digest: {digest}"
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid "Removing model…"
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+#, rust-format
+msgid ""
+"Model: {model}\n"
+"Removing model from Ollama"
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid "Model removed"
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid "Open details for more information"
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+#, rust-format
+msgid "{arg1} · Not a chat model"
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid "Use"
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid "Model Options"
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid "Open on Hugging Face"
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid "Remove…"
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid "Download from Hugging Face"
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+#, rust-format
+msgid "{arg1} · View details and other versions"
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid "Model Details"
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid "Open on Ollama"
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid "Versions"
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+#, rust-format
+msgid "{arg1} · Recommended"
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+#, rust-format
+msgid "Start a new chat with {model}"
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+#, rust-format
+msgid "Download {model}"
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+#, rust-format
+msgid "Use {model}"
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+#, rust-format
+msgid "Modified {arg1}"
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid "Installed locally"
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid "Unknown size"
+msgstr ""
+
+#: src/ui/window/model_manager.rs
+msgid "hugging face huggingface hf.co"
+msgstr ""
+
+#: src/ui/window/preferences.rs src/ui/window/shortcuts.rs src/ui/window.rs
+msgid "Preferences"
+msgstr ""
+
+#: src/ui/window/preferences.rs
+msgid "Active Provider"
+msgstr ""
+
+#: src/ui/window/preferences.rs
+msgid "Save Provider"
+msgstr ""
+
+#: src/ui/window/preferences.rs src/ui/window/provider_controls.rs
+msgid "Add Provider"
+msgstr ""
+
+#: src/ui/window/preferences.rs
+msgid "Delete Provider"
+msgstr ""
+
+#: src/ui/window/preferences.rs
+msgid "Local sandbox service"
+msgstr ""
+
+#: src/ui/window/preferences.rs
+msgid "Custom Connection"
+msgstr ""
+
+#: src/ui/window/preferences.rs
+msgid "Configure the server, authentication and model IDs."
+msgstr ""
+
+#: src/ui/window/preferences.rs
+msgid "Configure Provider"
+msgstr ""
+
+#: src/ui/window/preferences.rs
+msgid "This provider is no longer available"
+msgstr ""
+
+#: src/ui/window/preferences.rs
+msgid "Credentials"
+msgstr ""
+
+#: src/ui/window/preferences.rs
+msgid ""
+"API keys are protected by the desktop keyring and excluded from exports."
+msgstr ""
+
+#: src/ui/window/preferences.rs
+msgid "Add, replace or remove the saved key"
+msgstr ""
+
+#: src/ui/window/preferences.rs src/ui/window/web_tools.rs
+msgid "Manage Key"
+msgstr ""
+
+#: src/ui/window/preferences.rs
+msgid "Managed Hardware"
+msgstr ""
+
+#: src/ui/window/preferences.rs
+msgid "Moose asks managed Ollama to use local GPU acceleration when available."
+msgstr ""
+
+#: src/ui/window/preferences.rs
+msgid "GPU Acceleration"
+msgstr ""
+
+#: src/ui/window/preferences.rs
+msgid "Attempts GPU acceleration when supported."
+msgstr ""
+
+#: src/ui/window/preferences.rs
+msgid "Current Acceleration"
+msgstr ""
+
+#: src/ui/window/preferences.rs
+msgid "Privacy"
+msgstr ""
+
+#: src/ui/window/preferences.rs
+msgid "Local Data"
+msgstr ""
+
+#: src/ui/window/preferences.rs
+msgid "Telemetry"
+msgstr ""
+
+#: src/ui/window/preferences.rs
+msgid "Disabled"
+msgstr ""
+
+#: src/ui/window/preferences.rs
+msgid "Conversation Storage"
+msgstr ""
+
+#: src/ui/window/preferences.rs
+msgid "Local application data"
+msgstr ""
+
+#: src/ui/window/preferences.rs
+msgid "Sharing permissions could not be loaded"
+msgstr ""
+
+#: src/ui/window/preferences.rs
+msgid "Shortcuts"
+msgstr ""
+
+#: src/ui/window/preferences.rs
+msgid "Keyboard Shortcuts"
+msgstr ""
+
+#: src/ui/window/preferences.rs
+msgid "Select a command, then press the shortcut you want to use."
+msgstr ""
+
+#: src/ui/window/preferences.rs
+msgid "Reset Shortcuts"
+msgstr ""
+
+#: src/ui/window/preferences.rs
+msgid "Managed hardware setting saved"
+msgstr ""
+
+#: src/ui/window/preferences.rs
+msgid "Create or connect an instance first"
+msgstr ""
+
+#: src/ui/window/preferences.rs
+msgid "The active provider changed. Reopen Preferences to edit it."
+msgstr ""
+
+#: src/ui/window/preferences.rs
+msgid "Managed port is unavailable"
+msgstr ""
+
+#: src/ui/window/preferences.rs
+msgid "Managed port is invalid"
+msgstr ""
+
+#: src/ui/window/preferences.rs
+msgid "Provider saved"
+msgstr ""
+
+#: src/ui/window/preferences.rs
+#, rust-format
+msgid "Set {title} Shortcut"
+msgstr ""
+
+#: src/ui/window/preferences.rs
+#, rust-format
+msgid "Press the new shortcut for {title}."
+msgstr ""
+
+#: src/ui/window/preferences.rs
+msgid ""
+"Use Ctrl, Alt, Shift or Super with printable keys. Esc can be captured here."
+msgstr ""
+
+#: src/ui/window/preferences.rs
+msgid "This key cannot be used as a shortcut"
+msgstr ""
+
+#: src/ui/window/privacy.rs
+msgid "Message Sharing"
+msgstr ""
+
+#: src/ui/window/privacy.rs
+msgid "Prompts, instructions, and history. Files require separate permission."
+msgstr ""
+
+#: src/ui/window/privacy.rs
+msgid "Ask in Each Chat"
+msgstr ""
+
+#: src/ui/window/privacy.rs
+msgid "Allow in All Chats"
+msgstr ""
+
+#: src/ui/window/privacy.rs
+msgid "Connections"
+msgstr ""
+
+#: src/ui/window/privacy.rs
+msgid "Local Only"
+msgstr ""
+
+#: src/ui/window/privacy.rs
+msgid ""
+"Only use Ollama managed by Moose. Web tools, cloud and external Ollama "
+"connections are blocked."
+msgstr ""
+
+#: src/ui/window/privacy.rs
+msgid "Privacy setting could not be saved"
+msgstr ""
+
+#: src/ui/window/privacy.rs
+#, rust-format
+msgid ""
+"Messages: {arg1}\n"
+"Files: {arg2}\n"
+"{arg3}"
+msgstr ""
+
+#: src/ui/window/privacy.rs
+msgid ""
+"Remembered permissions apply only to the selected provider and server. Reset "
+"clears them and permissions in existing chats. Local Only blocks remote "
+"connections regardless of these permissions."
+msgstr ""
+
+#: src/ui/window/privacy.rs src/ui/window/web_tools.rs
+msgid "Reset"
+msgstr ""
+
+#: src/ui/window/privacy.rs
+msgid "Reset Permissions in All Chats"
+msgstr ""
+
+#: src/ui/window/privacy.rs
+msgid "Sharing permissions reset for this provider"
+msgstr ""
+
+#: src/ui/window/privacy.rs
+msgid "Permissions could not be reset"
+msgstr ""
+
+#: src/ui/window/privacy.rs
+msgid "No Remote Providers"
+msgstr ""
+
+#: src/ui/window/privacy.rs
+msgid "Managed Ollama runs on this device and needs no sharing permission."
+msgstr ""
+
+#: src/ui/window/privacy.rs
+msgid "Remote Context"
+msgstr ""
+
+#: src/ui/window/privacy.rs
+msgid ""
+"Remote requests can include recent messages, instructions, and approved "
+"attachments. Document search stays on this device."
+msgstr ""
+
+#: src/ui/window/privacy.rs
+msgid "Provider Sharing Permissions"
+msgstr ""
+
+#: src/ui/window/privacy.rs
+#, rust-format
+msgid "Ask again in all chats with {arg1}. Also resets file sharing."
+msgstr ""
+
+#: src/ui/window/privacy.rs
+msgid "Sharing permission could not be loaded"
+msgstr ""
+
+#: src/ui/window/privacy.rs
+#, rust-format
+msgid ""
+"Send this conversation's context to {arg1} at {arg2}?\n"
+"\n"
+"This request includes {arg3} messages (including instructions and history), "
+"{arg4} images and {arg5} document excerpts. The provider processes this "
+"content under its own data policy.\n"
+"\n"
+"Permission is saved for this chat. Choose the options below to allow sharing "
+"in all chats with this provider and server. Messages and files have separate "
+"permissions. You can reset them in Preferences → Privacy or Chat Settings."
+msgstr ""
+
+#: src/ui/window/privacy.rs
+msgid ""
+"\n"
+"\n"
+"Calculator runs on this device. Its results are also sent to this provider "
+"to complete the response."
+msgstr ""
+
+#: src/ui/window/privacy.rs
+msgid ""
+"\n"
+"\n"
+"Web results and page excerpts are also sent to this provider. Web access "
+"requires separate permission, which can be remembered for all chats in "
+"Preferences → Web."
+msgstr ""
+
+#: src/ui/window/privacy.rs
+msgid "Share Files with Provider?"
+msgstr ""
+
+#: src/ui/window/privacy.rs
+msgid "Share Context and Files?"
+msgstr ""
+
+#: src/ui/window/privacy.rs
+msgid "Share Context with Provider?"
+msgstr ""
+
+#: src/ui/window/privacy.rs
+#, rust-format
+msgid "[{count} attached image]"
+msgid_plural "[{count} attached images]"
+msgstr[0] ""
+msgstr[1] ""
+
+#: src/ui/window/privacy.rs
+msgid "Review text being sent"
+msgstr ""
+
+#: src/ui/window/privacy.rs
+msgid "Remember Permission"
+msgstr ""
+
+#: src/ui/window/privacy.rs
+msgid "Messages in All Chats"
+msgstr ""
+
+#: src/ui/window/privacy.rs
+msgid ""
+"Allow prompts, instructions, and history with this provider without asking "
+"again."
+msgstr ""
+
+#: src/ui/window/privacy.rs
+msgid "Files in All Chats"
+msgstr ""
+
+#: src/ui/window/privacy.rs
+msgid ""
+"Allow attached images and document excerpts with this provider without "
+"asking again."
+msgstr ""
+
+#: src/ui/window/privacy.rs
+msgid "Allow"
+msgstr ""
+
+#: src/ui/window/privacy.rs
+msgid "Connection blocked"
+msgstr ""
+
+#: src/ui/window/privacy.rs
+msgid ""
+"The active chat or provider changed. Send the message again to review it."
+msgstr ""
+
+#: src/ui/window/privacy.rs
+msgid "Sharing permission could not be saved"
+msgstr ""
+
+#: src/ui/window/provider_controls.rs
+msgid "Select Provider"
+msgstr ""
+
+#: src/ui/window/provider_controls.rs src/ui/window.rs
+msgid "Not Set"
+msgstr ""
+
+#: src/ui/window/provider_controls.rs
+msgid "Switch Provider"
+msgstr ""
+
+#: src/ui/window/provider_controls.rs
+msgid "No providers added"
+msgstr ""
+
+#: src/ui/window/provider_controls.rs
+msgid "Add Provider…"
+msgstr ""
+
+#: src/ui/window/provider_controls.rs
+#, rust-format
+msgid ""
+"Switch Provider\n"
+"{arg1}\n"
+"{arg2}\n"
+"{arg3}"
+msgstr ""
+
+#: src/ui/window/provider_controls.rs
+#, rust-format
+msgid "Switch Provider: {arg1}"
+msgstr ""
+
+#: src/ui/window/provider_controls.rs
+msgid "Add or Select a Provider"
+msgstr ""
+
+#: src/ui/window/provider_controls.rs
+msgid "Providers could not be loaded"
+msgstr ""
+
+#: src/ui/window/provider_controls.rs
+#, rust-format
+msgid "Providers could not be loaded: {error}"
+msgstr ""
+
+#: src/ui/window/provider_controls.rs
+#, rust-format
+msgid "Delete {arg1}…"
+msgstr ""
+
+#: src/ui/window/provider_controls.rs
+msgid "Set Up for Me"
+msgstr ""
+
+#: src/ui/window/provider_controls.rs
+msgid "Connect Existing"
+msgstr ""
+
+#: src/ui/window/provider_controls.rs
+msgid "Cloud Provider"
+msgstr ""
+
+#: src/ui/window/provider_controls.rs
+msgid "Moose installs and runs Ollama on this device."
+msgstr ""
+
+#: src/ui/window/provider_controls.rs
+msgid "Use an Ollama server you already run."
+msgstr ""
+
+#: src/ui/window/provider_controls.rs
+msgid "Connect to an AI service using your own API key."
+msgstr ""
+
+#: src/ui/window/provider_controls.rs
+msgid "Instance Name"
+msgstr ""
+
+#: src/ui/window/provider_controls.rs
+msgid "Ollama URL"
+msgstr ""
+
+#: src/ui/window/provider_controls.rs
+msgid ""
+"Choose whether this server can receive messages in all chats. Files require "
+"separate permission. Shared content is processed under the server's own data "
+"policy."
+msgstr ""
+
+#: src/ui/window/provider_controls.rs
+msgid ""
+"Connecting enables external connections. Moose cannot verify where this "
+"server runs."
+msgstr ""
+
+#: src/ui/window/provider_controls.rs
+msgid "Connect"
+msgstr ""
+
+#: src/ui/window/provider_controls.rs
+msgid "Provider was not found"
+msgstr ""
+
+#: src/ui/window/provider_controls.rs
+#, rust-format
+msgid "Provider could not be loaded: {error}"
+msgstr ""
+
+#: src/ui/window/provider_controls.rs
+msgid "Delete Provider?"
+msgstr ""
+
+#: src/ui/window/provider_controls.rs
+#, rust-format
+msgid "Delete \"{arg1}\" at {arg2}?"
+msgstr ""
+
+#: src/ui/window/provider_controls.rs
+#, rust-format
+msgid "Ollama Provider {arg1}"
+msgstr ""
+
+#: src/ui/window/provider_controls.rs
+msgid "Ollama Provider"
+msgstr ""
+
+#: src/ui/window/provider_controls.rs
+#, rust-format
+msgid "Managed Ollama {arg1}"
+msgstr ""
+
+#: src/ui/window/provider_controls.rs
+msgid "Provider could not be added"
+msgstr ""
+
+#: src/ui/window/provider_controls.rs
+msgid "Provider could not be selected"
+msgstr ""
+
+#: src/ui/window/provider_controls.rs
+msgid "Provider deleted"
+msgstr ""
+
+#: src/ui/window/provider_controls.rs
+msgid "Provider switched"
+msgstr ""
+
+#: src/ui/window/provider_controls.rs
+msgid "Provider could not be switched"
+msgstr ""
+
+#: src/ui/window/reasoning.rs
+#, rust-format
+msgid "Reasoning setting could not be saved: {error}"
+msgstr ""
+
+#: src/ui/window/reasoning.rs
+msgid "Reasoning: —"
+msgstr ""
+
+#: src/ui/window/reasoning.rs
+#, rust-format
+msgid "Reasoning: {arg1}"
+msgstr ""
+
+#: src/ui/window/reasoning.rs
+#, rust-format
+msgid "Reasoning setting could not be loaded: {error}"
+msgstr ""
+
+#: src/ui/window/reasoning.rs
+msgid "This model does not support reasoning"
+msgstr ""
+
+#: src/ui/window/reasoning.rs
+msgid ""
+"The provider has not provided reasoning controls. The model’s default "
+"behavior will be used."
+msgstr ""
+
+#: src/ui/window/reasoning.rs
+msgid ""
+"Choose how this model reasons in this chat. Automatic uses the model’s "
+"default."
+msgstr ""
+
+#: src/ui/window/reasoning.rs
+msgid "Checking this model’s reasoning controls…"
+msgstr ""
+
+#: src/ui/window/reasoning.rs
+msgid ""
+"Reasoning controls could not be loaded. The model’s default behavior will be "
+"used."
+msgstr ""
+
+#: src/ui/window/reasoning.rs
+msgid "Select a model to see its reasoning controls"
+msgstr ""
+
+#: src/ui/window/shortcuts.rs
+msgid "Create a new chat and move to the composer."
+msgstr ""
+
+#: src/ui/window/shortcuts.rs
+msgid "Focus Message"
+msgstr ""
+
+#: src/ui/window/shortcuts.rs
+msgid "Move keyboard focus to the message composer."
+msgstr ""
+
+#: src/ui/window/shortcuts.rs
+msgid "Search Chats"
+msgstr ""
+
+#: src/ui/window/shortcuts.rs
+msgid "Move keyboard focus to the chat search field."
+msgstr ""
+
+#: src/ui/window/shortcuts.rs
+msgid "Show Models"
+msgstr ""
+
+#: src/ui/window/shortcuts.rs
+msgid "Open the model manager."
+msgstr ""
+
+#: src/ui/window/shortcuts.rs
+msgid "Refresh the active provider model list."
+msgstr ""
+
+#: src/ui/window/shortcuts.rs
+msgid "Open application preferences."
+msgstr ""
+
+#: src/ui/window/shortcuts.rs
+msgid "Toggle Sidebar"
+msgstr ""
+
+#: src/ui/window/shortcuts.rs
+msgid "Show or hide the conversation sidebar."
+msgstr ""
+
+#: src/ui/window/shortcuts.rs
+msgid "Stop Generation"
+msgstr ""
+
+#: src/ui/window/shortcuts.rs
+msgid "Cancel the active response."
+msgstr ""
+
+#: src/ui/window/shortcuts.rs
+#, rust-format
+msgid "{arg1} uses a shortcut that is already assigned"
+msgstr ""
+
+#: src/ui/window/shortcuts.rs
+msgid "Shortcut parts cannot be empty"
+msgstr ""
+
+#: src/ui/window/shortcuts.rs
+msgid "Use only one key per shortcut"
+msgstr ""
+
+#: src/ui/window/shortcuts.rs
+msgid "Add a key to the shortcut"
+msgstr ""
+
+#: src/ui/window/shortcuts.rs
+msgid "Use Ctrl, Alt, Shift or Super with printable shortcuts"
+msgstr ""
+
+#: src/ui/window/shortcuts.rs
+#, rust-format
+msgid "Unsupported key: {value}"
+msgstr ""
+
+#: src/ui/window/sidebar.rs
+msgid "Files and Library"
+msgstr ""
+
+#: src/ui/window/sidebar.rs
+msgid "Search chats"
+msgstr ""
+
+#: src/ui/window/sidebar.rs src/ui/window.rs
+msgid "Show Archived Chats"
+msgstr ""
+
+#: src/ui/window/sidebar.rs
+msgid "Chats"
+msgstr ""
+
+#: src/ui/window/web_tools.rs
+msgid "Web permission could not be loaded"
+msgstr ""
+
+#: src/ui/window/web_tools.rs
+msgid "Allow Web Access?"
+msgstr ""
+
+#: src/ui/window/web_tools.rs
+#, rust-format
+msgid ""
+"{arg1}\n"
+"\n"
+"The model can send search queries and URLs based on this conversation, "
+"including attached content. Search providers receive those queries; visited "
+"websites receive page requests. Results are shared with this chat’s model "
+"provider.\n"
+"\n"
+"Permission is saved for this chat. You can remember it for all chats using "
+"this search provider below. Manage permissions in Preferences → Web."
+msgstr ""
+
+#: src/ui/window/web_tools.rs
+msgid "Allow Web"
+msgstr ""
+
+#: src/ui/window/web_tools.rs
+msgid "Settings changed. Review Web settings and send your message again."
+msgstr ""
+
+#: src/ui/window/web_tools.rs
+msgid "Web permission could not be saved"
+msgstr ""
+
+#: src/ui/window/web_tools.rs
+msgid "Web Access"
+msgstr ""
+
+#: src/ui/window/web_tools.rs
+msgid ""
+"Enable Web per conversation in Chat Settings. Links can be read without a "
+"search account. Local Only blocks all web tools."
+msgstr ""
+
+#: src/ui/window/web_tools.rs src/ui/window.rs
+msgid "Web settings could not be loaded"
+msgstr ""
+
+#: src/ui/window/web_tools.rs
+msgid "Search Provider"
+msgstr ""
+
+#: src/ui/window/web_tools.rs
+msgid "Links Only"
+msgstr ""
+
+#: src/ui/window/web_tools.rs
+msgid "SearXNG Search URL"
+msgstr ""
+
+#: src/ui/window/web_tools.rs
+msgid "SearXNG Instance"
+msgstr ""
+
+#: src/ui/window/web_tools.rs
+#, rust-format
+msgid ""
+"Use a public HTTPS search endpoint, such as {example_url}. The instance must "
+"allow JSON searches."
+msgstr ""
+
+#: src/ui/window/web_tools.rs
+msgid "Brave Search API Key"
+msgstr ""
+
+#: src/ui/window/web_tools.rs
+msgid ""
+"Stored in the desktop keyring and excluded from exports. A Search API "
+"subscription may have usage charges."
+msgstr ""
+
+#: src/ui/window/web_tools.rs
+msgid "Get a Brave Search Key"
+msgstr ""
+
+#: src/ui/window/web_tools.rs
+msgid ""
+"Free search without an account or API key. DuckDuckGo may temporarily limit "
+"searches."
+msgstr ""
+
+#: src/ui/window/web_tools.rs
+msgid "Save Web Settings"
+msgstr ""
+
+#: src/ui/window/web_tools.rs
+msgid "Web settings saved"
+msgstr ""
+
+#: src/ui/window/web_tools.rs
+msgid "Web settings could not be saved"
+msgstr ""
+
+#: src/ui/window/web_tools.rs
+msgid "Permissions"
+msgstr ""
+
+#: src/ui/window/web_tools.rs
+msgid "Web in Saved Chats"
+msgstr ""
+
+#: src/ui/window/web_tools.rs
+msgid "Turn off Web and clear its permissions in every conversation"
+msgstr ""
+
+#: src/ui/window/web_tools.rs
+msgid "Web turned off in all chats"
+msgstr ""
+
+#: src/ui/window/web_tools.rs
+msgid "Web permissions could not be reset"
+msgstr ""
+
+#: src/ui/window/web_tools.rs
+msgid "Allow Web in All Chats"
+msgstr ""
+
+#: src/ui/window/web_tools.rs
+msgid ""
+"Skip permission prompts with the selected search provider. Web must still be "
+"enabled in each chat."
+msgstr ""
+
+#: src/ui/window/web_tools.rs
+msgid ""
+"Add, replace or remove the saved key. Existing keys are never displayed. "
+"Your desktop may ask you to unlock its keyring."
+msgstr ""
+
+#: src/ui/window/web_tools.rs
+msgid "Brave Search key removed"
+msgstr ""
+
+#: src/ui/window/web_tools.rs
+msgid "Brave Search key saved securely"
+msgstr ""
+
+#: src/ui/window/workspace.rs
+msgid "Saving…"
+msgstr ""
+
+#: src/ui/window/workspace.rs
+msgid "Draft not saved"
+msgstr ""
+
+#: src/ui/window/workspace.rs
+msgid "Draft saved"
+msgstr ""
+
+#: src/ui/window/workspace.rs
+#, rust-format
+msgid "Workspace could not be restored: {error}"
+msgstr ""
+
+#: src/ui/window/workspace.rs
+#, rust-format
+msgid "Chat instance could not be loaded: {error}"
+msgstr ""
+
+#: src/ui/window.rs
+msgid "Hide Sidebar"
+msgstr ""
+
+#: src/ui/window.rs
+msgid "A response is being generated in another chat"
+msgstr ""
+
+#: src/ui/window.rs
+msgid "View"
+msgstr ""
+
+#: src/ui/window.rs
+#, rust-format
+msgid "Interrupted responses could not be restored: {error}"
+msgstr ""
+
+#: src/ui/window.rs
+msgid "Storage Error"
+msgstr ""
+
+#: src/ui/window.rs
+#, rust-format
+msgid "Storage setup failed: {error}"
+msgstr ""
+
+#: src/ui/window.rs
+msgid "Download interrupted."
+msgstr ""
+
+#: src/ui/window.rs
+#, rust-format
+msgid "Could not save the interrupted response: {error}"
+msgstr ""
+
+#: src/ui/window.rs
+msgid "Download interrupted because Moose closed."
+msgstr ""
+
+#: src/ui/window.rs
+#, rust-format
+msgid "Could not save the interrupted download: {error}"
+msgstr ""
+
+#: src/ui/window.rs
+msgid "Add a provider first"
+msgstr ""
+
+#: src/ui/window.rs
+msgid "Show Sidebar"
+msgstr ""
+
+#: src/ui/window.rs
+msgid "Hide Archived Chats"
+msgstr ""
+
+#: src/ui/window.rs
+msgid "Model download cancelled"
+msgstr ""
+
+#: src/ui/window.rs
+#, rust-format
+msgid "Conversation could not be created: {error}"
+msgstr ""
+
+#: src/ui/window.rs
+msgid "No generation is running"
+msgstr ""
+
+#: src/ui/window.rs
+msgid "Application settings are unavailable"
+msgstr ""
+
+#: src/ui/window.rs
+msgid "Shortcuts could not be saved"
+msgstr ""
+
+#: src/ui/window.rs
+msgid "Shortcuts saved"
+msgstr ""
+
+#: src/ui/window.rs
+msgid "GPU acceleration setting could not be saved"
+msgstr ""
+
+#: src/ui/window.rs
+msgid "Finish the keyring operation first"
+msgstr ""
+
+#: src/ui/window.rs
+msgid "No Instance"
+msgstr ""
+
+#: src/ui/window.rs
+msgid "Create or connect an Ollama instance to manage models."
+msgstr ""
+
+#: src/ui/window.rs
+msgid "Create or connect an Ollama instance to refresh models."
+msgstr ""
+
+#: src/ui/window.rs
+msgid "Checking"
+msgstr ""
+
+#: src/ui/window.rs
+msgid "Connected"
+msgstr ""
+
+#: src/ui/window.rs
+msgid "Disconnected"
+msgstr ""
+
+#: src/ui/window.rs
+#, rust-format
+msgid "Provider unavailable: {status}"
+msgstr ""
+
+#: src/ui/window.rs
+msgid "Provider Unavailable"
+msgstr ""
+
+#: src/ui/window.rs
+msgid "The active provider did not respond."
+msgstr ""
+
+#: src/ui/window.rs
+msgid "Error"
+msgstr ""
+
+#: src/ui/window.rs
+#, rust-format
+msgid "Model list failed: {error}"
+msgstr ""
+
+#: src/ui/window.rs
+msgid "Models Could Not Load"
+msgstr ""
+
+#: src/ui/window.rs
+msgid "Check your connection and provider credentials."
+msgstr ""
+
+#: src/ui/window.rs
+msgid "Provider Disconnected"
+msgstr ""
+
+#: src/ui/window.rs
+msgid "The model refresh stopped before a response was received."
+msgstr ""
+
+#: src/ui/window.rs
+msgid "Ready (CPU)"
+msgstr ""
+
+#: src/ui/window.rs
+msgid "Ready (Vulkan)"
+msgstr ""
+
+#: src/ui/window.rs
+msgid "Ready (ROCm)"
+msgstr ""
+
+#: src/ui/window.rs
+msgid "Ready (CUDA)"
+msgstr ""
+
+#: src/ui/window.rs
+msgid "Describe the attached images."
+msgstr ""
+
+#: src/ui/window.rs
+msgid "Summarize the attached documents."
+msgstr ""
+
+#: src/ui/window.rs
+msgid "Generation is already running"
+msgstr ""
+
+#: src/ui/window.rs
+#, rust-format
+msgid "Previous response could not be saved: {error}"
+msgstr ""
+
+#: src/ui/window.rs
+msgid "This chat’s instance must be ready before sending. Your draft is saved."
+msgstr ""
+
+#: src/ui/window.rs
+#, rust-format
+msgid "Chat settings could not be loaded: {error}"
+msgstr ""
+
+#: src/ui/window.rs
+#, rust-format
+msgid "Message could not be prepared: {error}"
+msgstr ""
+
+#: src/ui/window.rs
+#, rust-format
+msgid "Document request could not be prepared: {error}"
+msgstr ""
+
+#: src/ui/window.rs
+msgid ""
+"\n"
+"This is a continuation of an incomplete document. Return only the remaining "
+"content. Do not restart the document or repeat text that is already written."
+msgstr ""
+
+#: src/ui/window.rs
+#, rust-format
+msgid "Tool history could not be loaded: {error}"
+msgstr ""
+
+#: src/ui/window.rs
+#, rust-format
+msgid "Message could not be sent: {error}"
+msgstr ""
+
+#: src/ui/window.rs
+msgid ""
+"Web is blocked by Local Only. Turn off Web in Chat Settings or Local Only in "
+"Preferences → Privacy."
+msgstr ""
+
+#: src/ui/window.rs
+msgid "Web settings changed. Review Chat Settings and send your message again."
+msgstr ""
+
+#: src/ui/window.rs
+#, rust-format
+msgid "Message could not be saved: {error}"
+msgstr ""
+
+#: src/ui/window.rs
+#, rust-format
+msgid "Preferred model \"{model}\" is not available"
+msgstr ""
+
+#: src/ui/window.rs
+msgid "Select a model first"
+msgstr ""
+
+#: src/ui/window.rs
+#, rust-format
+msgid "{profile} profile: {description}"
+msgstr ""
+
+#: src/ui/window.rs
+msgid "Title generation timed out."
+msgstr ""
+
+#: src/ui/window.rs
+msgid "Apply Tool Command (Enter)"
+msgstr ""
+
+#: src/ui/window.rs
+msgid "Selected model could not be saved"
+msgstr ""
+
+#: src/ui/window.rs
+msgid "Cloud Models"
+msgstr ""
+
+#: src/ui/window.rs
+msgid ""
+"Choose a model from the chat model picker. Add model IDs in Preferences → "
+"Provider → Configure Provider."
+msgstr ""
+
+#: src/ui/window.rs
+msgid ""
+"Choose an available model from the chat model picker. Cloud models do not "
+"need downloads."
+msgstr ""
+
+#: src/ui/window.rs
+msgid "The connection changed. Select a model again."
+msgstr ""
+
+#: src/ui/window.rs
+msgid "No Chat Models Available"
+msgstr ""
+
+#: src/ui/window.rs
+msgid ""
+"Add a model ID in Preferences → Provider → Configure Provider, or check "
+"automatic model discovery."
+msgstr ""
+
+#: src/ui/window.rs
+msgid "Check your provider account and API key, then refresh the model list."
+msgstr ""
+
+#: src/ui/window.rs
+msgid "Choose Your First Model"
+msgstr ""
+
+#: src/ui/window.rs
+msgid "Find a model for everyday questions, coding, images, or documents."
+msgstr ""
+
+#: src/ui/window.rs
+msgid "Find a Model"
+msgstr ""
+
+#: src/ui/window.rs
+msgid "Add a Model by Name or Link…"
+msgstr ""
+
+#: src/ui/window.rs
+msgid "Wait for the Ollama installation to finish or cancel it."
+msgstr ""
