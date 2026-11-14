@@ -11,6 +11,8 @@ GTK and libadwaita app. Download a local model, ask a question, or bring your ow
 files into the conversation.
 Your chats and drafts are saved on your computer, so you can pick up where you left off.
 
+[Help translate Moose on Weblate](https://hosted.weblate.org/projects/moose/).
+
 
 ## Install
 
