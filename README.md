@@ -58,6 +58,16 @@ start translating, or select **Start new translation** to add one.
 You can contribute directly from your browser. See the
 [translation guidelines](CONTRIBUTING.md#translate-moose) for a few tips.
 
+If you help translate or review Moose, we will add your name to the credits below
+and on the [website](https://moooossee.github.io/docs/contributing/#translation-credits).
+You can start with a few strings and come back whenever you have time.
+
+### Translation credits
+
+| Contributor | Language |
+| --- | --- |
+| [Moose](https://github.com/moooossee) | English (original text) |
+
 ## Build and run
 
 ### Flatpak

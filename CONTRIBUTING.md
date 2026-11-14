@@ -19,6 +19,11 @@ placeholders such as `{name}` and `{count}`, formatting markup, and URLs.
 Check context and plural forms before submitting. If a string is unclear, leave
 a comment on Weblate asking for clarification.
 
+We credit people who help translate or review Moose in the
+[README](README.md#translation-credits) and on the
+[website](https://moooossee.github.io/docs/contributing/#translation-credits).
+Leave a comment on Weblate if you would like us to use a particular name or profile.
+
 Weblate sends translation updates to this repository automatically. They reach
 users in a future app release.
 
