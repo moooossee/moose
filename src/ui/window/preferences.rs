@@ -79,7 +79,6 @@ pub(super) fn dialog(
     let add_button = widgets::icon_button("list-add-symbolic", &gettext("Add Provider"));
     let delete_button = widgets::icon_button("user-trash-symbolic", &gettext("Delete Provider"));
 
-    save_button.add_css_class("suggested-action");
     delete_button.add_css_class("destructive-action");
     save_button.set_sensitive(provider.is_some());
     delete_button.set_sensitive(provider.is_some());
