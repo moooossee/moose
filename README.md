@@ -11,8 +11,6 @@ GTK and libadwaita app. Download a local model, ask a question, or bring your ow
 files into the conversation.
 Your chats and drafts are saved on your computer, so you can pick up where you left off.
 
-[Help translate Moose on Weblate](https://hosted.weblate.org/projects/moose/).
-
 
 ## Install
 
@@ -50,6 +48,15 @@ scanned pages are not read automatically.
 Chats and your document library are stored on your computer. Local model inference
 uses Ollama managed by Moose. Cloud and external Ollama requests send the approved
 conversation context to the selected provider.
+
+## Help translate
+
+Help make Moose available in your language on
+[Weblate](https://hosted.weblate.org/projects/moose/moose/). Choose a language and
+start translating, or select **Start new translation** to add one.
+
+You can contribute directly from your browser. See the
+[translation guidelines](CONTRIBUTING.md#translate-moose) for a few tips.
 
 ## Build and run
 

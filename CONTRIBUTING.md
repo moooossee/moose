@@ -1,7 +1,26 @@
 # Contributing to Moose
 
-Thanks for helping make Moose better. Bug reports, small fixes, clearer wording,
-and design feedback are all welcome. You do not need to write code to contribute.
+Thanks for helping make Moose better. Bug reports, translations, small fixes,
+clearer wording, and design feedback are all welcome. You do not need to write
+code to contribute.
+
+## Translate Moose
+
+You can help translate Moose directly from your browser:
+
+1. Open [Moose on Weblate](https://hosted.weblate.org/projects/moose/moose/) and sign in.
+2. Choose your language, or select **Start new translation** to add one.
+3. Select **Translate**, enter your translation, and save it.
+
+Use clear, natural wording and follow the terminology used by GNOME applications
+in your language. Keep Moose and other product names unchanged. Preserve
+placeholders such as `{name}` and `{count}`, formatting markup, and URLs.
+
+Check context and plural forms before submitting. If a string is unclear, leave
+a comment on Weblate asking for clarification.
+
+Weblate sends translation updates to this repository automatically. They reach
+users in a future app release.
 
 ## Report a bug or suggest an idea
 
