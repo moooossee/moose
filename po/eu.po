@@ -8,8 +8,9 @@ msgstr ""
 "Project-Id-Version: moose 0.8.5\n"
 "Report-Msgid-Bugs-To: https://github.com/moooossee/moose/issues\n"
 "POT-Creation-Date: 2026-11-13 15:25-0600\n"
-"PO-Revision-Date: 2026-11-15 10:20+0000\n"
-"Last-Translator: Fill read-only add-on <noreply-addon-fill@weblate.org>\n"
+"PO-Revision-Date: 2026-11-16 13:59+0000\n"
+"Last-Translator: Asier Saratsua Garmendia "
+"<assar@users.noreply.hosted.weblate.org>\n"
 "Language-Team: Basque <https://hosted.weblate.org/projects/moose/moose/eu/>\n"
 "Language: eu\n"
 "MIME-Version: 1.0\n"
@@ -26,7 +27,7 @@ msgstr "Moose"
 #: data/io.github.moooossee.Moose.desktop
 #: data/io.github.moooossee.Moose.metainfo.xml.in
 msgid "Chat with local and cloud AI"
-msgstr ""
+msgstr "Aritu berriketan AA lokalekin edo hodeikoekin"
 
 #: data/io.github.moooossee.Moose.desktop
 msgid ""
@@ -94,19 +95,19 @@ msgstr ""
 
 #: data/io.github.moooossee.Moose.metainfo.xml.in
 msgid "AI"
-msgstr ""
+msgstr "AA"
 
 #: data/io.github.moooossee.Moose.metainfo.xml.in
 msgid "Artificial intelligence"
-msgstr ""
+msgstr "Adimen artifiziala"
 
 #: data/io.github.moooossee.Moose.metainfo.xml.in
 msgid "Local AI"
-msgstr ""
+msgstr "AA lokala"
 
 #: data/io.github.moooossee.Moose.metainfo.xml.in
 msgid "Cloud AI"
-msgstr ""
+msgstr "Hodeiko AA"
 
 #: data/io.github.moooossee.Moose.metainfo.xml.in
 msgid "Ollama"
@@ -126,17 +127,17 @@ msgstr "GGUF"
 
 #: data/io.github.moooossee.Moose.metainfo.xml.in
 msgid "LLM"
-msgstr ""
+msgstr "HEH (LLM)"
 
 #: data/io.github.moooossee.Moose.metainfo.xml.in
 msgid "Chatbot"
-msgstr ""
+msgstr "Berriketa-bota"
 
 #: data/io.github.moooossee.Moose.metainfo.xml.in
 #: src/ui/window/custom_provider.rs src/ui/window/model_manager.rs
 #: src/ui/window/sidebar.rs
 msgid "Models"
-msgstr ""
+msgstr "Ereduak"
 
 #: data/io.github.moooossee.Moose.metainfo.xml.in
 msgid "PDF"
@@ -145,15 +146,15 @@ msgstr "PDF"
 #: data/io.github.moooossee.Moose.metainfo.xml.in
 #: src/ui/window/attachments/library.rs src/ui/window/model_manager.rs
 msgid "Documents"
-msgstr ""
+msgstr "Dokumentuak"
 
 #: data/io.github.moooossee.Moose.metainfo.xml.in
 msgid "Spreadsheets"
-msgstr ""
+msgstr "Kalkulu-orriak"
 
 #: data/io.github.moooossee.Moose.metainfo.xml.in
 msgid "Presentations"
-msgstr ""
+msgstr "Aurkezpenak"
 
 #: data/io.github.moooossee.Moose.metainfo.xml.in
 msgid "OpenDocument"
