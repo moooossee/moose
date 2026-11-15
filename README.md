@@ -52,8 +52,11 @@ conversation context to the selected provider.
 ## Help translate
 
 Help make Moose available in your language on
-[Weblate](https://hosted.weblate.org/projects/moose/moose/). Choose a language and
-start translating, or select **Start new translation** to add one.
+[Weblate](https://hosted.weblate.org/projects/moose/moose/). Choose an available
+language and start translating.
+
+If your language is not available, [request it in an issue](https://github.com/moooossee/moose/issues/new?template=language-request.yml).
+A maintainer will review the request before adding the language to Weblate.
 
 You can contribute directly from your browser. See the
 [translation guidelines](CONTRIBUTING.md#translate-moose) for a few tips.

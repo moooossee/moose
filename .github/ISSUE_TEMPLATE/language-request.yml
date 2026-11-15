@@ -1,0 +1,38 @@
+name: Request a language
+description: Suggest a language to add to Moose on Weblate.
+title: "Language request: "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for helping bring Moose to more people. New languages are added to Weblate after maintainer review.
+        Check the [available languages](https://hosted.weblate.org/projects/moose/moose/) and [existing requests](https://github.com/moooossee/moose/issues?q=is%3Aissue%20%22Language%20request%22) before opening another request.
+  - type: input
+    id: language
+    attributes:
+      label: Language and variant
+      description: Include the regional variant when relevant.
+      placeholder: Portuguese (Brazil)
+    validations:
+      required: true
+  - type: input
+    id: language-code
+    attributes:
+      label: Language code
+      description: Leave this blank if you are not sure.
+      placeholder: pt_BR
+  - type: dropdown
+    id: contribution
+    attributes:
+      label: Would you like to help?
+      options:
+        - I can help translate.
+        - I can help review translations.
+        - I would like to use Moose in this language.
+    validations:
+      required: true
+  - type: textarea
+    id: context
+    attributes:
+      label: Anything else?
+      description: Tell us why this language would be useful or share any context that would help us review the request.

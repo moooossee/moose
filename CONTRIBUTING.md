@@ -9,7 +9,7 @@ code to contribute.
 You can help translate Moose directly from your browser:
 
 1. Open [Moose on Weblate](https://hosted.weblate.org/projects/moose/moose/) and sign in.
-2. Choose your language, or select **Start new translation** to add one.
+2. Choose one of the available languages.
 3. Select **Translate**, enter your translation, and save it.
 
 Use clear, natural wording and follow the terminology used by GNOME applications
@@ -26,6 +26,15 @@ Leave a comment on Weblate if you would like us to use a particular name or prof
 
 Weblate sends translation updates to this repository automatically. They reach
 users in a future app release.
+
+### Request a language
+
+If your language is not available, [open a language request](https://github.com/moooossee/moose/issues/new?template=language-request.yml).
+Check the existing requests first, and include the language and regional variant
+when relevant. Let us know if you would like to help translate or review it.
+
+New languages are added by a maintainer after review so we can keep translation
+hosting manageable. You can keep helping with any language already on Weblate.
 
 ## Report a bug or suggest an idea
 
