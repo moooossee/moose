@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: moose 0.8.5\n"
 "Report-Msgid-Bugs-To: https://github.com/moooossee/moose/issues\n"
-"POT-Creation-Date: 2026-11-13 15:25-0600\n"
+"POT-Creation-Date: 2026-11-16 15:34-0600\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -2837,13 +2837,6 @@ msgid ""
 msgstr ""
 
 #: src/ui/window/attachments/request.rs
-msgid ""
-"There is too little room for document excerpts. Shorten the message or chat "
-"instructions, use fewer attachments, or increase Context Window in Chat "
-"Settings."
-msgstr ""
-
-#: src/ui/window/attachments/request.rs
 msgid "The image context is too large. Use fewer images or start a new chat."
 msgstr ""
 
@@ -3023,6 +3016,7 @@ msgid ""
 msgstr ""
 
 #: src/ui/window/chat_settings.rs src/ui/window/chat_view.rs
+#: src/ui/window/context_usage.rs
 msgid "Chat Settings"
 msgstr ""
 
@@ -3170,12 +3164,14 @@ msgstr ""
 msgid "Fixed seed for more reproducible responses"
 msgstr ""
 
-#: src/ui/window/chat_settings.rs src/ui/window/model_manager/requirements.rs
+#: src/ui/window/chat_settings.rs src/ui/window/context_usage.rs
+#: src/ui/window/model_manager/requirements.rs
 msgid "Context Window"
 msgstr ""
 
 #: src/ui/window/chat_settings.rs
-msgid "Defaults to 16,384 tokens. Larger values use more memory."
+msgid ""
+"Up to 262,144 tokens. Defaults to 16,384. Larger values use more memory."
 msgstr ""
 
 #: src/ui/window/chat_settings.rs
@@ -3290,11 +3286,11 @@ msgstr ""
 #: src/ui/window/chat_settings.rs
 msgid ""
 "Sets Ollama’s context size in tokens, shared by the conversation, reasoning, "
-"and response. Moose uses 16,384 when this field is empty. Up to half the "
-"window, capped at 8,192 tokens, is reserved for reasoning and the response, "
-"with an additional safety margin. Text and image sizes are estimates, so "
-"very long responses can still reach the limit. Larger windows use more "
-"memory; Moose does not increase this setting automatically."
+"and response. Moose uses 16,384 when this field is empty. Up to a quarter of "
+"the window, capped at 2,048 tokens, is reserved for reasoning and the "
+"response, with an additional safety margin. Text and image sizes are "
+"estimates, so very long responses can still reach the limit. Larger windows "
+"use more memory; Moose does not increase this setting automatically."
 msgstr ""
 
 #: src/ui/window/chat_settings.rs
@@ -3402,8 +3398,7 @@ msgid "{field} must be 0 or greater"
 msgstr ""
 
 #: src/ui/window/chat_settings.rs
-#, rust-format
-msgid "{field} must be greater than 0"
+msgid "Context Window must be between 1 and 262,144 tokens."
 msgstr ""
 
 #: src/ui/window/chat_settings.rs
@@ -3896,6 +3891,149 @@ msgstr ""
 
 #: src/ui/window/composer_commands.rs
 msgid "Tool settings could not be saved"
+msgstr ""
+
+#: src/ui/window/context_usage.rs
+msgid "Applies to the next message. Larger values use more memory."
+msgstr ""
+
+#: src/ui/window/context_usage.rs
+msgid ""
+"Requires model support and enough RAM or VRAM. May cause high resource use, "
+"slowdowns, or memory errors."
+msgstr ""
+
+#: src/ui/window/context_usage.rs
+msgid "Next Message"
+msgstr ""
+
+#: src/ui/window/context_usage.rs
+msgid "Current Response"
+msgstr ""
+
+#: src/ui/window/context_usage.rs
+msgid "Context adjusted"
+msgstr ""
+
+#: src/ui/window/context_usage.rs
+msgid "Context Usage"
+msgstr ""
+
+#: src/ui/window/context_usage.rs
+msgid "Apply Context Window"
+msgstr ""
+
+#: src/ui/window/context_usage.rs
+#, rust-format
+msgid "Use Default ({tokens} tokens)"
+msgstr ""
+
+#: src/ui/window/context_usage.rs src/ui/window/model_actions.rs
+#: src/ui/window/model_download.rs
+msgid "New Chat"
+msgstr ""
+
+#: src/ui/window/context_usage.rs
+msgid "Context Window Warning"
+msgstr ""
+
+#: src/ui/window/context_usage.rs
+#, rust-format
+msgid "{tokens} tokens"
+msgstr ""
+
+#: src/ui/window/context_usage.rs
+msgid "Default"
+msgstr ""
+
+#: src/ui/window/context_usage.rs
+#, rust-format
+msgid "Context window could not be saved: {error}"
+msgstr ""
+
+#: src/ui/window/context_usage.rs
+#, rust-format
+msgid "{used} of {capacity} tokens"
+msgstr ""
+
+#: src/ui/window/context_usage.rs
+#, rust-format
+msgid "{used} tokens"
+msgstr ""
+
+#: src/ui/window/context_usage.rs
+msgid "Estimated context included in your next message."
+msgstr ""
+
+#: src/ui/window/context_usage.rs
+msgid ""
+"Includes the current response and reasoning. Your next draft is counted "
+"afterward."
+msgstr ""
+
+#: src/ui/window/context_usage.rs
+msgid "Input tokens reported by Ollama. The count grows as it responds."
+msgstr ""
+
+#: src/ui/window/context_usage.rs
+msgid "This provider does not report a context limit."
+msgstr ""
+
+#: src/ui/window/context_usage.rs
+msgid ""
+"Older messages were left out to make room for your next message. They remain "
+"saved in this chat."
+msgstr ""
+
+#: src/ui/window/context_usage.rs
+msgid ""
+"Older messages were left out to make room for this response. They remain "
+"saved in this chat."
+msgstr ""
+
+#: src/ui/window/context_usage.rs
+msgid ""
+"There is no room left in this context. Shorten your next message, adjust "
+"Chat Settings, or start a new chat."
+msgstr ""
+
+#: src/ui/window/context_usage.rs
+msgid ""
+"Context is nearly full. Older messages may be left out to make room for a "
+"response."
+msgstr ""
+
+#: src/ui/window/context_usage.rs
+#, rust-format
+msgid "Context usage: {usage}"
+msgstr ""
+
+#: src/ui/window/context_usage.rs
+msgid "Full"
+msgstr ""
+
+#: src/ui/window/context_usage.rs
+msgid "Context full"
+msgstr ""
+
+#: src/ui/window/context_usage.rs
+msgid ""
+"Shorten your message, use fewer attachments, adjust Chat Settings, or start "
+"a new chat."
+msgstr ""
+
+#: src/ui/window/context_usage.rs
+msgid ""
+"The current message, instructions, or attachments are estimated to leave too "
+"little room for a response. Ollama checks the exact size when you send."
+msgstr ""
+
+#: src/ui/window/context_usage.rs
+msgid "Usage unavailable"
+msgstr ""
+
+#: src/ui/window/context_usage.rs
+msgid "Context usage is unavailable"
 msgstr ""
 
 #: src/ui/window/conversation_export.rs src/ui/window/conversation_list.rs
@@ -5159,10 +5297,6 @@ msgstr ""
 msgid ""
 "Cloud models are managed by the provider. Refresh the model list to see "
 "available models."
-msgstr ""
-
-#: src/ui/window/model_actions.rs src/ui/window/model_download.rs
-msgid "New Chat"
 msgstr ""
 
 #: src/ui/window/model_actions.rs
