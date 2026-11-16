@@ -16,6 +16,7 @@ pub(super) fn bind(ui: &Rc<WindowUi>, backend: &Rc<Backend>) {
             }
             if let Err(error) = backend.cancel_generation() {
                 finish_generation(&ui);
+                super::context_usage::refresh(&ui, &backend);
                 ui.toast_overlay.add_toast(adw::Toast::new(&gettext_f(
                     "Response could not be saved: {error}",
                     &[("error", &(error).to_string())],

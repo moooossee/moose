@@ -553,6 +553,7 @@ fn apply(ui: &Rc<WindowUi>, backend: &Rc<Backend>, commands: &[Command]) -> bool
     match result {
         Ok(()) => {
             refresh(ui, backend);
+            super::context_usage::refresh(ui, backend);
             if was_new {
                 conversation_list::refresh(ui, backend);
             }

@@ -11,7 +11,7 @@ mod image;
 mod import;
 pub(super) mod library;
 mod request;
-pub(super) use request::prepare;
+pub(super) use request::{Preparation, prepare};
 
 pub(super) struct Controls {
     pub(super) button: gtk::MenuButton,
@@ -473,6 +473,7 @@ pub(super) fn refresh(ui: &WindowUi, backend: &Backend) {
         .previews
         .set_visible(ui.attachments.count.get() > 0);
     update_status(ui, backend);
+    super::context_usage::refresh(ui, backend);
 }
 
 pub(super) fn sync_counts(ui: &WindowUi, backend: &Backend) {

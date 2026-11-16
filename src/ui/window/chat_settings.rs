@@ -346,13 +346,24 @@ pub(super) fn dialog(
         .then_some(crate::ollama::DEFAULT_CONTEXT_WINDOW);
     let num_ctx_row = optional_entry(
         &gettext("Context Window"),
-        &gettext("Defaults to 16,384 tokens. Larger values use more memory."),
+        &gettext("Up to 262,144 tokens. Defaults to 16,384. Larger values use more memory."),
         values.num_ctx.or(default_context_window),
     );
     advanced_group.add(&top_p_row);
     advanced_group.add(&top_k_row);
     advanced_group.add(&seed_row);
     advanced_group.add(&num_ctx_row);
+    let context_window_warning = super::context_usage::window_warning_button(values.num_ctx);
+    let target_warning = context_window_warning.downgrade();
+    num_ctx_row.connect_text_notify(move |row| {
+        if let Some(warning) = target_warning.upgrade() {
+            super::context_usage::update_window_warning(
+                &warning,
+                row.text().trim().parse::<i64>().ok(),
+            );
+        }
+    });
+    num_ctx_row.add_suffix(&context_window_warning);
     advanced_group.set_visible(provider_kind == Some(ProviderKind::Ollama));
     let advanced_content = adw::PreferencesPage::new();
     let guide_group = adw::PreferencesGroup::new();
@@ -570,6 +581,7 @@ pub(super) fn dialog(
                     restore_selected_provider_model(&target_ui, &target_backend);
                 }
                 super::reasoning::refresh(&target_ui, &target_backend);
+                super::context_usage::refresh(&target_ui, &target_backend);
                 if let Err(error) = update_profile_indicator(
                     &target_ui,
                     &target_backend,
@@ -711,7 +723,7 @@ fn settings_guide() -> adw::NavigationPage {
         (
             gettext_noop("Context Window"),
             gettext_noop(
-                "Sets Ollama’s context size in tokens, shared by the conversation, reasoning, and response. Moose uses 16,384 when this field is empty. Up to half the window, capped at 8,192 tokens, is reserved for reasoning and the response, with an additional safety margin. Text and image sizes are estimates, so very long responses can still reach the limit. Larger windows use more memory; Moose does not increase this setting automatically.",
+                "Sets Ollama’s context size in tokens, shared by the conversation, reasoning, and response. Moose uses 16,384 when this field is empty. Up to a quarter of the window, capped at 2,048 tokens, is reserved for reasoning and the response, with an additional safety margin. Text and image sizes are estimates, so very long responses can still reach the limit. Larger windows use more memory; Moose does not increase this setting automatically.",
             ),
         ),
     ] {
@@ -1074,7 +1086,7 @@ fn values_from_controls(
             .map_err(|message| (controls.top_k_row.clone(), message))?,
         seed: parse_optional_i64(&controls.seed_row, &gettext("Seed"))
             .map_err(|message| (controls.seed_row.clone(), message))?,
-        num_ctx: parse_optional_positive_i64(&controls.num_ctx_row, &gettext("Context Window"))
+        num_ctx: parse_context_window(&controls.num_ctx_row)
             .map_err(|message| (controls.num_ctx_row.clone(), message))?,
         context_messages: controls.context_messages_row.value().round() as i64,
         system_prompt,
@@ -1127,15 +1139,11 @@ fn parse_optional_f64(
     }
 }
 
-fn parse_optional_positive_i64(
-    row: &adw::EntryRow,
-    field: &str,
-) -> std::result::Result<Option<i64>, String> {
-    let value = parse_optional_i64(row, field)?;
-    if value.is_some_and(|value| value <= 0) {
-        Err(gettext_f(
-            "{field} must be greater than 0",
-            &[("field", (field))],
+fn parse_context_window(row: &adw::EntryRow) -> std::result::Result<Option<i64>, String> {
+    let value = parse_optional_i64(row, &gettext("Context Window"))?;
+    if value.is_some_and(|value| !(1..=crate::ollama::MAX_CONTEXT_WINDOW).contains(&value)) {
+        Err(gettext(
+            "Context Window must be between 1 and 262,144 tokens.",
         ))
     } else {
         Ok(value)

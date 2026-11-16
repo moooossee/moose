@@ -17,11 +17,13 @@ use crate::{
 };
 
 pub const DEFAULT_CONTEXT_WINDOW: i64 = 16_384;
+pub const MAX_CONTEXT_WINDOW: i64 = 262_144;
 
 pub fn effective_context_window(value: Option<i64>) -> i64 {
     value
         .filter(|value| *value > 0)
         .unwrap_or(DEFAULT_CONTEXT_WINDOW)
+        .min(MAX_CONTEXT_WINDOW)
 }
 
 #[derive(Clone)]
@@ -42,6 +44,7 @@ pub struct OllamaHealth {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct OllamaModel {
     pub name: String,
+    pub context_window: Option<usize>,
     pub digest: Option<String>,
     pub size_bytes: Option<u64>,
     pub family: Option<String>,
@@ -255,7 +258,10 @@ impl OllamaClient {
         self.stream_prepared_chat(request, on_event).await
     }
 
-    pub(crate) async fn prepare_chat(&self, request: &mut ChatRequest) -> Result<()> {
+    pub(crate) async fn prepare_chat(
+        &self,
+        request: &mut ChatRequest,
+    ) -> Result<crate::chat::context::ContextUsage> {
         use crate::chat::context;
 
         request.model = validate_model_name(&request.model)?;
@@ -314,7 +320,12 @@ impl OllamaClient {
                     "context_tokens={window} input_tokens={input_tokens} output_limit={limit}"
                 ),
             );
-            return Ok(());
+            return Ok(context::ContextUsage {
+                tokens: input_tokens,
+                window: Some(window),
+                estimated: false,
+                omitted_messages: 0,
+            });
         }
     }
 
@@ -548,6 +559,7 @@ pub fn parse_models_response(input: &str) -> Result<Vec<OllamaModel>> {
             let supports_chat = supports_chat(&family, &families);
             OllamaModel {
                 name: model.name,
+                context_window: None,
                 digest: model.digest,
                 size_bytes: model.size,
                 family,

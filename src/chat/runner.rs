@@ -14,6 +14,7 @@ const MAX_RESPONSE_BYTES: usize = 128 * 1024;
 const MAX_TOOL_TIME: Duration = Duration::from_secs(600);
 
 pub enum ResponseEvent {
+    Context(super::context::ContextUsage),
     Thinking(String),
     Token(String),
     Tool(ToolExecution),
@@ -58,8 +59,12 @@ where
         }
     }
     if request.tools.is_empty() {
+        let messages_before = conversation_messages(&request);
+        let mut usage = client.prepare_chat(&mut request).await?;
+        usage.omitted_messages = messages_before.saturating_sub(conversation_messages(&request));
+        on_event(ResponseEvent::Context(usage))?;
         return client
-            .stream_chat(request, |event| {
+            .stream_prepared_chat(request, |event| {
                 on_event(match event {
                     ChatStreamEvent::Thinking(value) => ResponseEvent::Thinking(value),
                     ChatStreamEvent::Token(value) => ResponseEvent::Token(value),
@@ -122,6 +127,7 @@ where
     let mut bytes_used: usize = 0;
     let mut previous_text = false;
     let mut previous_thinking = false;
+    let mut omitted_messages = 0usize;
     let output_limit = request
         .options
         .as_ref()
@@ -139,11 +145,13 @@ where
             options.num_predict = output_limit;
         }
         let before = source_bytes(&request);
-        let context_exhausted = match client.prepare_chat(&mut request).await {
-            Ok(()) => source_bytes(&request) < before,
-            Err(MooseError::ContextTooLarge) => true,
+        let messages_before = conversation_messages(&request);
+        let mut usage = match client.prepare_chat(&mut request).await {
+            Ok(usage) => Some(usage),
+            Err(MooseError::ContextTooLarge) => None,
             Err(error) => return Err(error),
         };
+        let context_exhausted = usage.is_none() || source_bytes(&request) < before;
         if context_exhausted {
             request.tools.clear();
             add_instruction(
@@ -153,10 +161,16 @@ where
             if let Some(options) = request.options.as_mut() {
                 options.num_predict = output_limit;
             }
-            client.prepare_chat(&mut request).await?;
+            usage = Some(client.prepare_chat(&mut request).await?);
             on_event(ResponseEvent::Notice(gettext(
                 "The context budget for tools was reached. Answering with the available context.",
             )))?;
+        }
+        omitted_messages = omitted_messages
+            .saturating_add(messages_before.saturating_sub(conversation_messages(&request)));
+        if let Some(mut usage) = usage {
+            usage.omitted_messages = omitted_messages;
+            on_event(ResponseEvent::Context(usage))?;
         }
         let mut assistant = ChatMessage::assistant("");
         let mut first_token = true;
@@ -245,6 +259,14 @@ where
     Err(MooseError::ProviderRequest(gettext(
         "The model could not finish this response.",
     )))
+}
+
+pub fn conversation_messages(request: &ChatRequest) -> usize {
+    request
+        .messages
+        .iter()
+        .filter(|message| matches!(message.role, ChatRole::User | ChatRole::Assistant))
+        .count()
 }
 
 fn add_instruction(request: &mut ChatRequest, instruction: &str) {

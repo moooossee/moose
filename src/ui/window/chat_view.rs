@@ -35,6 +35,7 @@ pub(super) struct Chat {
     pub(super) stop_button: gtk::Button,
     pub(super) create_document_button: gtk::Button,
     pub(super) draft_label: gtk::Label,
+    pub(super) context_usage: super::context_usage::Controls,
     pub(super) thinking_picker: gtk::DropDown,
     pub(super) attachments: super::attachments::Controls,
     pub(super) commands: super::composer_commands::Controls,
@@ -391,7 +392,7 @@ pub(super) fn build() -> Chat {
         .xalign(1.0)
         .hexpand(true)
         .valign(Align::Center)
-        .width_chars(14)
+        .width_chars(1)
         .max_width_chars(14)
         .single_line_mode(true)
         .ellipsize(gtk::pango::EllipsizeMode::End)
@@ -403,6 +404,8 @@ pub(super) fn build() -> Chat {
     model_row.set_valign(Align::Center);
     composer_footer.append(&model_row);
     composer_footer.append(&draft_label);
+    let context_usage = super::context_usage::build();
+    composer_footer.append(&context_usage.button);
     composer_area.append(&composer_footer);
 
     let composer_clamp = adw::Clamp::builder()
@@ -435,6 +438,7 @@ pub(super) fn build() -> Chat {
         stop_button,
         create_document_button,
         draft_label,
+        context_usage,
         thinking_picker,
         attachments,
         commands,

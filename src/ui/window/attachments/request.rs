@@ -13,6 +13,12 @@ use crate::{
     conversations::Message,
 };
 
+#[derive(Clone, Copy, Eq, PartialEq)]
+pub(in crate::ui::window) enum Preparation {
+    Send,
+    Preview,
+}
+
 pub(in crate::ui::window) fn prepare(
     ui: &WindowUi,
     backend: &Backend,
@@ -22,17 +28,27 @@ pub(in crate::ui::window) fn prepare(
     history: &[Message],
     settings: &ChatSettingsValues,
     request: &ChatRequest,
+    preparation: Preparation,
 ) -> Result<(Vec<ChatMessage>, Vec<Source>)> {
-    if ui.attachments.busy.get() > 0 {
+    if preparation == Preparation::Send && ui.attachments.busy.get() > 0 {
         return Err(error(gettext("Wait for your files to finish importing")));
     }
+    let provider = active_provider(backend).ok_or(MooseError::ProviderNotConfigured)?;
+    let context_window = (provider.kind == ProviderKind::Ollama)
+        .then(|| model_context_window(ui, &provider, &request.model, settings.num_ctx))
+        .flatten()
+        .and_then(|window| i64::try_from(window).ok());
+    let budget = ContextBudget::new(context_window);
+    let overhead = crate::chat::runner::context_overhead(request)?;
     if prompt == crate::chat::CONTINUE_PROMPT {
+        let mut request = request.clone();
+        request.options.get_or_insert_with(Default::default).num_ctx = context_window;
         return Ok((
             crate::chat::context::continuation_messages(
                 history,
                 &settings.system_prompt,
-                request,
-                crate::chat::runner::context_overhead(request)?,
+                &request,
+                overhead,
                 usize::try_from(settings.context_messages).unwrap_or(20),
             )?,
             Vec::new(),
@@ -62,17 +78,16 @@ pub(in crate::ui::window) fn prepare(
         .collect::<Result<Vec<_>>>()?;
     let library = repository.library_enabled(conversation)?;
     if assets.is_empty() && history_assets.iter().all(Vec::is_empty) && !library {
-        return Ok((
-            build_conversation_context(history, prompt, limit, Some(&settings.system_prompt)),
-            Vec::new(),
-        ));
+        let mut messages =
+            build_conversation_context(history, prompt, limit, Some(&settings.system_prompt));
+        match budget.fit(&mut messages, overhead) {
+            Ok(()) => {}
+            Err(MooseError::ContextTooLarge) if preparation == Preparation::Send => {}
+            Err(error) => return Err(error),
+        }
+        return Ok((messages, Vec::new()));
     }
 
-    let provider = active_provider(backend).ok_or(MooseError::ProviderNotConfigured)?;
-    let context_window = (provider.kind == ProviderKind::Ollama)
-        .then(|| crate::ollama::effective_context_window(settings.num_ctx));
-    let budget = ContextBudget::new(context_window);
-    let overhead = crate::chat::runner::context_overhead(request)?;
     let mut messages = Vec::new();
     if !settings.system_prompt.trim().is_empty() {
         messages.push(ChatMessage::system(settings.system_prompt.trim()));
@@ -86,6 +101,7 @@ pub(in crate::ui::window) fn prepare(
         &mut current,
         &mut total_images,
         &mut total_bytes,
+        preparation,
     )?;
 
     let mut documents = assets
@@ -174,6 +190,7 @@ pub(in crate::ui::window) fn prepare(
             &mut user,
             &mut total_images,
             &mut total_bytes,
+            preparation,
         )?;
         let tokens =
             estimate_message_tokens(&user).saturating_add(estimate_message_tokens(&assistant));
@@ -188,7 +205,8 @@ pub(in crate::ui::window) fn prepare(
     }
     messages.push(current);
 
-    if messages.iter().any(|message| !message.images.is_empty()) {
+    if preparation == Preparation::Send && messages.iter().any(|message| !message.images.is_empty())
+    {
         let supported = ui
             .attachments
             .capabilities
@@ -238,9 +256,7 @@ fn reference_excerpt(number: usize, name: &str, page: i64, content: &str) -> Str
 }
 
 fn document_context_error() -> MooseError {
-    error(gettext(
-        "There is too little room for document excerpts. Shorten the message or chat instructions, use fewer attachments, or increase Context Window in Chat Settings.",
-    ))
+    MooseError::ContextTooLarge
 }
 
 fn add_images(
@@ -249,22 +265,25 @@ fn add_images(
     message: &mut ChatMessage,
     count: &mut usize,
     bytes: &mut usize,
+    preparation: Preparation,
 ) -> Result<()> {
     if message.role != ChatRole::User {
         return Ok(());
     }
     for asset in assets.iter().filter(|asset| asset.kind == "image") {
-        let payload = repository.asset_bytes(&asset.id)?;
         *count += 1;
-        *bytes += payload.len();
+        *bytes = bytes.saturating_add(usize::try_from(asset.byte_size).unwrap_or(usize::MAX));
         if *count > MAX_ATTACHMENTS || *bytes > MAX_IMAGE_BYTES {
             return Err(error(gettext(
                 "The image context is too large. Use fewer images or start a new chat.",
             )));
         }
-        message
-            .images
-            .push(glib::base64_encode(&payload).to_string());
+        message.images.push(match preparation {
+            Preparation::Send => {
+                glib::base64_encode(&repository.asset_bytes(&asset.id)?).to_string()
+            }
+            Preparation::Preview => String::new(),
+        });
     }
     Ok(())
 }

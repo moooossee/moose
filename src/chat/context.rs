@@ -9,6 +9,40 @@ const REQUEST_OVERHEAD: usize = 64;
 const ESTIMATED_IMAGE_TOKENS: usize = 1024;
 const MAX_CONTINUATION_TOKENS: usize = 8192;
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct ContextUsage {
+    pub tokens: usize,
+    pub window: Option<usize>,
+    pub estimated: bool,
+    pub omitted_messages: usize,
+}
+
+impl ContextUsage {
+    pub fn estimate(request: &ChatRequest) -> Result<Self> {
+        let tokens = request.messages.iter().fold(
+            REQUEST_OVERHEAD.saturating_add(request_overhead(request)?),
+            |total, message| total.saturating_add(estimate_message_tokens(message)),
+        );
+        Ok(Self {
+            tokens,
+            window: request
+                .options
+                .as_ref()
+                .and_then(|options| options.num_ctx)
+                .and_then(|window| usize::try_from(window).ok())
+                .filter(|window| *window > 0),
+            estimated: true,
+            omitted_messages: 0,
+        })
+    }
+
+    pub fn fraction(self) -> Option<f64> {
+        self.window
+            .filter(|window| *window > 0)
+            .map(|window| self.tokens as f64 / window as f64)
+    }
+}
+
 pub struct ContextBudget {
     input_tokens: usize,
 }

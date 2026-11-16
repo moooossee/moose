@@ -54,6 +54,7 @@ src/ui/window/chat_welcome.rs
 src/ui/window/cloud_setup.rs
 src/ui/window/code_view.rs
 src/ui/window/composer_commands.rs
+src/ui/window/context_usage.rs
 src/ui/window/conversation_export.rs
 src/ui/window/conversation_list.rs
 src/ui/window/custom_provider.rs

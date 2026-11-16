@@ -22,6 +22,11 @@ pub(super) struct Context {
     save_error_shown: bool,
     pub(super) pending_status: Option<&'static str>,
     pub(super) title_generation: Option<tokio::task::JoinHandle<()>>,
+    usage: Option<crate::chat::context::ContextUsage>,
+    context_window: Option<usize>,
+    history_omitted: usize,
+    output_start: usize,
+    reasoning_start: usize,
 }
 
 impl Context {
@@ -71,6 +76,30 @@ pub(super) fn is_visible(backend: &Backend) -> bool {
         == Some(backend.generation_context.borrow().conversation_id.as_str())
 }
 
+pub(super) fn context_usage(backend: &Backend) -> Option<crate::chat::context::ContextUsage> {
+    if backend.active_generation.borrow().is_none() || !is_visible(backend) {
+        return None;
+    }
+    let context = backend.generation_context.borrow();
+    let mut usage = context.usage?;
+    usage.window = usage.window.or(context.context_window);
+    usage.omitted_messages = usage
+        .omitted_messages
+        .saturating_add(context.history_omitted);
+    let content = backend.active_assistant_content.borrow();
+    let output = content.get(context.output_start..).unwrap_or_default();
+    let reasoning = context
+        .reasoning
+        .get(context.reasoning_start..)
+        .unwrap_or_default();
+    usage.tokens = usage
+        .tokens
+        .saturating_add(crate::chat::context::estimate_text_tokens(output))
+        .saturating_add(crate::chat::context::estimate_text_tokens(reasoning));
+    usage.estimated |= !output.is_empty() || !reasoning.is_empty();
+    Some(usage)
+}
+
 pub(super) fn sync_controls(ui: &WindowUi, backend: &Backend) {
     let running = backend.active_generation.borrow().is_some();
     let visible =
@@ -91,6 +120,7 @@ pub(super) fn sync_controls(ui: &WindowUi, backend: &Backend) {
     update_send_button(ui);
     composer_commands::refresh(ui, backend);
     document_creation::sync_controls(ui, backend);
+    super::context_usage::refresh(ui, backend);
 }
 
 pub(super) fn bind(ui: &Rc<WindowUi>, backend: &Rc<Backend>) {
@@ -196,6 +226,7 @@ fn update_live(ui: &WindowUi, backend: &Backend) {
         );
         chat_view::update_tool_activity(live, &context.tools, &context.tool_notice);
     }
+    super::context_usage::refresh_live(ui, backend);
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -215,6 +246,19 @@ pub(super) fn start(
     backend.generation_context.borrow_mut().cancel_title();
     let title_provider = provider.clone();
     let title_context = request.options.as_ref().and_then(|options| options.num_ctx);
+    let context_destination = crate::providers::policy::destination(&provider);
+    let context_window = model_context_window(ui, &provider, &model, title_context);
+    let usage = super::context_usage::estimate_request(&request, context_window).ok();
+    let history_omitted = backend
+        .conversation_repository
+        .list_messages(&conversation_id)
+        .map(|messages| {
+            messages
+                .len()
+                .saturating_sub(1)
+                .saturating_sub(crate::chat::runner::conversation_messages(&request))
+        })
+        .unwrap_or_default();
     let assistant_id = assistant.id.clone();
     *backend.active_assistant_message_id.borrow_mut() = Some(assistant_id.clone());
     backend.active_assistant_content.borrow_mut().clear();
@@ -226,6 +270,9 @@ pub(super) fn start(
         document_body: document.map(|job| job.content).unwrap_or_default(),
         started: Some(Instant::now()),
         checkpoint: Some(Instant::now()),
+        usage,
+        context_window,
+        history_omitted,
         ..Context::default()
     };
     if clear_draft {
@@ -253,6 +300,7 @@ pub(super) fn start(
             crate::chat::runner::run(&client, request, web, |event| {
                 use crate::chat::runner::ResponseEvent;
                 let event = match event {
+                    ResponseEvent::Context(usage) => ChatUiEvent::Context(usage),
                     ResponseEvent::Token(token) => ChatUiEvent::Token(token),
                     ResponseEvent::Thinking(token) => ChatUiEvent::Thinking(token),
                     ResponseEvent::Tool(tool) => ChatUiEvent::Tool(tool),
@@ -288,6 +336,23 @@ pub(super) fn start(
         let mut end = None;
         for _ in 0..512 {
             match receiver.try_recv() {
+                Ok(ChatUiEvent::Context(usage)) => {
+                    if !usage.estimated
+                        && let (Some(configured), Some(window)) = (title_context, usage.window)
+                    {
+                        super::context_usage::remember_window(
+                            &ui,
+                            &context_destination,
+                            &model,
+                            configured,
+                            window,
+                        );
+                    }
+                    let mut context = backend.generation_context.borrow_mut();
+                    context.usage = Some(usage);
+                    context.output_start = backend.active_assistant_content.borrow().len();
+                    context.reasoning_start = context.reasoning.len();
+                }
                 Ok(ChatUiEvent::Tool(tool)) => {
                     let mut context = backend.generation_context.borrow_mut();
                     if context.is_document && tool.status == crate::tools::ToolStatus::Running {

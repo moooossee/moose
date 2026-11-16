@@ -275,6 +275,7 @@ pub(in crate::ui::window) fn bind(ui: &Rc<WindowUi>, backend: &Rc<Backend>) {
             sync_scope(&target_ui, &target_backend);
         }
         update_status(&target_ui, &target_backend);
+        super::super::context_usage::refresh(&target_ui, &target_backend);
         conversation_list::refresh(&target_ui, &target_backend);
     });
     let drop = gtk::DropTarget::new(gdk::FileList::static_type(), gdk::DragAction::COPY);

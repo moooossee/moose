@@ -51,6 +51,7 @@ mod chat_welcome;
 mod cloud_setup;
 mod code_view;
 mod composer_commands;
+mod context_usage;
 mod conversation_export;
 mod conversation_list;
 mod custom_provider;
@@ -187,6 +188,7 @@ fn build_ui(app: &adw::Application) -> Rc<WindowUi> {
         stop_button: chat.stop_button,
         create_document_button: chat.create_document_button,
         draft_label: chat.draft_label,
+        context_usage: chat.context_usage,
         thinking_picker: chat.thinking_picker,
         attachments: chat.attachments,
         commands: chat.commands,
@@ -235,6 +237,7 @@ pub fn build(app: &adw::Application) -> adw::ApplicationWindow {
             attachments::bind(&ui, &backend);
             generation::bind(&ui, &backend);
             composer_commands::bind(&ui, &backend);
+            context_usage::bind(&ui, &backend);
             if let Err(error) = backend
                 .conversation_repository
                 .recover_interrupted_responses()
@@ -334,6 +337,7 @@ struct WindowUi {
     stop_button: gtk::Button,
     create_document_button: gtk::Button,
     draft_label: gtk::Label,
+    context_usage: context_usage::Controls,
     thinking_picker: gtk::DropDown,
     attachments: attachments::Controls,
     commands: composer_commands::Controls,
@@ -364,6 +368,7 @@ enum ModelLoadEvent {
 }
 
 enum ChatUiEvent {
+    Context(crate::chat::context::ContextUsage),
     Tool(crate::tools::ToolExecution),
     ToolNotice(String),
     Thinking(String),
@@ -988,6 +993,7 @@ fn new_conversation_with_model(ui: &Rc<WindowUi>, backend: &Rc<Backend>, model: 
             }
             reasoning::refresh(ui, backend);
             update_profile_indicator(ui, backend, None).ok();
+            context_usage::refresh(ui, backend);
             show_chat_welcome(ui);
             conversation_list::refresh(ui, backend);
             conversation_list::select(ui, &conversation_id);
@@ -1038,6 +1044,7 @@ fn stop_generation_action(ui: &Rc<WindowUi>, backend: &Rc<Backend>, notify_inact
         Ok(false) => false,
         Err(error) => {
             finish_generation(ui);
+            context_usage::refresh(ui, backend);
             ui.toast_overlay.add_toast(adw::Toast::new(&gettext_f(
                 "Conversation could not be saved: {error}",
                 &[("error", &(error).to_string())],
@@ -1652,6 +1659,7 @@ fn submit_message_with_document(
         &history,
         &settings,
         &request,
+        attachments::Preparation::Send,
     ) {
         Ok(result) => result,
         Err(error) => {
@@ -1809,6 +1817,24 @@ fn chat_options(settings: &ChatSettingsValues) -> ChatOptions {
     }
 }
 
+fn model_context_window(
+    ui: &WindowUi,
+    provider: &Provider,
+    model: &str,
+    configured: Option<i64>,
+) -> Option<usize> {
+    if provider.kind == ProviderKind::Ollama {
+        let configured = crate::ollama::effective_context_window(configured);
+        return context_usage::known_window(ui, provider, model, configured)
+            .or_else(|| usize::try_from(configured).ok());
+    }
+    ui.installed_models
+        .borrow()
+        .iter()
+        .find(|candidate| candidate.name == model)
+        .and_then(|model| model.context_window)
+}
+
 fn show_chat_settings(ui: &Rc<WindowUi>, backend: &Rc<Backend>) {
     if backend.active_generation.borrow().is_some() {
         ui.toast_overlay.add_toast(adw::Toast::new(&gettext(
@@ -1915,7 +1941,10 @@ impl From<Option<GenerationSettings>> for ChatSettingsValues {
             top_p: settings.top_p,
             top_k: settings.top_k,
             seed: settings.seed,
-            num_ctx: settings.num_ctx.filter(|value| *value > 0),
+            num_ctx: settings
+                .num_ctx
+                .filter(|value| *value > 0)
+                .map(|value| value.min(crate::ollama::MAX_CONTEXT_WINDOW)),
             context_messages: settings
                 .context_messages
                 .unwrap_or(DEFAULT_CONTEXT_MESSAGE_LIMIT)
@@ -1969,6 +1998,7 @@ fn load_conversation(ui: &WindowUi, backend: &Backend, conversation_id: &str) ->
     let settings = load_chat_settings(backend, conversation_id)?;
     update_profile_indicator(ui, backend, settings.profile_id.as_deref())?;
     update_window_title(ui, backend);
+    context_usage::refresh(ui, backend);
 
     Ok(())
 }
@@ -2432,6 +2462,7 @@ fn set_models(ui: &Rc<WindowUi>, backend: &Rc<Backend>, models: Vec<OllamaModel>
 
 fn set_installed_models(ui: &Rc<WindowUi>, backend: &Rc<Backend>, models: Vec<OllamaModel>) {
     *ui.installed_models.borrow_mut() = models;
+    context_usage::refresh(ui, backend);
     let query = ui.model_manager.search_entry.text().to_string();
     render_model_manager(ui, backend, &query);
 }

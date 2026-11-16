@@ -219,12 +219,18 @@ impl ProviderClient {
         self.stream_prepared_chat(request, on_event).await
     }
 
-    pub(crate) async fn prepare_chat(&self, request: &mut ChatRequest) -> Result<()> {
+    pub(crate) async fn prepare_chat(
+        &self,
+        request: &mut ChatRequest,
+    ) -> Result<crate::chat::context::ContextUsage> {
         self.check()?;
-        if let Transport::Ollama(client) = &self.transport {
-            client.prepare_chat(request).await?;
-        }
-        self.check()
+        let usage = if let Transport::Ollama(client) = &self.transport {
+            client.prepare_chat(request).await?
+        } else {
+            crate::chat::context::ContextUsage::estimate(request)?
+        };
+        self.check()?;
+        Ok(usage)
     }
 
     pub(crate) async fn stream_prepared_chat<F>(
@@ -849,7 +855,24 @@ fn parse_models(kind: ProviderKind, data: &Value, custom: bool) -> Result<Vec<Ol
         if item["active"].as_bool() == Some(false) {
             continue;
         }
-        models.push(cloud_model(name, kind.label()));
+        let mut model = cloud_model(name, kind.label());
+        model.context_window = [
+            "context_length",
+            "max_context_length",
+            "max_model_len",
+            "context_window",
+        ]
+        .iter()
+        .map(|key| &item[*key])
+        .chain(std::iter::once(&item["top_provider"]["context_length"]))
+        .filter_map(|value| {
+            value
+                .as_u64()
+                .and_then(|window| usize::try_from(window).ok())
+                .filter(|window| *window > 0)
+        })
+        .min();
+        models.push(model);
     }
     Ok(models)
 }
@@ -867,6 +890,7 @@ fn openai_responses_model(name: &str) -> bool {
 fn cloud_model(name: &str, family: &str) -> OllamaModel {
     OllamaModel {
         name: name.into(),
+        context_window: None,
         digest: None,
         size_bytes: None,
         family: Some(family.into()),
