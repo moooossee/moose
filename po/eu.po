@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: moose 0.8.5\n"
 "Report-Msgid-Bugs-To: https://github.com/moooossee/moose/issues\n"
-"POT-Creation-Date: 2026-11-16 15:34-0600\n"
+"POT-Creation-Date: 2026-11-17 03:40-0600\n"
 "PO-Revision-Date: 2026-11-16 13:59+0000\n"
 "Last-Translator: Asier Saratsua Garmendia "
 "<assar@users.noreply.hosted.weblate.org>\n"
@@ -135,7 +135,7 @@ msgstr "Berriketa-bota"
 
 #: data/io.github.moooossee.Moose.metainfo.xml.in
 #: src/ui/window/custom_provider.rs src/ui/window/model_manager.rs
-#: src/ui/window/sidebar.rs
+#: src/ui/window/preferences/shortcuts.rs src/ui/window.rs
 msgid "Models"
 msgstr "Ereduak"
 
@@ -1156,7 +1156,8 @@ msgid ""
 "conclusions from assumptions and uncertainty."
 msgstr ""
 
-#: src/i18n.rs src/ui/window/shortcuts.rs src/ui/window/sidebar.rs
+#: src/i18n.rs src/ui/window/header.rs src/ui/window/shortcuts.rs
+#: src/ui/window.rs
 msgid "New Conversation"
 msgstr ""
 
@@ -2414,14 +2415,6 @@ msgid ""
 msgstr ""
 
 #: src/ui/window/attachments/library.rs
-msgid "Back to Chat"
-msgstr ""
-
-#: src/ui/window/attachments/library.rs
-msgid "Chat"
-msgstr ""
-
-#: src/ui/window/attachments/library.rs
 msgid "Files"
 msgstr ""
 
@@ -2449,7 +2442,7 @@ msgstr ""
 msgid "Include relevant text when you send a message."
 msgstr ""
 
-#: src/ui/window/attachments/library.rs
+#: src/ui/window/attachments/library.rs src/ui/window/header.rs
 msgid "Chat Library Settings"
 msgstr ""
 
@@ -2713,8 +2706,8 @@ msgstr ""
 #: src/ui/window/conversation_list.rs src/ui/window/document_creation.rs
 #: src/ui/window/managed_runtime.rs src/ui/window/message_actions.rs
 #: src/ui/window/model_actions.rs src/ui/window/model_download.rs
-#: src/ui/window/preferences.rs src/ui/window/privacy.rs
-#: src/ui/window/provider_controls.rs src/ui/window/web_tools.rs
+#: src/ui/window/privacy.rs src/ui/window/provider_controls.rs
+#: src/ui/window/web_tools.rs
 msgid "Cancel"
 msgstr ""
 
@@ -4505,6 +4498,52 @@ msgstr ""
 msgid "Response interrupted"
 msgstr ""
 
+#: src/ui/window/header.rs
+msgid "_Search Chats"
+msgstr ""
+
+#: src/ui/window/header.rs
+msgid "_Files and Library"
+msgstr ""
+
+#: src/ui/window/header.rs
+#, fuzzy
+#| msgid "Models"
+msgid "_Models"
+msgstr "Ereduak"
+
+#: src/ui/window/header.rs
+msgid "_Preferences"
+msgstr ""
+
+#: src/ui/window/header.rs
+msgid "_Keyboard Shortcuts"
+msgstr ""
+
+#: src/ui/window/header.rs
+msgid "_About Moose"
+msgstr ""
+
+#: src/ui/window/header.rs
+msgid "Hide Sidebar"
+msgstr ""
+
+#: src/ui/window/header.rs
+msgid "Back to Chat"
+msgstr ""
+
+#: src/ui/window/header.rs
+msgid "Source Code"
+msgstr ""
+
+#: src/ui/window/header.rs
+msgid "Show Sidebar"
+msgstr ""
+
+#: src/ui/window/header.rs
+msgid "Main Menu"
+msgstr ""
+
 #: src/ui/window/managed_install.rs
 msgid "Verifying {arg1}"
 msgstr ""
@@ -4961,7 +5000,7 @@ msgstr ""
 msgid "Remove all model download jobs for the active provider?"
 msgstr ""
 
-#: src/ui/window/model_actions.rs src/ui/window/preferences.rs
+#: src/ui/window/model_actions.rs
 msgid "Clear"
 msgstr ""
 
@@ -6892,7 +6931,7 @@ msgstr ""
 msgid "hugging face huggingface hf.co"
 msgstr "hugging face huggingface hf.co"
 
-#: src/ui/window/preferences.rs src/ui/window/shortcuts.rs src/ui/window.rs
+#: src/ui/window/preferences.rs src/ui/window/shortcuts.rs
 msgid "Preferences"
 msgstr ""
 
@@ -6981,7 +7020,7 @@ msgstr ""
 msgid "Telemetry"
 msgstr ""
 
-#: src/ui/window/preferences.rs
+#: src/ui/window/preferences.rs src/ui/window/preferences/shortcuts.rs
 msgid "Disabled"
 msgstr ""
 
@@ -6995,22 +7034,6 @@ msgstr ""
 
 #: src/ui/window/preferences.rs
 msgid "Sharing permissions could not be loaded"
-msgstr ""
-
-#: src/ui/window/preferences.rs
-msgid "Shortcuts"
-msgstr ""
-
-#: src/ui/window/preferences.rs
-msgid "Keyboard Shortcuts"
-msgstr ""
-
-#: src/ui/window/preferences.rs
-msgid "Select a command, then press the shortcut you want to use."
-msgstr ""
-
-#: src/ui/window/preferences.rs
-msgid "Reset Shortcuts"
 msgstr ""
 
 #: src/ui/window/preferences.rs
@@ -7037,21 +7060,83 @@ msgstr ""
 msgid "Provider saved"
 msgstr ""
 
-#: src/ui/window/preferences.rs
-msgid "Set {title} Shortcut"
+#: src/ui/window/preferences/shortcuts.rs
+msgid "Shortcuts"
 msgstr ""
 
-#: src/ui/window/preferences.rs
-msgid "Press the new shortcut for {title}."
+#: src/ui/window/preferences/shortcuts.rs
+msgid "Reset All"
 msgstr ""
 
-#: src/ui/window/preferences.rs
+#: src/ui/window/preferences/shortcuts.rs
+msgid "Restore all default keyboard shortcuts"
+msgstr ""
+
+#: src/ui/window/preferences/shortcuts.rs
+msgid "Keyboard Shortcuts"
+msgstr ""
+
+#: src/ui/window/preferences/shortcuts.rs
+msgid "Select an action to change its keyboard shortcut."
+msgstr ""
+
+#: src/ui/window/preferences/shortcuts.rs
+#, fuzzy
+#| msgid "Presentations"
+msgid "Conversations"
+msgstr "Aurkezpenak"
+
+#: src/ui/window/preferences/shortcuts.rs
+msgid "Application"
+msgstr ""
+
+#: src/ui/window/preferences/shortcuts.rs
+msgid "Set Shortcut"
+msgstr ""
+
+#: src/ui/window/preferences/shortcuts.rs
+msgid "_Cancel"
+msgstr ""
+
+#: src/ui/window/preferences/shortcuts.rs
+msgid "_Set"
+msgstr ""
+
+#: src/ui/window/preferences/shortcuts.rs
+msgid "Press a key combination, then choose Set."
+msgstr ""
+
+#: src/ui/window/preferences/shortcuts.rs
+msgid "Press a key combination while this control is focused"
+msgstr ""
+
+#: src/ui/window/preferences/shortcuts.rs
+msgid "Press a key combination. Press Tab to move to the dialog controls."
+msgstr ""
+
+#: src/ui/window/preferences/shortcuts.rs
 msgid ""
-"Use Ctrl, Alt, Shift or Super with printable keys. Esc can be captured here."
+"Press Tab to move between controls. Escape can be assigned as a shortcut."
 msgstr ""
 
-#: src/ui/window/preferences.rs
+#: src/ui/window/preferences/shortcuts.rs
+msgid "Reset to _Default"
+msgstr ""
+
+#: src/ui/window/preferences/shortcuts.rs
+msgid "_Disable Shortcut"
+msgstr ""
+
+#: src/ui/window/preferences/shortcuts.rs
 msgid "This key cannot be used as a shortcut"
+msgstr ""
+
+#: src/ui/window/preferences/shortcuts.rs
+msgid "Current shortcut: {shortcut}. Activate to change it."
+msgstr ""
+
+#: src/ui/window/preferences/shortcuts.rs
+msgid "Shortcut: {shortcut}"
 msgstr ""
 
 #: src/ui/window/privacy.rs
@@ -7509,10 +7594,6 @@ msgid "Unsupported key: {value}"
 msgstr ""
 
 #: src/ui/window/sidebar.rs
-msgid "Files and Library"
-msgstr ""
-
-#: src/ui/window/sidebar.rs
 msgid "Search chats"
 msgstr ""
 
@@ -7690,10 +7771,6 @@ msgid "Chat instance could not be loaded: {error}"
 msgstr ""
 
 #: src/ui/window.rs
-msgid "Hide Sidebar"
-msgstr ""
-
-#: src/ui/window.rs
 msgid "A response is being generated in another chat"
 msgstr ""
 
@@ -7731,10 +7808,6 @@ msgstr ""
 
 #: src/ui/window.rs
 msgid "Add a provider first"
-msgstr ""
-
-#: src/ui/window.rs
-msgid "Show Sidebar"
 msgstr ""
 
 #: src/ui/window.rs
@@ -7982,6 +8055,10 @@ msgstr ""
 
 #: src/ui/window.rs
 msgid "Add a Model by Name or Link…"
+msgstr ""
+
+#: src/ui/window.rs
+msgid "Files and Library"
 msgstr ""
 
 #: src/ui/window.rs
