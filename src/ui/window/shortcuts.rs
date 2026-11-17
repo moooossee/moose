@@ -2,13 +2,21 @@ use crate::i18n::{gettext, gettext_f, gettext_noop};
 
 use std::collections::{HashMap, HashSet};
 
-use gtk::gdk;
+use gtk::{gdk, glib::translate::from_glib};
 
 pub(super) const SETTINGS_SHORTCUTS: &str = "shortcuts";
+
+#[derive(Clone, Copy, Eq, PartialEq)]
+pub(super) enum ShortcutCategory {
+    Conversations,
+    Models,
+    Application,
+}
 
 #[derive(Clone, Copy)]
 pub(super) struct ShortcutDefinition {
     pub(super) id: &'static str,
+    pub(super) category: ShortcutCategory,
     pub(super) title: &'static str,
     pub(super) description: &'static str,
     pub(super) default: &'static str,
@@ -26,48 +34,56 @@ pub(super) struct ShortcutChord {
 pub(super) const DEFINITIONS: &[ShortcutDefinition] = &[
     ShortcutDefinition {
         id: "new-conversation",
+        category: ShortcutCategory::Conversations,
         title: gettext_noop("New Conversation"),
         description: gettext_noop("Create a new chat and move to the composer."),
         default: "Ctrl+N",
     },
     ShortcutDefinition {
         id: "focus-message",
+        category: ShortcutCategory::Conversations,
         title: gettext_noop("Focus Message"),
         description: gettext_noop("Move keyboard focus to the message composer."),
         default: "Ctrl+L",
     },
     ShortcutDefinition {
         id: "search-chats",
+        category: ShortcutCategory::Conversations,
         title: gettext_noop("Search Chats"),
         description: gettext_noop("Move keyboard focus to the chat search field."),
         default: "Ctrl+F",
     },
     ShortcutDefinition {
         id: "show-models",
+        category: ShortcutCategory::Models,
         title: gettext_noop("Show Models"),
         description: gettext_noop("Open the model manager."),
         default: "Ctrl+M",
     },
     ShortcutDefinition {
         id: "refresh-models",
+        category: ShortcutCategory::Models,
         title: gettext_noop("Refresh Models"),
         description: gettext_noop("Refresh the active provider model list."),
         default: "F5",
     },
     ShortcutDefinition {
         id: "preferences",
+        category: ShortcutCategory::Application,
         title: gettext_noop("Preferences"),
         description: gettext_noop("Open application preferences."),
         default: "Ctrl+,",
     },
     ShortcutDefinition {
         id: "toggle-sidebar",
+        category: ShortcutCategory::Application,
         title: gettext_noop("Toggle Sidebar"),
         description: gettext_noop("Show or hide the conversation sidebar."),
         default: "F9",
     },
     ShortcutDefinition {
         id: "stop-generation",
+        category: ShortcutCategory::Conversations,
         title: gettext_noop("Stop Generation"),
         description: gettext_noop("Cancel the active response."),
         default: "Esc",
@@ -181,6 +197,18 @@ pub(super) fn event_chord(key: gdk::Key, state: gdk::ModifierType) -> Option<Sho
 
 impl ShortcutChord {
     pub(super) fn display_label(&self) -> String {
+        self.key_and_modifiers()
+            .map(|(key, modifiers)| gtk::accelerator_get_label(key, modifiers).to_string())
+            .unwrap_or_else(|| self.label())
+    }
+
+    pub(super) fn accelerator(&self) -> String {
+        self.key_and_modifiers()
+            .map(|(key, modifiers)| gtk::accelerator_name(key, modifiers).to_string())
+            .unwrap_or_default()
+    }
+
+    fn key_and_modifiers(&self) -> Option<(gdk::Key, gdk::ModifierType)> {
         let name = match self.key.as_str() {
             "Esc" => "Escape",
             "Enter" => "Return",
@@ -190,8 +218,12 @@ impl ShortcutChord {
             "PageDown" => "Page_Down",
             key => key,
         };
-        let Some(key) = gdk::Key::from_name(name) else {
-            return self.label();
+        let mut characters = name.chars();
+        let key = match (characters.next(), characters.next()) {
+            (Some(character), None) => unsafe {
+                from_glib(gdk::unicode_to_keyval(u32::from(character)))
+            },
+            _ => gdk::Key::from_name(name)?,
         };
         let mut modifiers = gdk::ModifierType::empty();
         if self.ctrl {
@@ -206,7 +238,7 @@ impl ShortcutChord {
         if self.super_key {
             modifiers |= gdk::ModifierType::SUPER_MASK;
         }
-        gtk::accelerator_get_label(key, modifiers).to_string()
+        Some((key.to_lower(), modifiers))
     }
 
     pub(super) fn label(&self) -> String {

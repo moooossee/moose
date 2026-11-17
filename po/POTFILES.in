@@ -75,6 +75,7 @@ src/ui/window/model_manager/discovery.rs
 src/ui/window/model_manager/requirements.rs
 src/ui/window/model_manager.rs
 src/ui/window/preferences.rs
+src/ui/window/preferences/shortcuts.rs
 src/ui/window/privacy.rs
 src/ui/window/provider_controls.rs
 src/ui/window/reasoning.rs

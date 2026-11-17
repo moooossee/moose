@@ -1,6 +1,6 @@
-use crate::i18n::{gettext, gettext_f};
+use crate::i18n::gettext;
 
-use std::{cell::RefCell, collections::HashMap, rc::Rc};
+use std::{cell::RefCell, rc::Rc};
 
 use adw::prelude::*;
 use gtk::{Align, Orientation};
@@ -12,10 +12,11 @@ use crate::providers::{
 
 use super::{
     Backend, WindowUi, active_provider, managed_acceleration_label, managed_gpu_enabled,
-    provider_change_is_blocked, refresh_models, reset_shortcut_values,
-    save_managed_gpu_acceleration, save_shortcut_values, set_shortcut_capture_active,
-    shortcut_values, shortcuts, show_error, update_provider_summary, widgets,
+    provider_change_is_blocked, refresh_models, save_managed_gpu_acceleration, show_error,
+    update_provider_summary, widgets,
 };
+
+mod shortcuts;
 
 pub(super) fn dialog(
     parent: &adw::ApplicationWindow,
@@ -242,63 +243,7 @@ pub(super) fn dialog(
         ),
     }
 
-    let shortcuts_page = adw::PreferencesPage::builder()
-        .name("shortcuts")
-        .title(gettext("Shortcuts"))
-        .icon_name("preferences-desktop-keyboard-symbolic")
-        .build();
-    let shortcuts_group = adw::PreferencesGroup::builder()
-        .title(gettext("Keyboard Shortcuts"))
-        .description(gettext(
-            "Select a command, then press the shortcut you want to use.",
-        ))
-        .build();
-    let current_shortcuts = shortcut_values(backend);
-    let mut shortcut_rows = Vec::new();
-    for definition in shortcuts::DEFINITIONS {
-        let value = current_shortcuts
-            .get(definition.id)
-            .map(String::as_str)
-            .unwrap_or(definition.default);
-        let row = adw::ActionRow::builder()
-            .title(gettext(definition.title))
-            .subtitle(gettext(definition.description))
-            .subtitle_lines(2)
-            .build();
-        let button = shortcut_button(value);
-        let target_dialog = dialog.clone();
-        let target_ui = Rc::clone(ui);
-        let target_backend = Rc::clone(backend);
-        let id = definition.id.to_string();
-        let title = gettext(definition.title);
-        let target_button = button.clone();
-        button.connect_clicked(move |_| {
-            show_shortcut_capture_dialog(
-                &target_dialog,
-                &target_ui,
-                &target_backend,
-                &id,
-                &title,
-                &target_button,
-            );
-        });
-        row.add_suffix(&button);
-        row.set_activatable_widget(Some(&button));
-        shortcuts_group.add(&row);
-        shortcut_rows.push((definition.id.to_string(), button));
-    }
-    let shortcut_rows = Rc::new(shortcut_rows);
-    let shortcut_actions = gtk::Box::builder()
-        .orientation(Orientation::Horizontal)
-        .spacing(6)
-        .halign(Align::End)
-        .margin_top(6)
-        .margin_bottom(6)
-        .build();
-    let reset_shortcuts_button = gtk::Button::with_label(&gettext("Reset Shortcuts"));
-    shortcut_actions.append(&reset_shortcuts_button);
-    shortcuts_group.add(&shortcut_actions);
-    shortcuts_page.add(&shortcuts_group);
+    let shortcuts_page = shortcuts::build(&dialog, ui, backend);
 
     dialog.add(&provider_page);
     dialog.add(&super::managed_runtime::preferences_page(
@@ -307,17 +252,6 @@ pub(super) fn dialog(
     dialog.add(&shortcuts_page);
     dialog.add(&super::web_tools::preferences_page(&dialog, ui, backend));
     dialog.add(&privacy_page);
-
-    let target_dialog = dialog.clone();
-    let target_ui = Rc::clone(ui);
-    let target_backend = Rc::clone(backend);
-    let target_rows = Rc::clone(&shortcut_rows);
-    reset_shortcuts_button.connect_clicked(move |_| {
-        match reset_shortcut_values(&target_ui, &target_backend) {
-            Ok(values) => apply_shortcut_row_values(target_rows.as_ref().as_slice(), &values),
-            Err(message) => target_dialog.add_toast(adw::Toast::new(&message)),
-        }
-    });
 
     if let Some(port_row) = port_row.as_ref() {
         let target_url_row = url_row.clone();
@@ -477,166 +411,4 @@ fn managed_port_from_row(row: &adw::EntryRow) -> crate::error::Result<u16> {
         .parse::<u16>()
         .map_err(|_| crate::error::MooseError::ManagedOllamaInvalidPort(0))?;
     validate_managed_ollama_port(port)
-}
-
-fn shortcut_button(value: &str) -> gtk::Button {
-    let button = gtk::Button::with_label(&shortcut_button_label(value));
-    button.add_css_class("flat");
-    button
-}
-
-fn shortcut_button_label(value: &str) -> String {
-    if value.trim().is_empty() {
-        gettext("Disabled")
-    } else {
-        shortcuts::parse(value)
-            .ok()
-            .flatten()
-            .map(|chord| chord.display_label())
-            .unwrap_or_else(|| value.to_string())
-    }
-}
-
-fn show_shortcut_capture_dialog(
-    parent: &adw::PreferencesDialog,
-    ui: &Rc<WindowUi>,
-    backend: &Rc<Backend>,
-    id: &str,
-    title: &str,
-    button: &gtk::Button,
-) {
-    set_shortcut_capture_active(backend, true);
-    let dialog = adw::Dialog::builder()
-        .title(gettext_f("Set {title} Shortcut", &[("title", (title))]))
-        .content_width(420)
-        .build();
-    let content = gtk::Box::builder()
-        .orientation(Orientation::Vertical)
-        .spacing(16)
-        .margin_top(22)
-        .margin_bottom(22)
-        .margin_start(22)
-        .margin_end(22)
-        .build();
-    let label = gtk::Label::builder()
-        .label(gettext_f(
-            "Press the new shortcut for {title}.",
-            &[("title", (title))],
-        ))
-        .halign(Align::Start)
-        .xalign(0.0)
-        .wrap(true)
-        .build();
-    let hint = gtk::Label::builder()
-        .label(gettext(
-            "Use Ctrl, Alt, Shift or Super with printable keys. Esc can be captured here.",
-        ))
-        .halign(Align::Start)
-        .xalign(0.0)
-        .wrap(true)
-        .build();
-    hint.add_css_class("dim-label");
-    let actions = gtk::Box::builder()
-        .orientation(Orientation::Horizontal)
-        .spacing(8)
-        .halign(Align::End)
-        .build();
-    let clear_button = gtk::Button::with_label(&gettext("Clear"));
-    let cancel_button = gtk::Button::with_label(&gettext("Cancel"));
-    actions.append(&clear_button);
-    actions.append(&cancel_button);
-    content.append(&label);
-    content.append(&hint);
-    content.append(&actions);
-    dialog.set_child(Some(&content));
-
-    let target_dialog = dialog.clone();
-    let target_backend = Rc::clone(backend);
-    cancel_button.connect_clicked(move |_| {
-        set_shortcut_capture_active(&target_backend, false);
-        target_dialog.close();
-    });
-
-    let target_parent = parent.clone();
-    let target_ui = Rc::clone(ui);
-    let target_backend = Rc::clone(backend);
-    let target_id = id.to_string();
-    let target_button = button.clone();
-    let target_dialog = dialog.clone();
-    clear_button.connect_clicked(move |_| {
-        if set_shortcut_value(
-            &target_parent,
-            &target_ui,
-            &target_backend,
-            &target_id,
-            "",
-            &target_button,
-        ) {
-            set_shortcut_capture_active(&target_backend, false);
-            target_dialog.close();
-        }
-    });
-
-    let target_parent = parent.clone();
-    let target_ui = Rc::clone(ui);
-    let target_backend = Rc::clone(backend);
-    let target_id = id.to_string();
-    let target_button = button.clone();
-    let target_dialog = dialog.clone();
-    let key_controller = gtk::EventControllerKey::new();
-    key_controller.set_propagation_phase(gtk::PropagationPhase::Capture);
-    key_controller.connect_key_pressed(move |_, key, _, state| {
-        let Some(chord) = shortcuts::event_chord(key, state) else {
-            target_parent.add_toast(adw::Toast::new(&gettext(
-                "This key cannot be used as a shortcut",
-            )));
-            return gtk::glib::Propagation::Stop;
-        };
-        let value = chord.label();
-        if set_shortcut_value(
-            &target_parent,
-            &target_ui,
-            &target_backend,
-            &target_id,
-            &value,
-            &target_button,
-        ) {
-            set_shortcut_capture_active(&target_backend, false);
-            target_dialog.close();
-        }
-        gtk::glib::Propagation::Stop
-    });
-    dialog.add_controller(key_controller);
-
-    dialog.present(Some(parent));
-}
-
-fn set_shortcut_value(
-    parent: &adw::PreferencesDialog,
-    ui: &WindowUi,
-    backend: &Backend,
-    id: &str,
-    value: &str,
-    button: &gtk::Button,
-) -> bool {
-    let mut values = shortcut_values(backend);
-    values.insert(id.to_string(), value.to_string());
-    match save_shortcut_values(ui, backend, values) {
-        Ok(()) => {
-            button.set_label(&shortcut_button_label(value));
-            true
-        }
-        Err(message) => {
-            parent.add_toast(adw::Toast::new(&message));
-            false
-        }
-    }
-}
-
-fn apply_shortcut_row_values(rows: &[(String, gtk::Button)], values: &HashMap<String, String>) {
-    for (id, button) in rows {
-        if let Some(value) = values.get(id) {
-            button.set_label(&shortcut_button_label(value));
-        }
-    }
 }
