@@ -233,7 +233,10 @@ fn parse_blocks(source: &str) -> Vec<ParsedBlock> {
                 .unwrap_or(end);
             let opening_terminated = source[opening..end].contains(['\n', '\r']);
             let terminated = raw.ends_with(['\n', '\r']);
-            let complete = index + 1 < nodes.len()
+            let next_opening_terminated = nodes
+                .get(index + 1)
+                .is_some_and(|next| lines.len() > next.data().sourcepos.start.line);
+            let complete = next_opening_terminated
                 || match value {
                     NodeValue::CodeBlock(code) => code.fenced && code.closed && terminated,
                     NodeValue::Heading(_) | NodeValue::ThematicBreak => terminated,
