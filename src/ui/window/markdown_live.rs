@@ -66,7 +66,7 @@ impl LiveMarkdown {
     }
 
     pub(super) fn finish(&self, content: &str) {
-        markdown_view::update(&self.root, content);
+        markdown_view::live_view::finish(&self.root, &markdown_view::render(content));
         *self.state.borrow_mut() = LiveState {
             source: content.to_string(),
             committed: content.len(),
@@ -77,10 +77,6 @@ impl LiveMarkdown {
     pub(super) fn update(&self, content: &str) {
         let mut state = self.state.borrow_mut();
         if state.source == content && !state.deferred {
-            return;
-        }
-        if state.current.as_ref().is_some_and(LiveBlock::has_selection) {
-            state.deferred = true;
             return;
         }
         if content.starts_with(state.source.as_str())
@@ -126,8 +122,9 @@ impl LiveMarkdown {
                     let widget = math_view::block(&code.literal);
                     state.clear_current(&self.root);
                     self.root.append(&widget);
-                } else {
-                    state.update_code(&self.root, &code);
+                } else if !state.update_code(&self.root, &code) {
+                    state.deferred = true;
+                    break;
                 }
             } else if !state.update_text(&self.root, source) {
                 state.deferred = true;
@@ -165,15 +162,18 @@ impl LiveState {
         true
     }
 
-    fn update_code(&mut self, root: &gtk::Box, code: &NodeCodeBlock) {
+    fn update_code(&mut self, root: &gtk::Box, code: &NodeCodeBlock) -> bool {
         if let Some(LiveBlock::Code(block)) = self.current.as_mut() {
-            block.update(&code.literal, &code.info);
-            return;
+            return block.update(&code.literal, &code.info);
+        }
+        if self.current.as_ref().is_some_and(LiveBlock::has_selection) {
+            return false;
         }
         self.clear_current(root);
         let block = code_view::LiveCodeBlock::new(&code.literal, &code.info);
         root.append(&block.widget());
         self.current = Some(LiveBlock::Code(Box::new(block)));
+        true
     }
 }
 
@@ -287,9 +287,9 @@ fn parse_blocks(source: &str) -> Vec<ParsedBlock> {
 
 fn render_interval(bytes: usize) -> Duration {
     Duration::from_millis(match bytes {
-        0..=16_384 => 80,
-        16_385..=65_536 => 160,
-        _ => 240,
+        0..=16_384 => 0,
+        16_385..=65_536 => 80,
+        _ => 160,
     })
 }
 

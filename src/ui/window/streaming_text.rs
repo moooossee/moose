@@ -11,7 +11,19 @@ pub(super) fn update(
 
     let buffer = buffer.as_ref();
     if let Some(appended) = content.strip_prefix(previous.as_str()) {
+        let selection = buffer.has_selection().then(|| {
+            (
+                buffer.iter_at_mark(&buffer.get_insert()).offset(),
+                buffer.iter_at_mark(&buffer.selection_bound()).offset(),
+            )
+        });
         buffer.insert(&mut buffer.end_iter(), appended);
+        if let Some((insert, bound)) = selection {
+            buffer.select_range(
+                &buffer.iter_at_offset(insert),
+                &buffer.iter_at_offset(bound),
+            );
+        }
         previous.push_str(appended);
         return true;
     }

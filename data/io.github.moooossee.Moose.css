@@ -385,8 +385,16 @@
 }
 
 .moose-thinking {
-  color: alpha(@window_fg_color, 0.55);
+  color: alpha(@window_fg_color, 0.6);
   min-height: 18px;
+  padding: 2px 0;
+}
+
+.moose-thinking-dot {
+  min-width: 5px;
+  min-height: 5px;
+  border-radius: 50%;
+  background-color: currentColor;
 }
 
 .moose-thinking-spinner {
@@ -394,7 +402,8 @@
 }
 
 .moose-thinking-label {
-  font-size: 0.78em;
+  font-size: 0.82em;
+  font-variant-numeric: tabular-nums;
 }
 
 .moose-composer {

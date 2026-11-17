@@ -93,7 +93,10 @@ pub(super) fn render(ui: &WindowUi, backend: &Backend, skip: Option<&str>) -> Re
             if let Ok(expander) = widget.clone().downcast::<gtk::Expander>()
                 && expander.is_expanded()
             {
-                expanded.insert((message_row.widget_name().to_string(), expander.label()));
+                expanded.insert((
+                    message_row.widget_name().to_string(),
+                    expander.widget_name(),
+                ));
             }
             child = widget.next_sibling();
         }
@@ -122,7 +125,8 @@ pub(super) fn render(ui: &WindowUi, backend: &Backend, skip: Option<&str>) -> Re
         let mut child = row.first_child();
         while let Some(widget) = child {
             if let Ok(expander) = widget.clone().downcast::<gtk::Expander>() {
-                expander.set_expanded(expanded.contains(&(message.id.clone(), expander.label())));
+                expander
+                    .set_expanded(expanded.contains(&(message.id.clone(), expander.widget_name())));
             }
             child = widget.next_sibling();
         }
@@ -149,11 +153,15 @@ fn append_row(
     message: &Message,
     versions: Option<&Vec<String>>,
 ) -> Result<gtk::Box> {
-    let row = chat_view::append_stored_message(&ui.messages, message);
-    if let Some(details) = backend
+    let details = backend
         .conversation_repository
-        .message_details(&message.id)?
-    {
+        .message_details(&message.id)?;
+    let row = chat_view::append_stored_message(
+        &ui.messages,
+        message,
+        details.as_ref().map(|details| details.model.as_str()),
+    );
+    if let Some(details) = details {
         chat_view::append_details(&row, &details);
     }
     super::attachments::append_stored(ui, backend, &row, &message.id)?;
@@ -187,12 +195,14 @@ pub(super) fn refresh_message(ui: &WindowUi, backend: &Backend, id: &str) {
         let Some(previous) = previous else {
             return render(ui, backend, None);
         };
-        let mut expanded = false;
+        let mut expanded = std::collections::HashSet::new();
         let mut child = previous.first_child();
         while let Some(widget) = child {
             child = widget.next_sibling();
-            if let Some(expander) = widget.downcast_ref::<gtk::Expander>() {
-                expanded |= expander.is_expanded() && expander.has_css_class("moose-reasoning");
+            if let Some(expander) = widget.downcast_ref::<gtk::Expander>()
+                && expander.is_expanded()
+            {
+                expanded.insert(expander.widget_name());
             }
         }
         let versions = backend
@@ -202,16 +212,33 @@ pub(super) fn refresh_message(ui: &WindowUi, backend: &Backend, id: &str) {
             .iter()
             .find(|group| group.iter().any(|version| version == id));
         let row = append_row(ui, backend, &message, group)?;
-        if expanded {
+        if !expanded.is_empty() {
             let mut child = row.first_child();
             while let Some(widget) = child {
                 child = widget.next_sibling();
                 if let Some(expander) = widget.downcast_ref::<gtk::Expander>()
-                    && expander.has_css_class("moose-reasoning")
+                    && expanded.contains(&expander.widget_name())
                 {
                     expander.set_expanded(true);
                 }
             }
+        }
+        let focus = gtk::prelude::GtkWindowExt::focus(&ui.window)
+            .filter(|focus| focus.is_ancestor(&previous));
+        if message.role == MessageRole::Assistant
+            && message.status.is_finished()
+            && let Some(previous_row) = previous.downcast_ref::<gtk::Box>()
+            && chat_view::reuse_message_content(previous_row, &row)
+        {
+            ui.messages.remove(&row);
+            if let Some(focus) = focus {
+                if focus.is_ancestor(&previous) {
+                    focus.grab_focus();
+                } else {
+                    ui.entry.grab_focus();
+                }
+            }
+            return Ok(());
         }
         if gtk::prelude::GtkWindowExt::focus(&ui.window)
             .is_some_and(|focus| focus.is_ancestor(&previous))

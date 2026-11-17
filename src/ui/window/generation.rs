@@ -19,6 +19,7 @@ pub(super) struct Context {
     reasoning_started: Option<Instant>,
     reasoning_finished: Option<Instant>,
     checkpoint: Option<Instant>,
+    usage_updated: Option<Instant>,
     save_error_shown: bool,
     pub(super) pending_status: Option<&'static str>,
     pub(super) title_generation: Option<tokio::task::JoinHandle<()>>,
@@ -223,10 +224,28 @@ fn update_live(ui: &WindowUi, backend: &Backend) {
             &context.reasoning,
             (context.elapsed_ms() / 1000) as u64,
             context.reasoning_ms(),
+            context.reasoning_started.is_some() && context.reasoning_finished.is_none(),
+            context
+                .tools
+                .iter()
+                .find(|tool| tool.status == crate::tools::ToolStatus::Running)
+                .map(|tool| tool.running_label()),
         );
         chat_view::update_tool_activity(live, &context.tools, &context.tool_notice);
     }
-    super::context_usage::refresh_live(ui, backend);
+    let refresh_usage = {
+        let mut context = backend.generation_context.borrow_mut();
+        let due = context
+            .usage_updated
+            .is_none_or(|last| last.elapsed() >= Duration::from_millis(250));
+        if due {
+            context.usage_updated = Some(Instant::now());
+        }
+        due
+    };
+    if refresh_usage {
+        super::context_usage::refresh_live(ui, backend);
+    }
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -329,7 +348,7 @@ pub(super) fn start(
     conversation_list::refresh(ui, backend);
     let ui = Rc::clone(ui);
     let backend = Rc::clone(backend);
-    gtk::glib::timeout_add_local(Duration::from_millis(80), move || {
+    gtk::glib::timeout_add_local(Duration::from_millis(40), move || {
         if backend.active_assistant_message_id.borrow().as_deref() != Some(&assistant_id) {
             return gtk::glib::ControlFlow::Break;
         }

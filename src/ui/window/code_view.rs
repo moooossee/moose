@@ -13,7 +13,6 @@ pub(super) struct LiveCodeBlock {
     root: gtk::Box,
     label: gtk::Label,
     scrolled: gtk::ScrolledWindow,
-    view: sourceview5::View,
     buffer: sourceview5::Buffer,
     content: String,
     language: String,
@@ -24,7 +23,7 @@ impl LiveCodeBlock {
     pub(super) fn new(content: &str, info: &str) -> Self {
         let language = live_language(info, content);
         let buffer = highlighted_code_buffer(content, &language);
-        let view = source_code_view(&buffer, code_line_count(content) > 14);
+        let view = source_code_view(&buffer);
         let copy = copy_button();
         bind_copy_button(&copy, &buffer);
         let (root, label) = code_shell(&language_label_text(&language), &copy);
@@ -46,7 +45,6 @@ impl LiveCodeBlock {
             root,
             label,
             scrolled,
-            view,
             buffer,
             content: content.to_string(),
             language,
@@ -62,7 +60,10 @@ impl LiveCodeBlock {
         self.buffer.has_selection()
     }
 
-    pub(super) fn update(&mut self, content: &str, info: &str) {
+    pub(super) fn update(&mut self, content: &str, info: &str) -> bool {
+        if self.buffer.has_selection() && !content.starts_with(&self.content) {
+            return false;
+        }
         let explicit = code_language(info, "");
         let language = if !explicit.is_empty() {
             explicit
@@ -80,15 +81,14 @@ impl LiveCodeBlock {
         }
 
         if !streaming_text::update(&self.buffer, &mut self.content, content) {
-            return;
+            return true;
         }
         let height = code_height(content);
         if height != self.height {
             self.height = height;
             self.scrolled.set_min_content_height(height);
         }
-        self.view
-            .set_show_line_numbers(code_line_count(content) > 14);
+        true
     }
 }
 
@@ -115,7 +115,7 @@ pub(super) fn code_block(block: &NodeCodeBlock) -> gtk::Box {
         .min_content_height(height)
         .propagate_natural_height(true)
         .build();
-    let view = source_code_view(&buffer, code_line_count(&code) > 14);
+    let view = source_code_view(&buffer);
     scrolled.set_child(Some(&view));
     scrolled.set_vscrollbar_policy(PolicyType::Automatic);
     scrolled.set_max_content_height(420);
@@ -187,7 +187,7 @@ fn highlighted_code_buffer(code: &str, language: &str) -> sourceview5::Buffer {
     buffer
 }
 
-fn source_code_view(buffer: &sourceview5::Buffer, show_line_numbers: bool) -> sourceview5::View {
+fn source_code_view(buffer: &sourceview5::Buffer) -> sourceview5::View {
     let view = sourceview5::View::builder()
         .buffer(buffer)
         .editable(false)
@@ -198,7 +198,7 @@ fn source_code_view(buffer: &sourceview5::Buffer, show_line_numbers: bool) -> so
         .right_margin(12)
         .top_margin(10)
         .bottom_margin(10)
-        .show_line_numbers(show_line_numbers)
+        .show_line_numbers(true)
         .tab_width(4)
         .build();
     view.add_css_class("moose-code-view");

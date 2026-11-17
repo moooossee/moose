@@ -155,7 +155,7 @@ impl ChatScroll {
                     && state.selecting.get().is_none()
                     && !state.following.get()
                     && adjustment.value() > previous
-                    && state.remaining() <= 1.0
+                    && state.remaining() <= 8.0
                 {
                     state.following.set(true);
                     state.queue_bottom();
@@ -193,7 +193,7 @@ impl ChatScroll {
             if let Some(state) = weak.upgrade() {
                 if dy < 0.0 {
                     state.following.set(false);
-                } else if dy > 0.0 && state.remaining() <= 1.0 {
+                } else if dy > 0.0 && state.remaining() <= 8.0 {
                     state.following.set(true);
                     state.queue_bottom();
                 }
@@ -217,7 +217,7 @@ impl ChatScroll {
                     | gtk::gdk::EventType::TouchEnd
                     | gtk::gdk::EventType::TouchCancel => {
                         state.dragging.set(false);
-                        state.following.set(state.remaining() <= 1.0);
+                        state.following.set(state.remaining() <= 8.0);
                         state.queue_bottom();
                     }
                     _ => {}

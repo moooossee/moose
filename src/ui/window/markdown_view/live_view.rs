@@ -1,7 +1,7 @@
 use gtk::prelude::*;
 
 use super::{render, table_view::TableView, text_view::MarkdownTextView};
-use crate::ui::window::{chat_scroll::ChatScroll, code_view};
+use crate::ui::window::{chat_scroll::ChatScroll, code_view, streaming_text};
 
 pub(in crate::ui::window) struct LiveContent {
     root: gtk::Box,
@@ -11,7 +11,7 @@ pub(in crate::ui::window) struct LiveContent {
 impl LiveContent {
     pub(in crate::ui::window) fn new(source: &str) -> Self {
         let root = render(source);
-        configure(root.upcast_ref());
+        configure(root.upcast_ref(), true);
         Self {
             root,
             source: source.to_string(),
@@ -26,11 +26,31 @@ impl LiveContent {
         if self.source == source {
             return true;
         }
+        if source.starts_with(&self.source)
+            && source.chars().next().is_some_and(char::is_alphabetic)
+            && source.chars().all(|character| {
+                character.is_alphanumeric()
+                    || matches!(character, ' ' | ',' | '!' | '?' | ':' | ';' | '¿' | '¡')
+            })
+            && let Some(view) = self.root.first_child().and_downcast::<MarkdownTextView>()
+            && view.next_sibling().is_none()
+        {
+            let buffer = view.buffer();
+            let mut previous = buffer
+                .text(&buffer.start_iter(), &buffer.end_iter(), true)
+                .to_string();
+            if previous == self.source.trim_end() {
+                streaming_text::update(&buffer, &mut previous, source.trim_end());
+                self.source.clear();
+                self.source.push_str(source);
+                return true;
+            }
+        }
         if has_selection(self.root.upcast_ref()) {
             return false;
         }
         let next = render(source);
-        configure(next.upcast_ref());
+        configure(next.upcast_ref(), true);
         sync_box(&self.root, &next);
         self.source.clear();
         self.source.push_str(source);
@@ -42,18 +62,52 @@ impl LiveContent {
     }
 }
 
-fn configure(widget: &gtk::Widget) {
-    if let Some(view) = widget.downcast_ref::<MarkdownTextView>() {
-        view.set_streaming(!view.has_css_class("moose-markdown-table-cell"));
+pub(in crate::ui::window) fn finish(root: &gtk::Box, next: &gtk::Box) {
+    if has_selection(root.upcast_ref()) {
+        let root = root.downgrade();
+        let next = next.clone();
+        gtk::glib::timeout_add_local(std::time::Duration::from_millis(100), move || {
+            let Some(root) = root.upgrade().filter(|root| root.parent().is_some()) else {
+                return gtk::glib::ControlFlow::Break;
+            };
+            if has_selection(root.upcast_ref()) {
+                return gtk::glib::ControlFlow::Continue;
+            }
+            finish(&root, &next);
+            gtk::glib::ControlFlow::Break
+        });
+        return;
     }
-    if let Some(scrolled) = widget.downcast_ref::<gtk::ScrolledWindow>()
+    for group in children(root.upcast_ref()) {
+        if let Some(group) = group.downcast_ref::<gtk::Box>()
+            && group.has_css_class("moose-markdown-content")
+        {
+            let mut sibling = group.prev_sibling();
+            while let Some(child) = group.first_child() {
+                group.remove(&child);
+                root.insert_child_after(&child, sibling.as_ref());
+                sibling = Some(child);
+            }
+            root.remove(group);
+        }
+    }
+    sync_box(root, next);
+    configure(root.upcast_ref(), false);
+}
+
+fn configure(widget: &gtk::Widget, streaming: bool) {
+    if let Some(view) = widget.downcast_ref::<MarkdownTextView>() {
+        view.set_streaming(streaming && !view.has_css_class("moose-markdown-table-cell"));
+    }
+    if streaming
+        && let Some(scrolled) = widget.downcast_ref::<gtk::ScrolledWindow>()
         && scrolled.has_css_class("moose-code-scroll")
         && let Some(view) = scrolled.child().and_downcast::<sourceview5::View>()
     {
         ChatScroll::bind_code(scrolled, &view.buffer());
     }
     for child in children(widget) {
-        configure(&child);
+        configure(&child, streaming);
     }
 }
 
@@ -177,22 +231,26 @@ fn sync_widget(target: &gtk::Widget, source: &gtk::Widget) -> bool {
 
 fn sync_box(target: &gtk::Box, source: &gtk::Box) {
     let previous = children(target.upcast_ref());
-    let next = children(source.upcast_ref());
-    for (index, widget) in next.iter().enumerate() {
-        if let Some(old) = previous.get(index) {
-            if sync_widget(old, widget) {
-                continue;
+    let mut index = 0;
+    let mut sibling = None;
+    for widget in children(source.upcast_ref()) {
+        if let Some(offset) = previous[index..]
+            .iter()
+            .position(|old| sync_widget(old, &widget))
+        {
+            for old in &previous[index..index + offset] {
+                target.remove(old);
             }
-            let sibling = old.prev_sibling();
-            source.remove(widget);
-            target.remove(old);
-            target.insert_child_after(widget, sibling.as_ref());
+            index += offset;
+            sibling = Some(previous[index].clone());
+            index += 1;
         } else {
-            source.remove(widget);
-            target.append(widget);
+            source.remove(&widget);
+            target.insert_child_after(&widget, sibling.as_ref());
+            sibling = Some(widget);
         }
     }
-    for widget in previous.iter().skip(next.len()) {
+    for widget in previous.iter().skip(index) {
         target.remove(widget);
     }
 }

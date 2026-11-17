@@ -45,6 +45,7 @@ pub(super) struct StreamingMessage {
     content: LiveMarkdown,
     indicator: gtk::Box,
     spinner: gtk::Spinner,
+    activity: gtk::Box,
     status: gtk::Label,
     reasoning: gtk::Expander,
     reasoning_text: gtk::TextBuffer,
@@ -55,6 +56,16 @@ pub(super) struct StreamingMessage {
     tool_notice: gtk::Label,
     web_sources: gtk::Expander,
     web_sources_box: gtk::Box,
+}
+
+impl Drop for StreamingMessage {
+    fn drop(&mut self) {
+        self.spinner.stop();
+        self.indicator.set_visible(false);
+        self.content
+            .widget()
+            .update_state(&[gtk::accessible::State::Busy(false)]);
+    }
 }
 
 pub(super) fn build() -> Chat {
@@ -448,14 +459,65 @@ pub(super) fn build() -> Chat {
     }
 }
 
-pub(super) fn append_stored_message(messages: &gtk::Box, message: &Message) -> gtk::Box {
+pub(super) fn append_stored_message(
+    messages: &gtk::Box,
+    message: &Message,
+    model: Option<&str>,
+) -> gtk::Box {
     let content = stored_message_content(message);
-    append_message(
+    let row = append_message(
         messages,
         message_role_label(&message.role),
         &content,
         Some(&message.created_at),
-    )
+    );
+    if message.role == MessageRole::Assistant
+        && let Some(model) = model.filter(|model| !model.is_empty())
+        && let Some(label) = row.first_child().and_downcast::<gtk::Label>()
+    {
+        label.set_text(&message_header_label(model, Some(&message.created_at)));
+    }
+    row
+}
+
+pub(super) fn reuse_message_content(row: &gtk::Box, next: &gtk::Box) -> bool {
+    fn content(row: &gtk::Box) -> Option<gtk::Box> {
+        let mut child = row.first_child();
+        while let Some(widget) = child {
+            child = widget.next_sibling();
+            if widget.has_css_class("moose-markdown-content") {
+                return widget.downcast().ok();
+            }
+        }
+        None
+    }
+
+    let (Some(content), Some(next_content)) = (content(row), content(next)) else {
+        return false;
+    };
+    markdown_view::live_view::finish(&content, &next_content);
+    content.set_visible(next_content.is_visible());
+    content.update_state(&[gtk::accessible::State::Busy(false)]);
+    let mut child = row.first_child();
+    while let Some(widget) = child {
+        child = widget.next_sibling();
+        if &widget != content.upcast_ref::<gtk::Widget>() {
+            row.remove(&widget);
+        }
+    }
+    let mut sibling = None;
+    while let Some(widget) = next.first_child() {
+        next.remove(&widget);
+        let widget = if &widget == next_content.upcast_ref::<gtk::Widget>() {
+            row.reorder_child_after(&content, sibling.as_ref());
+            content.clone().upcast::<gtk::Widget>()
+        } else {
+            row.insert_child_after(&widget, sibling.as_ref());
+            widget
+        };
+        sibling = Some(widget);
+    }
+    true
 }
 
 pub(super) fn append_message(
@@ -537,6 +599,7 @@ pub(super) fn append_streaming_message(
     let role_label = gtk::Label::builder()
         .label(message_header_label(model, created_at))
         .height_request(24)
+        .hexpand(true)
         .halign(Align::Fill)
         .width_chars(1)
         .ellipsize(gtk::pango::EllipsizeMode::End)
@@ -545,20 +608,36 @@ pub(super) fn append_streaming_message(
         .build();
     let thinking_indicator = gtk::Box::builder()
         .orientation(Orientation::Horizontal)
-        .spacing(6)
-        .halign(Align::Start)
+        .spacing(8)
+        .hexpand(true)
+        .halign(Align::Fill)
         .valign(Align::Center)
         .build();
     let spinner = gtk::Spinner::new();
-    spinner.set_size_request(12, 12);
-    spinner.start();
+    spinner.set_size_request(14, 14);
+    spinner.set_halign(Align::Center);
+    spinner.set_valign(Align::Center);
+    spinner.set_visible(false);
     spinner.add_css_class("moose-thinking-spinner");
+    let activity = gtk::Box::new(Orientation::Horizontal, 0);
+    activity.add_css_class("moose-thinking-dot");
+    activity.set_halign(Align::Center);
+    activity.set_valign(Align::Center);
+    activity.set_visible(false);
+    let activity_slot = gtk::Overlay::builder()
+        .child(&spinner)
+        .width_request(14)
+        .height_request(14)
+        .halign(Align::Start)
+        .valign(Align::Center)
+        .build();
+    activity_slot.add_overlay(&activity);
 
     let thinking_label = gtk::Label::builder()
         .label(gettext("Waiting for response…"))
         .halign(Align::Fill)
+        .hexpand(true)
         .width_chars(1)
-        .max_width_chars(28)
         .xalign(0.0)
         .ellipsize(gtk::pango::EllipsizeMode::End)
         .build();
@@ -567,6 +646,7 @@ pub(super) fn append_streaming_message(
     reasoning.set_visible(false);
     let (tools, tools_buffer) = reasoning_section();
     tools.set_label(Some(&gettext("Tools")));
+    tools.set_widget_name("moose-tool-activity");
     tools.set_visible(false);
     let tool_notice = tool_notice_label("");
     tool_notice.set_visible(false);
@@ -574,21 +654,19 @@ pub(super) fn append_streaming_message(
 
     let content = LiveMarkdown::new();
     content.widget().set_visible(false);
+    content
+        .widget()
+        .update_state(&[gtk::accessible::State::Busy(true)]);
 
     row.add_css_class("moose-message");
     role_label.add_css_class("caption-heading");
     role_label.add_css_class("dim-label");
     role_label.add_css_class("moose-message-meta");
     thinking_indicator.add_css_class("moose-thinking");
-    thinking_indicator.append(&spinner);
+    thinking_indicator.append(&activity_slot);
     thinking_indicator.append(&thinking_label);
-    let header = gtk::Box::builder()
-        .orientation(Orientation::Vertical)
-        .spacing(2)
-        .build();
-    header.append(&role_label);
-    header.append(&thinking_indicator);
-    row.append(&header);
+    row.append(&role_label);
+    row.append(&thinking_indicator);
     row.append(&reasoning);
     row.append(&tools);
     row.append(&tool_notice);
@@ -600,6 +678,7 @@ pub(super) fn append_streaming_message(
         content,
         indicator: thinking_indicator,
         spinner,
+        activity,
         status: thinking_label,
         reasoning,
         reasoning_text,
@@ -619,18 +698,28 @@ pub(super) fn update_streaming_message(
     reasoning: &str,
     elapsed: u64,
     reasoning_ms: i64,
+    reasoning_active: bool,
+    tool: Option<&str>,
 ) {
     let has_content = !content.is_empty();
     message.indicator.set_visible(true);
-    message.spinner.start();
-    let phase = gettext(if has_content {
+    let writing = has_content && !reasoning_active && tool.is_none();
+    message.activity.set_visible(writing);
+    let spinning = !writing && (elapsed > 0 || tool.is_some());
+    message.spinner.set_visible(spinning);
+    message.spinner.set_spinning(spinning);
+    let phase = gettext(tool.unwrap_or(if writing {
         gettext_noop("Writing response")
-    } else if reasoning.is_empty() {
+    } else if !reasoning_active {
         gettext_noop("Waiting for response")
     } else {
         gettext_noop("Reasoning")
-    });
-    let status = format!("{phase} · {elapsed}s");
+    }));
+    let status = if !writing && elapsed >= 10 {
+        format!("{phase} · {elapsed}s")
+    } else {
+        phase
+    };
     if message.status.text().as_str() != status.as_str() {
         message.status.set_text(&status);
     }
@@ -660,10 +749,22 @@ pub(super) fn finish_streaming_message(
     reasoning_ms: i64,
     tools: &[crate::tools::ToolExecution],
 ) {
-    update_streaming_message(message, content, reasoning, elapsed, reasoning_ms);
+    update_streaming_message(
+        message,
+        content,
+        reasoning,
+        elapsed,
+        reasoning_ms,
+        false,
+        None,
+    );
     message.content.finish(&crate::i18n::message_text(content));
     message.spinner.stop();
     message.indicator.set_visible(false);
+    message
+        .content
+        .widget()
+        .update_state(&[gtk::accessible::State::Busy(false)]);
     fill_web_sources(&message.web_sources, &message.web_sources_box, tools);
 }
 
@@ -679,12 +780,6 @@ pub(super) fn update_tool_activity(
     }
     message.tools.set_visible(!tools.is_empty());
     message.tools.set_label(Some(&tool_activity_label(tools)));
-    if let Some(tool) = tools
-        .iter()
-        .find(|tool| tool.status == crate::tools::ToolStatus::Running)
-    {
-        message.status.set_text(&gettext(tool.running_label()));
-    }
     message.tool_notice.set_visible(!notice.is_empty());
     if message.tool_notice.text().as_str() != notice {
         message.tool_notice.set_text(notice);
@@ -728,6 +823,7 @@ fn web_sources_section() -> (gtk::Expander, gtk::Box) {
         .child(&content)
         .visible(false)
         .build();
+    expander.set_widget_name("moose-web-sources");
     (expander, content)
 }
 
@@ -845,6 +941,7 @@ fn reasoning_section() -> (gtk::Expander, gtk::TextBuffer) {
         .expanded(false)
         .build();
     expander.add_css_class("moose-reasoning");
+    expander.set_widget_name("moose-reasoning-details");
     (expander, buffer)
 }
 
@@ -857,6 +954,7 @@ pub(super) fn append_details(row: &gtk::Box, details: &crate::storage::MessageDe
     if !details.tools.is_empty() {
         let (expander, buffer) = reasoning_section();
         expander.set_label(Some(&tool_activity_label(&details.tools)));
+        expander.set_widget_name("moose-tool-activity");
         buffer.set_text(&tool_activity_text(&details.tools));
         row.insert_child_after(&expander, row.first_child().as_ref());
     }
