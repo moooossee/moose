@@ -96,3 +96,9 @@ meson compile -C builddir-native
 ## License
 
 Moose is free software, released under [GPL-3.0-or-later](LICENSE).
+
+## Support Moose
+
+If you enjoy Moose and would like to support its development, you can
+[buy me a coffee on Ko-fi](https://ko-fi.com/mooosee).
+Every contribution means a lot. Thank you!
