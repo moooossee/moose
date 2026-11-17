@@ -1,33 +1,24 @@
 .moose-sidebar {
   background-color: @sidebar_bg_color;
+}
+
+.moose-sidebar:dir(ltr) {
   border-right: 1px solid alpha(@borders, 0.55);
 }
 
+.moose-sidebar:dir(rtl) {
+  border-left: 1px solid alpha(@borders, 0.55);
+}
+
 .moose-sidebar,
-.moose-sidebar-header,
 .moose-sidebar-content,
 .moose-sidebar-scroll,
 .moose-conversation-list {
   background-color: @sidebar_bg_color;
 }
 
-.moose-sidebar-title {
-  font-weight: 600;
-}
-
 .moose-provider-title {
   font-weight: 400;
-}
-
-.moose-sidebar-header {
-  padding: 6px 7px 5px 9px;
-}
-
-.moose-header-button {
-  border-radius: 6px;
-  min-height: 30px;
-  min-width: 30px;
-  padding: 0;
 }
 
 .moose-sidebar-button {
@@ -36,11 +27,6 @@
   min-height: 30px;
   min-width: 30px;
   padding: 0;
-}
-
-.moose-sidebar-button-active,
-.moose-sidebar-button-active:hover {
-  background-color: alpha(@window_fg_color, 0.075);
 }
 
 .moose-sidebar-section {
@@ -66,13 +52,6 @@
 
 .moose-files-subtitle {
   font-size: 0.92em;
-}
-
-.moose-files-back {
-  padding: 5px 8px;
-  margin-left: -8px;
-  color: alpha(@window_fg_color, 0.6);
-  font-size: 0.9em;
 }
 
 .moose-files-import {

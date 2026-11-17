@@ -243,6 +243,7 @@ pub(super) fn dialog(
     }
 
     let shortcuts_page = adw::PreferencesPage::builder()
+        .name("shortcuts")
         .title(gettext("Shortcuts"))
         .icon_name("preferences-desktop-keyboard-symbolic")
         .build();

@@ -4,7 +4,7 @@ version = "0.8.5"
 edition = "2024"
 rust-version = "1.92"
 repository = "https://github.com/moooossee/moose"
-homepage = "https://github.com/moooossee/moose"
+homepage = "https://moooossee.github.io/"
 license = "GPL-3.0-or-later"
 
 [features]

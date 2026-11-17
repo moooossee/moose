@@ -63,6 +63,7 @@ src/ui/window/document_creation/pdf.rs
 src/ui/window/document_creation.rs
 src/ui/window/first_run.rs
 src/ui/window/generation.rs
+src/ui/window/header.rs
 src/ui/window/managed_install.rs
 src/ui/window/managed_runtime.rs
 src/ui/window/markdown_view/table_view.rs

@@ -328,6 +328,9 @@ pub(super) fn build() -> Chat {
     let chat_settings_button =
         icon_button("preferences-system-symbolic", &gettext("Chat Settings"));
     chat_settings_button.add_css_class("moose-chat-settings-button");
+    chat_settings_button.set_valign(Align::Center);
+    chat_settings_button
+        .update_property(&[gtk::accessible::Property::Label(&gettext("Chat Settings"))]);
 
     let profile_label = gtk::Label::new(None);
     profile_label.set_width_chars(1);

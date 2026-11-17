@@ -59,6 +59,7 @@ mod diagnostics;
 mod document_creation;
 mod first_run;
 mod generation;
+mod header;
 mod managed_install;
 mod managed_runtime;
 mod markdown_live;
@@ -101,22 +102,12 @@ fn build_ui(app: &adw::Application) -> Rc<WindowUi> {
         .default_height(720)
         .build();
 
-    let sidebar = sidebar::build();
     let chat = chat_view::build();
     let model_manager = model_manager::build();
     let files = attachments::library::build();
+    let header = header::build(&files.options);
+    let sidebar = sidebar::build(&header.sidebar);
     let first_run_guide = first_run::build();
-    let new_chat_button = sidebar.new_chat_button.clone();
-
-    let header_bar = adw::HeaderBar::new();
-    let sidebar_toggle_button =
-        widgets::icon_button("sidebar-show-symbolic", &gettext("Hide Sidebar"));
-    let preferences_button =
-        widgets::icon_button("preferences-system-symbolic", &gettext("Preferences"));
-    sidebar_toggle_button.add_css_class("moose-header-button");
-    preferences_button.add_css_class("moose-header-button");
-    header_bar.pack_start(&sidebar_toggle_button);
-    header_bar.pack_end(&preferences_button);
 
     let content_toolbar = adw::ToolbarView::new();
     let toast_overlay = adw::ToastOverlay::new();
@@ -127,7 +118,7 @@ fn build_ui(app: &adw::Application) -> Rc<WindowUi> {
     content_stack.add_named(&files.root, Some("files"));
     content_stack.set_visible_child_name("chat");
     toast_overlay.set_child(Some(&content_stack));
-    content_toolbar.add_top_bar(&header_bar);
+    content_toolbar.add_top_bar(&header.content);
     let generation_banner =
         adw::Banner::new(&gettext("A response is being generated in another chat"));
     generation_banner.set_button_label(Some(&gettext("View")));
@@ -138,7 +129,6 @@ fn build_ui(app: &adw::Application) -> Rc<WindowUi> {
         .min_sidebar_width(220.0)
         .max_sidebar_width(286.0)
         .sidebar_width_fraction(0.24)
-        .pin_sidebar(true)
         .show_sidebar(true)
         .enable_hide_gesture(true)
         .enable_show_gesture(true)
@@ -160,16 +150,13 @@ fn build_ui(app: &adw::Application) -> Rc<WindowUi> {
     let conversation_ids = Rc::new(RefCell::new(Vec::new()));
     let ui = Rc::new(WindowUi {
         window: window.clone(),
-        new_chat_button,
-        preferences_button,
+        header,
         root_stack,
         split_view: split_view.clone(),
         toast_overlay,
         content_stack,
         model_manager,
-        model_manager_button: sidebar.model_manager_button,
         files,
-        files_button: sidebar.files_button,
         provider_switcher: sidebar.provider_switcher,
         conversation_search_entry: sidebar.search_entry,
         archived_conversations_button: sidebar.archived_button,
@@ -206,7 +193,7 @@ fn build_ui(app: &adw::Application) -> Rc<WindowUi> {
         restoring_conversation_selection: RefCell::new(false),
     });
 
-    bind_sidebar_visibility(&split_view, &sidebar_toggle_button);
+    header::bind_layout(&ui);
 
     ui
 }
@@ -221,14 +208,8 @@ pub fn build(app: &adw::Application) -> adw::ApplicationWindow {
             app.connect_shutdown(move |_| shutdown_backend.shutdown());
             let provider = active_provider(&backend);
             apply_provider_state(&ui, &provider);
-            bind_actions(
-                &window,
-                &ui,
-                &backend,
-                &ui.new_chat_button,
-                &ui.model_manager_button,
-                &ui.preferences_button,
-            );
+            header::bind_actions(&ui, &backend);
+            bind_actions(&window, &ui, &backend);
             bind_global_shortcuts(&ui, &backend);
             message_actions::bind(&ui, &backend);
             document_creation::bind(&ui, &backend);
@@ -309,16 +290,13 @@ struct ActiveModelPull {
 
 struct WindowUi {
     window: adw::ApplicationWindow,
-    new_chat_button: gtk::Button,
-    preferences_button: gtk::Button,
+    header: header::Controls,
     root_stack: gtk::Stack,
     split_view: adw::OverlaySplitView,
     toast_overlay: adw::ToastOverlay,
     content_stack: gtk::Stack,
     model_manager: model_manager::ModelManager,
-    model_manager_button: gtk::Button,
     files: attachments::library::Library,
-    files_button: gtk::Button,
     provider_switcher: provider_controls::Switcher,
     conversation_search_entry: gtk::SearchEntry,
     archived_conversations_button: gtk::ToggleButton,
@@ -599,52 +577,13 @@ fn require_active_provider(ui: &WindowUi, backend: &Backend) -> Option<Provider>
     provider
 }
 
-fn bind_sidebar_visibility(
-    split_view: &adw::OverlaySplitView,
-    sidebar_toggle_button: &gtk::Button,
-) {
-    let target_split_view = split_view.clone();
-    sidebar_toggle_button.connect_clicked(move |_| {
-        target_split_view.set_show_sidebar(!target_split_view.shows_sidebar());
-    });
-
-    let target_toggle_button = sidebar_toggle_button.clone();
-    split_view.connect_show_sidebar_notify(move |split_view| {
-        let tooltip = gettext(if split_view.shows_sidebar() {
-            gettext_noop("Hide Sidebar")
-        } else {
-            gettext_noop("Show Sidebar")
-        });
-        target_toggle_button.set_tooltip_text(Some(&tooltip));
-    });
-}
-
-fn bind_actions(
-    window: &adw::ApplicationWindow,
-    ui: &Rc<WindowUi>,
-    backend: &Rc<Backend>,
-    new_chat_button: &gtk::Button,
-    model_manager_button: &gtk::Button,
-    preferences_button: &gtk::Button,
-) {
+fn bind_actions(window: &adw::ApplicationWindow, ui: &Rc<WindowUi>, backend: &Rc<Backend>) {
     let target_ui = Rc::clone(ui);
     let target_backend = Rc::clone(backend);
     ui.content_stack
         .connect_visible_child_name_notify(move |_| {
             update_window_title(&target_ui, &target_backend);
         });
-
-    let target_ui = Rc::clone(ui);
-    let target_backend = Rc::clone(backend);
-    new_chat_button.connect_clicked(move |_| {
-        new_conversation_action(&target_ui, &target_backend);
-    });
-
-    let target_ui = Rc::clone(ui);
-    let target_backend = Rc::clone(backend);
-    model_manager_button.connect_clicked(move |_| {
-        show_model_manager_action(&target_ui, &target_backend);
-    });
 
     let target_ui = Rc::clone(ui);
     let target_backend = Rc::clone(backend);
@@ -882,13 +821,6 @@ fn bind_actions(
         }
     });
 
-    let parent = window.clone();
-    let target_ui = Rc::clone(ui);
-    let target_backend = Rc::clone(backend);
-    preferences_button.connect_clicked(move |_| {
-        show_preferences_action(&parent, &target_ui, &target_backend);
-    });
-
     let target_stack = ui.first_run_guide.stack.clone();
     ui.first_run_guide.start_button.connect_clicked(move |_| {
         target_stack.set_visible_child_name("instances");
@@ -1011,6 +943,7 @@ fn new_conversation_with_model(ui: &Rc<WindowUi>, backend: &Rc<Backend>, model: 
 fn show_model_manager_action(ui: &Rc<WindowUi>, backend: &Rc<Backend>) {
     show_model_manager(ui);
     generation::sync_controls(ui, backend);
+    ui.model_manager.search_entry.grab_focus();
 }
 
 fn show_preferences_action(
@@ -1060,8 +993,8 @@ fn focus_message_action(ui: &Rc<WindowUi>) {
 }
 
 fn focus_chat_search_action(ui: &Rc<WindowUi>) {
-    ui.split_view.set_show_sidebar(true);
     show_chat(ui);
+    ui.split_view.set_show_sidebar(true);
     ui.conversation_search_entry.grab_focus();
 }
 
@@ -2646,32 +2579,40 @@ fn show_no_models_state(ui: &Rc<WindowUi>, backend: &Rc<Backend>) {
 }
 
 fn update_window_title(ui: &WindowUi, backend: &Backend) {
-    let title = (ui.content_stack.visible_child_name().as_deref() == Some("chat"))
+    let view = ui.content_stack.visible_child_name();
+    let title = (view.as_deref() == Some("chat"))
         .then(|| backend.active_conversation_id.borrow().clone())
         .flatten()
         .and_then(|id| backend.conversation_repository.get(&id).ok().flatten())
-        .map(|conversation| crate::i18n::conversation_title(&conversation.title));
+        .map(|conversation| crate::i18n::conversation_title(&conversation.title))
+        .unwrap_or_else(|| {
+            gettext(match view.as_deref() {
+                Some("models") => gettext_noop("Models"),
+                Some("files") => gettext_noop("Files and Library"),
+                _ => gettext_noop("New Conversation"),
+            })
+        });
+    ui.header.title.set_title(&title);
+    ui.header.title.set_tooltip_text(Some(&title));
     ui.window
-        .set_title(Some(title.as_deref().unwrap_or(APPLICATION_NAME)));
+        .set_title(Some(&format!("{title} — {APPLICATION_NAME}")));
 }
 
 fn show_chat(ui: &WindowUi) {
     ui.root_stack.set_visible_child_name("app");
-    ui.files_button
-        .remove_css_class("moose-sidebar-button-active");
-    ui.model_manager_button
-        .remove_css_class("moose-sidebar-button-active");
     ui.content_stack.set_visible_child_name("chat");
+    if ui.split_view.is_collapsed() {
+        ui.split_view.set_show_sidebar(false);
+    }
 }
 
 fn show_model_manager(ui: &WindowUi) {
     ui.root_stack.set_visible_child_name("app");
-    ui.files_button
-        .remove_css_class("moose-sidebar-button-active");
     ui.conversation_list.unselect_all();
-    ui.model_manager_button
-        .add_css_class("moose-sidebar-button-active");
     ui.content_stack.set_visible_child_name("models");
+    if ui.split_view.is_collapsed() {
+        ui.split_view.set_show_sidebar(false);
+    }
 }
 
 fn clear_messages(ui: &WindowUi) {
@@ -2708,7 +2649,7 @@ fn apply_provider_state(ui: &WindowUi, provider: &Option<Provider>) {
             ui.provider_switcher.refresh_button.set_sensitive(true);
             ui.model_manager.refresh_button.set_sensitive(true);
             let local_models = provider.kind == ProviderKind::Ollama;
-            ui.model_manager_button.set_visible(local_models);
+            ui.header.models_action.set_enabled(local_models);
             ui.model_manager.pull_button.set_sensitive(local_models);
             ui.model_manager
                 .download_jobs_button
@@ -2716,6 +2657,7 @@ fn apply_provider_state(ui: &WindowUi, provider: &Option<Provider>) {
             update_send_button(ui);
         }
         None => {
+            ui.header.models_action.set_enabled(false);
             ui.provider_switcher.set_provider(None);
             ui.provider_switcher.set_status(&gettext("Not Set"));
             ui.provider_switcher.refresh_button.set_sensitive(false);

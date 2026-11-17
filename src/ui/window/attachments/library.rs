@@ -17,8 +17,7 @@ pub(in crate::ui::window) struct Library {
     more: gtk::Button,
     add: gtk::Button,
     cancel: gtk::Button,
-    back: gtk::Button,
-    options: gtk::MenuButton,
+    pub(in crate::ui::window) options: gtk::MenuButton,
     scope: adw::SwitchRow,
     syncing: Cell<bool>,
     limit: Cell<usize>,
@@ -30,14 +29,6 @@ pub(in crate::ui::window) fn build() -> Library {
     let content = gtk::Box::new(gtk::Orientation::Vertical, 20);
     content.add_css_class("moose-files-content");
     let heading = gtk::Box::new(gtk::Orientation::Horizontal, 16);
-    let back = widgets::icon_button("go-previous-symbolic", &gettext("Back to Chat"));
-    back.add_css_class("flat");
-    back.add_css_class("moose-files-back");
-    back.set_valign(gtk::Align::Center);
-    let back_content = gtk::Box::new(gtk::Orientation::Horizontal, 6);
-    back_content.append(&gtk::Image::from_icon_name("go-previous-symbolic"));
-    back_content.append(&gtk::Label::new(Some(&gettext("Chat"))));
-    back.set_child(Some(&back_content));
     let titles = gtk::Box::new(gtk::Orientation::Vertical, 4);
     titles.set_hexpand(true);
     let title = gtk::Label::builder()
@@ -82,13 +73,6 @@ pub(in crate::ui::window) fn build() -> Library {
         .popover(&popover)
         .build();
     options.add_css_class("flat");
-    let navigation = gtk::Box::new(gtk::Orientation::Horizontal, 6);
-    let spacer = gtk::Box::new(gtk::Orientation::Horizontal, 0);
-    spacer.set_hexpand(true);
-    navigation.append(&back);
-    navigation.append(&spacer);
-    navigation.append(&options);
-    content.append(&navigation);
     heading.append(&titles);
     heading.append(&cancel);
     heading.append(&add);
@@ -193,7 +177,6 @@ pub(in crate::ui::window) fn build() -> Library {
         more,
         add,
         cancel,
-        back,
         options,
         scope,
         syncing: Cell::new(false),
@@ -202,20 +185,6 @@ pub(in crate::ui::window) fn build() -> Library {
 }
 
 pub(in crate::ui::window) fn bind(ui: &Rc<WindowUi>, backend: &Rc<Backend>) {
-    let target_ui = ui.clone();
-    let target_backend = backend.clone();
-    ui.files_button
-        .connect_clicked(move |_| show(&target_ui, &target_backend));
-    let target_ui = ui.clone();
-    let target_backend = backend.clone();
-    ui.files.back.connect_clicked(move |_| {
-        show_chat(&target_ui);
-        let id = target_backend.active_conversation_id.borrow().clone();
-        if let Some(id) = id {
-            conversation_list::select(&target_ui, &id);
-        }
-        target_ui.entry.grab_focus();
-    });
     let target_ui = ui.clone();
     let target_backend = backend.clone();
     ui.files
@@ -304,10 +273,10 @@ pub(in crate::ui::window) fn show(ui: &Rc<WindowUi>, backend: &Rc<Backend>) {
     }
     ui.root_stack.set_visible_child_name("app");
     ui.conversation_list.unselect_all();
-    ui.model_manager_button
-        .remove_css_class("moose-sidebar-button-active");
-    ui.files_button.add_css_class("moose-sidebar-button-active");
     ui.content_stack.set_visible_child_name("files");
+    if ui.split_view.is_collapsed() {
+        ui.split_view.set_show_sidebar(false);
+    }
     sync_scope(ui, backend);
     sync_import(ui);
     populate(ui, backend);
