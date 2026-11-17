@@ -248,6 +248,10 @@ impl MarkdownTextView {
             shape.set_start_index(byte_index as u32);
             shape.set_end_index((byte_index + character.len_utf8()) as u32);
             attributes.insert(shape);
+            let mut line_height = pango::AttrFloat::new_line_height(1.0);
+            line_height.set_start_index(byte_index as u32);
+            line_height.set_end_index((byte_index + character.len_utf8()) as u32);
+            attributes.change(line_height);
         }
 
         layout.set_attributes(Some(&attributes));
