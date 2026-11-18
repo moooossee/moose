@@ -160,7 +160,7 @@ pub(super) fn open(ui: &Rc<WindowUi>, backend: &Rc<Backend>, id: &str) {
             sync_controls(ui, backend);
             workspace::sync_provider(ui, backend);
             reasoning::refresh(ui, backend);
-            conversation_list::select(ui, id);
+            super::folders::reveal(ui, backend, id);
         }
         Err(error) => ui.toast_overlay.add_toast(adw::Toast::new(&gettext_f(
             "Chat could not be opened: {error}",

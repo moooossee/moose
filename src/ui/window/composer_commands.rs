@@ -536,7 +536,7 @@ fn apply(ui: &Rc<WindowUi>, backend: &Rc<Backend>, commands: &[Command]) -> bool
         let current = backend.active_conversation_id.borrow().clone();
         let id = match current {
             Some(id) => id,
-            None => create_empty_conversation(backend)?,
+            None => create_empty_conversation(ui, backend)?,
         };
         let mut calculator = backend.conversation_repository.calculator_enabled(&id)?;
         let mut web = backend.conversation_repository.web_enabled(&id)?;

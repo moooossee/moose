@@ -40,6 +40,13 @@ pub(super) const DEFINITIONS: &[ShortcutDefinition] = &[
         default: "Ctrl+N",
     },
     ShortcutDefinition {
+        id: "new-folder",
+        category: ShortcutCategory::Conversations,
+        title: gettext_noop("New Folder"),
+        description: gettext_noop("Create a folder to organize chats."),
+        default: "Ctrl+Shift+N",
+    },
+    ShortcutDefinition {
         id: "focus-message",
         category: ShortcutCategory::Conversations,
         title: gettext_noop("Focus Message"),
@@ -102,6 +109,19 @@ pub(super) fn merged_values(stored: HashMap<String, String>) -> HashMap<String, 
     for definition in DEFINITIONS {
         if let Some(value) = stored.get(definition.id) {
             values.insert(definition.id.to_string(), value.to_string());
+        }
+    }
+    let assigned = DEFINITIONS
+        .iter()
+        .filter_map(|definition| stored.get(definition.id))
+        .filter_map(|value| parse(value).ok().flatten())
+        .collect::<HashSet<_>>();
+    for definition in DEFINITIONS {
+        if !stored.contains_key(definition.id)
+            && let Ok(Some(chord)) = parse(definition.default)
+            && assigned.contains(&chord)
+        {
+            values.insert(definition.id.to_string(), String::new());
         }
     }
     normalize_values(values).unwrap_or_else(|_| defaults())

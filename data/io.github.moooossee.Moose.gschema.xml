@@ -6,6 +6,11 @@
       <summary>Selected models</summary>
       <description>The last model selected by the user for each provider.</description>
     </key>
+    <key name="selected-chat-folder" type="s">
+      <default>''</default>
+      <summary>Selected chat folder</summary>
+      <description>The last folder selected in the conversation sidebar.</description>
+    </key>
     <key name="shortcuts" type="a{ss}">
       <default>@a{ss} {}</default>
       <summary>Keyboard shortcuts</summary>

@@ -58,6 +58,7 @@ mod custom_provider;
 mod diagnostics;
 mod document_creation;
 mod first_run;
+mod folders;
 mod generation;
 mod header;
 mod managed_install;
@@ -164,6 +165,7 @@ fn build_ui(app: &adw::Application) -> Rc<WindowUi> {
         profile_label: chat.profile_label,
         chat_settings_button: chat.chat_settings_button,
         conversation_list: sidebar.conversation_list,
+        folders: sidebar.folders,
         messages: chat.messages,
         messages_scrolled: chat.messages_scrolled,
         messages_scroll: chat.scroll,
@@ -209,6 +211,7 @@ pub fn build(app: &adw::Application) -> adw::ApplicationWindow {
             let provider = active_provider(&backend);
             apply_provider_state(&ui, &provider);
             header::bind_actions(&ui, &backend);
+            folders::bind(&ui, &backend);
             bind_actions(&window, &ui, &backend);
             bind_global_shortcuts(&ui, &backend);
             message_actions::bind(&ui, &backend);
@@ -304,6 +307,7 @@ struct WindowUi {
     profile_label: gtk::Label,
     chat_settings_button: gtk::Button,
     conversation_list: gtk::ListBox,
+    folders: folders::Controls,
     messages: gtk::Box,
     messages_scrolled: gtk::ScrolledWindow,
     messages_scroll: chat_scroll::ChatScroll,
@@ -594,11 +598,13 @@ fn bind_actions(window: &adw::ApplicationWindow, ui: &Rc<WindowUi>, backend: &Rc
     let target_backend = Rc::clone(backend);
     ui.archived_conversations_button
         .connect_toggled(move |button| {
-            button.set_tooltip_text(Some(&gettext(if button.is_active() {
+            let label = gettext(if button.is_active() {
                 gettext_noop("Hide Archived Chats")
             } else {
                 gettext_noop("Show Archived Chats")
-            })));
+            });
+            button.set_tooltip_text(Some(&label));
+            button.update_property(&[gtk::accessible::Property::Label(&label)]);
             conversation_list::refresh(&target_ui, &target_backend);
         });
 
@@ -887,6 +893,7 @@ fn shortcut_action_for_event(
 fn run_shortcut_action(action: &str, ui: &Rc<WindowUi>, backend: &Rc<Backend>) -> bool {
     match action {
         "new-conversation" => new_conversation_action(ui, backend),
+        "new-folder" => folders::create(ui, backend),
         "focus-message" => focus_message_action(ui),
         "search-chats" => focus_chat_search_action(ui),
         "show-models" => show_model_manager_action(ui, backend),
@@ -912,7 +919,7 @@ fn new_conversation_with_model(ui: &Rc<WindowUi>, backend: &Rc<Backend>, model: 
         )));
         return;
     }
-    match create_empty_conversation(backend) {
+    match create_empty_conversation(ui, backend) {
         Ok(conversation_id) => {
             clear_messages(ui);
             workspace::restore(ui, backend).ok();
@@ -927,6 +934,7 @@ fn new_conversation_with_model(ui: &Rc<WindowUi>, backend: &Rc<Backend>, model: 
             update_profile_indicator(ui, backend, None).ok();
             context_usage::refresh(ui, backend);
             show_chat_welcome(ui);
+            ui.conversation_search_entry.set_text("");
             conversation_list::refresh(ui, backend);
             conversation_list::select(ui, &conversation_id);
             ui.entry.grab_focus();
@@ -1466,7 +1474,7 @@ fn submit_message_with_document(
             .add_toast(adw::Toast::new(&crate::i18n::error_message(&error)));
         return false;
     }
-    let (conversation_id, should_generate_title) = match ensure_active_conversation(backend) {
+    let (conversation_id, should_generate_title) = match ensure_active_conversation(ui, backend) {
         Ok(result) => result,
         Err(error) => {
             ui.toast_overlay.add_toast(adw::Toast::new(&gettext_f(
@@ -1783,7 +1791,7 @@ fn show_chat_settings(ui: &Rc<WindowUi>, backend: &Rc<Backend>) {
     let active_conversation_id = backend.active_conversation_id.borrow().clone();
     let conversation_id = match active_conversation_id {
         Some(conversation_id) => conversation_id,
-        None => match create_empty_conversation(backend) {
+        None => match create_empty_conversation(ui, backend) {
             Ok(conversation_id) => {
                 conversation_list::refresh(ui, backend);
                 conversation_list::select(ui, &conversation_id);
@@ -1808,13 +1816,16 @@ fn show_chat_settings(ui: &Rc<WindowUi>, backend: &Rc<Backend>) {
     }
 }
 
-fn create_empty_conversation(backend: &Backend) -> Result<String> {
+fn create_empty_conversation(ui: &WindowUi, backend: &Backend) -> Result<String> {
     let provider = active_provider(backend).ok_or(MooseError::ProviderNotConfigured)?;
-    let conversation = backend.conversation_repository.create(NewConversation {
-        provider_id: provider.id,
-        model_id: None,
-        title: DEFAULT_CONVERSATION_TITLE.to_string(),
-    })?;
+    let conversation = backend.conversation_repository.create_in_folder(
+        NewConversation {
+            provider_id: provider.id,
+            model_id: None,
+            title: DEFAULT_CONVERSATION_TITLE.to_string(),
+        },
+        ui.folders.selected_folder_id().as_deref(),
+    )?;
     let conversation_id = conversation.id;
     *backend.active_conversation_id.borrow_mut() = Some(conversation_id.clone());
     Ok(conversation_id)
@@ -1987,20 +1998,13 @@ fn restore_selected_provider_model(ui: &WindowUi, backend: &Backend) {
     }
 }
 
-fn ensure_active_conversation(backend: &Backend) -> Result<(String, bool)> {
+fn ensure_active_conversation(ui: &WindowUi, backend: &Backend) -> Result<(String, bool)> {
     if let Some(conversation_id) = backend.active_conversation_id.borrow().clone() {
         let should_generate_title = should_generate_conversation_title(backend, &conversation_id)?;
         return Ok((conversation_id, should_generate_title));
     }
 
-    let provider = active_provider(backend).ok_or(MooseError::ProviderNotConfigured)?;
-    let conversation = backend.conversation_repository.create(NewConversation {
-        provider_id: provider.id,
-        model_id: None,
-        title: DEFAULT_CONVERSATION_TITLE.to_string(),
-    })?;
-    let conversation_id = conversation.id;
-    *backend.active_conversation_id.borrow_mut() = Some(conversation_id.clone());
+    let conversation_id = create_empty_conversation(ui, backend)?;
     Ok((conversation_id, true))
 }
 

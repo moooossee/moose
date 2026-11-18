@@ -34,7 +34,7 @@ pub(super) fn bind(ui: &Rc<WindowUi>, backend: &Rc<Backend>) {
             let active = backend.active_conversation_id.borrow().clone();
             let id = match active {
                 Some(id) => id,
-                None => create_empty_conversation(&backend)?,
+                None => create_empty_conversation(&target_ui, &backend)?,
             };
             backend.conversation_repository.save_thinking_choice(
                 &id,

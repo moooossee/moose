@@ -57,13 +57,12 @@ pub(super) fn build(
         {
             let row = adw::ActionRow::builder()
                 .title(gettext(definition.title))
-                .subtitle(gettext(definition.description))
                 .title_lines(2)
-                .subtitle_lines(2)
                 .use_markup(false)
                 .activatable(true)
                 .focusable(true)
                 .build();
+            row.set_tooltip_text(Some(&gettext(definition.description)));
             let label = shortcut_label();
             row.add_suffix(&label);
             let control = ShortcutRow {
@@ -133,8 +132,8 @@ fn show_capture_dialog(
     let current_value = value_for(&values, definition).to_string();
     let candidate = Rc::new(RefCell::new(current_value.clone()));
     let dialog = adw::Dialog::builder()
-        .title(gettext("Set Shortcut"))
-        .content_width(480)
+        .title(gettext(definition.title))
+        .content_width(400)
         .follows_content_size(true)
         .build();
     let header = adw::HeaderBar::builder()
@@ -150,68 +149,62 @@ fn show_capture_dialog(
 
     let content = gtk::Box::builder()
         .orientation(Orientation::Vertical)
-        .spacing(18)
-        .margin_top(24)
-        .margin_bottom(24)
+        .spacing(12)
+        .margin_top(12)
+        .margin_bottom(18)
         .margin_start(24)
         .margin_end(24)
         .build();
-    let icon = gtk::Image::from_icon_name("preferences-desktop-keyboard-symbolic");
-    icon.set_pixel_size(48);
-    icon.add_css_class("dim-label");
-    let title = gtk::Label::builder()
-        .label(gettext(definition.title))
-        .css_classes(["title-2"])
-        .justify(gtk::Justification::Center)
-        .wrap(true)
-        .build();
     let description = gtk::Label::builder()
-        .label(gettext("Press a key combination, then choose Set."))
+        .label(gettext("Press a new key combination."))
         .justify(gtk::Justification::Center)
         .wrap(true)
+        .wrap_mode(gtk::pango::WrapMode::WordChar)
+        .width_chars(1)
         .css_classes(["dim-label"])
         .build();
     let preview = shortcut_label();
     update_label(&preview, &current_value);
     preview.set_halign(Align::Center);
-    preview.set_margin_top(16);
-    preview.set_margin_bottom(16);
     let capture = gtk::Button::builder()
         .child(&preview)
-        .tooltip_text(gettext(
-            "Press a key combination while this control is focused",
-        ))
+        .height_request(72)
         .build();
+    let capture_hint =
+        gettext("Press Tab to move between controls. Escape can be assigned as a shortcut.");
+    capture.set_tooltip_text(Some(&capture_hint));
     update_capture_label(&capture, &current_value);
-    capture.update_property(&[gtk::accessible::Property::Description(&gettext(
-        "Press a key combination. Press Tab to move to the dialog controls.",
-    ))]);
+    capture.update_property(&[gtk::accessible::Property::Description(&capture_hint)]);
     let error = gtk::Label::builder()
         .wrap(true)
+        .wrap_mode(gtk::pango::WrapMode::WordChar)
+        .width_chars(1)
         .justify(gtk::Justification::Center)
-        .css_classes(["error"])
+        .css_classes(["caption", "error"])
         .accessible_role(gtk::AccessibleRole::Alert)
         .visible(false)
         .build();
-    let hint = gtk::Label::builder()
-        .label(gettext(
-            "Press Tab to move between controls. Escape can be assigned as a shortcut.",
-        ))
-        .justify(gtk::Justification::Center)
-        .wrap(true)
-        .css_classes(["caption", "dim-label"])
+    let restore = gtk::Button::with_mnemonic(&gettext("_Reset"));
+    restore.add_css_class("flat");
+    restore.set_sensitive(current_value != definition.default);
+    restore.set_tooltip_text(Some(&gettext_f(
+        "Restore default shortcut: {shortcut}",
+        &[("shortcut", &display_label(definition.default))],
+    )));
+    let disable = gtk::Button::with_mnemonic(&gettext("_Disable"));
+    disable.add_css_class("flat");
+    disable.set_sensitive(!current_value.is_empty());
+    disable.set_tooltip_text(Some(&gettext("Disable this keyboard shortcut")));
+    let actions = gtk::Box::builder()
+        .orientation(Orientation::Horizontal)
+        .spacing(12)
+        .homogeneous(true)
         .build();
-    let restore = gtk::Button::with_mnemonic(&gettext("Reset to _Default"));
-    let disable = gtk::Button::with_mnemonic(&gettext("_Disable Shortcut"));
-    let actions = gtk::Box::new(Orientation::Vertical, 6);
     actions.append(&restore);
     actions.append(&disable);
-    content.append(&icon);
-    content.append(&title);
     content.append(&description);
     content.append(&capture);
     content.append(&error);
-    content.append(&hint);
     content.append(&actions);
     let scrolled = gtk::ScrolledWindow::builder()
         .hscrollbar_policy(gtk::PolicyType::Never)
@@ -219,6 +212,8 @@ fn show_capture_dialog(
         .child(&content)
         .build();
     let toolbar = adw::ToolbarView::builder().content(&scrolled).build();
+    toolbar.set_width_request(400);
+    toolbar.set_top_bar_style(adw::ToolbarStyle::Flat);
     toolbar.add_top_bar(&header);
     dialog.set_child(Some(&toolbar));
 
@@ -228,11 +223,19 @@ fn show_capture_dialog(
     let target_error = error.clone();
     let target_apply = apply.clone();
     let weak_capture = capture.downgrade();
+    let weak_restore = restore.downgrade();
+    let weak_disable = disable.downgrade();
     let update_candidate = Rc::new(move |value: &str| {
         *target_candidate.borrow_mut() = value.to_string();
         update_label(&target_preview, value);
         if let Some(capture) = weak_capture.upgrade() {
             update_capture_label(&capture, value);
+        }
+        if let Some(restore) = weak_restore.upgrade() {
+            restore.set_sensitive(value != definition.default);
+        }
+        if let Some(disable) = weak_disable.upgrade() {
+            disable.set_sensitive(!value.is_empty());
         }
         let mut values = shortcut_values(&target_backend);
         values.insert(definition.id.to_string(), value.to_string());
@@ -260,19 +263,19 @@ fn show_capture_dialog(
     });
 
     let weak_dialog = dialog.downgrade();
-    let target_ui = Rc::clone(ui);
+    let weak_ui = Rc::downgrade(ui);
     let target_backend = Rc::clone(backend);
     let target_control = control.clone();
     let target_reset = reset_all.clone();
     let target_error = error.clone();
     apply.connect_clicked(move |_| {
-        let Some(dialog) = weak_dialog.upgrade() else {
+        let (Some(dialog), Some(ui)) = (weak_dialog.upgrade(), weak_ui.upgrade()) else {
             return;
         };
         let value = candidate.borrow().clone();
         let mut values = shortcut_values(&target_backend);
         values.insert(definition.id.to_string(), value.clone());
-        match save_shortcut_values(&target_ui, &target_backend, values) {
+        match save_shortcut_values(&ui, &target_backend, values) {
             Ok(()) => {
                 update_row(&target_control, &value);
                 update_reset_button(&target_reset, &shortcut_values(&target_backend));
@@ -338,8 +341,11 @@ fn update_row(control: &ShortcutRow, value: &str) {
     control
         .row
         .update_property(&[gtk::accessible::Property::Description(&gettext_f(
-            "Current shortcut: {shortcut}. Activate to change it.",
-            &[("shortcut", &shortcut)],
+            "{description} Current shortcut: {shortcut}. Activate to change it.",
+            &[
+                ("description", &gettext(control.definition.description)),
+                ("shortcut", &shortcut),
+            ],
         ))]);
 }
 

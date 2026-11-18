@@ -100,6 +100,11 @@ pub(crate) fn moose_error_message(error: &crate::error::MooseError) -> String {
         MooseError::InvalidProviderName => gettext("invalid provider name"),
         MooseError::InvalidModelName => gettext("invalid model name"),
         MooseError::InvalidConversationTitle => gettext("invalid conversation title"),
+        MooseError::InvalidFolderName => {
+            gettext("Use a folder name with 1 to 80 characters and no control characters")
+        }
+        MooseError::FolderNotFound => gettext("Folder was not found"),
+        MooseError::FolderNameAlreadyExists => gettext("A folder with that name already exists"),
         MooseError::InvalidMessageContent => gettext("invalid message content"),
         MooseError::InvalidMessageRole => gettext("invalid message role"),
         MooseError::InvalidMessageStatus => gettext("invalid message status"),

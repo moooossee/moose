@@ -190,7 +190,7 @@ impl ConversationRepository {
     pub fn asset_conversations(&self, asset: &str) -> Result<Vec<Conversation>> {
         let mut statement = self.connection.prepare(
             "SELECT c.id, c.provider_id, c.model_id, c.title, c.created_at,
-                    c.updated_at, c.archived_at, c.pinned_at
+                    c.updated_at, c.archived_at, c.pinned_at, c.folder_id
              FROM conversations c WHERE c.id IN (
                 SELECT d.conversation_id FROM draft_assets d WHERE d.asset_id = ?1
                 UNION

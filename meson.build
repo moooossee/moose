@@ -71,6 +71,7 @@ install_data(
 )
 
 install_data(
+  'data/icons/moose-archive-symbolic.svg',
   'data/icons/moose-globe-symbolic.svg',
   'data/icons/moose-funnel-symbolic.svg',
   install_dir: join_paths(datadir, 'icons', 'hicolor', 'scalable', 'actions')

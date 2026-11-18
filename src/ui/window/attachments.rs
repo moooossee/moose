@@ -158,7 +158,7 @@ fn draft_id(ui: &WindowUi, backend: &Backend) -> Result<String> {
     let active = backend.active_conversation_id.borrow().clone();
     match active {
         Some(id) => Ok(id),
-        None => create_empty_conversation(backend),
+        None => create_empty_conversation(ui, backend),
     }
 }
 

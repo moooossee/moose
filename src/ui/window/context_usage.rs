@@ -758,7 +758,7 @@ fn apply_context_window(ui: &Rc<WindowUi>, backend: &Rc<Backend>) {
     let result = (|| -> Result<String> {
         let id = match target.conversation_id {
             Some(id) => id,
-            None => create_empty_conversation(backend)?,
+            None => create_empty_conversation(ui, backend)?,
         };
         let mut settings = load_chat_settings(backend, &id)?;
         if settings.num_ctx != value {

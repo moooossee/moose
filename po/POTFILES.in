@@ -62,6 +62,8 @@ src/ui/window/diagnostics.rs
 src/ui/window/document_creation/pdf.rs
 src/ui/window/document_creation.rs
 src/ui/window/first_run.rs
+src/ui/window/folders/dialogs.rs
+src/ui/window/folders.rs
 src/ui/window/generation.rs
 src/ui/window/header.rs
 src/ui/window/managed_install.rs

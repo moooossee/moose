@@ -64,7 +64,7 @@ pub(super) fn save(ui: &WindowUi, backend: &Backend) -> Result<()> {
             ui.draft_label.set_label("");
             return Ok(());
         }
-        None => create_empty_conversation(backend)?,
+        None => create_empty_conversation(ui, backend)?,
     };
     backend.conversation_repository.save_draft(&id, &content)?;
     backend.conversation_repository.remember_conversation(&id)?;
@@ -114,7 +114,7 @@ pub(super) fn restore_last(ui: &Rc<WindowUi>, backend: &Rc<Backend>) {
             apply_provider_state(ui, &Some(provider));
         }
         load_conversation(ui, backend, &id)?;
-        conversation_list::select(ui, &id);
+        super::folders::reveal(ui, backend, &id);
         Ok(())
     })();
     if let Err(error) = result {

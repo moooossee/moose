@@ -24,6 +24,7 @@ pub(super) fn build(library_settings: &gtk::MenuButton) -> Controls {
     let menu_model = gio::Menu::new();
     let conversation_menu = gio::Menu::new();
     conversation_menu.append(Some(&gettext("_Search Chats")), Some("win.search-chats"));
+    conversation_menu.append(Some(&gettext("New _Folder…")), Some("win.new-folder"));
     menu_model.append_section(None, &conversation_menu);
 
     let navigation_menu = gio::Menu::new();
@@ -141,6 +142,7 @@ pub(super) fn bind_layout(ui: &Rc<WindowUi>) {
 pub(super) fn bind_actions(ui: &Rc<WindowUi>, backend: &Rc<Backend>) {
     for name in [
         "new-conversation",
+        "new-folder",
         "search-chats",
         "show-chat",
         "show-files",
@@ -162,11 +164,12 @@ pub(super) fn bind_actions(ui: &Rc<WindowUi>, backend: &Rc<Backend>) {
                 return;
             };
             match name {
+                "new-folder" => super::folders::create(&ui, &backend),
                 "show-chat" => {
                     super::show_chat(&ui);
                     let id = backend.active_conversation_id.borrow().clone();
                     if let Some(id) = id {
-                        super::conversation_list::select(&ui, &id);
+                        super::folders::reveal(&ui, &backend, &id);
                     }
                     ui.entry.grab_focus();
                 }

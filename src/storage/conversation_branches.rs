@@ -162,11 +162,13 @@ impl ConversationRepository {
         let message = self.require_active_message(id)?;
         let original = self.get_required(&message.conversation_id)?;
         let title = original.title.chars().take(32).collect::<String>();
-        let conversation = self.create(NewConversation {
+        let mut conversation = self.create(NewConversation {
             provider_id: original.provider_id,
             model_id: original.model_id,
             title: format!("{title} (branch)"),
         })?;
+        self.move_to_folder(&conversation.id, original.folder_id.as_deref())?;
+        conversation.folder_id = original.folder_id;
         let mut parent_id = None;
         for mut source in self.list_messages(&message.conversation_id)? {
             let is_last = source.id == id;

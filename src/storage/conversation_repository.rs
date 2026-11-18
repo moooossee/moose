@@ -4,9 +4,9 @@ use rusqlite::{Connection, OptionalExtension, Row, params};
 
 use crate::{
     conversations::{
-        Conversation, ConversationSummary, ConversationTitleUpdate, GenerationSettings, Message,
-        MessageRole, MessageStatus, MessageUpdate, NewConversation, NewGenerationSettings,
-        NewMessage, validate_conversation_title, validate_message_content,
+        Conversation, ConversationFolderFilter, ConversationSummary, ConversationTitleUpdate,
+        GenerationSettings, Message, MessageRole, MessageStatus, MessageUpdate, NewConversation,
+        NewGenerationSettings, NewMessage, validate_conversation_title, validate_message_content,
     },
     core::utc_now,
     error::{MooseError, Result},
@@ -14,6 +14,9 @@ use crate::{
 
 #[path = "conversation_branches.rs"]
 mod branches;
+
+#[path = "conversation_folders.rs"]
+mod folders;
 
 #[path = "attachment_repository.rs"]
 mod attachments;
@@ -61,7 +64,7 @@ impl ConversationRepository {
     pub fn list_recent(&self, limit: usize) -> Result<Vec<Conversation>> {
         let limit = i64::try_from(limit)?;
         let mut statement = self.connection.prepare(
-            "SELECT id, provider_id, model_id, title, created_at, updated_at, archived_at, pinned_at
+            "SELECT id, provider_id, model_id, title, created_at, updated_at, archived_at, pinned_at, folder_id
              FROM conversations
              WHERE archived_at IS NULL
              ORDER BY pinned_at IS NULL ASC, pinned_at DESC, updated_at DESC, created_at DESC
@@ -78,7 +81,7 @@ impl ConversationRepository {
         let mut statement = self.connection.prepare(
             "SELECT
                 c.id, c.provider_id, c.model_id, c.title, c.created_at, c.updated_at, c.archived_at, c.pinned_at,
-                m.id, m.conversation_id, m.role, m.content, m.status, m.token_count, m.created_at, m.completed_at
+                m.id, m.conversation_id, m.role, m.content, m.status, m.token_count, m.created_at, m.completed_at, c.folder_id
              FROM conversations c
              LEFT JOIN active_messages m ON m.id = (
                 SELECT id
@@ -100,7 +103,7 @@ impl ConversationRepository {
     pub fn get(&self, id: &str) -> Result<Option<Conversation>> {
         self.connection
             .query_row(
-                "SELECT id, provider_id, model_id, title, created_at, updated_at, archived_at, pinned_at
+                "SELECT id, provider_id, model_id, title, created_at, updated_at, archived_at, pinned_at, folder_id
                  FROM conversations
                  WHERE id = ?1",
                 params![id],
@@ -133,14 +136,33 @@ impl ConversationRepository {
         include_archived: bool,
         limit: usize,
     ) -> Result<Vec<ConversationSummary>> {
+        self.search_summaries_in_folder(
+            query,
+            include_archived,
+            &ConversationFolderFilter::General,
+            limit,
+        )
+    }
+
+    pub fn search_summaries_in_folder(
+        &self,
+        query: &str,
+        include_archived: bool,
+        folder: &ConversationFolderFilter,
+        limit: usize,
+    ) -> Result<Vec<ConversationSummary>> {
         let limit = i64::try_from(limit)?;
         let query = query.trim();
         let pattern = like_pattern(query);
         let archived = if include_archived { 1_i64 } else { 0_i64 };
+        let folder_id = match folder {
+            ConversationFolderFilter::General => None,
+            ConversationFolderFilter::Folder(id) => Some(id.as_str()),
+        };
         let mut statement = self.connection.prepare(
             "SELECT
                 c.id, c.provider_id, c.model_id, c.title, c.created_at, c.updated_at, c.archived_at, c.pinned_at,
-                m.id, m.conversation_id, m.role, m.content, m.status, m.token_count, m.created_at, m.completed_at
+                m.id, m.conversation_id, m.role, m.content, m.status, m.token_count, m.created_at, m.completed_at, c.folder_id
              FROM conversations c
              LEFT JOIN active_messages m ON m.id = (
                 SELECT id
@@ -150,6 +172,7 @@ impl ConversationRepository {
                 LIMIT 1
              )
              WHERE (?1 = 1 OR c.archived_at IS NULL)
+               AND c.folder_id IS ?5
                AND (
                     ?2 = ''
                     OR c.title LIKE ?3 ESCAPE '\\'
@@ -160,12 +183,12 @@ impl ConversationRepository {
                           AND sm.content LIKE ?3 ESCAPE '\\'
                     )
                )
-             ORDER BY c.pinned_at IS NULL ASC, c.pinned_at DESC, c.updated_at DESC, c.created_at DESC
+             ORDER BY c.archived_at IS NOT NULL DESC, c.pinned_at IS NULL ASC, c.pinned_at DESC, c.updated_at DESC, c.created_at DESC, c.id DESC
              LIMIT ?4",
         )?;
         let summaries = statement
             .query_map(
-                params![archived, query, pattern, limit],
+                params![archived, query, pattern, limit, folder_id],
                 conversation_summary_from_row,
             )?
             .collect::<std::result::Result<Vec<_>, _>>()?;
@@ -434,6 +457,7 @@ fn conversation_from_row(row: &Row<'_>) -> rusqlite::Result<Conversation> {
         updated_at: row.get(5)?,
         archived_at: row.get(6)?,
         pinned_at: row.get(7)?,
+        folder_id: row.get(8)?,
     })
 }
 
@@ -447,6 +471,7 @@ fn conversation_summary_from_row(row: &Row<'_>) -> rusqlite::Result<Conversation
         updated_at: row.get(5)?,
         archived_at: row.get(6)?,
         pinned_at: row.get(7)?,
+        folder_id: row.get(16)?,
     };
     let message_id: Option<String> = row.get(8)?;
     let message = message_id

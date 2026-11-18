@@ -3,10 +3,10 @@ use crate::i18n::{gettext, gettext_f, gettext_noop};
 use std::rc::Rc;
 
 use adw::prelude::*;
-use gtk::{Align, Orientation, pango};
+use gtk::{Align, Orientation, gio, pango};
 
 use crate::{
-    conversations::{ConversationSummary, ConversationTitleUpdate},
+    conversations::{ConversationFolderFilter, ConversationSummary, ConversationTitleUpdate},
     error::Result,
 };
 
@@ -15,14 +15,56 @@ use super::{
     update_profile_indicator,
 };
 
+const ARCHIVED_ROW_CLASS: &str = "moose-archived-conversation";
+
+pub(super) fn configure_headers(list: &gtk::ListBox) {
+    list.set_header_func(|row, previous| {
+        let archived = row.has_css_class(ARCHIVED_ROW_CLASS);
+        let previous_archived = previous.is_some_and(|row| row.has_css_class(ARCHIVED_ROW_CLASS));
+        if archived && !previous_archived {
+            let heading = gtk::Label::builder()
+                .label(gettext("Archived"))
+                .halign(Align::Start)
+                .xalign(0.0)
+                .margin_start(8)
+                .margin_end(8)
+                .margin_top(6)
+                .margin_bottom(4)
+                .css_classes(["caption-heading", "dim-label"])
+                .build();
+            row.set_header(Some(&heading));
+        } else if !archived && previous_archived {
+            let separator = gtk::Separator::builder()
+                .orientation(Orientation::Horizontal)
+                .margin_start(8)
+                .margin_end(8)
+                .margin_top(8)
+                .margin_bottom(8)
+                .build();
+            row.set_header(Some(&separator));
+        } else {
+            row.set_header(None::<&gtk::Widget>);
+        }
+    });
+}
+
 pub(super) fn refresh(ui: &Rc<WindowUi>, backend: &Rc<Backend>) {
     super::update_window_title(ui, backend);
+    if let Err(error) = super::folders::refresh(ui, backend) {
+        ui.toast_overlay.add_toast(adw::Toast::new(&gettext_f(
+            "Folders could not be loaded: {error}",
+            &[("error", &error.to_string())],
+        )));
+        return;
+    }
     let query = ui.conversation_search_entry.text().to_string();
     let include_archived = ui.archived_conversations_button.is_active();
-    match backend
-        .conversation_repository
-        .search_summaries(&query, include_archived, 60)
-    {
+    match backend.conversation_repository.search_summaries_in_folder(
+        &query,
+        include_archived,
+        &ui.folders.filter(),
+        60,
+    ) {
         Ok(summaries) => set(ui, backend, summaries),
         Err(error) => ui.toast_overlay.add_toast(adw::Toast::new(&gettext_f(
             "Conversations could not be loaded: {error}",
@@ -67,16 +109,18 @@ pub(super) fn load_selected(ui: &WindowUi, backend: &Backend, row: &gtk::ListBox
 fn set(ui: &Rc<WindowUi>, backend: &Rc<Backend>, summaries: Vec<ConversationSummary>) {
     *ui.restoring_conversation_selection.borrow_mut() = true;
 
-    while let Some(child) = ui.conversation_list.first_child() {
-        ui.conversation_list.remove(&child);
+    while let Some(row) = ui.conversation_list.row_at_index(0) {
+        ui.conversation_list.remove(&row);
     }
 
     if summaries.is_empty() {
         let row = gtk::ListBoxRow::new();
-        let text = gettext(if ui.conversation_search_entry.text().is_empty() {
-            gettext_noop("No conversations yet")
-        } else {
+        let text = gettext(if !ui.conversation_search_entry.text().trim().is_empty() {
             gettext_noop("No matching conversations")
+        } else if ui.folders.filter() != ConversationFolderFilter::General {
+            gettext_noop("No chats in this folder")
+        } else {
+            gettext_noop("No chats here yet")
         });
         row.set_child(Some(&conversation_row_content(&text, false, false, false)));
         row.set_height_request(45);
@@ -90,27 +134,8 @@ fn set(ui: &Rc<WindowUi>, backend: &Rc<Backend>, summaries: Vec<ConversationSumm
         return;
     }
 
-    let mut ids = Vec::new();
-    let mut pinned_heading_added = false;
-    let mut recent_heading_added = false;
-    let mut archived_heading_added = false;
-
+    let mut ids = Vec::with_capacity(summaries.len());
     for summary in summaries {
-        if summary.conversation.archived_at.is_some() {
-            if !archived_heading_added {
-                append_heading(ui, &mut ids, &gettext("Archived"));
-                archived_heading_added = true;
-            }
-        } else if summary.conversation.pinned_at.is_some() {
-            if !pinned_heading_added {
-                append_heading(ui, &mut ids, &gettext("Pinned"));
-                pinned_heading_added = true;
-            }
-        } else if !recent_heading_added {
-            append_heading(ui, &mut ids, &gettext("Recent"));
-            recent_heading_added = true;
-        }
-
         ids.push(Some(summary.conversation.id.clone()));
         ui.conversation_list.append(&row(&summary, ui, backend));
     }
@@ -131,12 +156,13 @@ fn row(summary: &ConversationSummary, ui: &Rc<WindowUi>, backend: &Rc<Backend>) 
     let row = gtk::ListBoxRow::new();
     let is_generating = backend.active_generation.borrow().is_some()
         && backend.generation_context.borrow().conversation_id == summary.conversation.id;
-    row.set_child(Some(&conversation_row_content(
+    let content = conversation_row_content(
         &crate::i18n::conversation_title(&summary.conversation.title),
         summary.conversation.pinned_at.is_some(),
         summary.conversation.archived_at.is_some(),
         is_generating,
-    )));
+    );
+    row.set_child(Some(&content));
     let draft = backend
         .conversation_repository
         .draft(&summary.conversation.id)
@@ -147,24 +173,24 @@ fn row(summary: &ConversationSummary, ui: &Rc<WindowUi>, backend: &Rc<Backend>) 
         &summary.conversation.title,
     )));
     row.add_css_class("moose-conversation-row");
+    if summary.conversation.archived_at.is_some() {
+        row.add_css_class(ARCHIVED_ROW_CLASS);
+    }
+    super::folders::add_drag_source(&row, &summary.conversation.id);
 
     let click = gtk::GestureClick::builder().button(3).build();
-    let target_row = row.clone();
-    let target_ui = Rc::clone(ui);
+    let weak_row = row.downgrade();
+    let weak_ui = Rc::downgrade(ui);
     let target_backend = Rc::clone(backend);
     let conversation_id = summary.conversation.id.clone();
-
-    click.connect_pressed(move |_, _, x, y| {
-        show_menu(
-            &target_row,
-            &target_ui,
-            &target_backend,
-            &conversation_id,
-            x,
-            y,
-        );
+    click.connect_pressed(move |gesture, _, x, y| {
+        if let (Some(row), Some(ui)) = (weak_row.upgrade(), weak_ui.upgrade()) {
+            gesture.set_state(gtk::EventSequenceState::Claimed);
+            show_menu(&row, &ui, &target_backend, &conversation_id, x, y);
+        }
     });
     row.add_controller(click);
+
     row
 }
 
@@ -199,24 +225,8 @@ fn set_draft_badge(row: &gtk::ListBoxRow, draft: &str) {
         label.add_css_class("caption");
         label.add_css_class("dim-label");
         label.set_tooltip_text(Some(&draft.chars().take(240).collect::<String>()));
-        content.append(&label);
+        content.insert_child_after(&label, content.first_child().as_ref());
     }
-}
-
-fn append_heading(ui: &Rc<WindowUi>, ids: &mut Vec<Option<String>>, title: &str) {
-    let row = gtk::ListBoxRow::new();
-    let label = gtk::Label::builder()
-        .label(title)
-        .halign(Align::Start)
-        .xalign(0.0)
-        .build();
-    label.add_css_class("moose-conversation-heading");
-    row.set_child(Some(&label));
-    row.set_selectable(false);
-    row.set_sensitive(false);
-    row.add_css_class("moose-conversation-heading-row");
-    ui.conversation_list.append(&row);
-    ids.push(None);
 }
 
 fn conversation_row_content(
@@ -250,7 +260,7 @@ fn conversation_row_content(
     }
 
     if archived {
-        let icon = gtk::Image::from_icon_name("folder-symbolic");
+        let icon = gtk::Image::from_icon_name("moose-archive-symbolic");
         icon.add_css_class("moose-conversation-state-icon");
         content.append(&icon);
     }
@@ -275,55 +285,59 @@ fn show_menu(
     x: f64,
     y: f64,
 ) {
-    let popover = gtk::Popover::builder()
-        .autohide(true)
-        .has_arrow(false)
-        .build();
-    let menu = gtk::Box::builder()
-        .orientation(Orientation::Vertical)
-        .spacing(0)
-        .build();
-    let conversation = backend
-        .conversation_repository
-        .get(conversation_id)
-        .ok()
-        .flatten();
-    let is_pinned = conversation
-        .as_ref()
-        .and_then(|conversation| conversation.pinned_at.as_ref())
-        .is_some();
-    let is_archived = conversation
-        .as_ref()
-        .and_then(|conversation| conversation.archived_at.as_ref())
-        .is_some();
-    let rename_button = gtk::Button::with_label(&gettext("Rename"));
-    let pin_button = gtk::Button::with_label(&gettext(if is_pinned {
-        gettext_noop("Unpin")
-    } else {
-        gettext_noop("Pin")
-    }));
-    let archive_button = gtk::Button::with_label(&gettext(if is_archived {
-        gettext_noop("Unarchive")
-    } else {
-        gettext_noop("Archive")
-    }));
-    let export_button = gtk::Button::with_label(&gettext("Export Conversation"));
-    let delete_button = gtk::Button::with_label(&gettext("Delete Conversation"));
-
-    rename_button.add_css_class("flat");
-    pin_button.add_css_class("flat");
-    archive_button.add_css_class("flat");
-    export_button.add_css_class("flat");
-    delete_button.add_css_class("flat");
-    delete_button.add_css_class("destructive-action");
-    menu.append(&rename_button);
-    if !is_archived {
-        menu.append(&pin_button);
+    let conversation = match backend.conversation_repository.get(conversation_id) {
+        Ok(Some(conversation)) => conversation,
+        Ok(None) => {
+            refresh(ui, backend);
+            return;
+        }
+        Err(error) => {
+            ui.toast_overlay.add_toast(adw::Toast::new(&gettext_f(
+                "Conversation could not be loaded: {error}",
+                &[("error", &error.to_string())],
+            )));
+            return;
+        }
+    };
+    let is_pinned = conversation.pinned_at.is_some();
+    let is_archived = conversation.archived_at.is_some();
+    let model = gio::Menu::new();
+    let organize = gio::Menu::new();
+    organize.append(Some(&gettext("Rename…")), Some("chat.rename"));
+    organize.append(Some(&gettext("Move to Folder…")), Some("chat.move"));
+    if conversation.folder_id.is_some() {
+        organize.append(
+            Some(&gettext("Remove from Folder")),
+            Some("chat.remove-folder"),
+        );
     }
-    menu.append(&archive_button);
-    menu.append(&export_button);
-    menu.append(&delete_button);
-    popover.set_child(Some(&menu));
+    if !is_archived {
+        organize.append(
+            Some(&gettext(if is_pinned {
+                gettext_noop("Unpin")
+            } else {
+                gettext_noop("Pin")
+            })),
+            Some("chat.pin"),
+        );
+    }
+    organize.append(
+        Some(&gettext(if is_archived {
+            gettext_noop("Unarchive")
+        } else {
+            gettext_noop("Archive")
+        })),
+        Some("chat.archive"),
+    );
+    model.append_section(None, &organize);
+    let export = gio::Menu::new();
+    export.append(Some(&gettext("Export Conversation…")), Some("chat.export"));
+    model.append_section(None, &export);
+    let delete = gio::Menu::new();
+    delete.append(Some(&gettext("Delete Conversation…")), Some("chat.delete"));
+    model.append_section(None, &delete);
+    let popover = gtk::PopoverMenu::from_model(Some(&model));
+    popover.set_has_arrow(false);
     popover.set_parent(row);
     popover.set_pointing_to(Some(&gtk::gdk::Rectangle::new(
         x.round() as i32,
@@ -331,65 +345,45 @@ fn show_menu(
         1,
         1,
     )));
-
-    let target_ui = Rc::clone(ui);
-    let target_backend = Rc::clone(backend);
-    let target_conversation_id = conversation_id.to_string();
-    let target_popover = popover.clone();
-    rename_button.connect_clicked(move |_| {
-        target_popover.popdown();
-        rename(&target_ui, &target_backend, &target_conversation_id);
-    });
-
-    let target_ui = Rc::clone(ui);
-    let target_backend = Rc::clone(backend);
-    let target_conversation_id = conversation_id.to_string();
-    let target_popover = popover.clone();
-    pin_button.connect_clicked(move |_| {
-        target_popover.popdown();
-        set_pinned(
-            &target_ui,
-            &target_backend,
-            &target_conversation_id,
-            !is_pinned,
-        );
-    });
-
-    let target_ui = Rc::clone(ui);
-    let target_backend = Rc::clone(backend);
-    let target_conversation_id = conversation_id.to_string();
-    let target_popover = popover.clone();
-    archive_button.connect_clicked(move |_| {
-        target_popover.popdown();
-        set_archived(
-            &target_ui,
-            &target_backend,
-            &target_conversation_id,
-            !is_archived,
-        );
-    });
-
-    let target_ui = Rc::clone(ui);
-    let target_backend = Rc::clone(backend);
-    let target_conversation_id = conversation_id.to_string();
-    let target_popover = popover.clone();
-    export_button.connect_clicked(move |_| {
-        target_popover.popdown();
-        super::conversation_export::show_dialog(
-            &target_ui,
-            &target_backend,
-            &target_conversation_id,
-        );
-    });
-
-    let target_ui = Rc::clone(ui);
-    let target_backend = Rc::clone(backend);
-    let target_conversation_id = conversation_id.to_string();
-    let target_popover = popover.clone();
-    delete_button.connect_clicked(move |_| {
-        target_popover.popdown();
-        confirm_delete(&target_ui, &target_backend, &target_conversation_id);
-    });
+    let actions = gio::SimpleActionGroup::new();
+    for name in [
+        "rename",
+        "move",
+        "remove-folder",
+        "pin",
+        "archive",
+        "export",
+        "delete",
+    ] {
+        let action = gio::SimpleAction::new(name, None);
+        let weak_ui = Rc::downgrade(ui);
+        let weak_popover = popover.downgrade();
+        let backend = Rc::clone(backend);
+        let conversation_id = conversation_id.to_string();
+        action.connect_activate(move |_, _| {
+            if let Some(popover) = weak_popover.upgrade() {
+                popover.popdown();
+            }
+            let Some(ui) = weak_ui.upgrade() else { return };
+            match name {
+                "rename" => rename(&ui, &backend, &conversation_id),
+                "move" => super::folders::show_move_dialog(&ui, &backend, &conversation_id),
+                "remove-folder" => {
+                    super::folders::remove_from_folder(&ui, &backend, &conversation_id)
+                }
+                "pin" => set_pinned(&ui, &backend, &conversation_id, !is_pinned),
+                "archive" => set_archived(&ui, &backend, &conversation_id, !is_archived),
+                "export" => {
+                    super::conversation_export::show_dialog(&ui, &backend, &conversation_id)
+                }
+                "delete" => confirm_delete(&ui, &backend, &conversation_id),
+                _ => {}
+            }
+        });
+        actions.add_action(&action);
+    }
+    popover.insert_action_group("chat", Some(&actions));
+    popover.connect_closed(|popover| popover.unparent());
     popover.popup();
 }
 

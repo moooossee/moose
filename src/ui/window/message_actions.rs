@@ -469,7 +469,7 @@ fn fork(ui: &Rc<WindowUi>, backend: &Rc<Backend>, id: &str) -> Result<()> {
     let draft = super::prompt_text(&ui.entry);
     load_conversation(ui, backend, &conversation.id)?;
     ui.entry.buffer().set_text(&draft);
-    conversation_list::refresh(ui, backend);
+    super::folders::reveal(ui, backend, &conversation.id);
     super::show_chat(ui);
     super::workspace::sync_provider(ui, backend);
     super::reasoning::refresh(ui, backend);

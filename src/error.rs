@@ -54,6 +54,12 @@ pub enum MooseError {
     #[error("{}", crate::i18n::moose_error_message(self))]
     InvalidConversationTitle,
     #[error("{}", crate::i18n::moose_error_message(self))]
+    InvalidFolderName,
+    #[error("{}", crate::i18n::moose_error_message(self))]
+    FolderNotFound,
+    #[error("{}", crate::i18n::moose_error_message(self))]
+    FolderNameAlreadyExists,
+    #[error("{}", crate::i18n::moose_error_message(self))]
     InvalidMessageContent,
     #[error("{}", crate::i18n::moose_error_message(self))]
     InvalidMessageRole,

@@ -26,6 +26,30 @@ pub struct Conversation {
     pub updated_at: String,
     pub archived_at: Option<String>,
     pub pinned_at: Option<String>,
+    #[serde(default)]
+    pub folder_id: Option<String>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct ConversationFolder {
+    pub id: String,
+    pub name: String,
+    pub conversation_count: i64,
+}
+
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
+pub enum ConversationFolderFilter {
+    #[default]
+    General,
+    Folder(String),
+}
+
+pub fn validate_folder_name(name: &str) -> Result<&str> {
+    let name = name.trim();
+    if name.is_empty() || name.chars().count() > 80 || name.chars().any(char::is_control) {
+        return Err(MooseError::InvalidFolderName);
+    }
+    Ok(name)
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -141,6 +165,7 @@ impl NewConversation {
             updated_at: timestamp,
             archived_at: None,
             pinned_at: None,
+            folder_id: None,
         })
     }
 }
