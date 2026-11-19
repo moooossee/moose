@@ -13,6 +13,7 @@ pub mod credentials;
 mod custom;
 pub mod policy;
 mod stream;
+mod tool_stream;
 mod wire;
 
 pub use custom::{ApiProtocol, CustomAuthentication, CustomModel, CustomProviderConfig};
@@ -47,10 +48,6 @@ pub enum ProviderKind {
 }
 
 impl ProviderKind {
-    pub const fn supports_tool_calling(self) -> bool {
-        matches!(self, Self::Ollama | Self::OllamaCloud)
-    }
-
     pub const fn as_str(&self) -> &'static str {
         match self {
             Self::Ollama => "ollama",

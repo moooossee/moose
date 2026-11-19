@@ -1,12 +1,12 @@
 use crate::i18n::gettext;
 
-use std::time::Duration;
+use std::{collections::HashSet, time::Duration};
 
 use super::{ChatMessage, ChatRequest, ChatRole, ChatStreamEvent};
 use crate::{
     error::{MooseError, Result},
     providers::client::ProviderClient,
-    tools::{self, MAX_ARGUMENT_BYTES, MAX_CALLS, ToolExecution},
+    tools::{self, MAX_CALLS, ToolExecution},
 };
 
 const MAX_ROUNDS: usize = 4;
@@ -75,6 +75,7 @@ where
                             "The model requested a tool that is not enabled for this chat.",
                         )));
                     }
+                    ChatStreamEvent::ProviderContent(_) => return Ok(()),
                 })
             })
             .await;
@@ -153,7 +154,7 @@ where
         };
         let context_exhausted = usage.is_none() || source_bytes(&request) < before;
         if context_exhausted {
-            request.tools.clear();
+            request.tools_disabled = true;
             add_instruction(
                 &mut request,
                 "The context budget for tools is exhausted. Answer using the available excerpts, which may have been shortened. Do not request more tools or claim to have read omitted text.",
@@ -173,6 +174,7 @@ where
             on_event(ResponseEvent::Context(usage))?;
         }
         let mut assistant = ChatMessage::assistant("");
+        let mut call_ids = HashSet::new();
         let mut first_token = true;
         let mut first_thinking = true;
         client
@@ -203,22 +205,31 @@ where
                         on_event(ResponseEvent::Token(value))?;
                     }
                     ChatStreamEvent::ToolCall(call) => {
-                        if round == MAX_ROUNDS
+                        if request.tools_disabled
+                            || round == MAX_ROUNDS
                             || calls_used + assistant.tool_calls.len() >= MAX_CALLS
                         {
                             return Err(MooseError::ProviderRequest(gettext(
                                 "The model reached the tool limit. Try a more specific question.",
                             )));
                         }
-                        if call.function.name.len() > 64
-                            || serde_json::to_vec(&call.function.arguments)?.len()
-                                > MAX_ARGUMENT_BYTES
+                        if !call.is_valid()
+                            || call
+                                .id
+                                .as_ref()
+                                .is_some_and(|id| !call_ids.insert(id.clone()))
                         {
                             return Err(MooseError::ProviderResponse(gettext(
-                                "The model requested a tool operation that is too large.",
+                                "The model returned an invalid tool call.",
                             )));
                         }
                         assistant.tool_calls.push(call);
+                    }
+                    ChatStreamEvent::ProviderContent(content) => {
+                        if serde_json::to_vec(&content)?.len() > 1024 * 1024 {
+                            return Err(MooseError::ResponseLimit);
+                        }
+                        assistant.provider_content.extend(content);
                     }
                     ChatStreamEvent::ResponseLimit => return Err(MooseError::ResponseLimit),
                     ChatStreamEvent::Done => {}
@@ -247,11 +258,11 @@ where
             let result = execution.execute(&request.tools, web.as_mut()).await;
             request
                 .messages
-                .push(ChatMessage::tool(&execution.name, result));
+                .push(ChatMessage::tool_result(&call, result));
             on_event(ResponseEvent::Tool(execution))?;
         }
         if round + 1 == MAX_ROUNDS || calls_used == MAX_CALLS {
-            request.tools.clear();
+            request.tools_disabled = true;
             let instruction = "The tool budget for this response is exhausted. Answer using the results already available. Do not request more tools.";
             add_instruction(&mut request, instruction);
         }

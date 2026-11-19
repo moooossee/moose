@@ -87,6 +87,10 @@ pub enum ChatRole {
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct ChatMessage {
+    #[serde(skip)]
+    pub provider_content: Vec<serde_json::Value>,
+    #[serde(skip)]
+    pub tool_call_id: Option<String>,
     #[serde(default, skip_serializing_if = "String::is_empty")]
     pub thinking: String,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -124,6 +128,8 @@ impl ThinkingValue {
 
 #[derive(Clone, Debug, PartialEq, Serialize)]
 pub struct ChatRequest {
+    #[serde(skip)]
+    pub tools_disabled: bool,
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub tools: Vec<ToolDefinition>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -156,6 +162,7 @@ pub struct ChatOptions {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum ChatStreamEvent {
     ToolCall(ToolCall),
+    ProviderContent(Vec<serde_json::Value>),
     Thinking(String),
     Token(String),
     ResponseLimit,
@@ -165,28 +172,22 @@ pub enum ChatStreamEvent {
 impl ChatMessage {
     pub fn system(content: impl Into<String>) -> Self {
         Self {
-            thinking: String::new(),
-            tool_calls: Vec::new(),
-            tool_name: None,
-            images: Vec::new(),
             role: ChatRole::System,
-            content: content.into(),
+            ..Self::assistant(content)
         }
     }
 
     pub fn user(content: impl Into<String>) -> Self {
         Self {
-            thinking: String::new(),
-            tool_calls: Vec::new(),
-            tool_name: None,
-            images: Vec::new(),
             role: ChatRole::User,
-            content: content.into(),
+            ..Self::assistant(content)
         }
     }
 
     pub fn assistant(content: impl Into<String>) -> Self {
         Self {
+            provider_content: Vec::new(),
+            tool_call_id: None,
             thinking: String::new(),
             tool_calls: Vec::new(),
             tool_name: None,
@@ -203,11 +204,19 @@ impl ChatMessage {
             ..Self::assistant(content)
         }
     }
+
+    pub fn tool_result(call: &ToolCall, content: impl Into<String>) -> Self {
+        Self {
+            tool_call_id: call.id.clone(),
+            ..Self::tool(&call.function.name, content)
+        }
+    }
 }
 
 impl ChatRequest {
     pub fn streaming(model: impl AsRef<str>, messages: Vec<ChatMessage>) -> Result<Self> {
         Ok(Self {
+            tools_disabled: false,
             tools: Vec::new(),
             think: None,
             model: validate_model_id(model.as_ref())?,

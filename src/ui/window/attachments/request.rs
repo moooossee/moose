@@ -55,6 +55,8 @@ pub(in crate::ui::window) fn prepare(
         ));
     }
     let repository = &backend.conversation_repository;
+    let include_reasoning =
+        provider.api_kind() == ProviderKind::DeepSeek && !request.tools.is_empty();
     let assets = match submission {
         ChatSubmission::New(_) => repository.draft_assets(conversation)?,
         ChatSubmission::Edit { id, .. } => repository.message_assets(id)?,
@@ -80,6 +82,15 @@ pub(in crate::ui::window) fn prepare(
     if assets.is_empty() && history_assets.iter().all(Vec::is_empty) && !library {
         let mut messages =
             build_conversation_context(history, prompt, limit, Some(&settings.system_prompt));
+        if include_reasoning {
+            for (message, [_, original]) in messages
+                .iter_mut()
+                .filter(|message| message.role == ChatRole::Assistant)
+                .zip(&exchanges)
+            {
+                restore_reasoning(repository, message, &original.id)?;
+            }
+        }
         match budget.fit(&mut messages, overhead) {
             Ok(()) => {}
             Err(MooseError::ContextTooLarge) if preparation == Preparation::Send => {}
@@ -183,7 +194,10 @@ pub(in crate::ui::window) fn prepare(
             break;
         }
         let mut user = ChatMessage::user(&user.content);
-        let assistant = ChatMessage::assistant(&assistant.content);
+        let mut response = ChatMessage::assistant(&assistant.content);
+        if include_reasoning {
+            restore_reasoning(repository, &mut response, &assistant.id)?;
+        }
         add_images(
             repository,
             assets,
@@ -193,12 +207,12 @@ pub(in crate::ui::window) fn prepare(
             preparation,
         )?;
         let tokens =
-            estimate_message_tokens(&user).saturating_add(estimate_message_tokens(&assistant));
+            estimate_message_tokens(&user).saturating_add(estimate_message_tokens(&response));
         let Some(left) = remaining.checked_sub(tokens) else {
             break;
         };
         remaining = left;
-        past_messages.push([user, assistant]);
+        past_messages.push([user, response]);
     }
     for exchange in past_messages.into_iter().rev() {
         messages.extend(exchange);
@@ -231,6 +245,17 @@ pub(in crate::ui::window) fn prepare(
         }
     }
     Ok((messages, sources))
+}
+
+fn restore_reasoning(
+    repository: &ConversationRepository,
+    message: &mut ChatMessage,
+    id: &str,
+) -> Result<()> {
+    message.thinking = repository
+        .message_details(id)?
+        .map_or_else(String::new, |details| details.reasoning);
+    Ok(())
 }
 
 fn reference_content(prompt: &str, sources: &[Source]) -> String {

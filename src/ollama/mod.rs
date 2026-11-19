@@ -331,6 +331,9 @@ impl OllamaClient {
 
     async fn count_input_tokens(&self, request: &ChatRequest) -> Result<usize> {
         let mut body = serde_json::to_value(request)?;
+        if request.tools_disabled {
+            body.as_object_mut().unwrap().remove("tools");
+        }
         body["stream"] = false.into();
         body["truncate"] = false.into();
         body["shift"] = false.into();
@@ -390,6 +393,9 @@ impl OllamaClient {
         F: FnMut(ChatStreamEvent) -> Result<()> + Send,
     {
         let mut body = serde_json::to_value(&request)?;
+        if request.tools_disabled {
+            body.as_object_mut().unwrap().remove("tools");
+        }
         body["keep_alive"] = serde_json::json!(300);
         body["truncate"] = false.into();
         body["shift"] = false.into();

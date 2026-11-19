@@ -20,13 +20,43 @@ pub struct ToolDefinition {
 #[derive(Clone, Debug, PartialEq, Serialize)]
 pub struct FunctionDefinition {
     pub name: String,
-    description: String,
-    parameters: Value,
+    pub description: String,
+    pub parameters: Value,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct ToolCall {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub id: Option<String>,
     pub function: FunctionCall,
+}
+
+impl ToolCall {
+    pub fn new(id: Option<String>, name: String, arguments: Value) -> Self {
+        Self {
+            id,
+            function: FunctionCall {
+                index: None,
+                name,
+                arguments,
+            },
+        }
+    }
+
+    pub fn is_valid(&self) -> bool {
+        !self.function.name.is_empty()
+            && self.function.name.len() <= 64
+            && self
+                .function
+                .name
+                .bytes()
+                .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'_' | b'-'))
+            && self.function.arguments.is_object()
+            && self.function.arguments.to_string().len() <= MAX_ARGUMENT_BYTES
+            && self.id.as_ref().is_none_or(|id| {
+                !id.is_empty() && id.len() <= 512 && !id.chars().any(char::is_control)
+            })
+    }
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]

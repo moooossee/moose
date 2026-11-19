@@ -807,15 +807,13 @@ fn preview(ui: &WindowUi, backend: &Backend, provider: &Provider) -> Result<Opti
         num_ctx,
         ..ChatOptions::default()
     });
-    if provider.kind.supports_tool_calling() {
-        if settings.calculator {
-            request.tools.push(crate::tools::calculator());
-        }
-        if settings.web {
-            request
-                .tools
-                .extend(backend.repository.web_config()?.definitions());
-        }
+    if settings.calculator {
+        request.tools.push(crate::tools::calculator());
+    }
+    if settings.web {
+        request
+            .tools
+            .extend(backend.repository.web_config()?.definitions());
     }
     let mut cached = ui.context_usage.history.borrow_mut();
     if cached.as_ref().is_none_or(|history| {

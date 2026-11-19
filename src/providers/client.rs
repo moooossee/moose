@@ -243,11 +243,6 @@ impl ProviderClient {
     {
         self.check()?;
         let kind = self.provider.api_kind();
-        if !request.tools.is_empty() && !kind.supports_tool_calling() {
-            return Err(MooseError::ProviderRequest(gettext(
-                "Tools are not supported by this provider yet.",
-            )));
-        }
         request.model = kind.validate_model_id(&request.model)?;
         if let Transport::Ollama(client) = &self.transport {
             return client
@@ -308,6 +303,11 @@ impl ProviderClient {
             .send()
             .await
             .map_err(network_error)?;
+        if !request.tools.is_empty() && matches!(response.status().as_u16(), 400 | 422) {
+            return Err(MooseError::ProviderRequest(gettext(
+                "The provider rejected this request with tools. Check the model's tool support and chat settings, or turn off Web and Calculator.",
+            )));
+        }
         check_status(&response)?;
         let mut stream = response.bytes_stream();
         let mut decoder = Decoder::new(kind);
@@ -376,7 +376,20 @@ impl ProviderClient {
                     .as_array()
                     .is_some_and(|values| values.iter().any(|value| value == "tools"))
             }
-            _ => false,
+            Transport::Cloud(_) => match self.provider.kind {
+                ProviderKind::Mistral => {
+                    model_tools(&self.mistral_model(model).await?).unwrap_or(true)
+                }
+                ProviderKind::OpenRouter
+                    if !matches!(model, "openrouter/auto" | "openrouter/free") =>
+                {
+                    model_tools(&self.openrouter_model(model).await?).unwrap_or(true)
+                }
+                ProviderKind::Cloudflare => {
+                    model_tools(&self.cloudflare_model(model).await?).unwrap_or(true)
+                }
+                _ => true,
+            },
         };
         self.check()?;
         Ok(supported)
@@ -919,6 +932,17 @@ fn custom_model_vision(data: &Value, model: &str) -> bool {
             })
         })
         .is_some_and(model_vision)
+}
+
+fn model_tools(entry: &Value) -> Option<bool> {
+    entry["capabilities"]["function_calling"]
+        .as_bool()
+        .or_else(|| entry["capabilities"]["tools"].as_bool())
+        .or_else(|| {
+            entry["supported_parameters"]
+                .as_array()
+                .map(|parameters| parameters.iter().any(|parameter| parameter == "tools"))
+        })
 }
 
 fn model_vision(entry: &Value) -> bool {

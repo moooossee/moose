@@ -1566,10 +1566,10 @@ fn submit_message_with_document(
     };
     request.think = reasoning::selected_for_model(ui, &model);
     let continuing = prompt == crate::chat::CONTINUE_PROMPT;
-    if !continuing && settings.calculator && provider.kind.supports_tool_calling() {
+    if !continuing && settings.calculator {
         request.tools.push(crate::tools::calculator());
     }
-    let web = if !continuing && settings.web && provider.kind.supports_tool_calling() {
+    let web = if !continuing && settings.web {
         if backend.network_policy.local_only() {
             ui.toast_overlay.add_toast(adw::Toast::new(&gettext("Web is blocked by Local Only. Turn off Web in Chat Settings or Local Only in Preferences → Privacy.")));
             return false;

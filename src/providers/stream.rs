@@ -1,6 +1,6 @@
 use crate::i18n::gettext;
 
-use super::ProviderKind;
+use super::{ProviderKind, tool_stream::ToolStream};
 use crate::{
     chat::ChatStreamEvent,
     error::{MooseError, Result},
@@ -13,6 +13,8 @@ pub(super) struct Decoder {
     kind: ProviderKind,
     pending: Vec<u8>,
     data: Vec<u8>,
+    tools: ToolStream,
+    completed: bool,
 }
 
 impl Decoder {
@@ -21,6 +23,8 @@ impl Decoder {
             kind,
             pending: Vec::new(),
             data: Vec::new(),
+            tools: ToolStream::default(),
+            completed: false,
         }
     }
     pub fn push(&mut self, chunk: &[u8]) -> Result<Vec<ChatStreamEvent>> {
@@ -53,7 +57,7 @@ impl Decoder {
         let line = line.strip_suffix(b"\r").unwrap_or(line);
         if self.kind == ProviderKind::OllamaCloud {
             if !line.is_empty() {
-                events.extend(parse(self.kind, line)?);
+                events.extend(self.decode(line)?);
             }
         } else if line.is_empty() {
             self.flush(events)?;
@@ -71,13 +75,41 @@ impl Decoder {
     }
     fn flush(&mut self, events: &mut Vec<ChatStreamEvent>) -> Result<()> {
         if !self.data.is_empty() {
-            events.extend(parse(self.kind, &std::mem::take(&mut self.data))?);
+            let data = std::mem::take(&mut self.data);
+            events.extend(self.decode(&data)?);
         }
         Ok(())
     }
+    fn decode(&mut self, data: &[u8]) -> Result<Vec<ChatStreamEvent>> {
+        if self.completed {
+            return Ok(Vec::new());
+        }
+        let mut events = if data == b"[DONE]"
+            && !matches!(
+                self.kind,
+                ProviderKind::OpenAi
+                    | ProviderKind::Anthropic
+                    | ProviderKind::Gemini
+                    | ProviderKind::OllamaCloud
+            ) {
+            vec![ChatStreamEvent::Done]
+        } else {
+            let value: Value = serde_json::from_slice(data).map_err(|_| invalid())?;
+            let events = content_events(self.kind, &value)?;
+            self.tools.push(self.kind, &value)?;
+            events
+        };
+        if matches!(events.last(), Some(ChatStreamEvent::Done)) {
+            events.pop();
+            events.extend(self.tools.finish(self.kind)?);
+            events.push(ChatStreamEvent::Done);
+            self.completed = true;
+        }
+        Ok(events)
+    }
 }
 
-fn invalid() -> MooseError {
+pub(super) fn invalid() -> MooseError {
     MooseError::ProviderResponse(gettext("The provider returned an invalid stream."))
 }
 fn incomplete() -> MooseError {
@@ -112,22 +144,7 @@ fn content_tokens(events: &mut Vec<ChatStreamEvent>, value: &Value, thinking: bo
     }
 }
 
-fn parse(kind: ProviderKind, data: &[u8]) -> Result<Vec<ChatStreamEvent>> {
-    if data == b"[DONE]"
-        && matches!(
-            kind,
-            ProviderKind::Groq
-                | ProviderKind::Mistral
-                | ProviderKind::DeepSeek
-                | ProviderKind::OpenRouter
-                | ProviderKind::Nvidia
-                | ProviderKind::Cloudflare
-                | ProviderKind::Custom
-        )
-    {
-        return Ok(vec![ChatStreamEvent::Done]);
-    }
-    let v: Value = serde_json::from_slice(data).map_err(|_| invalid())?;
+fn content_events(kind: ProviderKind, v: &Value) -> Result<Vec<ChatStreamEvent>> {
     if v.get("error").is_some_and(|e| !e.is_null())
         || v["type"] == "error"
         || (kind == ProviderKind::Cloudflare && v["success"].as_bool() == Some(false))
@@ -206,7 +223,7 @@ fn parse(kind: ProviderKind, data: &[u8]) -> Result<Vec<ChatStreamEvent>> {
                     }
                 }
                 match choice["finish_reason"].as_str() {
-                    Some("stop") => out.push(ChatStreamEvent::Done),
+                    Some("stop" | "tool_calls") => out.push(ChatStreamEvent::Done),
                     Some("length") => out.push(ChatStreamEvent::ResponseLimit),
                     Some("content_filter") => return Err(blocked()),
                     Some(_) => return Err(incomplete()),
@@ -225,7 +242,7 @@ fn parse(kind: ProviderKind, data: &[u8]) -> Result<Vec<ChatStreamEvent>> {
             }
             "message_delta" => match v["delta"]["stop_reason"].as_str() {
                 Some("max_tokens") => out.push(ChatStreamEvent::ResponseLimit),
-                Some("tool_use" | "pause_turn") => return Err(incomplete()),
+                Some("pause_turn") => return Err(incomplete()),
                 _ => {}
             },
             "message_stop" => out.push(ChatStreamEvent::Done),
@@ -262,6 +279,10 @@ fn parse(kind: ProviderKind, data: &[u8]) -> Result<Vec<ChatStreamEvent>> {
 mod tests {
     use super::*;
     use serde_json::json;
+
+    fn parse(kind: ProviderKind, data: &[u8]) -> Result<Vec<ChatStreamEvent>> {
+        Decoder::new(kind).decode(data)
+    }
 
     #[test]
     fn new_providers_decode_fragmented_content_and_reasoning() {

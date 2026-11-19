@@ -193,12 +193,7 @@ pub(super) fn dialog(
     calculator_row.add_prefix(&gtk::Image::from_icon_name(
         "accessories-calculator-symbolic",
     ));
-    if !provider_kind.is_some_and(ProviderKind::supports_tool_calling) {
-        calculator_row.set_sensitive(false);
-        calculator_row.set_subtitle(&gettext(
-            "Available with compatible Ollama and Ollama Cloud models",
-        ));
-    } else if active_provider(backend).is_some_and(|provider| provider.is_remote()) {
+    if active_provider(backend).is_some_and(|provider| provider.is_remote()) {
         calculator_row.set_subtitle(&gettext(
             "Calculate on this device and share results with this chat’s provider",
         ));
@@ -211,12 +206,7 @@ pub(super) fn dialog(
         .active(values.web)
         .build();
     web_row.add_prefix(&gtk::Image::from_icon_name("moose-globe-symbolic"));
-    if !provider_kind.is_some_and(ProviderKind::supports_tool_calling) {
-        web_row.set_sensitive(false);
-        web_row.set_subtitle(&gettext(
-            "Available with compatible Ollama and Ollama Cloud models",
-        ));
-    } else if backend.network_policy.local_only() {
+    if backend.network_policy.local_only() {
         web_row.set_subtitle(&gettext("Blocked by Local Only in Preferences → Privacy"));
     }
     tools_group.add(&web_row);

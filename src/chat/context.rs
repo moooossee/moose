@@ -344,12 +344,23 @@ pub fn recent_exchanges(history: &[Message], message_limit: usize) -> Vec<[&Mess
 }
 
 pub fn estimate_message_tokens(message: &ChatMessage) -> usize {
+    if !message.provider_content.is_empty() {
+        return message
+            .provider_content
+            .iter()
+            .fold(MESSAGE_OVERHEAD, |tokens, item| {
+                tokens.saturating_add(estimate_text_tokens(&item.to_string()))
+            });
+    }
     let mut tokens = MESSAGE_OVERHEAD
         .saturating_add(estimate_text_tokens(&message.content))
         .saturating_add(estimate_text_tokens(&message.thinking))
         .saturating_add(message.images.len().saturating_mul(ESTIMATED_IMAGE_TOKENS));
     if let Some(name) = &message.tool_name {
         tokens = tokens.saturating_add(estimate_text_tokens(name));
+    }
+    if let Some(id) = &message.tool_call_id {
+        tokens = tokens.saturating_add(estimate_text_tokens(id));
     }
     for call in &message.tool_calls {
         tokens = tokens

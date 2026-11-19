@@ -273,10 +273,8 @@ fn unavailable(backend: &Backend, command: Command) -> Option<&'static str> {
     if !command.enabled {
         return None;
     }
-    if !active_provider(backend).is_some_and(|provider| provider.kind.supports_tool_calling()) {
-        return Some(gettext_noop(
-            "Requires a compatible Ollama or Ollama Cloud model",
-        ));
+    if active_provider(backend).is_none() {
+        return Some(gettext_noop("Select a provider first."));
     }
     if command.tool == Tool::Web && backend.network_policy.local_only() {
         return Some(gettext_noop(
@@ -345,8 +343,7 @@ pub(super) fn refresh(ui: &WindowUi, backend: &Backend) {
         chip.button.set_visible(enabled);
         chip.button.set_sensitive(loaded && busy(backend).is_none());
         let blocked = (chip.tool == Tool::Web && backend.network_policy.local_only())
-            || !active_provider(backend)
-                .is_some_and(|provider| provider.kind.supports_tool_calling());
+            || active_provider(backend).is_none();
         chip.label.set_text(&format!(
             "{}{}",
             gettext(chip.tool.label()),

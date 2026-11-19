@@ -23,14 +23,12 @@ fn image_mime(data: &str) -> Result<&'static str> {
     }
 }
 
-fn role(message: &ChatMessage) -> Result<&'static str> {
+fn role(message: &ChatMessage) -> &'static str {
     match message.role {
-        ChatRole::System => Ok("system"),
-        ChatRole::User => Ok("user"),
-        ChatRole::Assistant => Ok("assistant"),
-        ChatRole::Tool => Err(MooseError::ProviderRequest(
-            gettext_noop("Tool messages are not supported by this chat.").into(),
-        )),
+        ChatRole::System => "system",
+        ChatRole::User => "user",
+        ChatRole::Assistant => "assistant",
+        ChatRole::Tool => "tool",
     }
 }
 
@@ -48,6 +46,18 @@ pub(super) fn request(kind: ProviderKind, request: &ChatRequest) -> Result<Value
         ProviderKind::Anthropic => anthropic(request),
         ProviderKind::Gemini => gemini(request),
     }?;
+    if request.tools_disabled {
+        match kind {
+            ProviderKind::Ollama | ProviderKind::OllamaCloud => {
+                value.as_object_mut().unwrap().remove("tools");
+            }
+            ProviderKind::Anthropic => value["tool_choice"] = json!({"type":"none"}),
+            ProviderKind::Gemini => {
+                value["toolConfig"] = json!({"functionCallingConfig":{"mode":"NONE"}});
+            }
+            _ => value["tool_choice"] = json!("none"),
+        }
+    }
     if let Some(limit) = request
         .options
         .as_ref()
@@ -65,21 +75,75 @@ pub(super) fn request(kind: ProviderKind, request: &ChatRequest) -> Result<Value
     Ok(value)
 }
 
+fn tool_id(message: &ChatMessage) -> Result<&str> {
+    message
+        .tool_call_id
+        .as_deref()
+        .filter(|id| !id.is_empty())
+        .ok_or_else(|| {
+            MooseError::ProviderRequest(gettext("A tool result is missing its call identifier."))
+        })
+}
+
+fn tool_output(message: &ChatMessage) -> Value {
+    match serde_json::from_str::<Value>(&message.content) {
+        Ok(value) if value.is_object() => value,
+        _ => json!({"result":message.content}),
+    }
+}
+
+fn push_parts(messages: &mut Vec<Value>, role: &str, key: &str, parts: Vec<Value>) {
+    if let Some(previous) = messages
+        .last_mut()
+        .filter(|message| message["role"] == role)
+    {
+        previous[key].as_array_mut().unwrap().extend(parts);
+    } else {
+        messages.push(json!({"role":role,(key):parts}));
+    }
+}
+
 fn openai(request: &ChatRequest) -> Result<Value> {
     let mut input = Vec::new();
     for message in &request.messages {
-        let role = role(message)?;
-        if message.images.is_empty() {
-            input.push(json!({"role":role,"content":message.content}));
-        } else {
-            let mut content = vec![json!({"type":"input_text","text":message.content})];
-            for image in &message.images {
-                content.push(json!({"type":"input_image","image_url":format!("data:{};base64,{image}",image_mime(image)?)}));
+        if message.role == ChatRole::Tool {
+            input.push(json!({"type":"function_call_output","call_id":tool_id(message)?,"output":message.content}));
+            continue;
+        }
+        if !message.provider_content.is_empty() {
+            input.extend(message.provider_content.iter().cloned());
+            continue;
+        }
+        let role = role(message);
+        if !message.content.is_empty()
+            || !message.images.is_empty()
+            || message.tool_calls.is_empty()
+        {
+            if message.images.is_empty() {
+                input.push(json!({"role":role,"content":message.content}));
+            } else {
+                let mut content = vec![json!({"type":"input_text","text":message.content})];
+                for image in &message.images {
+                    content.push(json!({"type":"input_image","image_url":format!("data:{};base64,{image}",image_mime(image)?)}));
+                }
+                input.push(json!({"role":role,"content":content}));
             }
-            input.push(json!({"role":role,"content":content}));
+        }
+        for call in &message.tool_calls {
+            let id = call.id.as_deref().ok_or_else(|| {
+                MooseError::ProviderRequest(gettext("A tool call is missing its identifier."))
+            })?;
+            input.push(json!({"type":"function_call","call_id":id,"name":call.function.name,"arguments":call.function.arguments.to_string()}));
         }
     }
     let mut value = json!({"model":request.model,"input":input,"stream":true,"store":false});
+    if !request.tools.is_empty() {
+        value["tools"] = Value::Array(request.tools.iter().map(|tool| json!({
+            "type":"function","name":tool.function.name,"description":tool.function.description,
+            "parameters":tool.function.parameters,"strict":!request.model.starts_with("ft:")
+        })).collect());
+        value["include"] = json!(["reasoning.encrypted_content"]);
+    }
     if let Some(ThinkingValue::Level(effort)) = &request.think {
         value["reasoning"] = json!({"effort":effort});
         if !request.model.starts_with("o3-mini") && !request.model.starts_with("o1") {
@@ -92,9 +156,21 @@ fn openai(request: &ChatRequest) -> Result<Value> {
 fn chat_completions(kind: ProviderKind, request: &ChatRequest) -> Result<Value> {
     let mut messages = Vec::new();
     for message in &request.messages {
-        let role = role(message)?;
-        if message.images.is_empty() {
-            messages.push(json!({"role":role,"content":message.content}));
+        if message.role == ChatRole::Assistant && !message.provider_content.is_empty() {
+            for mut entry in message.provider_content.iter().cloned() {
+                if kind == ProviderKind::DeepSeek
+                    && !request.tools.is_empty()
+                    && entry.get("reasoning_content").is_none()
+                {
+                    entry["reasoning_content"] = json!(message.thinking);
+                }
+                messages.push(entry);
+            }
+            continue;
+        }
+        let role = role(message);
+        let mut entry = if message.images.is_empty() {
+            json!({"role":role,"content":message.content})
         } else {
             if kind != ProviderKind::Groq && role != "user" {
                 return Err(MooseError::ProviderRequest(gettext(
@@ -108,10 +184,42 @@ fn chat_completions(kind: ProviderKind, request: &ChatRequest) -> Result<Value> 
             for image in &message.images {
                 content.push(json!({"type":"image_url","image_url":{"url":format!("data:{};base64,{image}",image_mime(image)?)}}));
             }
-            messages.push(json!({"role":role,"content":content}));
+            json!({"role":role,"content":content})
+        };
+        if message.role == ChatRole::Tool {
+            entry["tool_call_id"] = json!(tool_id(message)?);
         }
+        if message.role == ChatRole::Assistant
+            && kind == ProviderKind::DeepSeek
+            && !request.tools.is_empty()
+        {
+            entry["reasoning_content"] = json!(message.thinking);
+        }
+        if !message.tool_calls.is_empty() {
+            let mut calls = Vec::new();
+            for call in &message.tool_calls {
+                let id = call.id.as_deref().ok_or_else(|| {
+                    MooseError::ProviderRequest(gettext("A tool call is missing its identifier."))
+                })?;
+                calls.push(json!({"id":id,"type":"function","function":{"name":call.function.name,"arguments":call.function.arguments.to_string()}}));
+            }
+            entry["tool_calls"] = json!(calls);
+            if message.content.is_empty() {
+                entry["content"] = Value::Null;
+            }
+            if !message.thinking.is_empty() {
+                entry["reasoning_content"] = json!(message.thinking);
+            }
+        }
+        messages.push(entry);
     }
     let mut value = json!({"model":request.model,"messages":messages,"stream":true});
+    if !request.tools.is_empty() {
+        value["tools"] = serde_json::to_value(&request.tools)?;
+        if kind == ProviderKind::OpenRouter {
+            value["provider"] = json!({"require_parameters":true});
+        }
+    }
     if kind == ProviderKind::Groq {
         value["store"] = json!(false);
     }
@@ -150,22 +258,40 @@ fn anthropic(request: &ChatRequest) -> Result<Value> {
     let mut messages = Vec::new();
     let mut system = Vec::new();
     for message in &request.messages {
-        let role = role(message)?;
-        if role == "system" {
+        if message.role == ChatRole::System {
             system.push(message.content.as_str());
             continue;
         }
-        let mut content = Vec::new();
-        if !message.content.is_empty() {
-            content.push(json!({"type":"text","text":message.content}));
+        if message.role == ChatRole::Tool {
+            let output = tool_output(message);
+            let result = json!({"type":"tool_result","tool_use_id":tool_id(message)?,"content":message.content,"is_error":output.get("error").is_some()});
+            push_parts(&mut messages, "user", "content", vec![result]);
+            continue;
         }
-        for image in &message.images {
-            content.push(json!({"type":"image","source":{"type":"base64","media_type":image_mime(image)?,"data":image}}));
+        let mut content = message.provider_content.clone();
+        if content.is_empty() {
+            if !message.content.is_empty() {
+                content.push(json!({"type":"text","text":message.content}));
+            }
+            for image in &message.images {
+                content.push(json!({"type":"image","source":{"type":"base64","media_type":image_mime(image)?,"data":image}}));
+            }
+            for call in &message.tool_calls {
+                let id = call.id.as_deref().ok_or_else(|| {
+                    MooseError::ProviderRequest(gettext("A tool call is missing its identifier."))
+                })?;
+                content.push(json!({"type":"tool_use","id":id,"name":call.function.name,"input":call.function.arguments}));
+            }
         }
-        messages.push(json!({"role":role,"content":content}));
+        push_parts(&mut messages, role(message), "content", content);
     }
     let mut value =
         json!({"model":request.model,"messages":messages,"max_tokens":4096,"stream":true});
+    if !request.tools.is_empty() {
+        value["tools"] = Value::Array(request.tools.iter().map(|tool| json!({
+            "name":tool.function.name,"description":tool.function.description,"input_schema":tool.function.parameters
+        })).collect());
+    }
     if !system.is_empty() {
         value["system"] = json!(system.join("\n\n"));
     }
@@ -176,18 +302,61 @@ fn gemini(request: &ChatRequest) -> Result<Value> {
     let mut contents = Vec::new();
     let mut system = Vec::new();
     for message in &request.messages {
-        let role = role(message)?;
-        if role == "system" {
+        if message.role == ChatRole::System {
             system.push(json!({"text":message.content}));
             continue;
         }
-        let mut parts = vec![json!({"text":message.content})];
-        for image in &message.images {
-            parts.push(json!({"inlineData":{"mimeType":image_mime(image)?,"data":image}}));
+        if message.role == ChatRole::Tool {
+            let name = message.tool_name.as_deref().ok_or_else(|| {
+                MooseError::ProviderRequest(gettext("A tool result is missing its function name."))
+            })?;
+            let mut response = json!({"name":name,"response":tool_output(message)});
+            if let Some(id) = &message.tool_call_id {
+                response["id"] = json!(id);
+            }
+            push_parts(
+                &mut contents,
+                "user",
+                "parts",
+                vec![json!({"functionResponse":response})],
+            );
+            continue;
         }
-        contents.push(json!({"role":if role=="assistant" {"model"} else {"user"},"parts":parts}));
+        let mut parts = message.provider_content.clone();
+        if parts.is_empty() {
+            if !message.content.is_empty() || message.tool_calls.is_empty() {
+                parts.push(json!({"text":message.content}));
+            }
+            for image in &message.images {
+                parts.push(json!({"inlineData":{"mimeType":image_mime(image)?,"data":image}}));
+            }
+            for call in &message.tool_calls {
+                let mut function =
+                    json!({"name":call.function.name,"args":call.function.arguments});
+                if let Some(id) = &call.id {
+                    function["id"] = json!(id);
+                }
+                parts.push(json!({"functionCall":function}));
+            }
+        }
+        push_parts(
+            &mut contents,
+            if message.role == ChatRole::Assistant {
+                "model"
+            } else {
+                "user"
+            },
+            "parts",
+            parts,
+        );
     }
     let mut value = json!({"contents":contents});
+    if !request.tools.is_empty() {
+        let declarations: Vec<_> = request.tools.iter().map(|tool| {
+            json!({"name":tool.function.name,"description":tool.function.description,"parametersJsonSchema":tool.function.parameters})
+        }).collect();
+        value["tools"] = json!([{"functionDeclarations":declarations}]);
+    }
     if !system.is_empty() {
         value["systemInstruction"] = json!({"parts":system});
     }
@@ -290,6 +459,7 @@ mod tests {
 
     fn chat_request(model: &str) -> ChatRequest {
         ChatRequest {
+            tools_disabled: false,
             tools: Vec::new(),
             think: None,
             model: model.into(),
@@ -361,7 +531,7 @@ mod tests {
     }
 
     #[test]
-    fn new_providers_reject_unsupported_tool_messages() {
+    fn tool_results_require_call_identifiers() {
         for kind in [
             ProviderKind::OpenRouter,
             ProviderKind::Nvidia,
