@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: moose 0.8.5\n"
 "Report-Msgid-Bugs-To: https://github.com/moooossee/moose/issues\n"
-"POT-Creation-Date: 2026-11-17 03:40-0600\n"
+"POT-Creation-Date: 2026-11-19 12:34-0600\n"
 "PO-Revision-Date: 2026-11-14 06:44+0000\n"
 "Last-Translator: Fill read-only add-on <noreply-addon-fill@weblate.org>\n"
 "Language-Team: German <https://hosted.weblate.org/projects/moose/moose/de/>\n"
@@ -546,6 +546,14 @@ msgid "The last model selected by the user for each provider."
 msgstr ""
 
 #: data/io.github.moooossee.Moose.gschema.xml
+msgid "Selected chat folder"
+msgstr ""
+
+#: data/io.github.moooossee.Moose.gschema.xml
+msgid "The last folder selected in the conversation sidebar."
+msgstr ""
+
+#: data/io.github.moooossee.Moose.gschema.xml
 msgid "Keyboard shortcuts"
 msgstr ""
 
@@ -629,7 +637,7 @@ msgid "The model reached the tool limit. Try a more specific question."
 msgstr ""
 
 #: src/chat/runner.rs
-msgid "The model requested a tool operation that is too large."
+msgid "The model returned an invalid tool call."
 msgstr ""
 
 #: src/chat/runner.rs
@@ -942,6 +950,18 @@ msgstr ""
 
 #: src/i18n.rs
 msgid "invalid conversation title"
+msgstr ""
+
+#: src/i18n.rs
+msgid "Use a folder name with 1 to 80 characters and no control characters"
+msgstr ""
+
+#: src/i18n.rs
+msgid "Folder was not found"
+msgstr ""
+
+#: src/i18n.rs
+msgid "A folder with that name already exists"
 msgstr ""
 
 #: src/i18n.rs
@@ -1642,11 +1662,13 @@ msgid "The model list exceeded its pagination limit."
 msgstr ""
 
 #: src/providers/client.rs
-msgid "Tools are not supported by this provider yet."
+msgid "This model does not support images. Select a model with image support."
 msgstr ""
 
 #: src/providers/client.rs
-msgid "This model does not support images. Select a model with image support."
+msgid ""
+"The provider rejected this request with tools. Check the model's tool "
+"support and chat settings, or turn off Web and Calculator."
 msgstr ""
 
 #: src/providers/client.rs
@@ -1848,11 +1870,19 @@ msgid "This image format is not supported. Use PNG, JPEG, WebP or GIF."
 msgstr ""
 
 #: src/providers/wire.rs
-msgid "Tool messages are not supported by this chat."
+msgid "A tool result is missing its call identifier."
+msgstr ""
+
+#: src/providers/wire.rs
+msgid "A tool call is missing its identifier."
 msgstr ""
 
 #: src/providers/wire.rs
 msgid "Images are only supported in user messages for this provider."
+msgstr ""
+
+#: src/providers/wire.rs
+msgid "A tool result is missing its function name."
 msgstr ""
 
 #: src/storage/attachment_repository.rs src/storage/document_repository.rs
@@ -2703,10 +2733,10 @@ msgstr ""
 #: src/ui/window/attachments/library_actions.rs src/ui/window/chat_settings.rs
 #: src/ui/window/cloud_setup.rs src/ui/window/conversation_export.rs
 #: src/ui/window/conversation_list.rs src/ui/window/document_creation.rs
-#: src/ui/window/managed_runtime.rs src/ui/window/message_actions.rs
-#: src/ui/window/model_actions.rs src/ui/window/model_download.rs
-#: src/ui/window/privacy.rs src/ui/window/provider_controls.rs
-#: src/ui/window/web_tools.rs
+#: src/ui/window/folders/dialogs.rs src/ui/window/managed_runtime.rs
+#: src/ui/window/message_actions.rs src/ui/window/model_actions.rs
+#: src/ui/window/model_download.rs src/ui/window/privacy.rs
+#: src/ui/window/provider_controls.rs src/ui/window/web_tools.rs
 msgid "Cancel"
 msgstr ""
 
@@ -2978,10 +3008,6 @@ msgstr ""
 
 #: src/ui/window/chat_settings.rs
 msgid "Run calculations on this device"
-msgstr ""
-
-#: src/ui/window/chat_settings.rs
-msgid "Available with compatible Ollama and Ollama Cloud models"
 msgstr ""
 
 #: src/ui/window/chat_settings.rs
@@ -3727,7 +3753,7 @@ msgid "Finish the keyring operation to change tools"
 msgstr ""
 
 #: src/ui/window/composer_commands.rs
-msgid "Requires a compatible Ollama or Ollama Cloud model"
+msgid "Select a provider first."
 msgstr ""
 
 #: src/ui/window/composer_commands.rs
@@ -3908,7 +3934,7 @@ msgstr ""
 msgid "Finish the active generation first"
 msgstr ""
 
-#: src/ui/window/conversation_export.rs src/ui/window/conversation_list.rs
+#: src/ui/window/conversation_export.rs
 msgid "Export Conversation"
 msgstr ""
 
@@ -3985,11 +4011,15 @@ msgid "Conversation could not be saved: {error}"
 msgstr ""
 
 #: src/ui/window/conversation_list.rs
-msgid "Conversations could not be loaded: {error}"
+msgid "Archived"
 msgstr ""
 
 #: src/ui/window/conversation_list.rs
-msgid "No conversations yet"
+msgid "Folders could not be loaded: {error}"
+msgstr ""
+
+#: src/ui/window/conversation_list.rs
+msgid "Conversations could not be loaded: {error}"
 msgstr ""
 
 #: src/ui/window/conversation_list.rs
@@ -3997,15 +4027,11 @@ msgid "No matching conversations"
 msgstr ""
 
 #: src/ui/window/conversation_list.rs
-msgid "Archived"
+msgid "No chats in this folder"
 msgstr ""
 
 #: src/ui/window/conversation_list.rs
-msgid "Pinned"
-msgstr ""
-
-#: src/ui/window/conversation_list.rs
-msgid "Recent"
+msgid "No chats here yet"
 msgstr ""
 
 #: src/ui/window/conversation_list.rs
@@ -4016,8 +4042,20 @@ msgstr ""
 msgid "Generating Response"
 msgstr ""
 
+#: src/ui/window/conversation_list.rs src/ui/window.rs
+msgid "Conversation could not be loaded: {error}"
+msgstr ""
+
+#: src/ui/window/conversation_list.rs src/ui/window/folders.rs
+msgid "Rename…"
+msgstr ""
+
 #: src/ui/window/conversation_list.rs
-msgid "Rename"
+msgid "Move to Folder…"
+msgstr ""
+
+#: src/ui/window/conversation_list.rs
+msgid "Remove from Folder"
 msgstr ""
 
 #: src/ui/window/conversation_list.rs
@@ -4037,19 +4075,23 @@ msgid "Archive"
 msgstr ""
 
 #: src/ui/window/conversation_list.rs
-msgid "Delete Conversation"
+msgid "Export Conversation…"
+msgstr ""
+
+#: src/ui/window/conversation_list.rs
+msgid "Delete Conversation…"
 msgstr ""
 
 #: src/ui/window/conversation_list.rs
 msgid "Conversation was not found"
 msgstr ""
 
-#: src/ui/window/conversation_list.rs src/ui/window.rs
-msgid "Conversation could not be loaded: {error}"
-msgstr ""
-
 #: src/ui/window/conversation_list.rs
 msgid "Rename Conversation"
+msgstr ""
+
+#: src/ui/window/conversation_list.rs src/ui/window/folders/dialogs.rs
+msgid "Rename"
 msgstr ""
 
 #: src/ui/window/conversation_list.rs
@@ -4264,7 +4306,7 @@ msgstr ""
 msgid "This response is no longer available."
 msgstr ""
 
-#: src/ui/window/document_creation.rs
+#: src/ui/window/document_creation.rs src/ui/window/folders/dialogs.rs
 msgid "Create"
 msgstr ""
 
@@ -4457,6 +4499,95 @@ msgid ""
 "your own API key."
 msgstr ""
 
+#: src/ui/window/folders/dialogs.rs
+msgid "Rename Folder"
+msgstr ""
+
+#: src/ui/window/folders/dialogs.rs src/ui/window/folders.rs
+#: src/ui/window/shortcuts.rs
+msgid "New Folder"
+msgstr ""
+
+#: src/ui/window/folders/dialogs.rs
+msgid "Folder Name"
+msgstr ""
+
+#: src/ui/window/folders/dialogs.rs
+msgid "Delete “{folder}”?"
+msgstr ""
+
+#: src/ui/window/folders/dialogs.rs
+msgid "The chats in this folder will return to the main chat list."
+msgstr ""
+
+#: src/ui/window/folders/dialogs.rs
+msgid "Delete Folder"
+msgstr ""
+
+#: src/ui/window/folders/dialogs.rs
+msgid "Folder deleted. Chats were kept."
+msgstr ""
+
+#: src/ui/window/folders/dialogs.rs
+msgid "Move Chat to Folder"
+msgstr ""
+
+#: src/ui/window/folders/dialogs.rs
+msgid "Move"
+msgstr ""
+
+#: src/ui/window/folders/dialogs.rs
+msgid "Search folders"
+msgstr ""
+
+#: src/ui/window/folders/dialogs.rs
+msgid "No folders found"
+msgstr ""
+
+#: src/ui/window/folders/dialogs.rs
+msgid "New Folder…"
+msgstr ""
+
+#: src/ui/window/folders.rs
+msgid "Folders"
+msgstr ""
+
+#: src/ui/window/folders.rs
+msgid "Chat Folders"
+msgstr ""
+
+#: src/ui/window/folders.rs
+msgid "Back to Chats"
+msgstr ""
+
+#: src/ui/window/folders.rs
+msgid "Chats"
+msgstr ""
+
+#: src/ui/window/folders.rs src/ui/window/sidebar.rs
+msgid "Search chats"
+msgstr ""
+
+#: src/ui/window/folders.rs
+msgid "Search in {folder}"
+msgstr ""
+
+#: src/ui/window/folders.rs
+msgid "Delete Folder…"
+msgstr ""
+
+#: src/ui/window/folders.rs
+msgid "Chat moved"
+msgstr ""
+
+#: src/ui/window/folders.rs
+msgid "Undo"
+msgstr ""
+
+#: src/ui/window/folders.rs
+msgid "Folders could not be updated: {error}"
+msgstr ""
+
 #: src/ui/window/generation.rs
 msgid "Stop Background Response"
 msgstr ""
@@ -4499,6 +4630,10 @@ msgstr ""
 
 #: src/ui/window/header.rs
 msgid "_Search Chats"
+msgstr ""
+
+#: src/ui/window/header.rs
+msgid "New _Folder…"
 msgstr ""
 
 #: src/ui/window/header.rs
@@ -7086,10 +7221,6 @@ msgid "Application"
 msgstr ""
 
 #: src/ui/window/preferences/shortcuts.rs
-msgid "Set Shortcut"
-msgstr ""
-
-#: src/ui/window/preferences/shortcuts.rs
 msgid "_Cancel"
 msgstr ""
 
@@ -7098,15 +7229,7 @@ msgid "_Set"
 msgstr ""
 
 #: src/ui/window/preferences/shortcuts.rs
-msgid "Press a key combination, then choose Set."
-msgstr ""
-
-#: src/ui/window/preferences/shortcuts.rs
-msgid "Press a key combination while this control is focused"
-msgstr ""
-
-#: src/ui/window/preferences/shortcuts.rs
-msgid "Press a key combination. Press Tab to move to the dialog controls."
+msgid "Press a new key combination."
 msgstr ""
 
 #: src/ui/window/preferences/shortcuts.rs
@@ -7115,11 +7238,19 @@ msgid ""
 msgstr ""
 
 #: src/ui/window/preferences/shortcuts.rs
-msgid "Reset to _Default"
+msgid "_Reset"
 msgstr ""
 
 #: src/ui/window/preferences/shortcuts.rs
-msgid "_Disable Shortcut"
+msgid "Restore default shortcut: {shortcut}"
+msgstr ""
+
+#: src/ui/window/preferences/shortcuts.rs
+msgid "_Disable"
+msgstr ""
+
+#: src/ui/window/preferences/shortcuts.rs
+msgid "Disable this keyboard shortcut"
 msgstr ""
 
 #: src/ui/window/preferences/shortcuts.rs
@@ -7127,7 +7258,7 @@ msgid "This key cannot be used as a shortcut"
 msgstr ""
 
 #: src/ui/window/preferences/shortcuts.rs
-msgid "Current shortcut: {shortcut}. Activate to change it."
+msgid "{description} Current shortcut: {shortcut}. Activate to change it."
 msgstr ""
 
 #: src/ui/window/preferences/shortcuts.rs
@@ -7517,6 +7648,10 @@ msgid "Create a new chat and move to the composer."
 msgstr ""
 
 #: src/ui/window/shortcuts.rs
+msgid "Create a folder to organize chats."
+msgstr ""
+
+#: src/ui/window/shortcuts.rs
 msgid "Focus Message"
 msgstr ""
 
@@ -7588,16 +7723,8 @@ msgstr ""
 msgid "Unsupported key: {value}"
 msgstr ""
 
-#: src/ui/window/sidebar.rs
-msgid "Search chats"
-msgstr ""
-
 #: src/ui/window/sidebar.rs src/ui/window.rs
 msgid "Show Archived Chats"
-msgstr ""
-
-#: src/ui/window/sidebar.rs
-msgid "Chats"
 msgstr ""
 
 #: src/ui/window/web_tools.rs
