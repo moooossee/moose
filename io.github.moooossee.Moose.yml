@@ -16,6 +16,53 @@ finish-args:
   - --socket=fallback-x11
   - --socket=wayland
 modules:
+  - name: leptonica
+    buildsystem: cmake-ninja
+    builddir: true
+    config-opts:
+      - -DCMAKE_BUILD_TYPE=Release
+      - -DBUILD_SHARED_LIBS=ON
+      - -DBUILD_PROG=OFF
+      - -DSW_BUILD=OFF
+    post-install:
+      - install -Dm644 /run/build/leptonica/leptonica-license.txt /app/share/licenses/io.github.moooossee.Moose/leptonica/LICENSE
+    cleanup:
+      - /include
+      - /lib/pkgconfig
+      - /lib/cmake
+    sources:
+      - type: archive
+        url: https://github.com/DanBloomberg/leptonica/releases/download/1.87.0/leptonica-1.87.0.tar.gz
+        sha256: c73363397f96eb1295602bf44d708a994ad42046c791bf03ea0505d829bdb6a7
+  - name: tesseract
+    buildsystem: cmake-ninja
+    builddir: true
+    config-opts:
+      - -DCMAKE_BUILD_TYPE=Release
+      - -DBUILD_SHARED_LIBS=ON
+      - -DBUILD_TRAINING_TOOLS=OFF
+      - -DBUILD_TESTS=OFF
+      - -DOPENMP_BUILD=OFF
+      - -DDISABLE_ARCHIVE=ON
+      - -DDISABLE_CURL=ON
+      - -DGRAPHICS_DISABLED=ON
+      - -DENABLE_NATIVE=OFF
+    post-install:
+      - install -Dm644 /run/build/tesseract/LICENSE /app/share/licenses/io.github.moooossee.Moose/tesseract/LICENSE
+      - install -Dm644 /run/build/tesseract/tessdata-LICENSE /app/share/licenses/io.github.moooossee.Moose/tessdata/LICENSE
+    cleanup:
+      - /include
+      - /lib/pkgconfig
+      - /lib/cmake
+      - /share/man
+    sources:
+      - type: archive
+        url: https://github.com/tesseract-ocr/tesseract/archive/refs/tags/5.5.4.tar.gz
+        sha256: a8dbf8b8c8ee427ff6ad1d99116502feaf59440af1adb893caf60a6576826cf4
+      - type: file
+        url: https://raw.githubusercontent.com/tesseract-ocr/tessdata_fast/87416418657359cb625c412a48b6e1d6d41c29bd/LICENSE
+        dest-filename: tessdata-LICENSE
+        sha256: cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30
   - name: poppler-data
     buildsystem: cmake-ninja
     sources:
@@ -34,7 +81,7 @@ modules:
       - -DENABLE_QT6=OFF
       - -DENABLE_BOOST=OFF
       - -DENABLE_LIBCURL=OFF
-      - -DENABLE_LIBOPENJPEG=OFF
+      - -DENABLE_LIBOPENJPEG=ON
       - -DENABLE_NSS3=OFF
       - -DENABLE_GPGME=OFF
       - -DBUILD_GTK_TESTS=OFF
@@ -50,12 +97,10 @@ modules:
       - /bin/pdfdetach
       - /bin/pdffonts
       - /bin/pdfimages
-      - /bin/pdfinfo
       - /bin/pdfseparate
       - /bin/pdfsig
       - /bin/pdftocairo
       - /bin/pdftohtml
-      - /bin/pdftoppm
       - /bin/pdftops
       - /bin/pdfunite
     sources:

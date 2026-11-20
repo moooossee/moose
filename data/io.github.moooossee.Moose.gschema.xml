@@ -1,6 +1,9 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <schemalist gettext-domain="moose">
   <schema id="io.github.moooossee.Moose" path="/io/github/moooossee/Moose/">
+    <key name="ocr-languages" type="s">
+      <default>''</default>
+    </key>
     <key name="selected-models" type="a{ss}">
       <default>@a{ss} {}</default>
       <summary>Selected models</summary>

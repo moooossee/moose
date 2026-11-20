@@ -61,6 +61,10 @@ impl AppPaths {
         &self.database_path
     }
 
+    pub fn ocr_models_dir(&self) -> PathBuf {
+        self.data_dir.join("tessdata")
+    }
+
     pub fn ollama_installation_dir(&self) -> PathBuf {
         self.data_dir.join("ollama_installation")
     }
