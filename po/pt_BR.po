@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: moose 0.8.5\n"
 "Report-Msgid-Bugs-To: https://github.com/moooossee/moose/issues\n"
-"POT-Creation-Date: 2026-11-19 12:34-0600\n"
+"POT-Creation-Date: 2026-11-21 15:10-0600\n"
 "PO-Revision-Date: 2026-11-14 06:44+0000\n"
 "Last-Translator: Fill read-only add-on <noreply-addon-fill@weblate.org>\n"
 "Language-Team: Portuguese (Brazil) <https://hosted.weblate.org/projects/"
@@ -584,7 +584,8 @@ msgstr ""
 msgid "Use a UTF-8 or UTF-16 text document"
 msgstr ""
 
-#: src/attachments.rs
+#: src/attachments.rs src/attachments/ocr.rs
+#: src/storage/attachment_repository.rs
 msgid "Documents can contain up to 4 MB of extracted text"
 msgstr ""
 
@@ -594,6 +595,100 @@ msgstr ""
 
 #: src/attachments.rs
 msgid "This document is empty"
+msgstr ""
+
+#: src/attachments/ocr.rs src/ui/window/attachments.rs
+msgid "Import canceled"
+msgstr ""
+
+#: src/attachments/ocr.rs
+msgid ""
+"Text extraction requires {tool}. Reinstall the Flatpak or install this tool "
+"for a native build."
+msgstr ""
+
+#: src/attachments/ocr.rs
+msgid "Text extraction could not start"
+msgstr ""
+
+#: src/attachments/ocr.rs
+msgid "Text extraction timed out. Try fewer pages or a smaller document."
+msgstr ""
+
+#: src/attachments/ocr.rs
+msgid "The extracted text exceeds the size limit"
+msgstr ""
+
+#: src/attachments/ocr.rs
+msgid "Text extraction stopped unexpectedly"
+msgstr ""
+
+#: src/attachments/ocr.rs
+msgid "{tool} could not process this file: {detail}"
+msgstr ""
+
+#: src/attachments/ocr.rs
+msgid ""
+"Install and select an OCR language in Preferences → Text Recognition before "
+"recognizing text."
+msgstr ""
+
+#: src/attachments/ocr.rs
+msgid ""
+"Some selected OCR languages are not installed. Open Preferences → Text "
+"Recognition to install or select languages."
+msgstr ""
+
+#: src/attachments/ocr.rs
+msgid ""
+"OCR languages {languages} are unavailable. Install their Tesseract language "
+"data or select installed languages."
+msgstr ""
+
+#: src/attachments/ocr.rs
+msgid "Recognized text could not be decoded"
+msgstr ""
+
+#: src/attachments/ocr.rs
+msgid "PDFs must contain between 1 and 1,000 pages"
+msgstr ""
+
+#: src/attachments/ocr.rs src/storage/attachment_repository.rs
+msgid "This page is not available in the PDF"
+msgstr ""
+
+#: src/attachments/ocr.rs
+msgid "PDF text could not be decoded"
+msgstr ""
+
+#: src/attachments/ocr/languages.rs
+msgid "Download canceled"
+msgstr ""
+
+#: src/attachments/ocr/languages.rs
+msgid "Another operation is already changing this OCR language"
+msgstr ""
+
+#: src/attachments/ocr/languages.rs
+msgid "This OCR language is unavailable"
+msgstr ""
+
+#: src/attachments/ocr/languages.rs
+msgid "The OCR language directory is unavailable"
+msgstr ""
+
+#: src/attachments/ocr/languages.rs
+msgid "The OCR language download has an unexpected size"
+msgstr ""
+
+#: src/attachments/ocr/languages.rs
+msgid "The OCR language download exceeds its expected size"
+msgstr ""
+
+#: src/attachments/ocr/languages.rs
+msgid ""
+"The OCR language download is incomplete or failed integrity verification. "
+"Try again."
 msgstr ""
 
 #: src/chat/mod.rs
@@ -808,6 +903,7 @@ msgid "Content"
 msgstr ""
 
 #: src/documents/presentation.rs src/ui/window/attachments/library.rs
+#: src/ui/window/attachments/recognition.rs
 msgid "Page"
 msgstr ""
 
@@ -1891,6 +1987,10 @@ msgid "This document format is not supported."
 msgstr ""
 
 #: src/storage/attachment_repository.rs
+msgid "Recognize text in this image before using text-only mode"
+msgstr ""
+
+#: src/storage/attachment_repository.rs
 msgid "Attach up to 8 files per message"
 msgstr ""
 
@@ -2355,6 +2455,10 @@ msgid ""
 "{size}"
 msgstr ""
 
+#: src/ui/window/attachments/composer.rs
+msgid "Use recognized text instead of sending the image"
+msgstr ""
+
 #: src/ui/window/attachments/document.rs src/ui/window/attachments.rs
 msgid "{kind} · {count} page · {size}"
 msgid_plural "{kind} · {count} pages · {size}"
@@ -2403,45 +2507,193 @@ msgstr ""
 msgid "This image is too large after processing"
 msgstr ""
 
-#: src/ui/window/attachments/import.rs
+#: src/ui/window/attachments/language_manager.rs
+msgid "Preferences…"
+msgstr ""
+
+#: src/ui/window/attachments/language_manager.rs
+msgid "Open Text Recognition preferences"
+msgstr ""
+
+#: src/ui/window/attachments/language_manager.rs
+msgid "Text Recognition"
+msgstr ""
+
+#: src/ui/window/attachments/language_manager.rs
+msgid "Local Text Recognition"
+msgstr ""
+
+#: src/ui/window/attachments/language_manager.rs
 msgid ""
-"PDF support requires Poppler (pdftotext). Reinstall the Flatpak or install "
-"poppler-utils for a native build."
+"Extract text from images and scanned PDFs on this device. Install only the "
+"models you need; downloaded models work offline."
 msgstr ""
 
-#: src/ui/window/attachments/import.rs
-msgid "The PDF reader did not return any text"
+#: src/ui/window/attachments/language_manager.rs
+msgid "Selected Languages and Writing Systems"
 msgstr ""
 
-#: src/ui/window/attachments/import.rs
-msgid "This PDF contains too much text. Import a smaller document."
+#: src/ui/window/attachments/language_manager.rs
+msgid "Search…"
 msgstr ""
 
-#: src/ui/window/attachments/import.rs
+#: src/ui/window/attachments/language_manager.rs
+#: src/ui/window/managed_runtime.rs src/ui/window/model_manager.rs
+msgid "Installed"
+msgstr ""
+
+#: src/ui/window/attachments/language_manager.rs
+msgid "Show only installed models"
+msgstr ""
+
+#: src/ui/window/attachments/language_manager.rs src/ui/window/model_manager.rs
+msgid "Cancel Download"
+msgstr ""
+
+#: src/ui/window/attachments/language_manager.rs
+msgid "Recognition Models"
+msgstr ""
+
+#: src/ui/window/attachments/language_manager.rs
+msgid "Languages"
+msgstr ""
+
+#: src/ui/window/attachments/language_manager.rs
+msgid "Document Languages"
+msgstr ""
+
+#: src/ui/window/attachments/language_manager.rs
 msgid ""
-"PDF extraction could not finish. The document may be damaged or too complex."
+"Choose the languages used in your documents. Select installed languages to "
+"use them for recognition."
 msgstr ""
 
-#: src/ui/window/attachments/import.rs
-msgid "PDF extraction could not finish. Try a smaller document."
+#: src/ui/window/attachments/language_manager.rs
+msgid "Scripts"
 msgstr ""
 
-#: src/ui/window/attachments/import.rs
-msgid "This PDF could not be read. It may be password-protected or damaged."
+#: src/ui/window/attachments/language_manager.rs
+msgid "Writing Systems"
 msgstr ""
 
-#: src/ui/window/attachments/import.rs
-msgid "PDF text could not be decoded"
-msgstr ""
-
-#: src/ui/window/attachments/import.rs
+#: src/ui/window/attachments/language_manager.rs
 msgid ""
-"PDFs can contain up to 1,000 pages. Split this document before importing."
+"Recognize text across languages that share a writing system, such as Latin, "
+"Arabic or Cyrillic. Select an installed writing system to use it."
 msgstr ""
 
-#: src/ui/window/attachments/import.rs
+#: src/ui/window/attachments/language_manager.rs src/ui/window/chat_settings.rs
+#: src/ui/window/chat_view.rs src/ui/window/model_manager/discovery.rs
+msgid "Tools"
+msgstr ""
+
+#: src/ui/window/attachments/language_manager.rs
+msgid "Document Helpers"
+msgstr ""
+
+#: src/ui/window/attachments/language_manager.rs
 msgid ""
-"This PDF has no selectable text. Scan-only PDFs need OCR before importing."
+"Optional tools help read scanned documents. They are used automatically when "
+"installed and do not need to be selected as a language."
+msgstr ""
+
+#: src/ui/window/attachments/language_manager.rs src/ui/window/model_manager.rs
+msgid "No Matching Models"
+msgstr ""
+
+#: src/ui/window/attachments/language_manager.rs
+#: src/ui/window/managed_runtime.rs
+msgid "Not installed"
+msgstr ""
+
+#: src/ui/window/attachments/language_manager.rs
+msgid "Use this writing system for text recognition"
+msgstr ""
+
+#: src/ui/window/attachments/language_manager.rs
+msgid "Use this language for text recognition"
+msgstr ""
+
+#: src/ui/window/attachments/language_manager.rs
+msgid "Orientation and Script Detection"
+msgstr ""
+
+#: src/ui/window/attachments/language_manager.rs
+msgid ""
+"Detects rotated pages and writing systems. Used automatically when "
+"installed. · {size}"
+msgstr ""
+
+#: src/ui/window/attachments/language_manager.rs
+msgid "Enabled"
+msgstr ""
+
+#: src/ui/window/attachments/language_manager.rs
+msgid "Optional"
+msgstr ""
+
+#: src/ui/window/attachments/language_manager.rs
+msgid "Remove {name}"
+msgstr ""
+
+#: src/ui/window/attachments/language_manager.rs
+msgid "Install"
+msgstr ""
+
+#: src/ui/window/attachments/language_manager.rs
+msgid "No Matching Languages"
+msgstr ""
+
+#: src/ui/window/attachments/language_manager.rs
+msgid "No Matching Writing Systems"
+msgstr ""
+
+#: src/ui/window/attachments/language_manager.rs
+msgid "No Matching Tools"
+msgstr ""
+
+#: src/ui/window/attachments/language_manager.rs
+msgid "Turn off Installed to browse models you can download."
+msgstr ""
+
+#: src/ui/window/attachments/language_manager.rs
+msgid "Try another search."
+msgstr ""
+
+#: src/ui/window/attachments/language_manager.rs
+msgid "{count} language"
+msgstr ""
+
+#: src/ui/window/attachments/language_manager.rs
+msgid "{count} languages"
+msgstr ""
+
+#: src/ui/window/attachments/language_manager.rs
+msgid "{count} writing system"
+msgstr ""
+
+#: src/ui/window/attachments/language_manager.rs
+msgid "{count} writing systems"
+msgstr ""
+
+#: src/ui/window/attachments/language_manager.rs
+msgid "{count} tool"
+msgstr ""
+
+#: src/ui/window/attachments/language_manager.rs
+msgid "{count} tools"
+msgstr ""
+
+#: src/ui/window/attachments/language_manager.rs
+msgid "Finish or cancel text extraction before removing OCR languages"
+msgstr ""
+
+#: src/ui/window/attachments/language_manager.rs
+msgid "Downloading {name}… {downloaded} / {total}"
+msgstr ""
+
+#: src/ui/window/attachments/language_manager.rs
+msgid "The OCR language download stopped unexpectedly"
 msgstr ""
 
 #: src/ui/window/attachments/library.rs
@@ -2472,8 +2724,16 @@ msgstr ""
 msgid "Include relevant text when you send a message."
 msgstr ""
 
-#: src/ui/window/attachments/library.rs src/ui/window/header.rs
-msgid "Chat Library Settings"
+#: src/ui/window/attachments/library.rs
+msgid "Text Recognition Languages"
+msgstr ""
+
+#: src/ui/window/attachments/library.rs
+msgid "Select installed languages in Preferences → Text Recognition"
+msgstr ""
+
+#: src/ui/window/attachments/library.rs
+msgid "File Settings"
 msgstr ""
 
 #: src/ui/window/attachments/library.rs
@@ -2529,6 +2789,14 @@ msgid "Importing…"
 msgstr ""
 
 #: src/ui/window/attachments/library.rs
+msgid "Languages and Writing Systems"
+msgstr ""
+
+#: src/ui/window/attachments/library.rs
+msgid "No languages or writing systems selected"
+msgstr ""
+
+#: src/ui/window/attachments/library.rs
 msgid "Files Could Not Be Loaded"
 msgstr ""
 
@@ -2565,6 +2833,10 @@ msgid "{count} file"
 msgid_plural "{count} files"
 msgstr[0] ""
 msgstr[1] ""
+
+#: src/ui/window/attachments/library.rs
+msgid "Image with Text"
+msgstr ""
 
 #: src/ui/window/attachments/library.rs src/ui/window/attachments.rs
 msgid "Image"
@@ -2610,6 +2882,15 @@ msgid "Save Copy…"
 msgstr ""
 
 #: src/ui/window/attachments/library.rs src/ui/window/attachments.rs
+#: src/ui/window/code_view.rs
+msgid "Text"
+msgstr ""
+
+#: src/ui/window/attachments/library.rs
+msgid "View recognized text"
+msgstr ""
+
+#: src/ui/window/attachments/library.rs src/ui/window/attachments.rs
 msgid "This image could not be displayed"
 msgstr ""
 
@@ -2642,7 +2923,7 @@ msgid "of {total}"
 msgstr ""
 
 #: src/ui/window/attachments/library.rs
-msgid "No selectable text on this page."
+msgid "No readable text on this page."
 msgstr ""
 
 #: src/ui/window/attachments/library.rs
@@ -2677,6 +2958,11 @@ msgstr ""
 
 #: src/ui/window/attachments/library_actions.rs
 msgid "Attach to Current Chat"
+msgstr ""
+
+#: src/ui/window/attachments/library_actions.rs
+#: src/ui/window/attachments/recognition.rs
+msgid "Recognize Text…"
 msgstr ""
 
 #: src/ui/window/attachments/library_actions.rs
@@ -2731,7 +3017,8 @@ msgid ""
 "original file is unchanged."
 msgstr ""
 
-#: src/ui/window/attachments/library_actions.rs src/ui/window/chat_settings.rs
+#: src/ui/window/attachments/library_actions.rs
+#: src/ui/window/attachments/recognition.rs src/ui/window/chat_settings.rs
 #: src/ui/window/cloud_setup.rs src/ui/window/conversation_export.rs
 #: src/ui/window/conversation_list.rs src/ui/window/document_creation.rs
 #: src/ui/window/folders/dialogs.rs src/ui/window/managed_runtime.rs
@@ -2765,6 +3052,71 @@ msgstr ""
 
 #: src/ui/window/attachments/request.rs
 msgid "The image context is too large. Use fewer images or start a new chat."
+msgstr ""
+
+#: src/ui/window/attachments/recognition.rs
+msgid "This file could not be processed"
+msgstr ""
+
+#: src/ui/window/attachments/recognition.rs
+msgid "Recognition incomplete: {error}"
+msgstr ""
+
+#: src/ui/window/attachments/recognition.rs
+msgid "Recognized text · {language} · Confidence {confidence}%"
+msgstr ""
+
+#: src/ui/window/attachments/recognition.rs
+msgid "Recognized text · {language}"
+msgstr ""
+
+#: src/ui/window/attachments/recognition.rs
+msgid "Extracted text"
+msgstr ""
+
+#: src/ui/window/attachments/recognition.rs
+msgid "No readable text was found"
+msgstr ""
+
+#: src/ui/window/attachments/recognition.rs src/ui/window/attachments.rs
+msgid "Finish or cancel the current import first"
+msgstr ""
+
+#: src/ui/window/attachments/recognition.rs
+msgid "File"
+msgstr ""
+
+#: src/ui/window/attachments/recognition.rs
+msgid "All Pages"
+msgstr ""
+
+#: src/ui/window/attachments/recognition.rs
+msgid "Use Recognized Text"
+msgstr ""
+
+#: src/ui/window/attachments/recognition.rs
+msgid "Send the extracted text with the current draft."
+msgstr ""
+
+#: src/ui/window/attachments/recognition.rs
+msgid "Recognize Text"
+msgstr ""
+
+#: src/ui/window/attachments/recognition.rs
+msgid ""
+"Extract text on this device using the languages selected in Preferences."
+msgstr ""
+
+#: src/ui/window/attachments/recognition.rs
+msgid "Recognize"
+msgstr ""
+
+#: src/ui/window/attachments/recognition.rs
+msgid "No readable text was found. Previous text was kept."
+msgstr ""
+
+#: src/ui/window/attachments/recognition.rs
+msgid "Recognized text is ready"
 msgstr ""
 
 #: src/ui/window/attachments.rs
@@ -2816,10 +3168,6 @@ msgid "Files could not be selected: {error}"
 msgstr ""
 
 #: src/ui/window/attachments.rs
-msgid "Import canceled"
-msgstr ""
-
-#: src/ui/window/attachments.rs
 msgid "This file took too long to read or process"
 msgstr ""
 
@@ -2832,15 +3180,7 @@ msgid "This file could not be read"
 msgstr ""
 
 #: src/ui/window/attachments.rs
-msgid "Finish or cancel the current import first"
-msgstr ""
-
-#: src/ui/window/attachments.rs
 msgid "Select up to 8 attachments or 32 library files at a time"
-msgstr ""
-
-#: src/ui/window/attachments.rs
-msgid "This file could not be processed"
 msgstr ""
 
 #: src/ui/window/attachments.rs
@@ -2857,10 +3197,6 @@ msgstr[1] ""
 
 #: src/ui/window/attachments.rs
 msgid "Pasted image.png"
-msgstr ""
-
-#: src/ui/window/attachments.rs
-msgid "The image could not be prepared"
 msgstr ""
 
 #: src/ui/window/attachments.rs
@@ -2900,6 +3236,10 @@ msgstr ""
 msgid "Documents are saved in your library"
 msgstr ""
 
+#: src/ui/window/attachments.rs
+msgid "Reading page {page} of {total}…"
+msgstr ""
+
 #: src/ui/window/attachments.rs src/ui/window/chat_view.rs
 msgid "Active Model"
 msgstr ""
@@ -2912,12 +3252,12 @@ msgstr ""
 msgid "Active Model · Text Only"
 msgstr ""
 
-#: src/ui/window/attachments.rs src/ui/window/code_view.rs
-msgid "Text"
+#: src/ui/window/attachments.rs
+msgid "Open image: {arg1}"
 msgstr ""
 
 #: src/ui/window/attachments.rs
-msgid "Open image: {arg1}"
+msgid "Recognized text"
 msgstr ""
 
 #: src/ui/window/attachments.rs
@@ -2996,11 +3336,6 @@ msgstr ""
 
 #: src/ui/window/chat_settings.rs
 msgid "Applies when reasoning is off; higher is more creative"
-msgstr ""
-
-#: src/ui/window/chat_settings.rs src/ui/window/chat_view.rs
-#: src/ui/window/model_manager/discovery.rs
-msgid "Tools"
 msgstr ""
 
 #: src/ui/window/chat_settings.rs
@@ -4666,6 +5001,10 @@ msgid "Back to Chat"
 msgstr ""
 
 #: src/ui/window/header.rs
+msgid "Chat Library Settings"
+msgstr ""
+
+#: src/ui/window/header.rs
 msgid "Source Code"
 msgstr ""
 
@@ -4849,10 +5188,6 @@ msgid "Unknown version"
 msgstr ""
 
 #: src/ui/window/managed_runtime.rs
-msgid "Not installed"
-msgstr ""
-
-#: src/ui/window/managed_runtime.rs
 msgid "Install Ollama"
 msgstr ""
 
@@ -4862,10 +5197,6 @@ msgstr ""
 
 #: src/ui/window/managed_runtime.rs
 msgid "Update available"
-msgstr ""
-
-#: src/ui/window/managed_runtime.rs src/ui/window/model_manager.rs
-msgid "Installed"
 msgstr ""
 
 #: src/ui/window/managed_runtime.rs
@@ -6873,10 +7204,6 @@ msgid "Preparing download…"
 msgstr ""
 
 #: src/ui/window/model_manager.rs
-msgid "Cancel Download"
-msgstr ""
-
-#: src/ui/window/model_manager.rs
 msgid "Cancel download"
 msgstr ""
 
@@ -6929,10 +7256,6 @@ msgstr ""
 
 #: src/ui/window/model_manager.rs
 msgid "Clear Filters"
-msgstr ""
-
-#: src/ui/window/model_manager.rs
-msgid "No Matching Models"
 msgstr ""
 
 #: src/ui/window/model_manager.rs
