@@ -8,6 +8,7 @@ enum Action {
     Chats,
     Folder,
     Attach,
+    Recognize,
     Remove,
 }
 
@@ -53,11 +54,19 @@ pub(super) fn menu(ui: &Rc<WindowUi>, backend: &Rc<Backend>, asset: &Asset) -> g
             gettext_noop("Attach to Current Chat"),
         ),
         (
+            Action::Recognize,
+            "insert-text-symbolic",
+            gettext_noop("Recognize Text…"),
+        ),
+        (
             Action::Remove,
             "user-trash-symbolic",
             gettext_noop("Remove from Library"),
         ),
     ] {
+        if matches!(action, Action::Recognize) && !matches!(asset.kind.as_str(), "image" | "pdf") {
+            continue;
+        }
         if matches!(action, Action::Remove) && !asset.in_library {
             continue;
         }
@@ -95,6 +104,7 @@ pub(super) fn menu(ui: &Rc<WindowUi>, backend: &Rc<Backend>, asset: &Asset) -> g
                 Action::Chats => show_chats(&ui, &target_backend, &target_asset),
                 Action::Folder => show_folder(&ui, &target_backend, &target_asset),
                 Action::Attach => attach(&ui, &target_backend, &target_asset),
+                Action::Recognize => recognition::show(&ui, &target_backend, &target_asset),
                 Action::Remove => remove(&ui, &target_backend, &target_asset),
             }
         });

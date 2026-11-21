@@ -178,7 +178,7 @@ impl ConversationRepository {
             let copied = self.insert_message(source, parent_id.as_deref())?;
             self.connection.execute("INSERT INTO message_details SELECT ?1, model, reasoning, reasoning_ms, elapsed_ms FROM message_details WHERE message_id = ?2", params![copied.id, original_id])?;
             self.connection.execute("INSERT INTO message_tool_activity SELECT ?1, calls, notice FROM message_tool_activity WHERE message_id = ?2", params![copied.id, original_id])?;
-            self.connection.execute("INSERT INTO message_assets SELECT ?1, asset_id, position FROM message_assets WHERE message_id = ?2", params![copied.id, original_id])?;
+            self.connection.execute("INSERT INTO message_assets SELECT ?1, asset_id, position, text_only FROM message_assets WHERE message_id = ?2", params![copied.id, original_id])?;
             self.connection.execute("INSERT INTO response_sources SELECT ?1, number, asset_id, name, page, content FROM response_sources WHERE message_id = ?2", params![copied.id, original_id])?;
             self.copy_documents(&original_id, &copied.id)?;
             parent_id = Some(copied.id);

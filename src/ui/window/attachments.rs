@@ -1,6 +1,7 @@
 use crate::i18n::{gettext, gettext_f, gettext_noop, ngettext_f};
 
 use super::*;
+use crate::attachments::ocr;
 use crate::attachments::{Asset, MAX_ATTACHMENTS, MAX_FILE_BYTES, error};
 use gtk::{gdk, glib};
 
@@ -9,8 +10,11 @@ mod composer;
 mod document;
 mod image;
 mod import;
+mod language_manager;
 pub(super) mod library;
+mod recognition;
 mod request;
+pub(super) use language_manager::{preferences_dialog, preferences_page};
 pub(super) use request::{Preparation, prepare};
 
 pub(super) struct Controls {
@@ -20,6 +24,8 @@ pub(super) struct Controls {
     pub(super) capability: gtk::Image,
     pub(super) cancel: gtk::Button,
     import_epoch: Cell<u64>,
+    job: RefCell<Option<ocr::Job>>,
+    language_manager: RefCell<Option<Rc<language_manager::Manager>>>,
     add: gtk::Button,
     paste: gtk::Button,
     library: gtk::Button,
@@ -57,8 +63,12 @@ pub(super) fn build() -> Controls {
     let previews = composer::previews();
     previews.set_visible(false);
     let status = gtk::Label::builder()
-        .wrap(true)
-        .xalign(0.0)
+        .accessible_role(gtk::AccessibleRole::Status)
+        .single_line_mode(true)
+        .width_chars(1)
+        .ellipsize(gtk::pango::EllipsizeMode::End)
+        .hexpand(true)
+        .xalign(1.0)
         .visible(false)
         .build();
     status.add_css_class("caption");
@@ -67,12 +77,15 @@ pub(super) fn build() -> Controls {
     capability.set_visible(false);
     capability.set_tooltip_text(Some(&gettext("This model supports images")));
     capability.add_css_class("dim-label");
-    let cancel = gtk::Button::with_label(&gettext("Cancel Import"));
+    let cancel = widgets::composer_button("process-stop-symbolic", &gettext("Cancel Import"));
     cancel.add_css_class("flat");
+    cancel.set_valign(gtk::Align::Center);
     cancel.set_visible(false);
     Controls {
         cancel,
         import_epoch: Cell::new(0),
+        job: RefCell::new(None),
+        language_manager: RefCell::new(None),
         capability,
         capability_failed: Cell::new(false),
         button,
@@ -91,13 +104,12 @@ pub(super) fn build() -> Controls {
 }
 
 pub(super) fn bind(ui: &Rc<WindowUi>, backend: &Rc<Backend>) {
+    language_manager::bind(ui, backend);
+    recognition::bind(ui, backend);
     library::bind(ui, backend);
     let target_ui = ui.clone();
     ui.attachments.cancel.connect_clicked(move |button| {
-        target_ui
-            .attachments
-            .import_epoch
-            .set(target_ui.attachments.import_epoch.get() + 1);
+        cancel_import(&target_ui);
         button.set_sensitive(false);
     });
     let target_ui = ui.clone();
@@ -151,6 +163,15 @@ pub(super) fn bind(ui: &Rc<WindowUi>, backend: &Rc<Backend>) {
         true
     });
     ui.entry.add_controller(drop);
+}
+
+fn cancel_import(ui: &WindowUi) {
+    ui.attachments
+        .import_epoch
+        .set(ui.attachments.import_epoch.get().wrapping_add(1));
+    if let Some(job) = ui.attachments.job.borrow().as_ref() {
+        job.cancel();
+    }
 }
 
 fn draft_id(ui: &WindowUi, backend: &Backend) -> Result<String> {
@@ -313,25 +334,36 @@ fn import_files(
                 .unwrap_or_else(|| gettext("Document"));
             let result = async {
                 let bytes = import_step(&ui, epoch, read_file(&file)).await?;
+                if backend.conversation_repository.reuse_asset(
+                    &bytes,
+                    conversation.as_deref(),
+                    file.uri().as_str(),
+                )? {
+                    return Ok(());
+                }
                 let cache = backend.paths.cache_dir().to_path_buf();
                 let name = name.clone();
-                let worker = backend
-                    .runtime
-                    .spawn_blocking(move || import::parse(name, bytes, &cache));
-                let asset = import_step(&ui, epoch, async {
-                    worker
-                        .await
-                        .map_err(|_| error(gettext("This file could not be processed")))?
+                let language = library::languages(&ui);
+                let asset = recognition::process(&ui, &backend, language, move |job| {
+                    import::parse(name, bytes, &cache, &job)
                 })
                 .await?;
                 if ui.attachments.import_epoch.get() != epoch {
                     return Err(error(gettext("Import canceled")));
                 }
+                let warning = asset
+                    .pages
+                    .iter()
+                    .find(|page| !page.error.is_empty())
+                    .map(|page| page.error.clone());
                 backend.conversation_repository.import_asset_from_uri(
                     asset,
                     conversation.as_deref(),
                     file.uri().as_str(),
                 )?;
+                if let Some(warning) = warning {
+                    toast(&ui, &warning);
+                }
                 Ok::<_, MooseError>(())
             }
             .await;
@@ -385,13 +417,15 @@ fn paste_image(ui: &Rc<WindowUi>, backend: &Rc<Backend>) {
     let ui = ui.clone();
     let backend = backend.clone();
     glib::MainContext::default().spawn_local(async move {
-        let result = import_step(&ui, epoch, async {
-            let bytes = clipboard::read_image(&ui.entry.clipboard()).await?;
-            let asset = backend
-                .runtime
-                .spawn_blocking(move || import::image(gettext("Pasted image.png"), &bytes))
-                .await
-                .map_err(|_| error(gettext("The image could not be prepared")))??;
+        let result = async {
+            let bytes =
+                import_step(&ui, epoch, clipboard::read_image(&ui.entry.clipboard())).await?;
+            let cache = backend.paths.cache_dir().to_path_buf();
+            let language = library::languages(&ui);
+            let asset = recognition::process(&ui, &backend, language, move |job| {
+                import::image(gettext("Pasted image.png"), bytes, &cache, &job, false)
+            })
+            .await?;
             if ui.attachments.import_epoch.get() != epoch {
                 return Err(error(gettext("Import canceled")));
             }
@@ -399,7 +433,7 @@ fn paste_image(ui: &Rc<WindowUi>, backend: &Rc<Backend>) {
                 .conversation_repository
                 .import_asset(asset, Some(&conversation))?;
             Ok::<_, MooseError>(())
-        })
+        }
         .await;
         if let Err(error) = result {
             toast(&ui, &crate::i18n::error_message(&error));
@@ -432,7 +466,7 @@ pub(super) fn refresh(ui: &WindowUi, backend: &Backend) {
     ui.attachments.count.set(assets.len());
     ui.attachments
         .has_images
-        .set(assets.iter().any(|asset| asset.kind == "image"));
+        .set(assets.iter().any(Asset::requires_vision));
     for asset in assets {
         let row = composer::asset_widget(ui, backend, &asset);
         let remove = widgets::icon_button(
@@ -486,12 +520,11 @@ pub(super) fn sync_counts(ui: &WindowUi, backend: &Backend) {
     ui.attachments.count.set(assets.len());
     ui.attachments
         .has_images
-        .set(assets.iter().any(|asset| asset.kind == "image"));
+        .set(assets.iter().any(Asset::requires_vision));
     update_status(ui, backend);
 }
 
 fn update_status(ui: &WindowUi, backend: &Backend) {
-    library::sync_import(ui);
     let count = ui.attachments.count.get();
     let tooltip = if count > 0 {
         gettext_f(
@@ -508,7 +541,13 @@ fn update_status(ui: &WindowUi, backend: &Backend) {
     ui.attachments
         .cancel
         .set_visible(ui.attachments.busy.get() > 0);
-    ui.attachments.cancel.set_sensitive(true);
+    ui.attachments.cancel.set_sensitive(
+        ui.attachments
+            .job
+            .borrow()
+            .as_ref()
+            .is_none_or(|job| job.check().is_ok()),
+    );
     let library = backend
         .active_conversation_id
         .borrow()
@@ -539,8 +578,20 @@ fn update_status(ui: &WindowUi, backend: &Backend) {
     } else {
         ""
     });
+    let progress = ui.attachments.job.borrow().as_ref().map(ocr::Job::progress);
+    let status = match progress {
+        Some((page, total)) if total > 0 => gettext_f(
+            "Reading page {page} of {total}…",
+            &[("page", &page.to_string()), ("total", &total.to_string())],
+        ),
+        _ => status,
+    };
     ui.attachments.status.set_label(&status);
+    ui.attachments
+        .status
+        .set_tooltip_text((!status.is_empty()).then_some(status.as_str()));
     ui.attachments.status.set_visible(!status.is_empty());
+    library::sync_import(ui);
     update_send_button(ui);
 }
 
@@ -782,6 +833,7 @@ fn sent_image_widget(
         "Open image: {arg1}",
         &[("arg1", &(asset.name).to_string())],
     )));
+    let text_only = asset.text_only;
     let repository = backend.conversation_repository.clone();
     let parent = ui.window.clone();
     let asset = asset.clone();
@@ -794,6 +846,12 @@ fn sent_image_widget(
     let card = gtk::Box::new(gtk::Orientation::Vertical, 0);
     card.set_valign(gtk::Align::Start);
     card.append(&button);
+    if text_only {
+        let caption = gtk::Label::new(Some(&gettext("Recognized text")));
+        caption.add_css_class("caption");
+        caption.add_css_class("dim-label");
+        card.append(&caption);
+    }
     Ok(card)
 }
 

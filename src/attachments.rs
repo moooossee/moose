@@ -3,6 +3,8 @@ use crate::i18n::gettext;
 use crate::error::{MooseError, Result};
 use serde::Serialize;
 
+pub mod ocr;
+
 pub const MAX_FILE_BYTES: usize = 25 * 1024 * 1024;
 pub const MAX_TEXT_BYTES: usize = 4 * 1024 * 1024;
 pub const MAX_ATTACHMENTS: usize = 8;
@@ -17,6 +19,14 @@ pub struct Asset {
     pub byte_size: i64,
     pub page_count: i64,
     pub in_library: bool,
+    pub has_text: bool,
+    pub text_only: bool,
+}
+
+impl Asset {
+    pub fn requires_vision(&self) -> bool {
+        self.kind == "image" && !self.text_only
+    }
 }
 
 pub enum FileEntry {
@@ -32,7 +42,27 @@ pub struct ImportedAsset {
     pub kind: String,
     pub mime_type: String,
     pub payload: Vec<u8>,
-    pub pages: Vec<String>,
+    pub original: Option<Vec<u8>>,
+    pub pages: Vec<ExtractedPage>,
+}
+
+#[derive(Clone, Debug, Default)]
+pub struct ExtractedPage {
+    pub text: String,
+    pub method: String,
+    pub language: String,
+    pub confidence: Option<f64>,
+    pub error: String,
+}
+
+impl From<String> for ExtractedPage {
+    fn from(text: String) -> Self {
+        Self {
+            text,
+            method: "native".into(),
+            ..Self::default()
+        }
+    }
 }
 
 #[derive(Clone, Debug, Serialize)]

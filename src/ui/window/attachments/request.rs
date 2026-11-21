@@ -117,11 +117,11 @@ pub(in crate::ui::window) fn prepare(
 
     let mut documents = assets
         .iter()
-        .filter(|asset| asset.kind != "image")
+        .filter(|asset| !asset.requires_vision())
         .map(|asset| asset.id.clone())
         .collect::<Vec<_>>();
     for assets in history_assets.iter().rev() {
-        for asset in assets.iter().filter(|asset| asset.kind != "image") {
+        for asset in assets.iter().filter(|asset| !asset.requires_vision()) {
             if !documents.contains(&asset.id) && documents.len() < MAX_ATTACHMENTS {
                 documents.push(asset.id.clone());
             }
@@ -181,10 +181,13 @@ pub(in crate::ui::window) fn prepare(
     )?;
     let mut past_messages = Vec::new();
     for ([user, assistant], assets) in exchanges.iter().zip(&history_assets).rev() {
-        let images = assets.iter().filter(|asset| asset.kind == "image").count();
+        let images = assets
+            .iter()
+            .filter(|asset| asset.requires_vision())
+            .count();
         let image_bytes = assets
             .iter()
-            .filter(|asset| asset.kind == "image")
+            .filter(|asset| asset.requires_vision())
             .try_fold(0usize, |total, asset| {
                 total.checked_add(usize::try_from(asset.byte_size).ok()?)
             });
@@ -295,7 +298,7 @@ fn add_images(
     if message.role != ChatRole::User {
         return Ok(());
     }
-    for asset in assets.iter().filter(|asset| asset.kind == "image") {
+    for asset in assets.iter().filter(|asset| asset.requires_vision()) {
         *count += 1;
         *bytes = bytes.saturating_add(usize::try_from(asset.byte_size).unwrap_or(usize::MAX));
         if *count > MAX_ATTACHMENTS || *bytes > MAX_IMAGE_BYTES {

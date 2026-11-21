@@ -86,8 +86,23 @@ pub(super) fn asset_widget(ui: &WindowUi, backend: &Backend, asset: &Asset) -> g
     button.add_css_class("moose-composer-attachment-preview");
     let repository = backend.conversation_repository.clone();
     let parent = ui.window.clone();
-    let asset = asset.clone();
-    button.connect_clicked(move |_| library::preview(&parent, &repository, &asset, 1));
+    let target_asset = asset.clone();
+    button.connect_clicked(move |_| library::preview(&parent, &repository, &target_asset, 1));
     row.append(&button);
+    if matches!(asset.kind.as_str(), "image" | "pdf") {
+        row.append(&recognition::button(asset));
+    }
+    if asset.kind == "image" && asset.has_text {
+        let mode = gtk::ToggleButton::builder()
+            .icon_name("text-x-generic-symbolic")
+            .tooltip_text(gettext("Use recognized text instead of sending the image"))
+            .active(asset.text_only)
+            .valign(gtk::Align::Center)
+            .build();
+        mode.add_css_class("flat");
+        mode.set_action_name(Some("win.use-image-text"));
+        mode.set_action_target_value(Some(&(asset.id.clone(), !asset.text_only).to_variant()));
+        row.append(&mode);
+    }
     row
 }

@@ -1,18 +1,20 @@
 use crate::i18n::gettext;
 
-use crate::attachments::{ImportedAsset, MAX_FILE_BYTES, MAX_TEXT_BYTES, decode_text, error};
+use crate::attachments::{
+    ExtractedPage, ImportedAsset, MAX_FILE_BYTES, decode_text, error,
+    ocr::{self, Job, PdfMode},
+};
 use crate::error::Result;
 use gtk::{gdk_pixbuf, prelude::*};
-use std::{
-    fs,
-    io::Read,
-    path::Path,
-    process::{Command, Stdio},
-    sync::mpsc,
-    time::{Duration, Instant},
-};
+use std::path::Path;
 
-pub(super) fn parse(name: String, bytes: Vec<u8>, cache: &Path) -> Result<ImportedAsset> {
+pub(super) fn parse(
+    name: String,
+    bytes: Vec<u8>,
+    cache: &Path,
+    job: &Job,
+) -> Result<ImportedAsset> {
+    job.check()?;
     if bytes.is_empty() {
         return Err(error(gettext("This file is empty")));
     }
@@ -25,12 +27,13 @@ pub(super) fn parse(name: String, bytes: Vec<u8>, cache: &Path) -> Result<Import
         .unwrap_or("")
         .to_ascii_lowercase();
     if bytes.starts_with(b"%PDF-") {
-        let pages = pdf_text(&bytes, cache)?;
+        let pages = ocr::pdf(&bytes, cache, job, PdfMode::Automatic)?;
         return Ok(ImportedAsset {
             name,
             kind: "pdf".into(),
             mime_type: "application/pdf".into(),
             payload: bytes,
+            original: None,
             pages,
         });
     }
@@ -38,7 +41,7 @@ pub(super) fn parse(name: String, bytes: Vec<u8>, cache: &Path) -> Result<Import
         || bytes.starts_with(&[0xff, 0xd8, 0xff])
         || (bytes.starts_with(b"RIFF") && bytes.get(8..12) == Some(b"WEBP"))
     {
-        return image(name, &bytes);
+        return image(name, bytes, cache, job, false);
     }
     if matches!(extension.as_str(), "png" | "jpg" | "jpeg" | "webp") {
         return Err(error(gettext(
@@ -54,27 +57,36 @@ pub(super) fn parse(name: String, bytes: Vec<u8>, cache: &Path) -> Result<Import
         kind: "document".into(),
         mime_type: "text/plain".into(),
         payload: bytes,
-        pages: vec![text],
+        original: None,
+        pages: vec![ExtractedPage::from(text)],
     })
 }
 
-pub(super) fn image(name: String, bytes: &[u8]) -> Result<ImportedAsset> {
+pub(super) fn image(
+    name: String,
+    bytes: Vec<u8>,
+    cache: &Path,
+    job: &Job,
+    recognize: bool,
+) -> Result<ImportedAsset> {
+    job.check()?;
     let loader = gdk_pixbuf::PixbufLoader::new();
     let oversized = std::rc::Rc::new(std::cell::Cell::new(false));
     let target = oversized.clone();
+    let limit = if recognize { 4096.0 } else { 2048.0 };
     loader.connect_size_prepared(move |loader, width, height| {
         if width <= 0 || height <= 0 || i64::from(width) * i64::from(height) > 40_000_000 {
             target.set(true);
             loader.set_size(1, 1);
         } else {
-            let ratio = (2048.0 / f64::from(width.max(height))).min(1.0);
+            let ratio = (limit / f64::from(width.max(height))).min(1.0);
             loader.set_size(
                 (f64::from(width) * ratio).round().max(1.0) as i32,
                 (f64::from(height) * ratio).round().max(1.0) as i32,
             );
         }
     });
-    loader.write(bytes).map_err(|_| {
+    loader.write(&bytes).map_err(|_| {
         error(gettext(
             "This image could not be decoded. Use PNG, JPEG or WebP.",
         ))
@@ -87,113 +99,44 @@ pub(super) fn image(name: String, bytes: &[u8]) -> Result<ImportedAsset> {
             "Choose an image with fewer than 40 million pixels",
         )));
     }
+    job.check()?;
     let pixbuf = loader
         .pixbuf()
         .ok_or_else(|| error(gettext("This image could not be opened")))?;
     let pixbuf = pixbuf.apply_embedded_orientation().unwrap_or(pixbuf);
+    let pages = if recognize {
+        let source = pixbuf
+            .save_to_bufferv("png", &[])
+            .map_err(|_| error(gettext("This image could not be prepared")))?;
+        vec![ocr::image(&source, cache, job)?]
+    } else {
+        Vec::new()
+    };
+    let ratio = (2048.0 / f64::from(pixbuf.width().max(pixbuf.height()))).min(1.0);
+    let pixbuf = if ratio < 1.0 {
+        pixbuf
+            .scale_simple(
+                (f64::from(pixbuf.width()) * ratio).round().max(1.0) as i32,
+                (f64::from(pixbuf.height()) * ratio).round().max(1.0) as i32,
+                gdk_pixbuf::InterpType::Bilinear,
+            )
+            .ok_or_else(|| error(gettext("This image could not be prepared")))?
+    } else {
+        pixbuf
+    };
     let payload = pixbuf
         .save_to_bufferv("png", &[])
         .map_err(|_| error(gettext("This image could not be prepared")))?;
     if payload.len() > crate::attachments::MAX_IMAGE_BYTES {
         return Err(error(gettext("This image is too large after processing")));
     }
+    job.check()?;
     Ok(ImportedAsset {
         name,
         kind: "image".into(),
         mime_type: "image/png".into(),
         payload,
-        pages: Vec::new(),
+        original: Some(bytes),
+        pages,
     })
-}
-
-struct TemporaryPdf(std::path::PathBuf);
-impl Drop for TemporaryPdf {
-    fn drop(&mut self) {
-        let _ = fs::remove_file(&self.0);
-    }
-}
-
-fn pdf_text(bytes: &[u8], cache: &Path) -> Result<Vec<String>> {
-    let directory = cache.join("document-imports");
-    fs::create_dir_all(&directory)?;
-    let temporary = TemporaryPdf(directory.join(format!("{}.pdf", crate::core::new_id())));
-    {
-        use std::io::Write;
-        use std::os::unix::fs::OpenOptionsExt;
-        let mut file = fs::OpenOptions::new()
-            .write(true)
-            .create_new(true)
-            .mode(0o600)
-            .open(&temporary.0)?;
-        file.write_all(bytes)?;
-    }
-    let deadline = Instant::now() + Duration::from_secs(30);
-    let mut child = Command::new("pdftotext").args(["-layout", "-enc", "UTF-8", "-f", "1", "-l", "1001"]).arg(&temporary.0).arg("-")
-        .stdin(Stdio::null()).stdout(Stdio::piped()).stderr(Stdio::null()).spawn()
-        .map_err(|_| error(gettext("PDF support requires Poppler (pdftotext). Reinstall the Flatpak or install poppler-utils for a native build.")))?;
-    let stdout = child
-        .stdout
-        .take()
-        .ok_or_else(|| error(gettext("The PDF reader did not return any text")))?;
-    let (sender, receiver) = mpsc::channel();
-    std::thread::spawn(move || {
-        let mut output = Vec::new();
-        let result = stdout
-            .take((MAX_TEXT_BYTES + 1) as u64)
-            .read_to_end(&mut output)
-            .map(|_| output);
-        let _ = sender.send(result);
-    });
-    let output = match receiver.recv_timeout(deadline.saturating_duration_since(Instant::now())) {
-        Ok(Ok(output)) if output.len() <= MAX_TEXT_BYTES => output,
-        Ok(Ok(_)) => {
-            let _ = child.kill();
-            let _ = child.wait();
-            return Err(error(gettext(
-                "This PDF contains too much text. Import a smaller document.",
-            )));
-        }
-        _ => {
-            let _ = child.kill();
-            let _ = child.wait();
-            return Err(error(gettext(
-                "PDF extraction could not finish. The document may be damaged or too complex.",
-            )));
-        }
-    };
-    let status = loop {
-        match child.try_wait() {
-            Ok(Some(status)) => break status,
-            Ok(None) if Instant::now() < deadline => std::thread::sleep(Duration::from_millis(10)),
-            _ => {
-                let _ = child.kill();
-                let _ = child.wait();
-                return Err(error(gettext(
-                    "PDF extraction could not finish. Try a smaller document.",
-                )));
-            }
-        }
-    };
-    if !status.success() {
-        return Err(error(gettext(
-            "This PDF could not be read. It may be password-protected or damaged.",
-        )));
-    }
-    let text =
-        String::from_utf8(output).map_err(|_| error(gettext("PDF text could not be decoded")))?;
-    let mut pages = text.split('\u{c}').map(str::to_string).collect::<Vec<_>>();
-    if pages.last().is_some_and(|page| page.trim().is_empty()) {
-        pages.pop();
-    }
-    if pages.len() > 1000 {
-        return Err(error(gettext(
-            "PDFs can contain up to 1,000 pages. Split this document before importing.",
-        )));
-    }
-    if pages.iter().all(|page| page.trim().is_empty()) {
-        return Err(error(gettext(
-            "This PDF has no selectable text. Scan-only PDFs need OCR before importing.",
-        )));
-    }
-    Ok(pages)
 }

@@ -2,13 +2,15 @@ use crate::i18n::gettext;
 
 use super::*;
 use crate::attachments::{
-    Asset, FileEntry, ImportedAsset, MAX_ATTACHMENTS, Source, chunks, error, search_expression,
+    Asset, ExtractedPage, FileEntry, ImportedAsset, MAX_ATTACHMENTS, MAX_TEXT_BYTES, Source,
+    chunks, error, search_expression,
 };
 use crate::documents::{CreatedDocument, DocumentFormat};
 use sha2::{Digest, Sha256};
 
 const ASSET_COLUMNS: &str =
-    "a.id, a.name, a.kind, a.mime_type, a.byte_size, a.page_count, a.in_library";
+    "a.id, a.name, a.kind, a.mime_type, a.byte_size, a.page_count, a.in_library,
+     EXISTS(SELECT 1 FROM document_chunks c WHERE c.asset_id = a.id)";
 
 fn asset_from_row(row: &Row<'_>) -> rusqlite::Result<Asset> {
     Ok(Asset {
@@ -19,7 +21,22 @@ fn asset_from_row(row: &Row<'_>) -> rusqlite::Result<Asset> {
         byte_size: row.get(4)?,
         page_count: row.get(5)?,
         in_library: row.get(6)?,
+        has_text: row.get(7)?,
+        text_only: false,
     })
+}
+
+fn attached_asset_from_row(row: &Row<'_>) -> rusqlite::Result<Asset> {
+    let mut asset = asset_from_row(row)?;
+    asset.text_only = row.get(8)?;
+    Ok(asset)
+}
+
+fn asset_digest(bytes: &[u8]) -> String {
+    Sha256::digest(bytes)
+        .iter()
+        .map(|byte| format!("{byte:02x}"))
+        .collect()
 }
 
 impl ConversationRepository {
@@ -46,15 +63,16 @@ impl ConversationRepository {
         conversation: Option<&str>,
         source_uri: Option<&str>,
     ) -> Result<Asset> {
-        let digest = Sha256::digest(&imported.payload)
-            .iter()
-            .map(|byte| format!("{byte:02x}"))
-            .collect::<String>();
+        let digest = asset_digest(imported.original.as_deref().unwrap_or(&imported.payload));
+        let legacy_digest = imported
+            .original
+            .as_ref()
+            .map(|_| asset_digest(&imported.payload));
         let transaction = self.connection.unchecked_transaction()?;
         let existing: Option<String> = transaction
             .query_row(
-                "SELECT id FROM assets WHERE digest = ?1",
-                [&digest],
+                "SELECT id FROM assets WHERE digest = ?1 OR (digest = ?2 AND NOT EXISTS(SELECT 1 FROM asset_originals WHERE asset_id = assets.id)) ORDER BY digest = ?1 DESC LIMIT 1",
+                params![digest, legacy_digest],
                 |row| row.get(0),
             )
             .optional()?;
@@ -76,29 +94,73 @@ impl ConversationRepository {
                     utc_now()
                 ],
             )?;
-            for (page, text) in imported.pages.iter().enumerate() {
-                if text.trim().is_empty() {
-                    continue;
-                }
-                for (position, content) in chunks(text).into_iter().enumerate() {
-                    transaction.execute("INSERT INTO document_chunks(asset_id, page, position, content) VALUES (?1, ?2, ?3, ?4)", params![id, page as i64 + 1, position as i64, content])?;
-                }
-            }
-        } else if library {
-            transaction.execute("UPDATE assets SET in_library = 1 WHERE id = ?1", [&id])?;
+        } else {
+            transaction.execute(
+                "UPDATE assets SET digest = ?2 WHERE id = ?1",
+                params![id, digest],
+            )?;
         }
+        if let Some(original) = imported.original {
+            transaction.execute(
+                "INSERT OR IGNORE INTO asset_originals VALUES (?1, ?2)",
+                params![id, original],
+            )?;
+        }
+        let indexed: bool = transaction.query_row(
+            "SELECT EXISTS(SELECT 1 FROM asset_pages WHERE asset_id = ?1)",
+            [&id],
+            |row| row.get(0),
+        )?;
+        if !imported.pages.is_empty() && !indexed {
+            self.store_asset_pages(&id, &imported.pages, None)?;
+        }
+        self.link_asset(&id, conversation, source_uri)?;
+        transaction.commit()?;
+        self.asset(&id)
+    }
+
+    pub fn reuse_asset(
+        &self,
+        bytes: &[u8],
+        conversation: Option<&str>,
+        source_uri: &str,
+    ) -> Result<bool> {
+        let id = self
+            .connection
+            .query_row(
+                "SELECT id FROM assets WHERE digest = ?1",
+                [asset_digest(bytes)],
+                |row| row.get::<_, String>(0),
+            )
+            .optional()?;
+        let Some(id) = id else { return Ok(false) };
+        let transaction = self.connection.unchecked_transaction()?;
+        self.link_asset(&id, conversation, Some(source_uri))?;
+        transaction.commit()?;
+        Ok(true)
+    }
+
+    fn link_asset(
+        &self,
+        id: &str,
+        conversation: Option<&str>,
+        source_uri: Option<&str>,
+    ) -> Result<()> {
+        self.connection.execute(
+            "UPDATE assets SET in_library = 1 WHERE id = ?1 AND (kind != 'image' OR ?2 IS NULL)",
+            params![id, conversation],
+        )?;
         if let Some(conversation) = conversation {
-            self.attach_to_draft(conversation, &id)?;
+            self.attach_to_draft(conversation, id)?;
         }
         if let Some(source_uri) = source_uri {
-            transaction.execute(
+            self.connection.execute(
                 "INSERT INTO asset_locations (asset_id, source_uri) VALUES (?1, ?2)
                  ON CONFLICT(asset_id) DO UPDATE SET source_uri = excluded.source_uri",
                 params![id, source_uri],
             )?;
         }
-        transaction.commit()?;
-        self.asset(&id)
+        Ok(())
     }
 
     pub fn asset(&self, id: &str) -> Result<Asset> {
@@ -138,7 +200,7 @@ impl ConversationRepository {
                 OR (?3 = 'documents' AND a.kind != 'image')
                 OR (?3 = 'images' AND a.kind = 'image'))
              UNION ALL
-             SELECT d.id, d.title, 'generated', '', length(d.payload), 0, 0,
+             SELECT d.id, d.title, 'generated', '', length(d.payload), 0, 0, 0,
                     d.created_at, d.message_id, d.format, c.title
              FROM created_documents d
              JOIN messages m ON m.id = d.message_id
@@ -155,10 +217,10 @@ impl ConversationRepository {
                 |row| {
                     Ok((
                         asset_from_row(row)?,
-                        row.get::<_, String>(7)?,
                         row.get::<_, String>(8)?,
                         row.get::<_, String>(9)?,
                         row.get::<_, String>(10)?,
+                        row.get::<_, String>(11)?,
                     ))
                 },
             )?
@@ -214,17 +276,128 @@ impl ConversationRepository {
             })?)
     }
 
+    pub fn asset_original_bytes(&self, id: &str) -> Result<Vec<u8>> {
+        Ok(self.connection.query_row(
+            "SELECT COALESCE(o.payload, a.payload) FROM assets a LEFT JOIN asset_originals o ON o.asset_id = a.id WHERE a.id = ?1",
+            [id], |row| row.get(0),
+        )?)
+    }
+
+    pub fn replace_asset_pages(
+        &self,
+        id: &str,
+        pages: &[ExtractedPage],
+        selected: Option<usize>,
+    ) -> Result<()> {
+        let transaction = self.connection.unchecked_transaction()?;
+        self.store_asset_pages(id, pages, selected)?;
+        transaction.commit()?;
+        Ok(())
+    }
+
+    fn store_asset_pages(
+        &self,
+        id: &str,
+        pages: &[ExtractedPage],
+        selected: Option<usize>,
+    ) -> Result<()> {
+        if selected.is_some_and(|number| number == 0 || number > pages.len()) {
+            return Err(error(gettext("This page is not available in the PDF")));
+        }
+        let mut text_bytes = pages
+            .iter()
+            .enumerate()
+            .filter(|(index, _)| selected.is_none_or(|number| number == index + 1))
+            .map(|(_, page)| page.text.len())
+            .sum::<usize>();
+        if let Some(selected) = selected {
+            let mut statement = self.connection.prepare(
+                "SELECT DISTINCT page FROM document_chunks WHERE asset_id = ?1 AND page != ?2",
+            )?;
+            let retained = statement
+                .query_map(params![id, selected as i64], |row| row.get::<_, i64>(0))?
+                .collect::<rusqlite::Result<Vec<_>>>()?;
+            for number in retained {
+                text_bytes += self.asset_page(id, number)?.len();
+            }
+        }
+        if pages.len() > 1000 || text_bytes > MAX_TEXT_BYTES {
+            return Err(error(gettext(
+                "Documents can contain up to 4 MB of extracted text",
+            )));
+        }
+        let selected = selected.map(i64::try_from).transpose()?;
+        self.connection.execute(
+            "DELETE FROM document_chunks WHERE asset_id = ?1 AND (?2 IS NULL OR page = ?2)",
+            params![id, selected],
+        )?;
+        self.connection.execute(
+            "DELETE FROM asset_pages WHERE asset_id = ?1 AND (?2 IS NULL OR page = ?2)",
+            params![id, selected],
+        )?;
+        for (index, page) in pages.iter().enumerate() {
+            let number = i64::try_from(index + 1)?;
+            if selected.is_some_and(|selected| selected != number) {
+                continue;
+            }
+            self.connection.execute(
+                "INSERT INTO asset_pages VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+                params![
+                    id,
+                    number,
+                    page.method,
+                    page.language,
+                    page.confidence,
+                    page.error
+                ],
+            )?;
+            if !page.text.trim().is_empty() {
+                for (position, content) in chunks(&page.text).into_iter().enumerate() {
+                    self.connection.execute("INSERT INTO document_chunks(asset_id, page, position, content) VALUES (?1, ?2, ?3, ?4)", params![id, number, position as i64, content])?;
+                }
+            }
+        }
+        self.connection.execute(
+            "UPDATE assets SET page_count = ?2 WHERE id = ?1",
+            params![id, pages.len() as i64],
+        )?;
+        Ok(())
+    }
+
+    pub fn asset_page_info(&self, asset: &str, page: i64) -> Result<Option<ExtractedPage>> {
+        Ok(self.connection.query_row(
+            "SELECT method, language, confidence, error FROM asset_pages WHERE asset_id = ?1 AND page = ?2",
+            params![asset, page],
+            |row| Ok(ExtractedPage { method: row.get(0)?, language: row.get(1)?, confidence: row.get(2)?, error: row.get(3)?, ..ExtractedPage::default() }),
+        ).optional()?)
+    }
+
+    pub fn set_draft_text_only(
+        &self,
+        conversation: &str,
+        asset: &str,
+        enabled: bool,
+    ) -> Result<()> {
+        if enabled && !self.asset(asset)?.has_text {
+            return Err(error(gettext(
+                "Recognize text in this image before using text-only mode",
+            )));
+        }
+        self.connection.execute("UPDATE draft_assets SET text_only = ?3 WHERE conversation_id = ?1 AND asset_id = ?2 AND asset_id IN (SELECT id FROM assets WHERE kind = 'image')", params![conversation, asset, enabled])?;
+        Ok(())
+    }
+
     pub fn draft_assets(&self, conversation: &str) -> Result<Vec<Asset>> {
-        let mut statement = self.connection.prepare(&format!("SELECT {ASSET_COLUMNS} FROM assets a JOIN draft_assets d ON d.asset_id = a.id WHERE d.conversation_id = ?1 ORDER BY d.position"))?;
+        let mut statement = self.connection.prepare(&format!("SELECT {ASSET_COLUMNS}, d.text_only FROM assets a JOIN draft_assets d ON d.asset_id = a.id WHERE d.conversation_id = ?1 ORDER BY d.position"))?;
         Ok(statement
-            .query_map([conversation], asset_from_row)?
+            .query_map([conversation], attached_asset_from_row)?
             .collect::<rusqlite::Result<_>>()?)
     }
 
     pub fn message_assets(&self, message: &str) -> Result<Vec<Asset>> {
-        let mut statement = self.connection.prepare(&format!("SELECT {ASSET_COLUMNS} FROM assets a JOIN message_assets m ON m.asset_id = a.id WHERE m.message_id = ?1 ORDER BY m.position"))?;
+        let mut statement = self.connection.prepare(&format!("SELECT {ASSET_COLUMNS}, m.text_only FROM assets a JOIN message_assets m ON m.asset_id = a.id WHERE m.message_id = ?1 ORDER BY m.position"))?;
         Ok(statement
-            .query_map([message], asset_from_row)?
+            .query_map([message], attached_asset_from_row)?
             .collect::<rusqlite::Result<_>>()?)
     }
 
@@ -236,7 +409,7 @@ impl ConversationRepository {
         if existing.len() >= MAX_ATTACHMENTS {
             return Err(error(gettext("Attach up to 8 files per message")));
         }
-        self.connection.execute("INSERT INTO draft_assets SELECT ?1, ?2, COALESCE(MAX(position), -1) + 1 FROM draft_assets WHERE conversation_id = ?1", params![conversation, asset])?;
+        self.connection.execute("INSERT INTO draft_assets (conversation_id, asset_id, position) SELECT ?1, ?2, COALESCE(MAX(position), -1) + 1 FROM draft_assets WHERE conversation_id = ?1", params![conversation, asset])?;
         self.remember_conversation(conversation)?;
         Ok(())
     }
@@ -402,7 +575,7 @@ impl ConversationRepository {
         let exchange = match submission {
             crate::chat::ChatSubmission::New(_) => {
                 let exchange = self.create_exchange_inner(conversation, prompt)?;
-                transaction.execute("INSERT INTO message_assets SELECT ?1, asset_id, position FROM draft_assets WHERE conversation_id = ?2", params![exchange.0.id, conversation])?;
+                transaction.execute("INSERT INTO message_assets SELECT ?1, asset_id, position, text_only FROM draft_assets WHERE conversation_id = ?2", params![exchange.0.id, conversation])?;
                 transaction.execute(
                     "DELETE FROM draft_assets WHERE conversation_id = ?1",
                     [conversation],
@@ -412,7 +585,7 @@ impl ConversationRepository {
             }
             crate::chat::ChatSubmission::Edit { id, .. } => {
                 let exchange = self.edit_message_inner(id, prompt)?;
-                transaction.execute("INSERT INTO message_assets SELECT ?1, asset_id, position FROM message_assets WHERE message_id = ?2", params![exchange.0.id, id])?;
+                transaction.execute("INSERT INTO message_assets SELECT ?1, asset_id, position, text_only FROM message_assets WHERE message_id = ?2", params![exchange.0.id, id])?;
                 exchange
             }
             crate::chat::ChatSubmission::Regenerate(id) => self.regenerate_message_inner(id)?,

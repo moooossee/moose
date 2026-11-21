@@ -17,6 +17,8 @@ pub(in crate::ui::window) struct Library {
     more: gtk::Button,
     add: gtk::Button,
     cancel: gtk::Button,
+    progress: gtk::Label,
+    languages: adw::EntryRow,
     pub(in crate::ui::window) options: gtk::MenuButton,
     scope: adw::SwitchRow,
     syncing: Cell<bool>,
@@ -59,16 +61,27 @@ pub(in crate::ui::window) fn build() -> Library {
         .build();
     let group = adw::PreferencesGroup::new();
     group.add(&scope);
+    let languages = adw::EntryRow::builder()
+        .title(gettext("Text Recognition Languages"))
+        .tooltip_text(gettext(
+            "Select installed languages in Preferences → Text Recognition",
+        ))
+        .build();
+    languages.set_editable(false);
+    languages.add_suffix(&language_manager::button());
+    let recognition = adw::PreferencesGroup::new();
+    recognition.add(&languages);
     let options_content = gtk::Box::new(gtk::Orientation::Vertical, 0);
     options_content.set_margin_top(8);
     options_content.set_margin_bottom(8);
     options_content.set_margin_start(8);
     options_content.set_margin_end(8);
     options_content.append(&group);
+    options_content.append(&recognition);
     let popover = gtk::Popover::builder().child(&options_content).build();
     let options = gtk::MenuButton::builder()
         .icon_name("emblem-system-symbolic")
-        .tooltip_text(gettext("Chat Library Settings"))
+        .tooltip_text(gettext("File Settings"))
         .valign(gtk::Align::Center)
         .popover(&popover)
         .build();
@@ -77,6 +90,13 @@ pub(in crate::ui::window) fn build() -> Library {
     heading.append(&cancel);
     heading.append(&add);
     content.append(&heading);
+    let progress = gtk::Label::builder()
+        .xalign(0.0)
+        .wrap(true)
+        .visible(false)
+        .build();
+    progress.add_css_class("dim-label");
+    content.append(&progress);
 
     let search = gtk::SearchEntry::builder()
         .placeholder_text(gettext("Search files…"))
@@ -177,6 +197,8 @@ pub(in crate::ui::window) fn build() -> Library {
         more,
         add,
         cancel,
+        progress,
+        languages,
         options,
         scope,
         syncing: Cell::new(false),
@@ -185,6 +207,26 @@ pub(in crate::ui::window) fn build() -> Library {
 }
 
 pub(in crate::ui::window) fn bind(ui: &Rc<WindowUi>, backend: &Rc<Backend>) {
+    if let Some(settings) = backend.settings.as_ref() {
+        let selected = ocr::languages::selection(
+            &settings.string("ocr-languages"),
+            &backend.paths.ocr_models_dir(),
+        );
+        ui.files.languages.set_text(&selected);
+        let _ = settings.set_string("ocr-languages", &selected);
+    }
+    let target_backend = backend.clone();
+    ui.files.languages.connect_changed(move |entry| {
+        let value = entry.text();
+        if value.trim().is_empty() || ocr::valid_languages(value.trim()) {
+            entry.remove_css_class("error");
+            if let Some(settings) = target_backend.settings.as_ref() {
+                let _ = settings.set_string("ocr-languages", value.trim());
+            }
+        } else {
+            entry.add_css_class("error");
+        }
+    });
     let target_ui = ui.clone();
     let target_backend = backend.clone();
     ui.files
@@ -192,10 +234,7 @@ pub(in crate::ui::window) fn bind(ui: &Rc<WindowUi>, backend: &Rc<Backend>) {
         .connect_clicked(move |_| choose_files(&target_ui, &target_backend, true));
     let target_ui = ui.clone();
     ui.files.cancel.connect_clicked(move |button| {
-        target_ui
-            .attachments
-            .import_epoch
-            .set(target_ui.attachments.import_epoch.get() + 1);
+        cancel_import(&target_ui);
         button.set_sensitive(false);
     });
     let target_ui = ui.clone();
@@ -293,7 +332,7 @@ fn sync_scope(ui: &WindowUi, backend: &Backend) {
     ui.files.syncing.set(true);
     ui.files.scope.set_active(enabled);
     ui.files
-        .options
+        .scope
         .set_sensitive(active_provider(backend).is_some());
     ui.files.syncing.set(false);
 }
@@ -307,7 +346,61 @@ pub(in crate::ui::window) fn sync_import(ui: &WindowUi) {
         gettext_noop("Import…")
     }));
     ui.files.cancel.set_visible(busy);
-    ui.files.cancel.set_sensitive(busy);
+    ui.files.cancel.set_sensitive(
+        busy && ui
+            .attachments
+            .job
+            .borrow()
+            .as_ref()
+            .is_none_or(|job| job.check().is_ok()),
+    );
+    ui.files.progress.set_label(&ui.attachments.status.label());
+    ui.files.progress.set_visible(busy);
+}
+
+pub(super) fn languages(ui: &WindowUi) -> String {
+    ui.files.languages.text().trim().to_string()
+}
+
+pub(super) fn set_languages(ui: &WindowUi, backend: &Backend, value: &str) {
+    ui.files.languages.set_text(&ocr::languages::selection(
+        value,
+        &backend.paths.ocr_models_dir(),
+    ));
+}
+
+pub(super) fn language_summary(ui: &WindowUi) -> adw::ActionRow {
+    let row = adw::ActionRow::builder()
+        .title(gettext("Languages and Writing Systems"))
+        .title_lines(2)
+        .subtitle_lines(2)
+        .use_markup(false)
+        .build();
+    let preferences = language_manager::button();
+    row.add_suffix(&preferences);
+    row.set_activatable_widget(Some(&preferences));
+    bind_language_summary(ui, &row);
+    row
+}
+
+pub(super) fn bind_language_summary(ui: &WindowUi, row: &adw::ActionRow) {
+    ui.files
+        .languages
+        .bind_property("text", row, "subtitle")
+        .transform_to(|_, codes: String| {
+            let names = codes
+                .split('+')
+                .filter_map(ocr::languages::find)
+                .map(|language| gettext(&language.name))
+                .collect::<Vec<_>>();
+            Some(if names.is_empty() {
+                gettext("No languages or writing systems selected")
+            } else {
+                names.join(", ")
+            })
+        })
+        .sync_create()
+        .build();
 }
 
 pub(in crate::ui::window) fn refresh_if_visible(ui: &Rc<WindowUi>, backend: &Rc<Backend>) {
@@ -399,6 +492,7 @@ fn populate(ui: &Rc<WindowUi>, backend: &Rc<Backend>) {
                     "text-x-generic-symbolic"
                 },
                 match asset.kind.as_str() {
+                    "image" if asset.has_text => gettext_noop("Image with Text"),
                     "image" => gettext_noop("Image"),
                     "pdf" => "PDF",
                     _ => gettext_noop("Document"),
@@ -577,6 +671,9 @@ fn preview_asset(
     initial_page: i64,
     images: &[Asset],
 ) {
+    let asset = repository
+        .asset(&asset.id)
+        .unwrap_or_else(|_| asset.clone());
     let current_asset = Rc::new(RefCell::new(asset.clone()));
     let dialog = adw::Dialog::builder()
         .title(&asset.name)
@@ -588,6 +685,15 @@ fn preview_asset(
     header.pack_start(&save);
     let root = gtk::Box::new(gtk::Orientation::Vertical, 8);
     if asset.kind == "image" {
+        let text = gtk::Button::with_label(&gettext("Text"));
+        text.set_tooltip_text(Some(&gettext("View recognized text")));
+        header.pack_end(&text);
+        let target_asset = current_asset.clone();
+        let target_repository = repository.clone();
+        let target_parent = parent.clone();
+        text.connect_clicked(move |_| {
+            recognition::preview_text(&target_parent, &target_repository, &target_asset.borrow())
+        });
         match repository.asset_bytes(&asset.id).and_then(|bytes| {
             gdk::Texture::from_bytes(&glib::Bytes::from_owned(bytes))
                 .map_err(|_| error(gettext("This image could not be displayed")))
@@ -791,15 +897,22 @@ fn preview_asset(
             .build();
         let repository = repository.clone();
         let id = asset.id.clone();
-        let load = move |number| match repository.asset_page(&id, number) {
-            Ok(text) if text.trim().is_empty() => {
-                buffer.set_text(&gettext("No selectable text on this page."))
+        let status = gtk::Label::builder().wrap(true).build();
+        status.add_css_class("caption");
+        status.add_css_class("dim-label");
+        root.append(&status);
+        let load = move |number| {
+            status.set_label(&recognition::page_status(&repository, &id, number));
+            match repository.asset_page(&id, number) {
+                Ok(text) if text.trim().is_empty() => {
+                    buffer.set_text(&gettext("No readable text on this page."))
+                }
+                Ok(text) => buffer.set_text(&text),
+                Err(error) => buffer.set_text(&gettext_f(
+                    "Page could not be loaded: {error}",
+                    &[("error", &(error).to_string())],
+                )),
             }
-            Ok(text) => buffer.set_text(&text),
-            Err(error) => buffer.set_text(&gettext_f(
-                "Page could not be loaded: {error}",
-                &[("error", &(error).to_string())],
-            )),
         };
         load(page.value_as_int() as i64);
         page.connect_value_changed(move |page| load(page.value_as_int() as i64));
