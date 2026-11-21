@@ -959,7 +959,9 @@ fn show_preferences_action(
     ui: &Rc<WindowUi>,
     backend: &Rc<Backend>,
 ) {
-    preferences::dialog(parent, ui, backend).present(Some(parent));
+    attachments::preferences_dialog(ui)
+        .unwrap_or_else(|| preferences::dialog(parent, ui, backend))
+        .present(Some(parent));
 }
 
 fn stop_generation_action(ui: &Rc<WindowUi>, backend: &Rc<Backend>, notify_inactive: bool) -> bool {

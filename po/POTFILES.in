@@ -2,6 +2,8 @@ data/io.github.moooossee.Moose.desktop
 data/io.github.moooossee.Moose.metainfo.xml.in
 data/io.github.moooossee.Moose.gschema.xml
 src/attachments.rs
+src/attachments/ocr.rs
+src/attachments/ocr/languages.rs
 src/chat/mod.rs
 src/chat/runner.rs
 src/conversations/mod.rs
@@ -44,9 +46,11 @@ src/ui/window/attachments/clipboard.rs
 src/ui/window/attachments/composer.rs
 src/ui/window/attachments/document.rs
 src/ui/window/attachments/import.rs
+src/ui/window/attachments/language_manager.rs
 src/ui/window/attachments/library.rs
 src/ui/window/attachments/library_actions.rs
 src/ui/window/attachments/request.rs
+src/ui/window/attachments/recognition.rs
 src/ui/window/attachments.rs
 src/ui/window/chat_settings.rs
 src/ui/window/chat_view.rs

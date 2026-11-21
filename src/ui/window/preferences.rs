@@ -252,6 +252,8 @@ pub(super) fn dialog(
     dialog.add(&shortcuts_page);
     dialog.add(&super::web_tools::preferences_page(&dialog, ui, backend));
     dialog.add(&privacy_page);
+    dialog.set_content_height(-1);
+    dialog.add(&super::attachments::preferences_page(&dialog, ui, backend));
 
     if let Some(port_row) = port_row.as_ref() {
         let target_url_row = url_row.clone();
