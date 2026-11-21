@@ -219,8 +219,13 @@ pub(super) fn build() -> Chat {
         .ellipsize(gtk::pango::EllipsizeMode::End)
         .build();
     hint.add_css_class("moose-composer-hint");
+    let feedback = gtk::Box::new(Orientation::Horizontal, 6);
+    feedback.set_hexpand(true);
+    feedback.append(&hint);
+    feedback.append(&attachments.status);
+    feedback.append(&attachments.cancel);
     let feedback_revealer = gtk::Revealer::builder()
-        .child(&hint)
+        .child(&feedback)
         .hexpand(true)
         .valign(Align::Center)
         .transition_type(gtk::RevealerTransitionType::Crossfade)
@@ -232,6 +237,7 @@ pub(super) fn build() -> Chat {
             &adw::ButtonContent::builder()
                 .icon_name("document-new-symbolic")
                 .label(gettext("Create Document"))
+                .can_shrink(true)
                 .build(),
         )
         .valign(Align::Center)
@@ -251,6 +257,7 @@ pub(super) fn build() -> Chat {
     let weak_previews = attachments.previews.downgrade();
     let weak_stack = action_stack.downgrade();
     let weak_hint = hint.downgrade();
+    let weak_status = attachments.status.downgrade();
     let weak_revealer = feedback_revealer.downgrade();
     let weak_focus = focus.downgrade();
     let update_feedback = std::rc::Rc::new(move || {
@@ -262,6 +269,7 @@ pub(super) fn build() -> Chat {
             Some(previews),
             Some(stack),
             Some(hint),
+            Some(status),
             Some(revealer),
             Some(focus),
         ) = (
@@ -272,6 +280,7 @@ pub(super) fn build() -> Chat {
             weak_previews.upgrade(),
             weak_stack.upgrade(),
             weak_hint.upgrade(),
+            weak_status.upgrade(),
             weak_revealer.upgrade(),
             weak_focus.upgrade(),
         )
@@ -304,7 +313,8 @@ pub(super) fn build() -> Chat {
         });
         hint.set_label(&text);
         hint.set_tooltip_text(Some(&text));
-        revealer.set_reveal_child(running || focus.contains_focus());
+        hint.set_visible(!status.is_visible());
+        revealer.set_reveal_child(status.is_visible() || running || focus.contains_focus());
     });
     let update = update_feedback.clone();
     entry_buffer.connect_changed(move |_| update());
@@ -314,6 +324,8 @@ pub(super) fn build() -> Chat {
     attachments
         .previews
         .connect_visible_notify(move |_| update());
+    let update = update_feedback.clone();
+    attachments.status.connect_visible_notify(move |_| update());
     let update = update_feedback.clone();
     focus.connect_contains_focus_notify(move |_| update());
     update_feedback();
@@ -390,18 +402,7 @@ pub(super) fn build() -> Chat {
     composer.append(&commands.active);
     composer.append(&entry_overlay);
     composer.append(&composer_actions);
-    let attachment_status = gtk::Box::new(Orientation::Horizontal, 8);
-    attachments.status.set_hexpand(true);
-    attachment_status.append(&attachments.status);
-    attachment_status.append(&attachments.cancel);
-    attachment_status.add_css_class("moose-attachment-status");
-    attachments
-        .status
-        .bind_property("visible", &attachment_status, "visible")
-        .sync_create()
-        .build();
     composer_area.append(&composer);
-    composer_area.append(&attachment_status);
     let draft_label = gtk::Label::builder()
         .xalign(1.0)
         .hexpand(true)
@@ -428,6 +429,7 @@ pub(super) fn build() -> Chat {
         .margin_start(16)
         .margin_end(16)
         .hexpand(true)
+        .valign(Align::End)
         .child(&composer_area)
         .build();
 
