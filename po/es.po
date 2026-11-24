@@ -8,10 +8,10 @@ msgstr ""
 "Project-Id-Version: moose 0.8.5\n"
 "Report-Msgid-Bugs-To: https://github.com/moooossee/moose/issues\n"
 "POT-Creation-Date: 2026-11-21 15:10-0600\n"
-"PO-Revision-Date: 2026-11-14 06:44+0000\n"
-"Last-Translator: Fill read-only add-on <noreply-addon-fill@weblate.org>\n"
-"Language-Team: Spanish <https://hosted.weblate.org/projects/moose/moose/es/"
-">\n"
+"PO-Revision-Date: 2026-11-25 08:51+0000\n"
+"Last-Translator: \"David D.\" <dadu042@users.noreply.hosted.weblate.org>\n"
+"Language-Team: Spanish <https://hosted.weblate.org/projects/moose/moose/es/>"
+"\n"
 "Language: es\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
@@ -27,7 +27,7 @@ msgstr "Moose"
 #: data/io.github.moooossee.Moose.desktop
 #: data/io.github.moooossee.Moose.metainfo.xml.in
 msgid "Chat with local and cloud AI"
-msgstr ""
+msgstr "Chatea con IA local y en la nube"
 
 #: data/io.github.moooossee.Moose.desktop
 msgid ""
@@ -47,6 +47,11 @@ msgid ""
 "OpenRouter with your own key. Browse models for the things you want to do, "
 "or download compatible models from Hugging Face."
 msgstr ""
+"Hacer preguntas, trabajar en la escritura o obtener ayuda con el código. "
+"Chatea con la IA que se ejecuta en tu ordenador a través de Ollama, o "
+"utiliza un servicio online como OpenRouter con tu propia clave. Navega por "
+"los modelos para ver las cosas que quieres hacer, o descarga modelos "
+"compatibles desde Hugging Face."
 
 #: data/io.github.moooossee.Moose.metainfo.xml.in
 msgid ""
@@ -57,6 +62,12 @@ msgid ""
 "Pictures need a model that can understand them, and PDFs need text you can "
 "select."
 msgstr ""
+"Incluye fotos, PDF y archivos de texto en la conversación. Tus archivos "
+"adjuntos y los documentos que crees están juntos en Archivos, donde puedes "
+"previsualizarlos, buscar en tu biblioteca y volver a un chat relacionado. "
+"Las respuestas pueden mostrar pasajes de tus documentos para que puedas "
+"comprobar de dónde procede la información. Las imágenes necesitan un modelo "
+"que pueda entenderlas, y los PDF necesitan texto que puedas seleccionar."
 
 #: data/io.github.moooossee.Moose.metainfo.xml.in
 msgid ""
@@ -66,6 +77,12 @@ msgid ""
 "Your documents stay with the answer, so you can preview them, open them in "
 "another application or save a copy whenever you need."
 msgstr ""
+"Pídele a Moose que escriba un informe, elabore un presupuesto o prepare una "
+"presentación. Describe lo que necesitas o utiliza una respuesta que ya "
+"tienes, luego elige PDF, Word, Excel, PowerPoint, OpenDocument o un formato "
+"de texto o datos. Tus documentos se quedan con la respuesta, así que puedes "
+"previsualizarlos, abrirlos en otra aplicación o guardar una copia cuando lo "
+"necesites."
 
 #: data/io.github.moooossee.Moose.metainfo.xml.in
 msgid ""
@@ -73,6 +90,10 @@ msgid ""
 "an answer reaches its limit, you can ask it to continue. Drafts save as you "
 "go, and code and math are formatted to make them easier to read."
 msgstr ""
+"Editar un mensaje, intentar una respuesta diferente o volver a una versión "
+"anterior. Si una respuesta alcanza el límite, puede pedirle que continúe. "
+"Los borradores se guardan a medida que avanzas, y el código y las "
+"matemáticas están formateados para facilitar su lectura."
 
 #: data/io.github.moooossee.Moose.metainfo.xml.in
 msgid ""
@@ -99,11 +120,11 @@ msgstr ""
 
 #: data/io.github.moooossee.Moose.metainfo.xml.in
 msgid "Artificial intelligence"
-msgstr ""
+msgstr "Inteligencia artificial"
 
 #: data/io.github.moooossee.Moose.metainfo.xml.in
 msgid "Local AI"
-msgstr ""
+msgstr "IA local"
 
 #: data/io.github.moooossee.Moose.metainfo.xml.in
 msgid "Cloud AI"
@@ -137,7 +158,7 @@ msgstr ""
 #: src/ui/window/custom_provider.rs src/ui/window/model_manager.rs
 #: src/ui/window/preferences/shortcuts.rs src/ui/window.rs
 msgid "Models"
-msgstr ""
+msgstr "Modelos"
 
 #: data/io.github.moooossee.Moose.metainfo.xml.in
 msgid "PDF"
@@ -175,11 +196,11 @@ msgstr ""
 
 #: data/io.github.moooossee.Moose.metainfo.xml.in
 msgid "Chat with AI models and read formatted answers"
-msgstr ""
+msgstr "Chatear con modelos de IA y leer respuestas formateadas"
 
 #: data/io.github.moooossee.Moose.metainfo.xml.in
 msgid "Ask questions about images with vision models"
-msgstr ""
+msgstr "Hacer preguntas sobre imágenes con modelos de visión"
 
 #: data/io.github.moooossee.Moose.metainfo.xml.in
 msgid "Browse, search and filter attachments in Files"
@@ -187,7 +208,7 @@ msgstr ""
 
 #: data/io.github.moooossee.Moose.metainfo.xml.in
 msgid "Explore math with clear, formatted explanations"
-msgstr ""
+msgstr "Explora las matemáticas con explicaciones claras y formateadas"
 
 #: data/io.github.moooossee.Moose.metainfo.xml.in
 msgid "Review and approve context shared with cloud providers"
@@ -540,7 +561,7 @@ msgstr ""
 
 #: data/io.github.moooossee.Moose.gschema.xml
 msgid "Selected models"
-msgstr ""
+msgstr "Modelos seleccionados"
 
 #: data/io.github.moooossee.Moose.gschema.xml
 msgid "The last model selected by the user for each provider."
@@ -752,19 +773,19 @@ msgstr ""
 
 #: src/conversations/mod.rs src/ui/window/chat_view.rs
 msgid "Generating response..."
-msgstr ""
+msgstr "Generando respuesta..."
 
 #: src/conversations/mod.rs src/ui/window/generation.rs
 msgid "Response incomplete"
-msgstr ""
+msgstr "Respuesta incompleta"
 
 #: src/conversations/mod.rs src/ui/window/chat_view.rs src/ui/window.rs
 msgid "Generation cancelled"
-msgstr ""
+msgstr "Generación cancelada"
 
 #: src/conversations/mod.rs src/ui/window/chat_view.rs
 msgid "Generation failed"
-msgstr ""
+msgstr "Generación fallida"
 
 #: src/documents/archive.rs
 msgid "The document is too large to package."
@@ -804,19 +825,19 @@ msgstr ""
 #: src/ui/window/attachments/document.rs src/ui/window/attachments/library.rs
 #: src/ui/window/attachments.rs
 msgid "Document"
-msgstr ""
+msgstr "Documento"
 
 #: src/documents/mod.rs
 msgid "PDF Document"
-msgstr ""
+msgstr "Documento PDF"
 
 #: src/documents/mod.rs
 msgid "Word Document"
-msgstr ""
+msgstr "Documento Word"
 
 #: src/documents/mod.rs
 msgid "Excel Workbook"
-msgstr ""
+msgstr "Documento Excel"
 
 #: src/documents/mod.rs
 msgid "PowerPoint Presentation"
@@ -2544,7 +2565,7 @@ msgstr ""
 
 #: src/ui/window/attachments/language_manager.rs
 msgid "Show only installed models"
-msgstr ""
+msgstr "Mostrar solo los modelos instalados"
 
 #: src/ui/window/attachments/language_manager.rs src/ui/window/model_manager.rs
 msgid "Cancel Download"
@@ -2552,7 +2573,7 @@ msgstr ""
 
 #: src/ui/window/attachments/language_manager.rs
 msgid "Recognition Models"
-msgstr ""
+msgstr "Modelos de reconocimiento"
 
 #: src/ui/window/attachments/language_manager.rs
 msgid "Languages"
@@ -2599,7 +2620,7 @@ msgstr ""
 
 #: src/ui/window/attachments/language_manager.rs src/ui/window/model_manager.rs
 msgid "No Matching Models"
-msgstr ""
+msgstr "No hay modelos coincidentes"
 
 #: src/ui/window/attachments/language_manager.rs
 #: src/ui/window/managed_runtime.rs
@@ -4978,7 +4999,7 @@ msgstr ""
 
 #: src/ui/window/header.rs
 msgid "_Models"
-msgstr ""
+msgstr "_Modelos"
 
 #: src/ui/window/header.rs
 msgid "_Preferences"
