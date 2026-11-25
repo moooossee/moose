@@ -8,7 +8,7 @@ msgstr ""
 "Project-Id-Version: moose 0.8.5\n"
 "Report-Msgid-Bugs-To: https://github.com/moooossee/moose/issues\n"
 "POT-Creation-Date: 2026-11-21 15:10-0600\n"
-"PO-Revision-Date: 2026-11-25 08:51+0000\n"
+"PO-Revision-Date: 2026-11-26 18:51+0000\n"
 "Last-Translator: \"David D.\" <dadu042@users.noreply.hosted.weblate.org>\n"
 "Language-Team: French <https://hosted.weblate.org/projects/moose/moose/fr/>\n"
 "Language: fr\n"
@@ -5075,12 +5075,12 @@ msgstr "Message"
 
 #: src/ui/window/conversation_export.rs
 msgid "Export"
-msgstr ""
+msgstr "Exporter"
 
 #: src/ui/window/conversation_export.rs
 #, rust-format
 msgid "Export destination could not be opened: {error}"
-msgstr ""
+msgstr "La destination d’exportation n’a pas pu être ouverte : {error}"
 
 #: src/ui/window/conversation_export.rs
 msgid "Conversation exported"
@@ -5256,11 +5256,11 @@ msgstr ""
 
 #: src/ui/window/custom_provider.rs
 msgid "API key header"
-msgstr ""
+msgstr "En-tête de clé d'API"
 
 #: src/ui/window/custom_provider.rs
 msgid "API Key Header"
-msgstr ""
+msgstr "En-tête de clé d'API"
 
 #: src/ui/window/custom_provider.rs
 msgid ""
@@ -6296,7 +6296,7 @@ msgstr ""
 
 #: src/ui/window/model_actions.rs
 msgid "Clear"
-msgstr ""
+msgstr "Effacer"
 
 #: src/ui/window/model_actions.rs
 msgid "Download history cleared"
@@ -7395,10 +7395,13 @@ msgid ""
 "A newer Mistral family designed for edge deployment with 3B, 8B and 14B "
 "sizes. Good fit for laptops and local-first use."
 msgstr ""
+"Une nouvelle gamme Mistral conçue pour le déploiement en périphérie avec des "
+"tailles 3B, 8B et 14B. Convient parfaitement aux ordinateurs portables et à "
+"une utilisation locale d’abord."
 
 #: src/ui/window/model_manager.rs
 msgid "Small edge-friendly model."
-msgstr ""
+msgstr "Petit modèle convivial."
 
 #: src/ui/window/model_manager.rs
 msgid "Balanced local Ministral model."
