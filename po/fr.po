@@ -8,7 +8,7 @@ msgstr ""
 "Project-Id-Version: moose 0.8.5\n"
 "Report-Msgid-Bugs-To: https://github.com/moooossee/moose/issues\n"
 "POT-Creation-Date: 2026-11-21 15:10-0600\n"
-"PO-Revision-Date: 2026-11-24 07:51+0000\n"
+"PO-Revision-Date: 2026-11-25 08:51+0000\n"
 "Last-Translator: \"David D.\" <dadu042@users.noreply.hosted.weblate.org>\n"
 "Language-Team: French <https://hosted.weblate.org/projects/moose/moose/fr/>\n"
 "Language: fr\n"
@@ -317,6 +317,14 @@ msgid ""
 "computer. You can start a chat with an installed model right away, and "
 "progress messages make downloads and removals easier to follow."
 msgstr ""
+"La nouvelle vue Modèles vous aide à trouver un modèle pour les questions de "
+"tous les jours, le codage, les photos ou les documents. Les filtres vous "
+"permettent de réduire les choix, et les détails du modèle indiquent la "
+"taille du téléchargement ainsi que la mémoire estimée et les besoins en "
+"stockage. Si Moose gère Ollama, les suggestions prennent également en compte "
+"la mémoire disponible sur votre ordinateur. Vous pouvez lancer immédiatement "
+"un tchat avec un modèle installé, et les messages de progression facilitent "
+"le suivi des téléchargements et des suppressions."
 
 #: data/io.github.moooossee.Moose.metainfo.xml.in
 msgid ""
@@ -325,6 +333,12 @@ msgid ""
 "made it easier to switch between services and find your chat settings. Chat "
 "titles now better reflect your topic and language."
 msgstr ""
+"OpenRouter est maintenant disponible en tant que autre façon de discuter. "
+"Ajoutez votre clé et choisissez un modèle, avec des images et des options de "
+"raisonnement lorsqu’elles sont prises en charge. Nous avons également "
+"facilité le basculement entre les services et la recherche de vos paramètres "
+"de tchat. Les titres des tchats reflètent désormais mieux votre sujet et "
+"votre langue."
 
 #: data/io.github.moooossee.Moose.metainfo.xml.in
 msgid ""
@@ -334,6 +348,13 @@ msgid ""
 "preference, with reasoning off by default where supported. We've also "
 "improved message spacing to make conversations easier to read."
 msgstr ""
+"Les discussions plus longues avec Ollama laissent désormais plus de place "
+"pour une réponse. Si une réponse s’arrête parce qu’elle atteint sa limite de "
+"longueur, le texte reste enregistré et vous pouvez choisir Continuer pour "
+"reprendre là où il s’est arrêté. Moose se souvient de votre préférence en "
+"matière de raisonnement, le raisonnement étant désactivé par défaut là où il "
+"est pris en charge. Nous avons également amélioré l’espacement des messages "
+"pour faciliter la lecture des conversations."
 
 #: data/io.github.moooossee.Moose.metainfo.xml.in
 msgid ""
@@ -341,6 +362,10 @@ msgid ""
 "connection. Paste a model link, an Ollama model name or an ollama run or "
 "ollama pull command, and optionally choose a quantization or GGUF filename."
 msgstr ""
+"Téléchargez les modèles GGUF compatibles depuis Hugging Face via votre "
+"connexion Ollama. Collez un lien de modèle, un nom de modèle Ollama ou une "
+"commande d’exécution Ollama ou pull ollama, et choisissez éventuellement une "
+"quantification ou un nom de fichier GGUF."
 
 #: data/io.github.moooossee.Moose.metainfo.xml.in
 msgid ""
@@ -349,6 +374,11 @@ msgid ""
 "with clearer guidance, and download progress now clears when a transfer "
 "finishes, fails or is cancelled."
 msgstr ""
+"Démarrez un nouveau tchat à partir d’un téléchargement terminé ou utilisez "
+"un modèle déjà installé dans la boîte de dialogue de téléchargement. Les "
+"téléchargements échoués offrent une action Modifier et Réessayer avec des "
+"instructions plus claires, et la progression du téléchargement est désormais "
+"effacée lorsqu’un transfert se termine, échoue ou est annulé."
 
 #: data/io.github.moooossee.Moose.metainfo.xml.in
 msgid ""
@@ -356,6 +386,11 @@ msgid ""
 "or cloud connection. Chat bubble backgrounds display correctly with custom "
 "GTK themes, and model search fits better in narrow windows."
 msgstr ""
+"La configuration initiale ouvre désormais le sélecteur de fournisseur afin "
+"que vous puissiez sélectionner une connexion locale ou cloud. Les arrière-"
+"plans des bulles de tchat s’affichent correctement avec les thèmes GTK "
+"personnalisés, et la recherche de modèles s’adapte mieux aux fenêtres "
+"étroites."
 
 #: data/io.github.moooossee.Moose.metainfo.xml.in
 msgid ""
@@ -364,6 +399,11 @@ msgid ""
 "This release comes with Ollama 0.40.6, lets you pick up interrupted engine "
 "downloads and brings back the previous installation if an update fails."
 msgstr ""
+"Vous pouvez désormais vérifier les mises à jour, mettre à jour ou réparer "
+"l’installation d’Ollama gérée par Moose directement depuis Préférences. Vos "
+"modèles et tchats restent en place. Cette version est fournie avec Ollama "
+"0.40.6, vous permet de récupérer les téléchargements du moteur interrompus "
+"et de restaurer l’installation précédente si une mise à jour échoue."
 
 #: data/io.github.moooossee.Moose.metainfo.xml.in
 msgid ""
@@ -402,18 +442,27 @@ msgid ""
 "instances from using the same installation. Model downloads report provider "
 "errors and incomplete transfers instead of appearing to finish successfully."
 msgstr ""
+"Ollama géré s’arrête désormais lorsque Moose se ferme et empêche les "
+"instances conflictuelles d’utiliser la même installation. Le modèle "
+"télécharge les erreurs du fournisseur de rapport et les transferts "
+"incomplets au lieu de sembler se terminer avec succès."
 
 #: data/io.github.moooossee.Moose.metainfo.xml.in
 msgid ""
 "Connect to Mistral AI and DeepSeek, or add a custom cloud provider with your "
 "own server address and authentication settings."
 msgstr ""
+"Connectez-vous à Mistral AI et DeepSeek, ou ajoutez un fournisseur cloud "
+"personnalisé avec votre propre adresse de serveur et vos paramètres "
+"d’authentification."
 
 #: data/io.github.moooossee.Moose.metainfo.xml.in
 msgid ""
 "Discover models automatically or add them manually, with image support "
 "configurable for each saved model."
 msgstr ""
+"Découvrez des modèles automatiquement ou ajoutez-les manuellement, avec la "
+"prise en charge d’images configurables pour chaque modèle enregistré."
 
 #: data/io.github.moooossee.Moose.metainfo.xml.in
 msgid ""
@@ -421,17 +470,24 @@ msgid ""
 "models and fixes managed Ollama installation in folders accessed through "
 "symbolic links."
 msgstr ""
+"Cette mise à jour ajoute également des contrôles de raisonnement pour les "
+"modèles Mistral et DeepSeek pris en charge et corrige l’installation gérée "
+"d’Ollama dans des dossiers accessibles via des liens symboliques."
 
 #: data/io.github.moooossee.Moose.metainfo.xml.in
 msgid ""
 "Connect securely to cloud providers using your own API key and control what "
 "you share."
 msgstr ""
+"Connectez-vous en toute sécurité à des fournisseurs en cloud en utilisant "
+"votre propre clé API et contrôlez ce que vous partagez."
 
 #: data/io.github.moooossee.Moose.metainfo.xml.in
 msgid ""
 "Enable Local Only mode to restrict inference to Ollama managed by Moose."
 msgstr ""
+"Activez le mode Local uniquement pour limiter l’inférence à Ollama géré par "
+"Moose."
 
 #: data/io.github.moooossee.Moose.metainfo.xml.in
 msgid ""
@@ -439,6 +495,10 @@ msgid ""
 "sharing requires separate permission. Review context before sending and "
 "reset permissions in Privacy settings."
 msgstr ""
+"Autoriser les messages dans tous les tchats avec un fournisseur ou demander "
+"dans chaque tchat. Le partage de fichiers nécessite une autorisation "
+"distincte. Vérifiez le contexte avant d’envoyer et réinitialiser les "
+"autorisations dans les paramètres de confidentialité."
 
 #: data/io.github.moooossee.Moose.metainfo.xml.in
 msgid ""
@@ -446,22 +506,32 @@ msgid ""
 "library documents. Preview files, find their original folder, reopen related "
 "chats or attach them to the current chat."
 msgstr ""
+"Ouvrez des fichiers depuis le menu latéral pour parcourir, rechercher et "
+"filtrer les pièces jointes et les documents de bibliothèque. Prévisualisez "
+"les fichiers, retrouvez leur dossier d’origine, rouvrez les tchats associés "
+"ou joignez-les au tchat actuel."
 
 #: data/io.github.moooossee.Moose.metainfo.xml.in
 msgid "Browse more local models for chat, vision, reasoning and coding."
 msgstr ""
+"Parcourez plus de modèles locaux pour le chat, la vision, le raisonnement et "
+"le codage."
 
 #: data/io.github.moooossee.Moose.metainfo.xml.in
 msgid ""
 "See clearer waiting and reasoning indicators that disappear when the answer "
 "starts arriving."
 msgstr ""
+"Voir de façon plus claire les indicateurs d’attente et de raisonnement qui "
+"disparaissent lorsque la réponse commence à arriver."
 
 #: data/io.github.moooossee.Moose.metainfo.xml.in
 msgid ""
 "External Ollama connections now require HTTPS, with HTTP available only for "
 "connections on this device."
 msgstr ""
+"Les connexions Ollama externes nécessitent désormais HTTPS, avec HTTP "
+"disponible uniquement pour les connexions sur cet appareil."
 
 #: data/io.github.moooossee.Moose.metainfo.xml.in
 msgid ""
@@ -469,208 +539,268 @@ msgid ""
 "text and code, or search your local document library with source excerpts "
 "and page references."
 msgstr ""
+"Intégrez des images et des documents à vos conversations. Joignez des "
+"photos, des fichiers PDF, du texte et du code ou effectuez une recherche "
+"dans votre bibliothèque de documents locale avec des extraits sources et des "
+"références de pages."
 
 #: data/io.github.moooossee.Moose.metainfo.xml.in
 msgid ""
 "Edit messages in place, regenerate answers and switch between saved versions "
 "or continue in a separate chat."
 msgstr ""
+"Modifiez les messages en place, régénérez les réponses et basculez entre les "
+"versions enregistrées ou continuez dans un tchat séparé."
 
 #: data/io.github.moooossee.Moose.metainfo.xml.in
 msgid ""
 "View model reasoning separately and choose the reasoning options supported "
 "by your model."
 msgstr ""
+"Visualisez le raisonnement du modèle séparément et choisissez les options de "
+"raisonnement prises en charge par votre modèle."
 
 #: data/io.github.moooossee.Moose.metainfo.xml.in
 msgid ""
 "Keep drafts and attachments between sessions, move between chats during a "
 "response and receive a completion notification."
 msgstr ""
+"Conservez les brouillons et les pièces jointes entre les sessions, passez "
+"d’un tchat à l’autre pendant une réponse et recevez une notification de fin."
 
 #: data/io.github.moooossee.Moose.metainfo.xml.in
 msgid ""
 "Review model download history, retry interrupted downloads and keep chatting "
 "while a model downloads."
 msgstr ""
+"Consultez l’historique des téléchargements de modèles, réessayez les "
+"téléchargements interrompus et continuez à discuter pendant qu’un modèle se "
+"télécharge."
 
 #: data/io.github.moooossee.Moose.metainfo.xml.in
 msgid ""
 "Read mathematical formulas with local rendering, scrolling for long "
 "expressions and access to the original LaTeX."
 msgstr ""
+"Lire des formules mathématiques avec un rendu local, faire défiler les "
+"expressions longues et accéder au LaTeX d’origine."
 
 #: data/io.github.moooossee.Moose.metainfo.xml.in
 msgid ""
 "Use a wider, aligned chat and composer, compact model controls, clearer "
 "attachment previews and helpful starting suggestions."
 msgstr ""
+"Utiliser un tchat et un éditeur plus larges et alignés, des commandes de "
+"modèle compactes, des aperçus de pièces jointes plus clairs et des "
+"suggestions de démarrage utiles."
 
 #: data/io.github.moooossee.Moose.metainfo.xml.in
 msgid ""
 "Adds GPU acceleration support for managed Ollama through Vulkan when "
 "available."
 msgstr ""
+"Ajoute la prise en charge de l’accélération GPU pour Ollama, gérée via "
+"Vulkan lorsqu’il est disponible."
 
 #: data/io.github.moooossee.Moose.metainfo.xml.in
 msgid ""
 "Adds a managed hardware preference so GPU acceleration can be enabled or "
 "disabled."
 msgstr ""
+"Ajoute une préférence matérielle gérée pour activer ou désactiver "
+"l’accélération GPU."
 
 #: data/io.github.moooossee.Moose.metainfo.xml.in
 msgid ""
 "Shows the active managed Ollama acceleration backend in the provider status."
 msgstr ""
+"Affiche le backend d’accélération Ollama géré, actif dans le statut du "
+"fournisseur."
 
 #: data/io.github.moooossee.Moose.metainfo.xml.in
 msgid ""
 "Adds configurable keyboard shortcuts for common chat, model and navigation "
 "actions."
 msgstr ""
+"Ajoute des raccourcis clavier configurables pour les actions de tchat, de "
+"modèle et de navigation courantes."
 
 #: data/io.github.moooossee.Moose.metainfo.xml.in
 msgid ""
 "Adds a shortcuts page to preferences so shortcuts can be changed, cleared or "
 "reset."
 msgstr ""
+"Ajoute une page de raccourcis aux préférences afin de pouvoir modifier, "
+"effacer ou réinitialiser les raccourcis."
 
 #: data/io.github.moooossee.Moose.metainfo.xml.in
 msgid ""
 "Shows when the active conversation is generating a response in the "
 "conversation list."
 msgstr ""
+"Indique quand la conversation active génère une réponse dans la liste de "
+"conversations."
 
 #: data/io.github.moooossee.Moose.metainfo.xml.in
 msgid ""
 "Adds tools to organize conversation history so older chats are easier to "
 "review and manage."
 msgstr ""
+"Ajoute des outils pour organiser l’historique des conversations afin de "
+"faciliter la révision et la gestion des tchats plus anciens."
 
 #: data/io.github.moooossee.Moose.metainfo.xml.in
 msgid "Adds conversation export support for saving chats outside Moose."
 msgstr ""
+"Ajoute la prise en charge de l’exportation des conversations pour "
+"sauvegarder les tchats hors de Moose."
 
 #: data/io.github.moooossee.Moose.metainfo.xml.in
 msgid ""
 "Conversations now include recent message history so models can follow the "
 "thread."
 msgstr ""
+"Les conversations incluent désormais l’historique des messages récents pour "
+"permettre aux modèles de suivre le fil."
 
 #: data/io.github.moooossee.Moose.metainfo.xml.in
 msgid ""
 "Adds per-chat settings for system prompts, preferred models, context limits "
 "and Ollama generation options."
 msgstr ""
+"Ajoute des paramètres par tchat pour les invites système, les modèles "
+"préférés, les limites de contexte et les options de génération Ollama."
 
 #: data/io.github.moooossee.Moose.metainfo.xml.in
 msgid ""
 "Introduces built-in chat profiles and reusable custom profiles that stay on "
 "your device."
 msgstr ""
+"Introduit des profils de tchat intégrés et des profils personnalisés "
+"réutilisables qui restent sur votre appareil."
 
 #: data/io.github.moooossee.Moose.metainfo.xml.in
 msgid "Improves the sidebar and provider switcher with a cleaner layout."
 msgstr ""
+"Améliore le menu latéral et le commutateur de fournisseur avec une "
+"présentation plus claire."
 
 #: data/io.github.moooossee.Moose.metainfo.xml.in
 msgid "Fixes visual bugs that appeared when using light mode."
 msgstr ""
+"Corrige les bugs visuels qui apparaissaient lors de l’utilisation du mode "
+"lumière."
 
 #: data/io.github.moooossee.Moose.metainfo.xml.in
 msgid ""
 "Moose now renders chat messages with Markdown formatting for clearer model "
 "responses."
 msgstr ""
+"Moose affiche désormais les messages de tchat avec une mise en forme "
+"Markdown pour des réponses plus claires."
 
 #: data/io.github.moooossee.Moose.metainfo.xml.in
 msgid ""
 "Code blocks include syntax highlighting, line numbers and a copy action so "
 "generated code is easier to read and reuse."
 msgstr ""
+"Les blocs de code incluent la coloration syntaxique, les numéros de ligne et "
+"une action de copie, ce qui facilite la lecture et la réutilisation du code "
+"généré."
 
 #: data/io.github.moooossee.Moose.metainfo.xml.in
 msgid "Moose now opens just once when launched from Flathub."
 msgstr ""
+"Moose n’ouvre plus qu’une seule fois lorsqu’il est lancé depuis Flathub."
 
 #: data/io.github.moooossee.Moose.metainfo.xml.in
 msgid ""
 "Adds Moose-managed Ollama so the Flatpak works without a host Ollama "
 "installation."
 msgstr ""
+"Ajoute Ollama géré par Moose afin que le Flatpak fonctionne sans "
+"l’installation d’un hôte Ollama."
 
 #: data/io.github.moooossee.Moose.metainfo.xml.in
 msgid "Fresh installs can create an instance, download a model and chat. Nice."
 msgstr ""
+"Les nouvelles installations peuvent créer une instance, télécharger un "
+"modèle et discuter. Sympa."
 
 #: data/io.github.moooossee.Moose.metainfo.xml.in
 msgid ""
 "First version of Moose, with local Ollama chat, saved conversations, "
 "provider settings and basic model management."
 msgstr ""
+"Première version de Moose, avec le tchat local d’Ollama, les conversations "
+"sauvegardées, les paramètres du fournisseur et la gestion basique des "
+"modèles."
 
 #: data/io.github.moooossee.Moose.gschema.xml
 msgid "Selected models"
-msgstr ""
+msgstr "Modèles sélectionnés"
 
 #: data/io.github.moooossee.Moose.gschema.xml
 msgid "The last model selected by the user for each provider."
 msgstr ""
+"Le dernier modèle sélectionné par l’utilisateur pour chaque fournisseur."
 
 #: data/io.github.moooossee.Moose.gschema.xml
 msgid "Selected chat folder"
-msgstr ""
+msgstr "Dossier de tchat sélectionné"
 
 #: data/io.github.moooossee.Moose.gschema.xml
 msgid "The last folder selected in the conversation sidebar."
-msgstr ""
+msgstr "Le dernier dossier sélectionné dans le menu latéral de la conversation."
 
 #: data/io.github.moooossee.Moose.gschema.xml
 msgid "Keyboard shortcuts"
-msgstr ""
+msgstr "Raccourcis clavier"
 
 #: data/io.github.moooossee.Moose.gschema.xml
 msgid "User-defined global keyboard shortcuts."
-msgstr ""
+msgstr "Raccourcis clavier globaux définis par l’utilisateur."
 
 #: data/io.github.moooossee.Moose.gschema.xml
 msgid "Managed GPU acceleration"
-msgstr ""
+msgstr "Accélération gérée par le GPU"
 
 #: data/io.github.moooossee.Moose.gschema.xml
 msgid ""
 "Whether Moose should ask managed Ollama to use Vulkan acceleration when "
 "available."
 msgstr ""
+"Moose devrait-il demander à Ollama géré d’utiliser l’accélération Vulkan "
+"lorsqu’elle sera disponible."
 
 #: src/attachments.rs
 msgid "This UTF-16 file is incomplete"
-msgstr ""
+msgstr "Ce fichier UTF-16 est incomplet"
 
 #: src/attachments.rs
 msgid "This document contains invalid UTF-16 text"
-msgstr ""
+msgstr "Ce document contient un texte UTF-16 non valide"
 
 #: src/attachments.rs
 msgid "Use a UTF-8 or UTF-16 text document"
-msgstr ""
+msgstr "Utiliser un document texte UTF-8 ou UTF-16"
 
 #: src/attachments.rs src/attachments/ocr.rs
 #: src/storage/attachment_repository.rs
 msgid "Documents can contain up to 4 MB of extracted text"
-msgstr ""
+msgstr "Les documents peuvent contenir jusqu’à 4 Mo de texte extrait"
 
 #: src/attachments.rs
 msgid "This file is not a supported text document"
-msgstr ""
+msgstr "Ce fichier n’est pas un document texte pris en charge"
 
 #: src/attachments.rs
 msgid "This document is empty"
-msgstr ""
+msgstr "Ce document est vide"
 
 #: src/attachments/ocr.rs src/ui/window/attachments.rs
 msgid "Import canceled"
-msgstr ""
+msgstr "Importation annulée"
 
 #: src/attachments/ocr.rs
 #, rust-format
@@ -678,39 +808,48 @@ msgid ""
 "Text extraction requires {tool}. Reinstall the Flatpak or install this tool "
 "for a native build."
 msgstr ""
+"L’extraction de texte nécessite {tool}. Réinstallez le Flatpak ou installez "
+"cet outil pour une version native."
 
 #: src/attachments/ocr.rs
 msgid "Text extraction could not start"
-msgstr ""
+msgstr "L’extraction de texte n’a pas pu démarrer"
 
 #: src/attachments/ocr.rs
 msgid "Text extraction timed out. Try fewer pages or a smaller document."
 msgstr ""
+"L’extraction de texte a expiré. Essayez moins de pages ou un document plus "
+"petit."
 
 #: src/attachments/ocr.rs
 msgid "The extracted text exceeds the size limit"
-msgstr ""
+msgstr "Le texte extrait dépasse la limite de taille"
 
 #: src/attachments/ocr.rs
 msgid "Text extraction stopped unexpectedly"
-msgstr ""
+msgstr "L’extraction de texte s’est arrêtée de manière inattendue"
 
 #: src/attachments/ocr.rs
 #, rust-format
 msgid "{tool} could not process this file: {detail}"
-msgstr ""
+msgstr "{tool} n’a pas pu traiter ce fichier : {detail}"
 
 #: src/attachments/ocr.rs
 msgid ""
 "Install and select an OCR language in Preferences → Text Recognition before "
 "recognizing text."
 msgstr ""
+"Installer et sélectionnez une langue OCR dans les Préférences → "
+"Reconnaissance de texte, avant de reconnaître le texte."
 
 #: src/attachments/ocr.rs
 msgid ""
 "Some selected OCR languages are not installed. Open Preferences → Text "
 "Recognition to install or select languages."
 msgstr ""
+"Certaines langues OCR sélectionnées ne sont pas installées. Ouvrez les "
+"préférences → Reconnaissance de texte pour installer ou sélectionner des "
+"langues."
 
 #: src/attachments/ocr.rs
 #, rust-format
@@ -718,66 +857,73 @@ msgid ""
 "OCR languages {languages} are unavailable. Install their Tesseract language "
 "data or select installed languages."
 msgstr ""
+"Les langues OCR {languages} ne sont pas disponibles. Installez leurs données "
+"de langue Tesseract ou sélectionnez les langues installées."
 
 #: src/attachments/ocr.rs
 msgid "Recognized text could not be decoded"
-msgstr ""
+msgstr "Le texte reconnu n’a pas pu être décodé"
 
 #: src/attachments/ocr.rs
 msgid "PDFs must contain between 1 and 1,000 pages"
-msgstr ""
+msgstr "Les fichiers PDF doivent contenir entre 1 et 1000 pages"
 
 #: src/attachments/ocr.rs src/storage/attachment_repository.rs
 msgid "This page is not available in the PDF"
-msgstr ""
+msgstr "Cette page n’est pas disponible dans le PDF"
 
 #: src/attachments/ocr.rs
 msgid "PDF text could not be decoded"
-msgstr ""
+msgstr "Le texte PDF n’a pas pu être décodé"
 
 #: src/attachments/ocr/languages.rs
 msgid "Download canceled"
-msgstr ""
+msgstr "Téléchargement annulé"
 
 #: src/attachments/ocr/languages.rs
 msgid "Another operation is already changing this OCR language"
-msgstr ""
+msgstr "Une autre opération modifie déjà cette langue d’OCR"
 
 #: src/attachments/ocr/languages.rs
 msgid "This OCR language is unavailable"
-msgstr ""
+msgstr "Cette langue d’OCR n’est pas disponible"
 
 #: src/attachments/ocr/languages.rs
 msgid "The OCR language directory is unavailable"
-msgstr ""
+msgstr "Le répertoire des langues OCR n’est pas disponible"
 
 #: src/attachments/ocr/languages.rs
 msgid "The OCR language download has an unexpected size"
-msgstr ""
+msgstr "Le téléchargement de la langue OCR a une taille inattendue"
 
 #: src/attachments/ocr/languages.rs
 msgid "The OCR language download exceeds its expected size"
-msgstr ""
+msgstr "Le téléchargement de la langue OCR dépasse sa taille attendue"
 
 #: src/attachments/ocr/languages.rs
 msgid ""
 "The OCR language download is incomplete or failed integrity verification. "
 "Try again."
 msgstr ""
+"Le téléchargement de la langue OCR est incomplet ou a échoué à la "
+"vérification d’intégrité. Réessayez."
 
 #: src/chat/mod.rs
 msgid ""
 "Continue the previous response from where it stopped. Do not repeat what is "
 "already written. Preserve its language, style and continuity."
 msgstr ""
+"Continuer la réponse précédente depuis l’endroit où elle s’est arrêtée. Ne "
+"pas répéter ce qui a déjà été écrit. Conserver sa langue, son style et sa "
+"continuité."
 
 #: src/chat/mod.rs
 msgid "No response generated."
-msgstr ""
+msgstr "Aucune réponse générée."
 
 #: src/chat/runner.rs
 msgid "This tool is not available."
-msgstr ""
+msgstr "Cet outil n’est pas disponible."
 
 #: src/chat/runner.rs
 msgid "Tools are unavailable for this model. This response does not use tools."
@@ -954,11 +1100,12 @@ msgstr "Un classeur nécessite entre 1 et 64 tableaux ou feuilles de calcul."
 
 #: src/documents/office.rs
 msgid "Use tables with 1 to 100 columns and up to 20,000 rows."
-msgstr ""
+msgstr "Utilise des tableaux de 1 à 100 colonnes et jusqu’à 20000 lignes."
 
 #: src/documents/office.rs
 msgid "A spreadsheet cell can contain up to 32,767 characters."
 msgstr ""
+"Une cellule de feuille de calcul peut contenir jusqu’à 32767 caractères."
 
 #: src/documents/office.rs
 msgid "Sheet"
@@ -975,7 +1122,7 @@ msgstr "Une feuille de calcul nécessite entre 1 et 64 tableaux Markdown."
 #: src/documents/opendocument.rs
 #, rust-format
 msgid "Slide {number}"
-msgstr ""
+msgstr "Diapositive {number}"
 
 #: src/documents/presentation.rs
 msgid "Use a presentation with between 1 and 300 slides."
@@ -997,16 +1144,19 @@ msgstr "Page"
 #: src/documents/render.rs
 msgid "PDF documents must be rendered through the native print service."
 msgstr ""
+"Les documents PDF doivent être rendus via le service d’impression natif."
 
 #: src/documents/render.rs
 msgid ""
 "The response is not valid JSON. Ask the model to correct the JSON and try "
 "again."
 msgstr ""
+"La réponse n’est pas un JSON valide. Demandez au modèle de corriger le JSON, "
+"puis réessayez."
 
 #: src/documents/render.rs
 msgid "The JSON document could not be formatted."
-msgstr ""
+msgstr "Le document JSON n’a pas pu être formaté."
 
 #: src/documents/render.rs
 msgid "The generated file exceeds the 32 MB limit."
@@ -1017,60 +1167,74 @@ msgid ""
 "No table was found. Ask for a spreadsheet with a header row and columns, or "
 "choose a text document format."
 msgstr ""
+"Aucun tableau trouvé. Demander une feuille de calcul avec une ligne d’en-"
+"tête et des colonnes, ou choisissez un format de document texte."
 
 #: src/documents/render.rs
 msgid ""
 "CSV supports one table. Choose Excel or OpenDocument Spreadsheet to keep "
 "multiple tables."
 msgstr ""
+"CSV prend en charge un seul tableau. Choisissez Excel ou OpenDocument "
+"Spreadsheet pour conserver plusieurs tableaux."
 
 #: src/documents/render.rs
 msgid ""
 "The response contains malformed CSV. Ask the model to return only a CSV "
 "table."
 msgstr ""
+"La réponse contient un fichier CSV malformé. Demander au modèle de renvoyer "
+"uniquement un tableau CSV."
 
 #: src/documents/render.rs
 msgid "Use up to 100 columns and 20,000 rows."
-msgstr ""
+msgstr "Utiliser jusqu’à 100 colonnes et 20000 lignes."
 
 #: src/documents/render.rs
 msgid ""
 "The CSV response ends inside a quoted field. Continue or retry the response."
 msgstr ""
+"La réponse CSV se termine dans un champ cité. Poursuivre ou réessayer la "
+"réponse."
 
 #: src/documents/render.rs
 msgid "Each CSV row must have the same number of columns."
-msgstr ""
+msgstr "Chaque ligne CSV doit avoir le même nombre de colonnes."
 
 #: src/i18n.rs src/ui/window/document_creation.rs
 msgid "Untitled Document"
-msgstr ""
+msgstr "Document sans titre"
 
 #: src/i18n.rs
 msgid ""
 "secure credential storage is unavailable; unlock your desktop keyring or "
 "enable the Secret portal and try again"
 msgstr ""
+"le stockage sécurisé des identifiants n’est pas disponible ; déverrouillez "
+"votre trousseau de clés de bureau ou activez le portail Secret et réessayez"
 
 #: src/i18n.rs
 msgid "no API key is saved for this provider; add one in Preferences"
 msgstr ""
+"aucune clé d'API n’est enregistrée pour ce fournisseur ; ajoutez-en une dans "
+"Préférences"
 
 #: src/i18n.rs
 msgid "invalid API key; enter the key without spaces or line breaks"
-msgstr ""
+msgstr "clé d'API non valide ; saisissez la clé sans espace ni saut de ligne"
 
 #: src/i18n.rs
 msgid ""
 "this connection is blocked by Local Only mode; only Ollama managed by Moose "
 "is allowed"
 msgstr ""
+"cette connexion est bloquée par le mode Local uniquement ; seul Ollama géré "
+"par Moose est autorisé"
 
 #: src/i18n.rs
 #, rust-format
 msgid "invalid provider response: {detail}"
-msgstr ""
+msgstr "réponse du fournisseur non valide : {detail}"
 
 #: src/i18n.rs
 msgid "Response incomplete: the model reached its generation limit."
@@ -1095,7 +1259,7 @@ msgstr "Erreur d'E/S : {detail}"
 #: src/i18n.rs
 #, rust-format
 msgid "database operation failed: {detail}"
-msgstr ""
+msgstr "l’opération de la base de données a échoué : {detail}"
 
 #: src/i18n.rs
 #, rust-format
@@ -1293,7 +1457,7 @@ msgstr "Ollama géré est indisponible"
 #: src/i18n.rs
 #, rust-format
 msgid "managed Ollama failed to start: {detail}"
-msgstr ""
+msgstr "L’Ollama géré n’a pas pu démarrer : {detail}"
 
 #: src/i18n.rs
 msgid "managed Ollama did not become ready in time"
@@ -1694,86 +1858,86 @@ msgstr ""
 
 #: src/ollama/manager.rs
 msgid "archive entry has no parent directory"
-msgstr ""
+msgstr "l’entrée d’archive n’a pas de répertoire parent"
 
 #: src/ollama/manager.rs
 #, rust-format
 msgid "could not create {arg1}: {error}"
-msgstr ""
+msgstr "impossible de créer {arg1} : {error}"
 
 #: src/ollama/manager.rs
 #, rust-format
 msgid "invalid symlink target: {error}"
-msgstr ""
+msgstr "cible de lien symbolique non valide : {error}"
 
 #: src/ollama/manager.rs
 msgid "symlink entry is missing a target"
-msgstr ""
+msgstr "l’entrée du lien symbolique manque d'une cible"
 
 #: src/ollama/manager.rs
 msgid "symlink entry has no parent directory"
-msgstr ""
+msgstr "l’entrée du lien symbolique n'a pas de répertoire parent"
 
 #: src/ollama/manager.rs
 #, rust-format
 msgid "could not create symlink {arg1} -> {arg2}: {error}"
-msgstr ""
+msgstr "impossible de créer le lien symbolique {arg1} -> {arg2} : {error}"
 
 #: src/ollama/manager.rs
 msgid "symlink extraction requires Unix"
-msgstr ""
+msgstr "l'extraction de lien symbolique nécessite Unix"
 
 #: src/ollama/manager.rs
 #, rust-format
 msgid "invalid hardlink target: {error}"
-msgstr ""
+msgstr "cible de lien en dur non valide : {error}"
 
 #: src/ollama/manager.rs
 msgid "hardlink entry is missing a target"
-msgstr ""
+msgstr "l’entrée du lien en dur manque d'une cible"
 
 #: src/ollama/manager.rs
 msgid "hardlink entry has no parent directory"
-msgstr ""
+msgstr "l’entrée de lien en dur n’a pas de répertoire parent"
 
 #: src/ollama/manager.rs
 #, rust-format
 msgid "could not create hardlink {arg1} -> {arg2}: {error}"
-msgstr ""
+msgstr "impossible de créer le lien en dur {arg1} -> {arg2} : {error}"
 
 #: src/ollama/manager.rs
 #, rust-format
 msgid "archive path {arg1} is not a safe relative path"
-msgstr ""
+msgstr "chemin d’archive {arg1} n’est pas un chemin relatif sûr"
 
 #: src/ollama/manager.rs
 msgid "archive path is empty"
-msgstr ""
+msgstr "le chemin d’archive est vide"
 
 #: src/ollama/manager.rs
 #, rust-format
 msgid "{arg1} is not a safe directory"
-msgstr ""
+msgstr "{arg1} n'est pas un répertoire sûr"
 
 #: src/ollama/manager.rs
 #, rust-format
 msgid "could not create directory {arg1}: {error}"
-msgstr ""
+msgstr "impossible de créer le répertoire {arg1} : {error}"
 
 #: src/ollama/manager.rs
 #, rust-format
 msgid "could not inspect directory {arg1}: {error}"
-msgstr ""
+msgstr "impossible d'inspecter le répertoire {arg1} : {error}"
 
 #: src/ollama/manager.rs
 #, rust-format
 msgid "{arg1} already exists during extraction"
-msgstr ""
+msgstr "{arg1} existe déjà lors de l’extraction"
 
 #: src/ollama/manager.rs
 #, rust-format
 msgid "could not inspect {arg1}: {error}"
-msgstr ""
+msgstr "n’a pas pu inspecter {arg1} : {error}"
 
 #: src/ollama/manager.rs
 #, rust-format
@@ -1787,30 +1951,36 @@ msgstr ""
 
 #: src/ollama/mod.rs
 msgid "The model download ended before completion"
-msgstr ""
+msgstr "Le téléchargement du modèle s’est terminé avant la fin"
 
 #: src/ollama/mod.rs
 msgid ""
 "Ollama did not respect the token counting limit. Update Ollama and try again."
 msgstr ""
+"Ollama n’a pas respecté la limite de comptage des jetons. Mettez à jour "
+"Ollama et réessayez."
 
 #: src/ollama/mod.rs
 msgid ""
 "Ollama did not report the input token count. Update Ollama and try again."
 msgstr ""
+"Ollama n’a pas signalé le nombre de jetons d’entrée. Mettez à jour Ollama et "
+"réessayez."
 
 #: src/ollama/mod.rs
 msgid "The response ended before completion"
-msgstr ""
+msgstr "La réponse s’est terminée avant l'achèvement"
 
 #: src/ollama/mod.rs
 msgid ""
 "Model capabilities are unavailable. Update Ollama to check model support."
 msgstr ""
+"Les capacités du modèle ne sont pas disponibles. Mettez à jour Ollama pour "
+"vérifier la prise en charge du modèle."
 
 #: src/ollama/mod.rs
 msgid "Ollama returned an invalid model download error"
-msgstr ""
+msgstr "Ollama a renvoyé une erreur de téléchargement de modèle non valide"
 
 #: src/ollama/mod.rs
 msgid "missing pull status"
@@ -1819,6 +1989,7 @@ msgstr ""
 #: src/ollama/releases.rs
 msgid "The update cache is unavailable. Try checking again."
 msgstr ""
+"Le cache de mise à jour est indisponible. Essayez de vérifier à nouveau."
 
 #: src/ollama/releases.rs
 msgid ""
@@ -2046,32 +2217,36 @@ msgid ""
 "The provider tried to redirect the request. Redirects are blocked to protect "
 "your API key."
 msgstr ""
+"Le fournisseur a essayé de rediriger la requête. Les redirections sont "
+"bloquées pour protéger votre clé d'API."
 
 #: src/providers/client.rs
 msgid "The provider is temporarily unavailable. Try again later."
-msgstr ""
+msgstr "Le fournisseur est temporairement indisponible. Réessayez plus tard."
 
 #: src/providers/client.rs
 msgid "The provider could not process this request."
-msgstr ""
+msgstr "Le fournisseur n’a pas pu traiter cette demande."
 
 #: src/providers/client.rs
 msgid "The provider response is too large."
-msgstr ""
+msgstr "La réponse du fournisseur est trop grande."
 
 #: src/providers/client.rs
 msgid "The provider returned invalid JSON."
-msgstr ""
+msgstr "Le fournisseur a renvoyé un JSON non valide."
 
 #: src/providers/client.rs
 msgid ""
 "The provider rejected the request. Check your API token, account ID and "
 "permissions."
 msgstr ""
+"Le fournisseur a rejeté la demande. Vérifiez votre jeton API, l’ID de votre "
+"compte et vos autorisations."
 
 #: src/providers/client.rs
 msgid "The provider returned an invalid model list."
-msgstr ""
+msgstr "Le fournisseur a renvoyé une liste de modèles non valide."
 
 #: src/providers/credentials.rs
 #, rust-format
@@ -2104,38 +2279,43 @@ msgstr ""
 
 #: src/providers/custom.rs
 msgid "This header cannot be used for an API key."
-msgstr ""
+msgstr "Cet en-tête ne peut pas être utilisé pour une clé API."
 
 #: src/providers/custom.rs
 msgid "A provider can have up to 1,000 manual models."
-msgstr ""
+msgstr "Un fournisseur peut avoir jusqu’à 1000 modèles manuels."
 
 #: src/providers/custom.rs
 msgid "Enter a model ID for each manual model, or remove empty rows."
 msgstr ""
+"Saisissez un ID de modèle pour chaque modèle manuel, ou supprimez les lignes "
+"vides."
 
 #: src/providers/custom.rs
 msgid "Each manual model must have a unique ID."
-msgstr ""
+msgstr "Chaque modèle manuel doit avoir un ID unique."
 
 #: src/providers/custom.rs
 msgid ""
 "Gemini model IDs can contain letters, numbers, hyphens, underscores and "
 "periods."
 msgstr ""
+"Les ID de modèle Gemini peuvent contenir des lettres, des chiffres, des "
+"tirets, des traits de soulignement et des points."
 
 #: src/providers/custom.rs
 msgid "Add a model ID or enable automatic model discovery."
 msgstr ""
+"Ajoutez un ID de modèle ou activez la découverte automatique des modèles."
 
 #: src/providers/mod.rs
 #, rust-format
 msgid "unknown provider kind {value}"
-msgstr ""
+msgstr "type de fournisseur inconnu {value}"
 
 #: src/providers/mod.rs
 msgid "Custom Provider"
-msgstr ""
+msgstr "Fournisseur personnalisé"
 
 #: src/providers/mod.rs src/ui/window/managed_runtime.rs
 #: src/ui/window/provider_controls.rs
@@ -2144,15 +2324,15 @@ msgstr ""
 
 #: src/providers/mod.rs
 msgid "Local Ollama"
-msgstr ""
+msgstr "Ollama local"
 
 #: src/providers/mod.rs
 msgid "Custom provider settings are missing."
-msgstr ""
+msgstr "Les paramètres du fournisseur personnalisé sont manquants."
 
 #: src/providers/mod.rs
 msgid "Custom settings require a custom provider."
-msgstr ""
+msgstr "Les paramètres personnalisés nécessitent un fournisseur personnalisé."
 
 #: src/providers/mod.rs
 msgid "Local · Managed by Moose"
@@ -2164,99 +2344,116 @@ msgstr ""
 
 #: src/providers/mod.rs
 msgid "External Ollama · Execution location unverified"
-msgstr ""
+msgstr "Ollama externe · Lieu d’exécution non vérifié"
 
 #: src/providers/mod.rs
 msgid "Remote providers require HTTPS. HTTP is only allowed on this device."
 msgstr ""
+"Les fournisseurs distants nécessitent HTTPS. HTTP est uniquement autorisé "
+"sur cet appareil."
 
 #: src/providers/stream.rs
 msgid "The provider returned an invalid stream."
-msgstr ""
+msgstr "Le fournisseur a renvoyé un flux non valide."
 
 #: src/providers/stream.rs
 msgid ""
 "The provider stopped before completing the answer. Try a shorter context or "
 "another model."
 msgstr ""
+"Le fournisseur s’est arrêté avant d’avoir terminé la réponse. Essayez un "
+"contexte plus court ou un autre modèle."
 
 #: src/providers/stream.rs
 msgid "The provider declined this request."
-msgstr ""
+msgstr "Le fournisseur a refusé cette demande."
 
 #: src/providers/stream.rs
 msgid "The provider reported an error while generating the answer."
 msgstr ""
+"Le fournisseur a signalé une erreur lors de la génération de la réponse."
 
 #: src/providers/wire.rs
 msgid "This image format is not supported. Use PNG, JPEG, WebP or GIF."
 msgstr ""
+"Ce format d’image n’est pas pris en charge. Utilisez PNG, JPEG, WebP ou GIF."
 
 #: src/providers/wire.rs
 msgid "A tool result is missing its call identifier."
-msgstr ""
+msgstr "Un résultat d’outil ne contient pas son identifiant d’appel."
 
 #: src/providers/wire.rs
 msgid "A tool call is missing its identifier."
-msgstr ""
+msgstr "Un appel d’outil n’a pas son identifiant."
 
 #: src/providers/wire.rs
 msgid "Images are only supported in user messages for this provider."
 msgstr ""
+"Les images sont prises en charge uniquement dans les messages utilisateur "
+"pour ce fournisseur."
 
 #: src/providers/wire.rs
 msgid "A tool result is missing its function name."
-msgstr ""
+msgstr "Le nom de la fonction est manquant dans un résultat d’outil."
 
 #: src/storage/attachment_repository.rs src/storage/document_repository.rs
 msgid "This document format is not supported."
-msgstr ""
+msgstr "Ce format de document n’est pas pris en charge."
 
 #: src/storage/attachment_repository.rs
 msgid "Recognize text in this image before using text-only mode"
 msgstr ""
+"Reconnaître le texte de cette image avant d’utiliser le mode texte uniquement"
 
 #: src/storage/attachment_repository.rs
 msgid "Attach up to 8 files per message"
-msgstr ""
+msgstr "Joindre jusqu’à 8 fichiers par message"
 
 #: src/storage/document_repository.rs
 msgid "The document content is too large."
-msgstr ""
+msgstr "Le contenu du document est trop volumineux."
 
 #: src/storage/document_repository.rs
 msgid "The generated document is empty or exceeds the size limit."
-msgstr ""
+msgstr "Le document généré est vide ou dépasse la limite de taille."
 
 #: src/storage/migrations.rs
 msgid "Database migration would break existing references"
-msgstr ""
+msgstr "La migration de la base de données casserait les références existantes"
 
 #: src/storage/privacy.rs
 msgid ""
 "The provider's destination changed or is unavailable. Reopen Privacy "
 "settings to review it."
 msgstr ""
+"La destination du fournisseur a été modifiée ou n’est pas disponible. "
+"Rouvrez les paramètres de confidentialité pour l’examiner."
 
 #: src/storage/privacy.rs
 msgid "The chat or provider changed. Send the message again to review it."
 msgstr ""
+"Le tchat ou le fournisseur a changé. Envoyez à nouveau le message pour qu’il "
+"soit examiné."
 
 #: src/storage/provider_repository.rs
 msgid "Only custom providers can be configured here."
-msgstr ""
+msgstr "Seuls les fournisseurs personnalisés peuvent être configurés ici."
 
 #: src/storage/provider_repository.rs src/ui/window/cloud_setup.rs
 msgid "The provider changed. Reopen its settings and try again."
-msgstr ""
+msgstr "Le fournisseur a changé. Rouvrez ses paramètres et réessayez."
 
 #: src/storage/web_settings_repository.rs
 msgid "Web settings changed. Review Web settings and send your message again."
 msgstr ""
+"Les paramètres Web ont été modifiés. Vérifiez les paramètres Web et envoyez "
+"à nouveau votre message."
 
 #: src/storage/web_settings_repository.rs
 msgid "Web was turned off in this chat. Enable it and send your message again."
 msgstr ""
+"Web a été désactivé dans ce tchat. Activez-le et envoyez à nouveau votre "
+"message."
 
 #: src/tools/calculator.rs
 msgid "Provide an object with an expression string."
@@ -2264,63 +2461,66 @@ msgstr ""
 
 #: src/tools/calculator.rs
 msgid "Provide only the expression argument."
-msgstr ""
+msgstr "Fournir uniquement l’argument de l’expression."
 
 #: src/tools/calculator.rs
 msgid "Provide an expression string."
-msgstr ""
+msgstr "Fournir une chaîne d’expression."
 
 #: src/tools/calculator.rs
 msgid "Use an expression between 1 and 512 bytes long."
-msgstr ""
+msgstr "Utilisez une expression longue de 1 à 512 octets."
 
 #: src/tools/calculator.rs
 msgid "Unexpected text. Use explicit operators and supported functions only."
 msgstr ""
+"Texte inattendu. Utilisez uniquement des opérateurs explicites et des "
+"fonctions prises en charge."
 
 #: src/tools/calculator.rs
 msgid "The result could not be formatted."
-msgstr ""
+msgstr "Le résultat n’a pas pu être formaté."
 
 #: src/tools/calculator.rs
 msgid "This expression is too complex. Split it into smaller calculations."
-msgstr ""
+msgstr "Cette expression est trop complexe. Divisez-la en calculs plus petits."
 
 #: src/tools/calculator.rs
 msgid "A closing parenthesis is missing."
-msgstr ""
+msgstr "Une parenthèse fermante manque."
 
 #: src/tools/calculator.rs
 msgid "Division by zero is not defined."
-msgstr ""
+msgstr "La division par zéro n’est pas définie."
 
 #: src/tools/calculator.rs
 msgid "The result is outside the supported finite real numbers."
-msgstr ""
+msgstr "Le résultat est en dehors des nombres réels finis pris en charge."
 
 #: src/tools/calculator.rs
 msgid "Expected a number, a parenthesis, or a supported function."
-msgstr ""
+msgstr "Attendu un nombre, une parenthèse ou une fonction prise en charge."
 
 #: src/tools/calculator.rs
 msgid "Scientific notation needs an exponent, such as 1e3."
-msgstr ""
+msgstr "La notation scientifique nécessite un exposant, tel que 1e3."
 
 #: src/tools/calculator.rs
 msgid "Use a finite number with a decimal point and no digit separators."
 msgstr ""
+"Utilisez un nombre fini avec une virgule et des séparateurs sans chiffre."
 
 #: src/tools/calculator.rs
 msgid "Supported functions are sqrt, abs, round, floor, and ceil."
-msgstr ""
+msgstr "Les fonctions prises en charge sont sqrt, abs, round, floor et ceil."
 
 #: src/tools/calculator.rs
 msgid "Function arguments need parentheses."
-msgstr ""
+msgstr "Les arguments de fonction nécessitent des parenthèses."
 
 #: src/tools/calculator.rs
 msgid "The square root of a negative number is not real."
-msgstr ""
+msgstr "La racine carrée d’un nombre négatif n’est pas réelle."
 
 #: src/tools/mod.rs src/ui/window/chat_settings.rs
 #: src/ui/window/composer_commands.rs
@@ -2347,8 +2547,8 @@ msgstr "Arrêté(e)"
 #, rust-format
 msgid "{count} source found"
 msgid_plural "{count} sources found"
-msgstr[0] ""
-msgstr[1] ""
+msgstr[0] "{count} source trouvée"
+msgstr[1] "{count} sources trouvées"
 
 #: src/tools/mod.rs src/ui/window/chat_view.rs
 msgid "Page read"
@@ -2588,61 +2788,73 @@ msgid ""
 "This SearXNG instance does not allow JSON searches. Choose an instance with "
 "its JSON API enabled."
 msgstr ""
+"Cette instance SearXNG n’autorise pas les recherches JSON. Choisissez une "
+"instance dont l’API JSON est activée."
 
 #: src/tools/web/mod.rs
 msgid "The search provider's rate or usage limit was reached. Try again later."
 msgstr ""
+"Le taux ou la limite d’utilisation du fournisseur de recherche a été "
+"atteint. Réessayez ultérieurement."
 
 #: src/tools/web/mod.rs
 #, rust-format
 msgid ""
 "Search returned HTTP {status}. Check Preferences → Web or try again later."
 msgstr ""
+"La recherche a renvoyé HTTP {status}. Vérifiez Préférences → Web ou "
+"réessayez plus tard."
 
 #: src/tools/web/mod.rs
 msgid ""
 "The search provider returned an invalid response. SearXNG must have its JSON "
 "API enabled."
 msgstr ""
+"Le fournisseur de recherche a renvoyé une réponse non valide. SearXNG doit "
+"avoir son API JSON activée."
 
 #: src/tools/web/mod.rs
 msgid "The search provider returned an unexpected response."
-msgstr ""
+msgstr "Le moteur de recherche a renvoyé une réponse inattendue."
 
 #: src/tools/web/mod.rs
 msgid "Tool arguments must be an object."
-msgstr ""
+msgstr "Les arguments de l’outil doivent être un objet."
 
 #: src/tools/web/mod.rs
 #, rust-format
 msgid "Provide only the {name} argument."
-msgstr ""
+msgstr "Fournir uniquement l’argument {name}."
 
 #: src/tools/web/mod.rs
 #, rust-format
 msgid "Provide a {name} string."
-msgstr ""
+msgstr "Saisissez une chaîne {name}."
 
 #: src/tools/web/mod.rs
 #, rust-format
 msgid "The {name} must contain 1–{limit} bytes without control characters."
-msgstr ""
+msgstr "Le {name} doit contenir 1–{limit} octets sans caractères de contrôle."
 
 #: src/tools/web/network.rs
 msgid ""
 "Web access is blocked by Local Only. Turn it off in Preferences → Privacy to "
 "use the web."
 msgstr ""
+"L’accès au Web est bloqué uniquement par le service local. Désactivez-le "
+"dans Préférences → Confidentialité pour utiliser le Web."
 
 #: src/tools/web/network.rs
 msgid "Enter a complete public HTTP or HTTPS URL."
-msgstr ""
+msgstr "Saisissez une URL HTTP ou HTTPS publique complète."
 
 #: src/tools/web/network.rs
 msgid ""
 "Only public HTTP and HTTPS pages without credentials on ports 80 or 443 can "
 "be read."
 msgstr ""
+"Seules les pages HTTP et HTTPS publiques sans identifiants sur les ports 80 "
+"ou 443 peuvent être lues."
 
 #: src/tools/web/network.rs
 msgid "Local, private and reserved network addresses cannot be read."
@@ -2672,11 +2884,11 @@ msgstr "La connexion Web n’a pas pu être préparée."
 
 #: src/tools/web/network.rs
 msgid "The page exceeds the 1 MB download limit."
-msgstr ""
+msgstr "La page dépasse la limite de téléchargement de 1 Mo."
 
 #: src/tools/web/network.rs
 msgid "The website stopped responding."
-msgstr ""
+msgstr "Le site web a cessé de répondre."
 
 #: src/tools/web/network.rs
 msgid "The page could not be reached. Try another source."
@@ -2688,39 +2900,41 @@ msgstr "Le site a redirigé trop de fois."
 
 #: src/tools/web/network.rs
 msgid "The website returned an invalid redirect."
-msgstr ""
+msgstr "Le site web a renvoyé une redirection non valide."
 
 #: src/tools/web/network.rs
 msgid "The website redirected to an insecure connection."
-msgstr ""
+msgstr "Le site web a été redirigé vers une connexion non sécurisée."
 
 #: src/tools/web/network.rs
 #, rust-format
 msgid "The website returned HTTP {arg1}. Try another source."
-msgstr ""
+msgstr "Le site a renvoyé HTTP {arg1}. Essayez une autre source."
 
 #: src/tools/web/network.rs
 msgid ""
 "This link is not an HTML or plain-text page. Downloads, images and PDFs are "
 "not supported by Web."
 msgstr ""
+"Ce lien n’est pas une page HTML ou en texte brut. Les téléchargements, "
+"images et fichiers PDF ne sont pas pris en charge par Web."
 
 #: src/tools/web/network.rs
 msgid "The page could not be read."
-msgstr ""
+msgstr "La page n’a pas pu être lue."
 
 #: src/ui/window/attachments/clipboard.rs
 msgid "No image could be read from the clipboard"
-msgstr ""
+msgstr "Aucune image n'a pu être lue à partir du presse-papiers"
 
 #: src/ui/window/attachments/clipboard.rs
 msgid "Copy an image or screenshot first"
-msgstr ""
+msgstr "Copier d’abord une image ou une capture d’écran"
 
 #: src/ui/window/attachments/clipboard.rs src/ui/window/attachments/import.rs
 #: src/ui/window/attachments.rs
 msgid "Choose a file smaller than 25 MB"
-msgstr ""
+msgstr "Choisissez un fichier de moins de 25 Mo"
 
 #: src/ui/window/attachments/composer.rs
 #, rust-format
@@ -2728,17 +2942,19 @@ msgid ""
 "Preview {arg1}\n"
 "{size}"
 msgstr ""
+"Aperçu {arg1}\n"
+"{size}"
 
 #: src/ui/window/attachments/composer.rs
 msgid "Use recognized text instead of sending the image"
-msgstr ""
+msgstr "Utiliser un texte reconnu au lieu d’envoyer l’image"
 
 #: src/ui/window/attachments/document.rs src/ui/window/attachments.rs
 #, rust-format
 msgid "{kind} · {count} page · {size}"
 msgid_plural "{kind} · {count} pages · {size}"
-msgstr[0] ""
-msgstr[1] ""
+msgstr[0] "{kind} · {count} page · {size}"
+msgstr[1] "{kind} · {count} pages · {size}"
 
 #: src/ui/window/attachments/document.rs src/ui/window/attachments.rs
 #, rust-format
@@ -2746,18 +2962,20 @@ msgid ""
 "Preview {arg1}\n"
 "{description}"
 msgstr ""
+"Aperçu {arg1}\n"
+"{description}"
 
 #: src/ui/window/attachments/import.rs
 msgid "This file is empty"
-msgstr ""
+msgstr "Ce fichier est vide"
 
 #: src/ui/window/attachments/import.rs
 msgid "This file is not a supported PNG, JPEG or WebP image"
-msgstr ""
+msgstr "Ce fichier n’est pas une image PNG, JPEG ou WebP prise en charge"
 
 #: src/ui/window/attachments/import.rs
 msgid "This file is not a valid PDF"
-msgstr ""
+msgstr "Ce fichier n’est pas un PDF valide"
 
 #: src/ui/window/attachments/import.rs
 msgid "This image could not be decoded. Use PNG, JPEG or WebP."
@@ -2769,23 +2987,23 @@ msgstr "Cette image est incomplète ou endommagée"
 
 #: src/ui/window/attachments/import.rs
 msgid "Choose an image with fewer than 40 million pixels"
-msgstr ""
+msgstr "Choisissez une image de moins de 40 millions de pixels"
 
 #: src/ui/window/attachments/import.rs
 msgid "This image could not be opened"
-msgstr ""
+msgstr "Cette image n’a pas pu être ouverte"
 
 #: src/ui/window/attachments/import.rs
 msgid "This image could not be prepared"
-msgstr ""
+msgstr "Cette image n’a pas pu être préparée"
 
 #: src/ui/window/attachments/import.rs
 msgid "This image is too large after processing"
-msgstr ""
+msgstr "Cette image est trop grande après traitement"
 
 #: src/ui/window/attachments/language_manager.rs
 msgid "Preferences…"
-msgstr ""
+msgstr "Préférences …"
 
 #: src/ui/window/attachments/language_manager.rs
 msgid "Open Text Recognition preferences"
@@ -2793,17 +3011,20 @@ msgstr ""
 
 #: src/ui/window/attachments/language_manager.rs
 msgid "Text Recognition"
-msgstr ""
+msgstr "Reconnaissance de texte"
 
 #: src/ui/window/attachments/language_manager.rs
 msgid "Local Text Recognition"
-msgstr ""
+msgstr "Reconnaissance de texte locale"
 
 #: src/ui/window/attachments/language_manager.rs
 msgid ""
 "Extract text from images and scanned PDFs on this device. Install only the "
 "models you need; downloaded models work offline."
 msgstr ""
+"Extraire du texte des images et des fichiers PDF numérisés sur cet appareil. "
+"Installe uniquement les modèles dont vous avez besoin ; les modèles "
+"téléchargés fonctionnent hors ligne."
 
 #: src/ui/window/attachments/language_manager.rs
 msgid "Selected Languages and Writing Systems"
@@ -2900,7 +3121,7 @@ msgstr "Utilise cette langue pour la reconnaissance de texte"
 
 #: src/ui/window/attachments/language_manager.rs
 msgid "Orientation and Script Detection"
-msgstr ""
+msgstr "Détection de script et d'orientation"
 
 #: src/ui/window/attachments/language_manager.rs
 #, rust-format
@@ -2908,10 +3129,12 @@ msgid ""
 "Detects rotated pages and writing systems. Used automatically when "
 "installed. · {size}"
 msgstr ""
+"Détecte les pages pivotées et les systèmes d’écriture. Utilisé "
+"automatiquement une fois installé. · {size}"
 
 #: src/ui/window/attachments/language_manager.rs
 msgid "Enabled"
-msgstr ""
+msgstr "Activé(e)"
 
 #: src/ui/window/attachments/language_manager.rs
 msgid "Optional"
@@ -2941,6 +3164,8 @@ msgstr "Aucun outil correspondant"
 #: src/ui/window/attachments/language_manager.rs
 msgid "Turn off Installed to browse models you can download."
 msgstr ""
+"Désactiver l’option Installé pour parcourir les modèles que vous pouvez "
+"télécharger."
 
 #: src/ui/window/attachments/language_manager.rs
 msgid "Try another search."
@@ -2984,11 +3209,11 @@ msgstr ""
 #: src/ui/window/attachments/language_manager.rs
 #, rust-format
 msgid "Downloading {name}… {downloaded} / {total}"
-msgstr ""
+msgstr "Téléchargement de {name} … {downloaded} / {total}"
 
 #: src/ui/window/attachments/language_manager.rs
 msgid "The OCR language download stopped unexpectedly"
-msgstr ""
+msgstr "Le téléchargement de la langue OCR s’est arrêté de manière inattendue"
 
 #: src/ui/window/attachments/library.rs
 msgid "Files"
@@ -3016,7 +3241,7 @@ msgstr "Rechercher bibliothèque de ce tchat"
 
 #: src/ui/window/attachments/library.rs
 msgid "Include relevant text when you send a message."
-msgstr ""
+msgstr "Inclure un texte pertinent lorsque vous envoyez un message."
 
 #: src/ui/window/attachments/library.rs
 msgid "Text Recognition Languages"
@@ -3025,6 +3250,8 @@ msgstr "Langues de reconnaissance de texte"
 #: src/ui/window/attachments/library.rs
 msgid "Select installed languages in Preferences → Text Recognition"
 msgstr ""
+"Sélectionnez les langues installées dans les préférences → Reconnaissance de "
+"texte"
 
 #: src/ui/window/attachments/library.rs
 msgid "File Settings"
@@ -3210,29 +3437,29 @@ msgstr "Ajuster l’image à la fenêtre"
 
 #: src/ui/window/attachments/library.rs
 msgid "View at Actual Size"
-msgstr ""
+msgstr "Afficher à la taille réelle"
 
 #: src/ui/window/attachments/library.rs
 msgid "This image could not be displayed."
-msgstr ""
+msgstr "Cette image n’a pas pu être affichée."
 
 #: src/ui/window/attachments/library.rs
 msgid "Previous Image"
-msgstr ""
+msgstr "Image précédente"
 
 #: src/ui/window/attachments/library.rs
 msgid "Next Image"
-msgstr ""
+msgstr "Image suivante"
 
 #: src/ui/window/attachments/library.rs
 #, rust-format
 msgid "{current} of {total}"
-msgstr ""
+msgstr "{current} de {total}"
 
 #: src/ui/window/attachments/library.rs
 #, rust-format
 msgid "of {total}"
-msgstr ""
+msgstr "de {total}"
 
 #: src/ui/window/attachments/library.rs
 msgid "No readable text on this page."
@@ -3241,11 +3468,13 @@ msgstr "Aucun texte lisible sur cette page."
 #: src/ui/window/attachments/library.rs
 #, rust-format
 msgid "Page could not be loaded: {error}"
-msgstr ""
+msgstr "La page n’a pas pu être chargée : {error}"
 
 #: src/ui/window/attachments/library.rs
 msgid "Extracted text · Original layout is available in the saved PDF"
 msgstr ""
+"Texte extrait · La présentation d’origine est disponible dans le PDF "
+"enregistré"
 
 #: src/ui/window/attachments/library.rs
 msgid "Save Attachment"
@@ -3322,6 +3551,9 @@ msgid ""
 "The original folder could not be opened. The file may have moved or access "
 "may have expired. Open Preview to save a copy."
 msgstr ""
+"Le dossier d’origine n’a pas pu être ouvert. Le fichier a peut-être été "
+"déplacé ou l’accès a peut-être expiré. Ouvrez Aperçu pour enregistrer une "
+"copie."
 
 #: src/ui/window/attachments/library_actions.rs
 msgid "Remove from Library?"
@@ -3544,63 +3776,69 @@ msgstr "Retirer {arg1}"
 #: src/ui/window/attachments.rs
 #, rust-format
 msgid "Attachment could not be removed: {error}"
-msgstr ""
+msgstr "La pièce jointe n’a pas pu être retirée : {error}"
 
 #: src/ui/window/attachments.rs
 #, rust-format
 msgid "Add Attachments · {count} of {MAX_ATTACHMENTS}"
-msgstr ""
+msgstr "Ajout de pièces jointes · {nombre} sur {MAX_ATTACHMENTS}"
 
 #: src/ui/window/attachments.rs
 msgid "Preparing files…"
-msgstr ""
+msgstr "Préparation fichiers …"
 
 #: src/ui/window/attachments.rs
 msgid "Select a model with image support to send these attachments"
 msgstr ""
+"Sélectionner un modèle avec prise en charge d’images pour envoyer les pièces "
+"jointes suivantes"
 
 #: src/ui/window/attachments.rs
 msgid "Image support could not be checked. Refresh the model list to retry."
 msgstr ""
+"La prise en charge de l’image n’a pas pu être vérifiée. Actualisez la liste "
+"des modèles pour réessayer."
 
 #: src/ui/window/attachments.rs
 msgid "Checking image support…"
-msgstr ""
+msgstr "Vérification de la prise en charge des images …"
 
 #: src/ui/window/attachments.rs
 msgid ""
 "Library search is on · Relevant excerpts will be sent with your question"
 msgstr ""
+"La recherche dans la bibliothèque est active · Des extraits pertinents "
+"seront envoyés avec votre question"
 
 #: src/ui/window/attachments.rs
 msgid "Documents are saved in your library"
-msgstr ""
+msgstr "Les documents sont enregistrés dans votre bibliothèque"
 
 #: src/ui/window/attachments.rs
 #, rust-format
 msgid "Reading page {page} of {total}…"
-msgstr ""
+msgstr "Lecture page {page} de {total} …"
 
 #: src/ui/window/attachments.rs src/ui/window/chat_view.rs
 msgid "Active Model"
-msgstr ""
+msgstr "Modèle actif"
 
 #: src/ui/window/attachments.rs
 msgid "Active Model · Supports Images"
-msgstr ""
+msgstr "Modèle actif · prend en charge les images"
 
 #: src/ui/window/attachments.rs
 msgid "Active Model · Text Only"
-msgstr ""
+msgstr "Modèle actif · Texte seul"
 
 #: src/ui/window/attachments.rs
 #, rust-format
 msgid "Open image: {arg1}"
-msgstr ""
+msgstr "Ouvrir image : {arg1}"
 
 #: src/ui/window/attachments.rs
 msgid "Recognized text"
-msgstr ""
+msgstr "Texte reconnu"
 
 #: src/ui/window/attachments.rs
 #, rust-format
@@ -3610,29 +3848,30 @@ msgstr ""
 #: src/ui/window/attachments.rs
 #, rust-format
 msgid "Sources ({arg1})"
-msgstr ""
+msgstr "Sources ({arg1})"
 
 #: src/ui/window/attachments.rs
 msgid ""
 "Excerpts provided to the model. Check these sources to verify its answer."
 msgstr ""
+"Extraits fournis au modèle. Consultez ces sources pour vérifier sa réponse."
 
 #: src/ui/window/chat_settings.rs src/ui/window/chat_view.rs
 #: src/ui/window/context_usage.rs
 msgid "Chat Settings"
-msgstr ""
+msgstr "Paramètres tchat"
 
 #: src/ui/window/chat_settings.rs
 msgid "Save as Profile…"
-msgstr ""
+msgstr "Enregistrer en tant que profil …"
 
 #: src/ui/window/chat_settings.rs
 msgid "Delete Profile…"
-msgstr ""
+msgstr "Supprimer profil …"
 
 #: src/ui/window/chat_settings.rs
 msgid "Reset to Defaults"
-msgstr ""
+msgstr "Rétablir les valeurs par défaut"
 
 #: src/ui/window/chat_settings.rs src/ui/window/model_manager.rs
 msgid "More Options"
@@ -3757,7 +3996,7 @@ msgstr ""
 
 #: src/ui/window/chat_settings.rs
 msgid "Maximum token choices per step"
-msgstr ""
+msgstr "Nombre maximal de choix de jetons par étape"
 
 #: src/ui/window/chat_settings.rs
 msgid "Seed"
@@ -3765,7 +4004,7 @@ msgstr ""
 
 #: src/ui/window/chat_settings.rs
 msgid "Fixed seed for more reproducible responses"
-msgstr ""
+msgstr "Graine fixe pour des réponses plus reproductibles"
 
 #: src/ui/window/chat_settings.rs src/ui/window/context_usage.rs
 #: src/ui/window/model_manager/requirements.rs
@@ -3853,6 +4092,8 @@ msgid ""
 "Gives the model lasting instructions for this conversation, such as its "
 "role, tone or response style."
 msgstr ""
+"Donne au modèle des instructions permanentes pour cette conversation, telles "
+"que son rôle, le ton ou le style de réponse."
 
 #: src/ui/window/chat_settings.rs
 msgid ""
@@ -3860,6 +4101,10 @@ msgid ""
 "higher values are more varied. Some providers or reasoning modes use their "
 "own defaults."
 msgstr ""
+"Contrôle la variété de réponse. Les valeurs inférieures sont plus ciblées et "
+"prévisibles ; les valeurs supérieures sont plus variées. Certains "
+"fournisseurs ou modes de raisonnement utilisent leurs propres paramètres par "
+"défaut."
 
 #: src/ui/window/chat_settings.rs
 msgid ""
@@ -3869,30 +4114,45 @@ msgid ""
 "when needed to make room for reasoning and the response. All messages stay "
 "saved in the chat."
 msgstr ""
+"Définit le nombre maximal de messages récents d’utilisateur et d’assistant "
+"envoyés au modèle, y compris votre message suivant. Les questions et les "
+"réponses restent ensemble. Avec Ollama, Moose estime également leur taille "
+"et laisse de côté les échanges plus anciens lorsque cela est nécessaire pour "
+"faire place au raisonnement et à la réponse. Tous les messages restent "
+"enregistrés dans le tchat."
 
 #: src/ui/window/chat_settings.rs
 msgid ""
 "Available with Ollama. Context Window defaults to 16,384 tokens; other empty "
 "fields use the model defaults."
 msgstr ""
+"Disponible avec Ollama. La fenêtre de contexte utilise par défaut 16384 "
+"jetons ; les autres champs vides utilisent les valeurs par défaut du modèle."
 
 #: src/ui/window/chat_settings.rs
 msgid ""
 "Limits token choices by their combined probability. Lower values reduce "
 "variety by keeping a smaller set of likely choices."
 msgstr ""
+"Limite les choix de jetons en fonction de leur probabilité combinée. Les "
+"valeurs inférieures réduisent la variété en conservant un ensemble plus "
+"restreint de choix possibles."
 
 #: src/ui/window/chat_settings.rs
 msgid ""
 "Limits each token choice to the most likely options. Lower values reduce "
 "variety."
 msgstr ""
+"Limite chaque choix de jeton aux options les plus probables. Les valeurs "
+"inférieures réduisent la variété."
 
 #: src/ui/window/chat_settings.rs
 msgid ""
 "Uses a fixed random seed to make repeated requests more reproducible. "
 "Identical results are not guaranteed."
 msgstr ""
+"Utilise une graine (seed) aléatoire fixe pour augmenter la reproductibilité "
+"des requêtes répétées. Les résultats identiques ne sont pas garantis."
 
 #: src/ui/window/chat_settings.rs
 msgid ""
@@ -3903,17 +4163,25 @@ msgid ""
 "estimates, so very long responses can still reach the limit. Larger windows "
 "use more memory; Moose does not increase this setting automatically."
 msgstr ""
+"Définit la taille du contexte d’Ollama en jetons, partagée par la "
+"conversation, le raisonnement et la réponse. Moose en utilise 16384 lorsque "
+"ce champ est vide. Jusqu’à un quart de la fenêtre, plafonnée à 2048 jetons, "
+"est réservé au raisonnement et à la réponse, avec une marge de sécurité "
+"supplémentaire. Les tailles de texte et d’image sont des estimations, donc "
+"les réponses très longues peuvent encore atteindre la limite. Les grandes "
+"fenêtres utilisent davantage de mémoire ; Moose n’augmente pas "
+"automatiquement ce paramètre."
 
 #: src/ui/window/chat_settings.rs
 #, rust-format
 msgid "{count} character"
 msgid_plural "{count} characters"
-msgstr[0] ""
-msgstr[1] ""
+msgstr[0] "{count} caractère"
+msgstr[1] "{count} caractères"
 
 #: src/ui/window/chat_settings.rs
 msgid "Add instructions for this chat"
-msgstr ""
+msgstr "Ajouter instructions pour ce tchat"
 
 #: src/ui/window/chat_settings.rs
 msgid "Calculator · Web"
@@ -3921,11 +4189,11 @@ msgstr ""
 
 #: src/ui/window/chat_settings.rs
 msgid "None enabled"
-msgstr ""
+msgstr "Aucun(e) activé(e)"
 
 #: src/ui/window/chat_settings.rs
 msgid "Save as Profile"
-msgstr ""
+msgstr "Enregistrer en tant que profil"
 
 #: src/ui/window/chat_settings.rs src/ui/window/document_creation.rs
 msgid "Save"
@@ -3953,7 +4221,7 @@ msgstr "Courte description"
 #: src/ui/window/chat_settings.rs
 #, rust-format
 msgid "Profile could not be created: {error}"
-msgstr ""
+msgstr "Le profil n’a pas pu être créé : {error}"
 
 #: src/ui/window/chat_settings.rs
 msgid "Delete Profile?"
@@ -3963,6 +4231,8 @@ msgstr "Supprimer profil ?"
 #, rust-format
 msgid "Delete \"{arg1}\"? Existing chats will keep their current settings."
 msgstr ""
+"Supprimer « {arg1} » ? Les tchats existants conserveront leurs paramètres "
+"actuels."
 
 #: src/ui/window/chat_settings.rs src/ui/window/conversation_list.rs
 #: src/ui/window/model_actions.rs src/ui/window/provider_controls.rs
@@ -3976,15 +4246,17 @@ msgstr "Profil supprimé"
 #: src/ui/window/chat_settings.rs
 #, rust-format
 msgid "Profile could not be deleted: {error}"
-msgstr ""
+msgstr "Le profil n’a pas pu être supprimé : {error}"
 
 #: src/ui/window/chat_settings.rs
 msgid "No Profile"
-msgstr ""
+msgstr "Pas de profil"
 
 #: src/ui/window/chat_settings.rs
 msgid "Choose a profile to apply instructions and response settings"
 msgstr ""
+"Choisissez un profil pour appliquer les instructions et les paramètres de "
+"réponse"
 
 #: src/ui/window/chat_settings.rs
 msgid "Use Selected Model"
@@ -3998,7 +4270,7 @@ msgstr "{model} (non disponible)"
 #: src/ui/window/chat_settings.rs
 #, rust-format
 msgid "{field} must be between 0 and 1"
-msgstr ""
+msgstr "{field} doit être compris entre 0 et 1"
 
 #: src/ui/window/chat_settings.rs
 #, rust-format
@@ -4008,16 +4280,16 @@ msgstr "{field} doit être un nombre"
 #: src/ui/window/chat_settings.rs
 #, rust-format
 msgid "{field} must be 0 or greater"
-msgstr ""
+msgstr "{field} doit être égal ou supérieur à 0"
 
 #: src/ui/window/chat_settings.rs
 msgid "Context Window must be between 1 and 262,144 tokens."
-msgstr ""
+msgstr "La fenêtre de contexte doit être comprise entre 1 et 262144 jetons."
 
 #: src/ui/window/chat_settings.rs
 #, rust-format
 msgid "{field} must be a whole number"
-msgstr ""
+msgstr "{field} doit être un nombre entier"
 
 #: src/ui/window/chat_view.rs
 msgid "No Conversation Selected"
@@ -4100,8 +4372,8 @@ msgstr "Outils · Vérifier résultats"
 #, rust-format
 msgid "Tools · {count} action"
 msgid_plural "Tools · {count} actions"
-msgstr[0] ""
-msgstr[1] ""
+msgstr[0] "Outils · {count} action"
+msgstr[1] "Outils · {count} actions"
 
 #: src/ui/window/chat_view.rs
 msgid "Web Sources"
@@ -4114,7 +4386,7 @@ msgstr "Sources Web · {arg1}"
 
 #: src/ui/window/chat_view.rs
 msgid "Page read · excerpt"
-msgstr ""
+msgstr "Page lue · un extrait"
 
 #: src/ui/window/chat_view.rs
 msgid "Search snippet"
@@ -4123,7 +4395,7 @@ msgstr "Extrait de recherche"
 #: src/ui/window/chat_view.rs
 #, rust-format
 msgid "Retrieved {arg1}"
-msgstr ""
+msgstr "Récupéré {arg1}"
 
 #: src/ui/window/chat_view.rs
 msgid "View source text"
@@ -4265,10 +4537,12 @@ msgid ""
 "Find your account ID in the Cloudflare dashboard. Enter an API token with "
 "Workers AI permission below."
 msgstr ""
+"Recherchez votre ID de compte dans le tableau de bord Cloudflare. Saisissez "
+"ci-dessous un jeton API avec l’autorisation IA Workers."
 
 #: src/ui/window/cloud_setup.rs src/ui/window/preferences.rs
 msgid "Base URL"
-msgstr ""
+msgstr "URL de base"
 
 #: src/ui/window/cloud_setup.rs
 #, rust-format
@@ -4276,24 +4550,29 @@ msgid ""
 "Enter the API base URL, including its version, such as {example_url}. Do not "
 "append /chat/completions or another endpoint."
 msgstr ""
+"Saisissez l’URL de base de l’API, y compris sa version, par exemple "
+"{example_url}. N’ajoutez pas /chat/completions ni aucun autre point de "
+"terminaison."
 
 #: src/ui/window/cloud_setup.rs
 msgid ""
 "Connecting enables remote connections. Shared messages and files are "
 "processed under the provider's own data policy."
 msgstr ""
+"La connexion active les connexions à distance. Les messages et fichiers "
+"partagés sont traités selon la politique de données du fournisseur."
 
 #: src/ui/window/cloud_setup.rs
 msgid "Leave blank to keep the saved key"
-msgstr ""
+msgstr "Laissez vide pour conserver la clé enregistrée"
 
 #: src/ui/window/cloud_setup.rs
 msgid "Enter your API key"
-msgstr ""
+msgstr "Saisissez votre clé d'API"
 
 #: src/ui/window/cloud_setup.rs
 msgid "Enter a valid account ID"
-msgstr ""
+msgstr "Saisissez un ID de compte valide"
 
 #: src/ui/window/cloud_setup.rs src/ui/window/preferences.rs
 msgid "API Key"
@@ -4317,67 +4596,81 @@ msgstr ""
 
 #: src/ui/window/cloud_setup.rs
 msgid "Enter your Cloudflare account ID"
-msgstr ""
+msgstr "Saisissez votre ID de compte Cloudflare"
 
 #: src/ui/window/cloud_setup.rs
 msgid "Enter a valid Cloudflare account ID (32 hexadecimal characters)."
 msgstr ""
+"Saisissez un ID de compte Cloudflare valide (32 caractères hexadécimaux)."
 
 #: src/ui/window/cloud_setup.rs
 msgid "Enter an API key for this server and authentication method."
 msgstr ""
+"Saisissez une clé d'API pour ce serveur et la méthode d’authentification."
 
 #: src/ui/window/cloud_setup.rs src/ui/window/preferences.rs
 msgid "Provider could not be saved"
-msgstr ""
+msgstr "Le fournisseur n’a pas pu être enregistré"
 
 #: src/ui/window/cloud_setup.rs
 msgid "Draft could not be saved"
-msgstr ""
+msgstr "Le brouillon n’a pas pu être enregistré"
 
 #: src/ui/window/cloud_setup.rs
 msgid "Saving key securely… Unlock your desktop keyring if requested."
 msgstr ""
+"Enregistrement de la clé en toute sécurité … Déverrouillez votre trousseau "
+"de clés de bureau si demandé."
 
 #: src/ui/window/cloud_setup.rs
 msgid "API key could not be saved securely"
-msgstr ""
+msgstr "La clé d'API n’a pas pu être enregistrée en toute sécurité"
 
 #: src/ui/window/cloud_setup.rs src/ui/window/web_tools.rs
 msgid "Credential operation stopped. Try again."
-msgstr ""
+msgstr "L’opération d’authentification s’est arrêtée. Réessayez."
 
 #: src/ui/window/cloud_setup.rs
 msgid ""
 "Provider saved. Remove the unused key for the previous connection using your "
 "keyring manager."
 msgstr ""
+"Fournisseur enregistré. Retirez la clé inutilisée pour la connexion "
+"précédente en utilisant votre gestionnaire de trousseaux de clés."
 
 #: src/ui/window/cloud_setup.rs
 msgid "Provider settings saved"
-msgstr ""
+msgstr "Paramètres du fournisseur enregistrés"
 
 #: src/ui/window/cloud_setup.rs src/ui/window/provider_controls.rs
 msgid "Provider added"
-msgstr ""
+msgstr "Fournisseur ajouté"
 
 #: src/ui/window/cloud_setup.rs
 msgid ""
 "The keyring could not be restored. Review this provider's API key in "
 "Preferences."
 msgstr ""
+"Le trousseau de clés n’a pas pu être restauré. Vérifiez la clé d'API de ce "
+"fournisseur dans les préférences."
 
 #: src/ui/window/cloud_setup.rs
 msgid "Enable Zero Data Retention in your Groq console for stricter privacy."
 msgstr ""
+"Activez la rétention de zéro données dans votre console Groq pour une "
+"confidentialité plus stricte."
 
 #: src/ui/window/cloud_setup.rs
 msgid "Use a billing-enabled project for Gemini's paid-service data policy."
 msgstr ""
+"Utilisez un projet activé par la facturation pour la politique de données "
+"des services payants de Gemini."
 
 #: src/ui/window/cloud_setup.rs
 msgid "Shared content is processed under the provider's own data policy."
 msgstr ""
+"Le contenu partagé est traité selon la propre politique de données du "
+"fournisseur."
 
 #: src/ui/window/cloud_setup.rs
 #, rust-format
@@ -4389,78 +4682,85 @@ msgid ""
 "Enter a replacement key, or remove the saved key. Existing keys are never "
 "displayed. Your desktop may ask you to unlock its keyring."
 msgstr ""
+"Saisissez une clé de remplacement ou retirez la clé enregistrée. Les clés "
+"existantes ne sont jamais affichées. Votre bureau peut vous demander de "
+"déverrouiller son trousseau de clés."
 
 #: src/ui/window/cloud_setup.rs src/ui/window/web_tools.rs
 msgid "Remove Key"
-msgstr ""
+msgstr "Retirer clé"
 
 #: src/ui/window/cloud_setup.rs src/ui/window/web_tools.rs
 msgid "Save Key"
-msgstr ""
+msgstr "Enregistrer clé"
 
 #: src/ui/window/cloud_setup.rs src/ui/window/web_tools.rs
 msgid "Invalid API key"
-msgstr ""
+msgstr "Clé d'API invalide"
 
 #: src/ui/window/cloud_setup.rs
 msgid "Provider settings changed"
-msgstr ""
+msgstr "Paramètres du fournisseur modifiés"
 
 #: src/ui/window/cloud_setup.rs
 msgid "Reopen the provider's key settings and try again."
-msgstr ""
+msgstr "Rouvrez les paramètres clés du fournisseur et réessayez."
 
 #: src/ui/window/cloud_setup.rs src/ui/window/preferences.rs
 msgid "Provider could not be loaded"
-msgstr ""
+msgstr "Le fournisseur n’a pas pu être chargé"
 
 #: src/ui/window/cloud_setup.rs src/ui/window/web_tools.rs
 msgid "Updating the desktop keyring…"
-msgstr ""
+msgstr "Mise à jour du trousseau de clés du bureau …"
 
 #: src/ui/window/cloud_setup.rs
 msgid "API key removed"
-msgstr ""
+msgstr "Clé API retirée"
 
 #: src/ui/window/cloud_setup.rs
 msgid "API key saved securely"
-msgstr ""
+msgstr "Clé d'API enregistrée en toute sécurité"
 
 #: src/ui/window/cloud_setup.rs
 msgid "API Key Required"
-msgstr ""
+msgstr "Clé d'API requise"
 
 #: src/ui/window/cloud_setup.rs src/ui/window/web_tools.rs
 msgid "Secure key operation failed"
-msgstr ""
+msgstr "L’opération de clé sécurisée a échoué"
 
 #: src/ui/window/cloud_setup.rs
 msgid ""
 "This provider has saved chats. Remove its API key in Preferences, or delete "
 "those chats first."
 msgstr ""
+"Ce fournisseur a enregistré des tchats. Retirez sa clé API dans les "
+"préférences ou supprimez d’abord ces tchats."
 
 #: src/ui/window/cloud_setup.rs
 msgid ""
 "This provider has saved chats. Delete those chats before removing the "
 "provider."
 msgstr ""
+"Ce fournisseur a enregistré des tchats. Supprimez ces tchats avant de "
+"retirer le fournisseur."
 
 #: src/ui/window/cloud_setup.rs src/ui/window/provider_controls.rs
 msgid "Provider could not be deleted"
-msgstr ""
+msgstr "Le fournisseur n’a pas pu être supprimé"
 
 #: src/ui/window/cloud_setup.rs
 msgid "API key could not be removed; provider kept"
-msgstr ""
+msgstr "La clé API n’a pas pu être retirée ; fournisseur gardé"
 
 #: src/ui/window/cloud_setup.rs
 msgid "Credential operation stopped. Provider kept."
-msgstr ""
+msgstr "L’opération d’authentification a été arrêtée. Fournisseur conservé."
 
 #: src/ui/window/code_view.rs
 msgid "Copy code"
-msgstr ""
+msgstr "Copier code"
 
 #: src/ui/window/code_view.rs
 msgid "Shell"
@@ -4469,86 +4769,96 @@ msgstr ""
 #: src/ui/window/composer_commands.rs
 #, rust-format
 msgid "Turn off {arg1} in this chat"
-msgstr ""
+msgstr "Éteindre {arg1} dans ce tchat"
 
 #: src/ui/window/composer_commands.rs
 msgid ""
 "Tools for this chat · ↑↓ to choose · Enter or Tab to select · Esc to dismiss"
 msgstr ""
+"Outils pour ce tchat · ↑↓ pour choisir · Entrée ou Tab pour sélectionner · "
+"Échap pour ignorer"
 
 #: src/ui/window/composer_commands.rs
 msgid "Finish or stop the current response to change tools"
-msgstr ""
+msgstr "Terminer ou arrêter la réponse actuelle pour modifier les outils"
 
 #: src/ui/window/composer_commands.rs
 msgid "Finish the keyring operation to change tools"
-msgstr ""
+msgstr "Terminez l’opération du trousseau de clés pour changer d’outil"
 
 #: src/ui/window/composer_commands.rs
 msgid "Select a provider first."
-msgstr ""
+msgstr "Sélectionnez d’abord un fournisseur."
 
 #: src/ui/window/composer_commands.rs
 msgid "Tool settings could not be loaded. Reopen this chat."
-msgstr ""
+msgstr "Les paramètres de l’outil n’ont pas pu être chargés. Rouvrez ce tchat."
 
 #: src/ui/window/composer_commands.rs
 msgid "Turn off this tool for the conversation"
-msgstr ""
+msgstr "Désactiver cet outil pour la conversation"
 
 #: src/ui/window/composer_commands.rs
 msgid "Calculate on this device · Requires a model with tool support"
 msgstr ""
+"Calculer sur cet appareil · Nécessite un modèle avec prise en charge d’outils"
 
 #: src/ui/window/composer_commands.rs
 msgid "Read public links · Set up search in Preferences → Web"
-msgstr ""
+msgstr "Lire les liens publics · Configurer la recherche dans Préférences → Web"
 
 #: src/ui/window/composer_commands.rs
 msgid "Search and read public pages · Permission required before first use"
 msgstr ""
+"Rechercher et lire des pages publiques · Autorisation requise avant la "
+"première utilisation"
 
 #: src/ui/window/composer_commands.rs
 msgid " · Unavailable"
-msgstr ""
+msgstr " · Indisponible"
 
 #: src/ui/window/composer_commands.rs
 msgid "Switch to this chat’s provider before changing tools"
-msgstr ""
+msgstr "Basculer vers le fournisseur de ce tchat avant de changer d’outil"
 
 #: src/ui/window/composer_commands.rs
 msgid "Tool settings could not be saved"
-msgstr ""
+msgstr "Les paramètres de l’outil n’ont pas pu être enregistrés"
 
 #: src/ui/window/context_usage.rs
 msgid "Applies to the next message. Larger values use more memory."
 msgstr ""
+"S’applique au message suivant. Les valeurs supérieures utilisent plus de "
+"mémoire."
 
 #: src/ui/window/context_usage.rs
 msgid ""
 "Requires model support and enough RAM or VRAM. May cause high resource use, "
 "slowdowns, or memory errors."
 msgstr ""
+"Nécessite un support de modèle et suffisamment de RAM ou de VRAM. Peut "
+"entraîner une utilisation importante des ressources, des ralentissements ou "
+"des erreurs de mémoire."
 
 #: src/ui/window/context_usage.rs
 msgid "Next Message"
-msgstr ""
+msgstr "Message suivant"
 
 #: src/ui/window/context_usage.rs
 msgid "Current Response"
-msgstr ""
+msgstr "Réponse actuelle"
 
 #: src/ui/window/context_usage.rs
 msgid "Context adjusted"
-msgstr ""
+msgstr "Contexte ajusté"
 
 #: src/ui/window/context_usage.rs
 msgid "Context Usage"
-msgstr ""
+msgstr "Utilisation du contexte"
 
 #: src/ui/window/context_usage.rs
 msgid "Apply Context Window"
-msgstr ""
+msgstr "Appliquer fenêtre de contexte"
 
 #: src/ui/window/context_usage.rs
 #, rust-format
@@ -4558,11 +4868,11 @@ msgstr ""
 #: src/ui/window/context_usage.rs src/ui/window/model_actions.rs
 #: src/ui/window/model_download.rs
 msgid "New Chat"
-msgstr ""
+msgstr "Nouveau tchat"
 
 #: src/ui/window/context_usage.rs
 msgid "Context Window Warning"
-msgstr ""
+msgstr "Avertissement de la fenêtre de contexte"
 
 #: src/ui/window/context_usage.rs
 #, rust-format
@@ -4571,12 +4881,12 @@ msgstr ""
 
 #: src/ui/window/context_usage.rs
 msgid "Default"
-msgstr ""
+msgstr "Par défaut"
 
 #: src/ui/window/context_usage.rs
 #, rust-format
 msgid "Context window could not be saved: {error}"
-msgstr ""
+msgstr "La fenêtre de contexte n’a pas pu être enregistrée : {error}"
 
 #: src/ui/window/context_usage.rs
 #, rust-format
@@ -4590,93 +4900,113 @@ msgstr ""
 
 #: src/ui/window/context_usage.rs
 msgid "Estimated context included in your next message."
-msgstr ""
+msgstr "Contexte estimé inclus dans votre prochain message."
 
 #: src/ui/window/context_usage.rs
 msgid ""
 "Includes the current response and reasoning. Your next draft is counted "
 "afterward."
 msgstr ""
+"Inclut la réponse actuelle et le raisonnement. Votre prochain brouillon est "
+"pris en compte par la suite."
 
 #: src/ui/window/context_usage.rs
 msgid "Input tokens reported by Ollama. The count grows as it responds."
 msgstr ""
+"Jetons d’entrée signalés par Ollama. Le nombre augmente à mesure qu’il "
+"répond."
 
 #: src/ui/window/context_usage.rs
 msgid "This provider does not report a context limit."
-msgstr ""
+msgstr "Ce fournisseur ne signale pas de limite de contexte."
 
 #: src/ui/window/context_usage.rs
 msgid ""
 "Older messages were left out to make room for your next message. They remain "
 "saved in this chat."
 msgstr ""
+"Les anciens messages ont été laissés de côté pour faire de la place à votre "
+"prochain message. Ils restent enregistrés dans ce tchat."
 
 #: src/ui/window/context_usage.rs
 msgid ""
 "Older messages were left out to make room for this response. They remain "
 "saved in this chat."
 msgstr ""
+"Les anciens messages ont été laissés de côté pour faire de la place à cette "
+"réponse. Ils restent enregistrés dans ce tchat."
 
 #: src/ui/window/context_usage.rs
 msgid ""
 "There is no room left in this context. Shorten your next message, adjust "
 "Chat Settings, or start a new chat."
 msgstr ""
+"Il n’y a plus de place dans ce contexte. Raccourcissez votre prochain "
+"message, ajustez les paramètres du tchat ou lancez un nouveau tchat."
 
 #: src/ui/window/context_usage.rs
 msgid ""
 "Context is nearly full. Older messages may be left out to make room for a "
 "response."
 msgstr ""
+"Le contexte est presque plein. Les messages plus anciens peuvent être "
+"laissés de côté pour faire place à une réponse."
 
 #: src/ui/window/context_usage.rs
 #, rust-format
 msgid "Context usage: {usage}"
-msgstr ""
+msgstr "Utilisation contexte : {usage}"
 
 #: src/ui/window/context_usage.rs
 msgid "Full"
-msgstr ""
+msgstr "Plein"
 
 #: src/ui/window/context_usage.rs
 msgid "Context full"
-msgstr ""
+msgstr "Contexte plein"
 
 #: src/ui/window/context_usage.rs
 msgid ""
 "Shorten your message, use fewer attachments, adjust Chat Settings, or start "
 "a new chat."
 msgstr ""
+"Raccourcissez votre message, utilisez moins de pièces jointes, ajustez les "
+"paramètres de tchat ou lancez un nouveau tchat."
 
 #: src/ui/window/context_usage.rs
 msgid ""
 "The current message, instructions, or attachments are estimated to leave too "
 "little room for a response. Ollama checks the exact size when you send."
 msgstr ""
+"On estime que le message, les instructions ou les pièces jointes en cours "
+"laissent trop peu de place pour une réponse. Ollama vérifie la taille exacte "
+"lorsque vous envoyez."
 
 #: src/ui/window/context_usage.rs
 msgid "Usage unavailable"
-msgstr ""
+msgstr "Utilisation non disponible"
 
 #: src/ui/window/context_usage.rs
 msgid "Context usage is unavailable"
-msgstr ""
+msgstr "L’utilisation du contexte est indisponible"
 
 #: src/ui/window/conversation_export.rs src/ui/window/conversation_list.rs
 #: src/ui/window/model_actions.rs src/ui/window.rs
 msgid "Finish the active generation first"
-msgstr ""
+msgstr "Terminez d’abord la génération active"
 
 #: src/ui/window/conversation_export.rs
 msgid "Export Conversation"
-msgstr ""
+msgstr "Exporter conversation"
 
 #: src/ui/window/conversation_export.rs
 msgid ""
 "JSON includes copies of attachments and created documents. Markdown and "
 "plain text include their names. All formats include document source excerpts."
 msgstr ""
+"JSON inclut des copies de pièces jointes et de documents créés. Les formats "
+"Markdown et texte brut incluent leurs noms. Tous les formats incluent des "
+"extraits de sources de documents."
 
 #: src/ui/window/conversation_export.rs
 #, rust-format
@@ -4716,6 +5046,10 @@ msgid ""
 "{arg4} · Retrieved {arg5}{arg6}\n"
 "\n"
 msgstr ""
+"Source Web [{arg1}] : {arg2}\n"
+"{arg3}\n"
+"{arg4} · Récupéré {arg5}{arg6}\n"
+"\n"
 
 #: src/ui/window/conversation_export.rs
 #, rust-format
@@ -4723,6 +5057,8 @@ msgid ""
 "Attachment: {arg1} ({arg2})\n"
 "\n"
 msgstr ""
+"Pièce jointe : {arg1} ({arg2})\n"
+"\n"
 
 #: src/ui/window/conversation_export.rs
 #, rust-format
@@ -4730,10 +5066,12 @@ msgid ""
 "Source [{arg1}]: {arg2} — page {arg3}\n"
 "\n"
 msgstr ""
+"Source [{arg1}] : {arg2} — page {arg3}\n"
+"\n"
 
 #: src/ui/window/conversation_export.rs
 msgid "Message"
-msgstr ""
+msgstr "Message"
 
 #: src/ui/window/conversation_export.rs
 msgid "Export"
@@ -4746,26 +5084,26 @@ msgstr ""
 
 #: src/ui/window/conversation_export.rs
 msgid "Conversation exported"
-msgstr ""
+msgstr "Conversation exportée"
 
 #: src/ui/window/conversation_export.rs src/ui/window.rs
 #, rust-format
 msgid "Conversation could not be saved: {error}"
-msgstr ""
+msgstr "La conversation n’a pas pu être enregistrée : {error}"
 
 #: src/ui/window/conversation_list.rs
 msgid "Archived"
-msgstr ""
+msgstr "Archivé(s)"
 
 #: src/ui/window/conversation_list.rs
 #, rust-format
 msgid "Folders could not be loaded: {error}"
-msgstr ""
+msgstr "Les dossiers n’ont pas pu être chargés : {error}"
 
 #: src/ui/window/conversation_list.rs
 #, rust-format
 msgid "Conversations could not be loaded: {error}"
-msgstr ""
+msgstr "Les conversations n’ont pas pu être chargées : {error}"
 
 #: src/ui/window/conversation_list.rs
 msgid "No matching conversations"
@@ -4929,6 +5267,9 @@ msgid ""
 "Add exact model IDs from your provider. Enable Images only for models that "
 "accept image input. Saved IDs remain available if discovery is unavailable."
 msgstr ""
+"Ajoutez les ID de modèle exacts de votre fournisseur. Activez Images "
+"uniquement pour les modèles qui acceptent l’entrée d’images. Les ID "
+"enregistrés restent disponibles si la découverte n’est pas disponible."
 
 #: src/ui/window/custom_provider.rs
 msgid "Discover Models Automatically"
@@ -5213,22 +5554,24 @@ msgstr "Retenter réponse"
 
 #: src/ui/window/document_creation.rs
 msgid "Content preview · Open the file to see its final layout"
-msgstr ""
+msgstr "Aperçu du contenu · Ouvrez le fichier pour voir sa présentation finale"
 
 #: src/ui/window/document_creation.rs
 msgid ""
 "Finish or stop the current response before opening another response version."
 msgstr ""
+"Terminer ou arrêter la réponse actuelle avant d’ouvrir une autre version de "
+"réponse."
 
 #: src/ui/window/document_creation.rs src/ui/window/generation.rs
 #, rust-format
 msgid "Chat could not be opened: {error}"
-msgstr ""
+msgstr "Le tchat n’a pas pu être ouvert : {error}"
 
 #: src/ui/window/document_creation.rs
 #, rust-format
 msgid "Document could not be opened: {error}"
-msgstr ""
+msgstr "Le document n’a pas pu être ouvert : {error}"
 
 #: src/ui/window/document_creation.rs
 msgid "Save Document"
@@ -5957,17 +6300,17 @@ msgstr ""
 
 #: src/ui/window/model_actions.rs
 msgid "Download history cleared"
-msgstr ""
+msgstr "Historique de téléchargement effacé"
 
 #: src/ui/window/model_actions.rs
 #, rust-format
 msgid "Download history could not be cleared: {error}"
-msgstr ""
+msgstr "L’historique des téléchargements n’a pas pu être effacé : {error}"
 
 #: src/ui/window/model_actions.rs
 #, rust-format
 msgid "Updated {arg1}"
-msgstr ""
+msgstr "Mis à jour {arg1}"
 
 #: src/ui/window/model_actions.rs
 msgid "Queued"
@@ -5975,11 +6318,11 @@ msgstr "Mis en file d'attente"
 
 #: src/ui/window/model_actions.rs
 msgid "Running"
-msgstr ""
+msgstr "En cours d'exécution"
 
 #: src/ui/window/model_actions.rs
 msgid "Complete"
-msgstr ""
+msgstr "Achevé"
 
 #: src/ui/window/model_actions.rs
 msgid "Cancelled"
@@ -6015,12 +6358,12 @@ msgstr "Terminez d’abord la suppression du modèle actif"
 #: src/ui/window/model_actions.rs src/ui/window.rs
 #, rust-format
 msgid "Download job could not be saved: {error}"
-msgstr ""
+msgstr "La tâche de téléchargement n’a pas pu être enregistrée : {error}"
 
 #: src/ui/window/model_actions.rs
 #, rust-format
 msgid "Model: {target_model}; server: {arg1}"
-msgstr ""
+msgstr "Modèle : {target_model} ; serveur : {arg1}"
 
 #: src/ui/window/model_actions.rs
 #, rust-format
@@ -6030,11 +6373,15 @@ msgid ""
 "\n"
 "{error}"
 msgstr ""
+"Modèle : {target_model}\n"
+"Serveur : {arg1}\n"
+"\n"
+"{error}"
 
 #: src/ui/window/model_actions.rs
 #, rust-format
 msgid "Download progress could not be saved: {error}"
-msgstr ""
+msgstr "La progression du téléchargement n’a pas pu être enregistrée : {error}"
 
 #: src/ui/window/model_actions.rs
 msgid "Model download complete"
@@ -6043,7 +6390,7 @@ msgstr "Téléchargement du modèle terminé"
 #: src/ui/window/model_actions.rs
 #, rust-format
 msgid "Download job could not be saved: {save_error}"
-msgstr ""
+msgstr "La tâche de téléchargement n’a pas pu être enregistrée : {save_error}"
 
 #: src/ui/window/model_actions.rs
 #, rust-format
@@ -6051,6 +6398,8 @@ msgid ""
 "Provider: {arg1} at {arg2}\n"
 "{error}"
 msgstr ""
+"Fournisseur : {arg1} à {arg2}\n"
+"{error}"
 
 #: src/ui/window/model_actions.rs
 msgid "Model download failed"
@@ -6198,7 +6547,7 @@ msgstr ""
 
 #: src/ui/window/model_actions.rs
 msgid "Check the model name and connection, then try again."
-msgstr ""
+msgstr "Vérifiez le nom du modèle et la connexion, puis réessayez."
 
 #: src/ui/window/model_actions.rs
 msgid "Edit and Retry"
@@ -6263,7 +6612,7 @@ msgstr "Parcourir les modèles de Hugging Face"
 #: src/ui/window/model_download.rs
 #, rust-format
 msgid "Downloads to {arg1} on this device."
-msgstr ""
+msgstr "Télécharge vers {arg1} sur cet appareil."
 
 #: src/ui/window/model_download.rs
 #, rust-format
@@ -6306,7 +6655,7 @@ msgstr "Les besoins en mémoire dépendent du serveur d’Ollama"
 
 #: src/ui/window/model_manager/discovery.rs
 msgid "Lower memory pressure expected"
-msgstr ""
+msgstr "Pression mémoire plus faible attendue"
 
 #: src/ui/window/model_manager/discovery.rs
 msgid "May leave little memory for other apps"
@@ -6432,6 +6781,9 @@ msgid ""
 "Moose defaults to {arg1} tokens. Chat settings can override this value; "
 "longer contexts and images can use substantially more memory."
 msgstr ""
+"Moose utilise par défaut les jetons {arg1}. Les paramètres de tchat peuvent "
+"remplacer cette valeur ; des contextes et des images plus longs peuvent "
+"utiliser beaucoup plus de mémoire."
 
 #: src/ui/window/model_manager/requirements.rs
 msgid "GPU Compatibility"
@@ -6524,6 +6876,9 @@ msgid ""
 "A newer Llama 70B option that Ollama lists among the popular models. Use "
 "this when you want high quality and have enough memory for a large model."
 msgstr ""
+"Une option plus récente de Llama 70B qu’Ollama répertorie parmi les modèles "
+"populaires. Utilisez-la lorsque vous souhaitez une haute qualité et que vous "
+"avez suffisamment de mémoire pour un grand modèle."
 
 #: src/ui/window/model_manager.rs
 msgid "Default Llama 3.3 70B tag."
@@ -6535,17 +6890,19 @@ msgstr "Variante d’instruction quantifiée pour les grands systèmes locaux."
 
 #: src/ui/window/model_manager.rs
 msgid "Older but still heavily used Meta chat models"
-msgstr ""
+msgstr "Des modèles de tchat de Meta plus anciens mais encore très utilisés"
 
 #: src/ui/window/model_manager.rs
 msgid ""
 "Still one of the high-pull Llama families on Ollama. The 8B variant remains "
 "a useful baseline when comparing newer local models."
 msgstr ""
+"Toujours l’une des familles de Llama les plus populaires sur Ollama. La "
+"variante 8B reste une base utile pour comparer les nouveaux modèles locaux."
 
 #: src/ui/window/model_manager.rs
 msgid "Classic local Llama 3 baseline."
-msgstr ""
+msgstr "Base de référence classique locale Llama 3."
 
 #: src/ui/window/model_manager.rs
 msgid "Quantized instruct variant."
@@ -6553,17 +6910,20 @@ msgstr "Variante d’instruction quantifiée."
 
 #: src/ui/window/model_manager.rs
 msgid "Large Llama 3 variant."
-msgstr ""
+msgstr "Grande variante de Llama 3."
 
 #: src/ui/window/model_manager.rs
 msgid "Popular reasoning model family"
-msgstr ""
+msgstr "Famille de modèles de raisonnement populaire"
 
 #: src/ui/window/model_manager.rs
 msgid ""
 "Reasoning-focused models and distilled variants. Smaller tags are useful "
 "locally; larger tags need much more memory."
 msgstr ""
+"Modèles axés sur le raisonnement et variantes distillées. Les étiquettes "
+"plus petites sont utiles localement ; les étiquettes plus grandes "
+"nécessitent beaucoup plus de mémoire."
 
 #: src/ui/window/model_manager.rs
 msgid "Tiny reasoning distill for light machines."
@@ -6621,11 +6981,11 @@ msgstr "Meilleure qualité pour les machines avec davantage de mémoire."
 
 #: src/ui/window/model_manager.rs
 msgid "Large Gemma model for stronger answers."
-msgstr ""
+msgstr "Grand modèle de Gemma pour des réponses plus fortes."
 
 #: src/ui/window/model_manager.rs
 msgid "Efficient Gemma models for everyday devices"
-msgstr ""
+msgstr "Des modèles efficaces pour les appareils du quotidien"
 
 #: src/ui/window/model_manager.rs
 msgid ""
@@ -6633,14 +6993,17 @@ msgid ""
 "everyday devices. Good when you want newer Gemma behavior without a huge "
 "model."
 msgstr ""
+"Variantes compactes de Gemma 3n conçues pour une exécution efficace sur les "
+"ordinateurs portables et les appareils du quotidien. Bien quand tu veux un "
+"comportement plus moderne de Gemma sans un énorme modèle."
 
 #: src/ui/window/model_manager.rs
 msgid "Smaller efficient Gemma 3n variant."
-msgstr ""
+msgstr "Variante plus petite et efficace de Gemma 3n."
 
 #: src/ui/window/model_manager.rs
 msgid "More capable efficient Gemma 3n variant."
-msgstr ""
+msgstr "Variante Gemma 3n plus efficace et plus performante."
 
 #: src/ui/window/model_manager.rs
 msgid "Quantized instruction-tuned tag."
@@ -6648,81 +7011,91 @@ msgstr ""
 
 #: src/ui/window/model_manager.rs
 msgid "Very popular efficient Google model family"
-msgstr ""
+msgstr "Famille de modèles de Google efficace et très populaire"
 
 #: src/ui/window/model_manager.rs
 msgid ""
 "Older than Gemma 3, but still high on Ollama's popularity list. Useful for "
 "comparing small and medium Google models."
 msgstr ""
+"Plus ancien que Gemma 3, mais toujours haut sur la liste de popularité "
+"d’Ollama. Utile pour comparer les petits et moyens modèles de Google."
 
 #: src/ui/window/model_manager.rs
 msgid "Small Gemma 2 model."
-msgstr ""
+msgstr "Petit modèle Gemma 2."
 
 #: src/ui/window/model_manager.rs
 msgid "Balanced Gemma 2 model."
-msgstr ""
+msgstr "Modèle équilibré de Gemma 2."
 
 #: src/ui/window/model_manager.rs
 msgid "Large Gemma 2 model."
-msgstr ""
+msgstr "Grand modèle Gemma 2."
 
 #: src/ui/window/model_manager.rs
 msgid "Newer Gemma family with local and larger variants"
-msgstr ""
+msgstr "Nouvelle famille Gemma avec des variantes locales et plus grandes"
 
 #: src/ui/window/model_manager.rs
 msgid ""
 "Recent Gemma models with compact expert variants and larger instruction "
 "tags. Good to try when you want the newest Google family available in Ollama."
 msgstr ""
+"Modèles récents de Gemma avec des variantes expertes compactes et des "
+"étiquettes d’instruction plus grandes. À essayer si vous voulez la dernière "
+"famille de Google disponible dans Ollama."
 
 #: src/ui/window/model_manager.rs
 msgid "Compact expert variant for lighter local use."
-msgstr ""
+msgstr "Variante experte compacte pour une utilisation locale plus légère."
 
 #: src/ui/window/model_manager.rs
 msgid "Small expert variant with more capacity."
-msgstr ""
+msgstr "Petite variante experte avec plus de capacité."
 
 #: src/ui/window/model_manager.rs
 msgid "Mid-sized Gemma 4 model for chat and image understanding."
 msgstr ""
+"Modèle Gemma 4 de taille moyenne pour le tchat et la compréhension des "
+"images."
 
 #: src/ui/window/model_manager.rs
 msgid "Larger instruction model."
-msgstr ""
+msgstr "Modèle d’instruction plus grand."
 
 #: src/ui/window/model_manager.rs
 msgid "Large Gemma 4 variant for strong quality."
-msgstr ""
+msgstr "Variante grande de Gemma 4 pour une qualité élevée."
 
 #: src/ui/window/model_manager.rs
 msgid "Recent Gemma translation models"
-msgstr ""
+msgstr "Modèles de traduction récents de Gemma"
 
 #: src/ui/window/model_manager.rs
 msgid ""
 "A newer Gemma-based translation family for communication across many "
 "languages. Useful when translation is the main workflow."
 msgstr ""
+"Une nouvelle famille de traductions basée sur Gemma pour la communication "
+"entre plusieurs langues. Utile lorsque la traduction est le flux de travail "
+"principal."
 
 #: src/ui/window/model_manager.rs
 msgid "Small translation model."
-msgstr ""
+msgstr "Petit modèle de traduction."
 
 #: src/ui/window/model_manager.rs
 msgid "Medium translation model."
-msgstr ""
+msgstr "Modèle de traduction moyen."
 
 #: src/ui/window/model_manager.rs
 msgid "Large translation model."
-msgstr ""
+msgstr "Grand modèle de traduction."
 
 #: src/ui/window/model_manager.rs
 msgid "Recent specialized Gemma medical models"
-msgstr ""
+msgstr "Modèles médicaux spécialisés récents de Gemma"
 
 #: src/ui/window/model_manager.rs
 msgid ""
@@ -6730,150 +7103,166 @@ msgid ""
 "are included for specialized workflows and should not replace professional "
 "medical judgment."
 msgstr ""
+"Variantes spécialisées de Gemma pour la compréhension médicale du texte et "
+"des images. Ils sont inclus pour les flux de travail spécialisés et ne "
+"doivent pas remplacer le jugement médical professionnel."
 
 #: src/ui/window/model_manager.rs
 msgid "Small specialized medical model."
-msgstr ""
+msgstr "Petit modèle médical spécialisé."
 
 #: src/ui/window/model_manager.rs
 msgid "Large specialized medical model."
-msgstr ""
+msgstr "Grand modèle médical spécialisé."
 
 #: src/ui/window/model_manager.rs
 msgid "Strong multilingual general models"
-msgstr ""
+msgstr "Modèles généraux multilingues forts"
 
 #: src/ui/window/model_manager.rs
 msgid ""
 "Popular multilingual chat models with many sizes. The 7B tag is a reliable "
 "local default, and larger tags improve quality when hardware allows."
 msgstr ""
+"Modèles de tchat multilingues populaires avec de nombreuses tailles. La "
+"balise 7B est une valeur par défaut locale fiable, et les balises plus "
+"grandes améliorent la qualité lorsque le matériel le permet."
 
 #: src/ui/window/model_manager.rs
 msgid "Tiny multilingual model."
-msgstr ""
+msgstr "Petit modèle multilingue."
 
 #: src/ui/window/model_manager.rs
 msgid "Small multilingual chat."
-msgstr ""
+msgstr "Petit tchat multilingue."
 
 #: src/ui/window/model_manager.rs
 msgid "Lightweight everyday chat."
-msgstr ""
+msgstr "Tchat léger pour tous les jours."
 
 #: src/ui/window/model_manager.rs
 msgid "Recommended local default."
-msgstr ""
+msgstr "Local recommandé par défaut."
 
 #: src/ui/window/model_manager.rs
 msgid "Stronger multilingual answers."
-msgstr ""
+msgstr "Des réponses multilingues plus fortes."
 
 #: src/ui/window/model_manager.rs
 msgid "Large local model for better quality."
-msgstr ""
+msgstr "Grand modèle local pour une meilleure qualité."
 
 #: src/ui/window/model_manager.rs
 msgid "Very large multilingual model."
-msgstr ""
+msgstr "Très grand modèle multilingue."
 
 #: src/ui/window/model_manager.rs
 msgid "Popular multilingual reasoning models"
-msgstr ""
+msgstr "Modèles populaires de raisonnement multilingue"
 
 #: src/ui/window/model_manager.rs
 msgid ""
 "Reasoning-capable Qwen models with small dense tags and larger mixture-of-"
 "experts tags. Strong choice for multilingual work."
 msgstr ""
+"Modèles de Qwen capables de raisonner avec de petites balises denses et des "
+"balises plus grandes basées sur un mélange d’experts. Choix fort pour le "
+"travail multilingue."
 
 #: src/ui/window/model_manager.rs
 msgid "Tiny Qwen 3 chat."
-msgstr ""
+msgstr "Minuscule tchat Qwen 3."
 
 #: src/ui/window/model_manager.rs
 msgid "Small reasoning model."
-msgstr ""
+msgstr "Petit modèle de raisonnement."
 
 #: src/ui/window/model_manager.rs
 msgid "Recommended small reasoning model."
-msgstr ""
+msgstr "Petit modèle de raisonnement recommandé."
 
 #: src/ui/window/model_manager.rs
 msgid "Balanced reasoning and chat."
-msgstr ""
+msgstr "Équilibré entre raisonnement et tchat."
 
 #: src/ui/window/model_manager.rs
 msgid "Mixture-of-experts model with active 3B path."
-msgstr ""
+msgstr "Modèle de mélange d’experts avec chemin 3B actif."
 
 #: src/ui/window/model_manager.rs
 msgid "Large dense Qwen 3 model."
-msgstr ""
+msgstr "Grand modèle dense de Qwen 3."
 
 #: src/ui/window/model_manager.rs
 msgid "Newer Qwen family with compact and MoE tags"
-msgstr ""
+msgstr "Nouvelle famille Qwen avec des étiquettes compactes et MoE"
 
 #: src/ui/window/model_manager.rs
 msgid ""
 "Recent Qwen models with small local sizes and larger expert variants. Useful "
 "for multilingual chat, coding and reasoning."
 msgstr ""
+"Modèles Qwen récents avec de petites tailles locales et des variantes "
+"expertes plus grandes. Utiles pour le tchat multilingue, le codage et le "
+"raisonnement."
 
 #: src/ui/window/model_manager.rs
 msgid "Tiny fast model."
-msgstr ""
+msgstr "Minuscule modèle rapide."
 
 #: src/ui/window/model_manager.rs
 msgid "Small general model."
-msgstr ""
+msgstr "Petit modèle général."
 
 #: src/ui/window/model_manager.rs
 msgid "Practical recent Qwen model for local chat."
-msgstr ""
+msgstr "Modèle pratique récent de Qwen pour le tchat local."
 
 #: src/ui/window/model_manager.rs
 msgid "Stronger recent Qwen model for local systems."
-msgstr ""
+msgstr "Modèle Qwen récent plus fort pour les systèmes locaux."
 
 #: src/ui/window/model_manager.rs
 msgid "Large dense model with coding variants."
-msgstr ""
+msgstr "Grand modèle dense avec des variantes pour codage."
 
 #: src/ui/window/model_manager.rs
 msgid "Mixture-of-experts model for larger local setups."
 msgstr ""
+"Modèle mixte d’experts pour des configurations locales plus importantes."
 
 #: src/ui/window/model_manager.rs
 msgid "Recent Qwen upgrade for coding and thinking"
-msgstr ""
+msgstr "Mise à niveau récente de Qwen pour le codage et la réflexion"
 
 #: src/ui/window/model_manager.rs
 msgid ""
 "A newer Qwen generation shown in Ollama's recent model listings. It focuses "
 "on agentic coding and better thinking preservation."
 msgstr ""
+"Une génération plus récente de Qwen, présentée dans les récentes listes de "
+"modèles d’Ollama. Elle se concentre sur le codage agentique et la "
+"préservation d’une meilleure réflexion."
 
 #: src/ui/window/model_manager.rs
 msgid "Dense recent Qwen model."
-msgstr ""
+msgstr "Modèle de Qwen récent et dense."
 
 #: src/ui/window/model_manager.rs
 msgid "Quantized dense recent Qwen model."
-msgstr ""
+msgstr "Modèle de Qwen récent dense quantifié."
 
 #: src/ui/window/model_manager.rs
 msgid "Mixture-of-experts recent Qwen model."
-msgstr ""
+msgstr "Mélange d’experts récent modèle de Qwen."
 
 #: src/ui/window/model_manager.rs
 msgid "Quantized MoE variant."
-msgstr ""
+msgstr "Variante quantifiée MoE."
 
 #: src/ui/window/model_manager.rs
 msgid "Multimodal Qwen model for reasoning and coding"
-msgstr ""
+msgstr "Modèle Qwen multimodal pour le raisonnement et le codage"
 
 #: src/ui/window/model_manager.rs
 msgid ""
@@ -6883,67 +7272,76 @@ msgstr ""
 
 #: src/ui/window/model_manager.rs
 msgid "Large Qwen model with image support and reasoning."
-msgstr ""
+msgstr "Grand modèle de Qwen avec support d’image et raisonnement."
 
 #: src/ui/window/model_manager.rs
 msgid "Open-weight GPT-style models"
-msgstr ""
+msgstr "Modèles de type GPT à poids ouvert"
 
 #: src/ui/window/model_manager.rs
 msgid ""
 "Open-weight models intended for capable local and workstation setups. The "
 "20B tag is the practical local starting point."
 msgstr ""
+"Modèles à poids ouvert destinés aux configurations locales et aux poste de "
+"travail performants. La balise 20B est le point de départ local pratique."
 
 #: src/ui/window/model_manager.rs
 msgid "Recommended local GPT OSS variant."
-msgstr ""
+msgstr "Variante locale recommandée de GPT OSS."
 
 #: src/ui/window/model_manager.rs
 msgid "Very large GPT OSS variant."
-msgstr ""
+msgstr "Très grande variante de GPT OSS."
 
 #: src/ui/window/model_manager.rs
 msgid "Fast general chat model"
-msgstr ""
+msgstr "Modèle de chat général rapide"
 
 #: src/ui/window/model_manager.rs
 msgid ""
 "Classic Mistral 7B family. Still useful for fast local chat and lightweight "
 "instruction tasks."
 msgstr ""
+"Famille Classic Mistral 7B. Toujours utile pour le tchat local rapide et les "
+"tâches d’instructions légères."
 
 #: src/ui/window/model_manager.rs
 msgid "Default Mistral local chat model."
-msgstr ""
+msgstr "Modèle de tchat local Mistral par défaut."
 
 #: src/ui/window/model_manager.rs
 msgid "Quantized instruction variant."
-msgstr ""
+msgstr "Variante d’instruction quantifiée."
 
 #: src/ui/window/model_manager.rs
 msgid "Popular 12B Mistral model with long context"
-msgstr ""
+msgstr "Modèle populaire 12B Mistral avec contexte long"
 
 #: src/ui/window/model_manager.rs
 msgid ""
 "A high-pull Mistral family built with NVIDIA collaboration. Useful as a "
 "stronger local alternative to classic Mistral 7B."
 msgstr ""
+"Une famille de Mistral très attrayante construite avec la collaboration de "
+"NVIDIA. Utile comme alternative locale plus puissante au classique Mistral "
+"7B."
 
 #: src/ui/window/model_manager.rs
 msgid "Default Mistral Nemo model."
-msgstr ""
+msgstr "Modèle de Nemo Mistral par défaut."
 
 #: src/ui/window/model_manager.rs
 msgid "Popular 22B and 24B Mistral Small models"
-msgstr ""
+msgstr "Modèles populaires 22B et 24B de Mistral Small"
 
 #: src/ui/window/model_manager.rs
 msgid ""
 "A widely used Mistral family below 70B. Good for stronger local chat when 7B "
 "models feel too small."
 msgstr ""
+"Une famille de Mistral largement utilisée en dessous de 70B. Bon pour un "
+"tchat local plus fort lorsque les modèles 7B semblent trop petits."
 
 #: src/ui/window/model_manager.rs
 msgid "Earlier Mistral Small tag."
@@ -6969,13 +7367,16 @@ msgstr ""
 
 #: src/ui/window/model_manager.rs
 msgid "Recent 128B flagship Mistral model"
-msgstr ""
+msgstr "Modèle phare récent 128B de Mistral"
 
 #: src/ui/window/model_manager.rs
 msgid ""
 "A recent Mistral model shown in Ollama's newest listings. It is large, but "
 "useful to expose for users with workstation or remote Ollama providers."
 msgstr ""
+"Un modèle Mistral récent affiché dans les dernières listes d’Ollama. Il est "
+"volumineux, mais utile pour exposer aux utilisateurs avec une station de "
+"travail ou des fournisseurs Ollama à distance."
 
 #: src/ui/window/model_manager.rs
 msgid "Default Mistral Medium 3.5 tag."
@@ -7001,15 +7402,15 @@ msgstr ""
 
 #: src/ui/window/model_manager.rs
 msgid "Balanced local Ministral model."
-msgstr ""
+msgstr "Modèle local Ministral équilibré."
 
 #: src/ui/window/model_manager.rs
 msgid "Stronger local Ministral model."
-msgstr ""
+msgstr "Modèle local Ministral plus fort."
 
 #: src/ui/window/model_manager.rs
 msgid "Multimodal Meta model for chat and reasoning"
-msgstr ""
+msgstr "Modèle Méta multimodal pour le tchat et le raisonnement"
 
 #: src/ui/window/model_manager.rs
 msgid ""
@@ -7021,73 +7422,89 @@ msgstr ""
 #: src/ui/window/model_manager.rs
 msgid "Large local model with image understanding and reasoning support."
 msgstr ""
+"Grand modèle local avec compréhension de l’image et support du raisonnement."
 
 #: src/ui/window/model_manager.rs
 msgid "Multilingual IBM models for chat and document questions"
 msgstr ""
+"Modèles d'IBM multilingues pour les questions sur le tchat et les documents"
 
 #: src/ui/window/model_manager.rs
 msgid ""
 "Text models for summarization, document questions, coding and structured "
 "output. Supports Spanish and other languages, with built-in reasoning."
 msgstr ""
+"Modèles de texte pour la synthèse, les questions sur les documents, le "
+"codage et la production structurée. Prend en charge l’espagnol et d’autres "
+"langues, avec un raisonnement intégré."
 
 #: src/ui/window/model_manager.rs
 msgid "Small model for multilingual chat and document summaries."
-msgstr ""
+msgstr "Petit modèle pour le tchat multilingue et les résumés de documents."
 
 #: src/ui/window/model_manager.rs
 msgid "Recommended variant for document questions and everyday chat."
 msgstr ""
+"Variante recommandée pour les questions sur les documents et le tchat "
+"quotidien."
 
 #: src/ui/window/model_manager.rs
 msgid "Compact Microsoft model for reasoning and chat"
-msgstr ""
+msgstr "Modèle compact de Microsoft pour le raisonnement et le tchat"
 
 #: src/ui/window/model_manager.rs
 msgid ""
 "A compact 14B model that works well for practical local assistant tasks."
 msgstr ""
+"Un modèle compact 14B qui fonctionne bien pour les tâches pratiques "
+"d’assistant local."
 
 #: src/ui/window/model_manager.rs
 msgid "Default Phi 4 model."
-msgstr ""
+msgstr "Modèle Phi 4 par défaut."
 
 #: src/ui/window/model_manager.rs
 msgid "Quantized Phi 4 variant."
-msgstr ""
+msgstr "Variante de Phi 4 quantifiée."
 
 #: src/ui/window/model_manager.rs
 msgid "Lightweight multilingual Microsoft model"
-msgstr ""
+msgstr "Modèle léger multilingue de Microsoft"
 
 #: src/ui/window/model_manager.rs
 msgid ""
 "A compact 3.8B text model for everyday chat, mathematics and logical "
 "reasoning. Designed for responsive local use on systems with limited memory."
 msgstr ""
+"Un modèle de texte compact 3.8B pour le tchat quotidien, les mathématiques "
+"et le raisonnement logique. Conçu pour une utilisation locale réactive sur "
+"des systèmes à mémoire limitée."
 
 #: src/ui/window/model_manager.rs
 msgid "Small local model for multilingual chat and practical reasoning."
 msgstr ""
+"Petit modèle local pour le tchat multilingue et le raisonnement pratique."
 
 #: src/ui/window/model_manager.rs
 msgid "Microsoft reasoning model in a compact 14B size"
-msgstr ""
+msgstr "Modèle de raisonnement de Microsoft dans une taille compacte 14B"
 
 #: src/ui/window/model_manager.rs
 msgid ""
 "A reasoning-focused Phi 4 family. Useful when you want a smaller model for "
 "multi-step reasoning without jumping to very large models."
 msgstr ""
+"Une famille Phi 4 centrée sur le raisonnement. Utile lorsque vous souhaitez "
+"un modèle plus petit pour le raisonnement à plusieurs étapes sans passer par "
+"de très grands modèles."
 
 #: src/ui/window/model_manager.rs
 msgid "Default Phi 4 reasoning model."
-msgstr ""
+msgstr "Modèle de raisonnement Phi 4 par défaut."
 
 #: src/ui/window/model_manager.rs
 msgid "Quantized reasoning variant."
-msgstr ""
+msgstr "Variante de raisonnement quantifiée."
 
 #: src/ui/window/model_manager.rs
 msgid "Reasoning-plus variant."
@@ -7095,24 +7512,26 @@ msgstr ""
 
 #: src/ui/window/model_manager.rs
 msgid "Small Microsoft models"
-msgstr ""
+msgstr "Petits modèles Microsoft"
 
 #: src/ui/window/model_manager.rs
 msgid ""
 "Older but useful compact Microsoft models for low-memory local machines."
 msgstr ""
+"Modèles compacts de Microsoft anciens mais utiles pour les machines locales "
+"à faible mémoire."
 
 #: src/ui/window/model_manager.rs
 msgid "Small Phi 3 mini model."
-msgstr ""
+msgstr "Petit modèle Phi 3 mini."
 
 #: src/ui/window/model_manager.rs
 msgid "Medium Phi 3 model."
-msgstr ""
+msgstr "Moyen modèle Phi 3 mini."
 
 #: src/ui/window/model_manager.rs
 msgid "Coding-specialized Qwen models"
-msgstr ""
+msgstr "Modèle Qwen spécialisé dans le codage"
 
 #: src/ui/window/model_manager.rs
 msgid ""
@@ -7122,29 +7541,31 @@ msgstr ""
 
 #: src/ui/window/model_manager.rs
 msgid "Small code model."
-msgstr ""
+msgstr "Petit modèle de programmation."
 
 #: src/ui/window/model_manager.rs
 msgid "Recommended local coding model."
-msgstr ""
+msgstr "Modèle local de programmation recommandé."
 
 #: src/ui/window/model_manager.rs
 msgid "Stronger coding model."
-msgstr ""
+msgstr "Modèle de programmation plus fort."
 
 #: src/ui/window/model_manager.rs
 msgid "Large coding model."
-msgstr ""
+msgstr "Grand modèle de programmation."
 
 #: src/ui/window/model_manager.rs
 msgid "Popular Qwen coding models for agentic tasks"
-msgstr ""
+msgstr "Modèles Qwen de programmation, populaires pour les tâches agentiques"
 
 #: src/ui/window/model_manager.rs
 msgid ""
 "Qwen's newer coding family appears high in Ollama's popular list. The 30B "
 "A3B tag is the practical local starting point."
 msgstr ""
+"La nouvelle famille de codage de Qwen figure en bonne place dans la liste "
+"populaire d’Ollama. La balise 30B A3B est le point de départ local pratique."
 
 #: src/ui/window/model_manager.rs
 msgid "Default local Qwen 3 Coder tag."
@@ -7152,15 +7573,15 @@ msgstr ""
 
 #: src/ui/window/model_manager.rs
 msgid "Quantized local coding variant."
-msgstr ""
+msgstr "Variante quantifiée de codage local."
 
 #: src/ui/window/model_manager.rs
 msgid "Very large Qwen coding model."
-msgstr ""
+msgstr "Très grand modèle Qwen de programmation."
 
 #: src/ui/window/model_manager.rs
 msgid "Recent coding-focused Qwen model"
-msgstr ""
+msgstr "Modèle Qwen récent axé sur le codage"
 
 #: src/ui/window/model_manager.rs
 msgid ""
@@ -7189,10 +7610,12 @@ msgstr ""
 #: src/ui/window/model_manager.rs
 msgid "Local coding model for programming and technical questions."
 msgstr ""
+"Modèle local de codage pour la programmation et les questions techniques."
 
 #: src/ui/window/model_manager.rs
 msgid "Mistral model for software engineering and image understanding"
 msgstr ""
+"Modèle Mistral pour l’ingénierie logicielle et la compréhension des images"
 
 #: src/ui/window/model_manager.rs
 msgid ""
@@ -7206,7 +7629,7 @@ msgstr ""
 
 #: src/ui/window/model_manager.rs
 msgid "Popular coding model family"
-msgstr ""
+msgstr "Famille de modèles de codage populaire"
 
 #: src/ui/window/model_manager.rs
 msgid ""
@@ -7278,13 +7701,16 @@ msgstr ""
 
 #: src/ui/window/model_manager.rs
 msgid "Vision-capable Llama models"
-msgstr ""
+msgstr "Modèles de Llama capables de vision"
 
 #: src/ui/window/model_manager.rs
 msgid ""
 "Multimodal Llama variants. Moose can download them through Ollama; text chat "
 "support depends on how you use the provider."
 msgstr ""
+"Variantes multimodales de Llama. Moose peut les télécharger via Ollama ; la "
+"prise en charge du tchat texte dépend de la façon dont vous utilisez le "
+"fournisseur."
 
 #: src/ui/window/model_manager.rs
 msgid "Smaller vision-capable Llama model."
@@ -7292,11 +7718,11 @@ msgstr ""
 
 #: src/ui/window/model_manager.rs
 msgid "Large vision-capable Llama model."
-msgstr ""
+msgstr "Grand modèle de Llama capable de vision."
 
 #: src/ui/window/model_manager.rs
 msgid "Vision-language Qwen models"
-msgstr ""
+msgstr "Modèles Qwen capables de vision"
 
 #: src/ui/window/model_manager.rs
 msgid ""
@@ -7306,11 +7732,11 @@ msgstr ""
 
 #: src/ui/window/model_manager.rs
 msgid "Small vision-language variant."
-msgstr ""
+msgstr "Petite variante capables de vision."
 
 #: src/ui/window/model_manager.rs
 msgid "Compact vision-language model."
-msgstr ""
+msgstr "Modèles compact capables de vision."
 
 #: src/ui/window/model_manager.rs
 msgid "Balanced vision-language model."
@@ -7380,7 +7806,7 @@ msgstr ""
 
 #: src/ui/window/model_manager.rs
 msgid "Small vision model for images and screenshots"
-msgstr ""
+msgstr "Petit modèle de vision pour les images et les captures d’écran"
 
 #: src/ui/window/model_manager.rs
 msgid ""
@@ -7438,6 +7864,8 @@ msgid ""
 "Older but still widely used MoE models from Mistral. Useful for larger local "
 "and remote Ollama systems."
 msgstr ""
+"Des modèles MoE plus anciens, mais encore largement utilisés, issus de "
+"Mistral. Utiles pour les grands systèmes d’Ollama locaux et distants."
 
 #: src/ui/window/model_manager.rs
 msgid "Classic Mixtral MoE model."
@@ -7464,7 +7892,7 @@ msgstr ""
 
 #: src/ui/window/model_manager.rs
 msgid "Qwen reasoning model"
-msgstr ""
+msgstr "Modèle de raisonnement de Qwen"
 
 #: src/ui/window/model_manager.rs
 msgid ""
@@ -7566,7 +7994,7 @@ msgstr ""
 
 #: src/ui/window/model_manager.rs
 msgid "Lightweight multilingual reasoning model"
-msgstr ""
+msgstr "Modèle léger multilingue de raisonnement"
 
 #: src/ui/window/model_manager.rs
 msgid ""
@@ -7574,6 +8002,9 @@ msgid ""
 "Supports Spanish and other languages for everyday questions on lower-memory "
 "devices."
 msgstr ""
+"Un petit modèle en texte seul conçu pour le déploiement local et le "
+"raisonnement. Prend en charge l’espagnol et d’autres langues pour les "
+"questions de tous les jours sur les appareils à faible mémoire."
 
 #: src/ui/window/model_manager.rs
 msgid "Compact reasoning model for lightweight local use."
@@ -7599,19 +8030,21 @@ msgstr ""
 
 #: src/ui/window/model_manager.rs
 msgid "Very small instruction models"
-msgstr ""
+msgstr "Modèles d'instruction très petits"
 
 #: src/ui/window/model_manager.rs
 msgid "Tiny instruction models for low-resource machines and quick tests."
 msgstr ""
+"Minuscules modèles d’instruction pour les machines à faibles ressources et "
+"des tests rapides."
 
 #: src/ui/window/model_manager.rs
 msgid "Tiny test model."
-msgstr ""
+msgstr "Minuscule modèle de test."
 
 #: src/ui/window/model_manager.rs
 msgid "Very small local model."
-msgstr ""
+msgstr "Très petit modèle local."
 
 #: src/ui/window/model_manager.rs
 msgid "Small instruction model."
@@ -7811,6 +8244,8 @@ msgstr "Le guidage mémoire n’est pas disponible pour cette connexion."
 #, rust-format
 msgid "{arg1_formatted} GiB available · Memory estimates are approximate"
 msgstr ""
+"{arg1_formatted} GiB disponible · Les estimations de mémoire sont "
+"approximatives"
 
 #: src/ui/window/model_manager.rs
 msgid ""
@@ -7818,6 +8253,11 @@ msgid ""
 "length, graphics memory, and other apps affect actual requirements. It does "
 "not predict response speed."
 msgstr ""
+"Les indications relatives à la mémoire se basent sur la taille du "
+"téléchargement et une estimation du temps d’exécution. La longueur du "
+"contexte, la mémoire graphique et les autres applications en cours "
+"influencent les besoins réels. Ces indications ne permettent pas de prédire "
+"la vitesse de réponse."
 
 #: src/ui/window/model_manager.rs
 msgid "No installed models"
@@ -7829,11 +8269,11 @@ msgstr "Aucune correspondance installée"
 
 #: src/ui/window/model_manager.rs
 msgid "Clear Filters"
-msgstr ""
+msgstr "Effacer filtres"
 
 #: src/ui/window/model_manager.rs
 msgid "Try another task or clear your search and filters."
-msgstr ""
+msgstr "Essayez une autre tâche ou effacez votre recherche et vos filtres."
 
 #: src/ui/window/model_manager.rs
 #, rust-format
@@ -7841,6 +8281,8 @@ msgid ""
 "Model: {model}\n"
 "Preparing download"
 msgstr ""
+"Modèle : {model}\n"
+"Préparation du téléchargement"
 
 #: src/ui/window/model_manager.rs
 msgid "Verifying download…"
@@ -7876,6 +8318,8 @@ msgid ""
 "\n"
 "Digest: {digest}"
 msgstr ""
+"\n"
+"Résumé : {digest}"
 
 #: src/ui/window/model_manager.rs
 msgid "Removing model…"
@@ -7887,6 +8331,8 @@ msgid ""
 "Model: {model}\n"
 "Removing model from Ollama"
 msgstr ""
+"Modèle : {model}\n"
+"Retrait du modèle d’Ollama"
 
 #: src/ui/window/model_manager.rs
 msgid "Model removed"
@@ -7894,12 +8340,12 @@ msgstr "Modèle retiré"
 
 #: src/ui/window/model_manager.rs
 msgid "Open details for more information"
-msgstr ""
+msgstr "Ouvrez détails pour plus d’informations"
 
 #: src/ui/window/model_manager.rs
 #, rust-format
 msgid "{arg1} · Not a chat model"
-msgstr ""
+msgstr "{arg1} · Pas un modèle de tchat"
 
 #: src/ui/window/model_manager.rs
 msgid "Use"
@@ -7919,44 +8365,44 @@ msgstr "Retirer …"
 
 #: src/ui/window/model_manager.rs
 msgid "Download from Hugging Face"
-msgstr ""
+msgstr "Télécharger depuis Hugging Face"
 
 #: src/ui/window/model_manager.rs
 #, rust-format
 msgid "{arg1} · View details and other versions"
-msgstr ""
+msgstr "{arg1} · Voir les détails et autres versions"
 
 #: src/ui/window/model_manager.rs
 msgid "Model Details"
-msgstr ""
+msgstr "Détails du modèle"
 
 #: src/ui/window/model_manager.rs
 msgid "Open on Ollama"
-msgstr ""
+msgstr "Ouvrir sur Ollama"
 
 #: src/ui/window/model_manager.rs
 msgid "Versions"
-msgstr ""
+msgstr "Versions"
 
 #: src/ui/window/model_manager.rs
 #, rust-format
 msgid "{arg1} · Recommended"
-msgstr ""
+msgstr "{arg1} · Recommandé"
 
 #: src/ui/window/model_manager.rs
 #, rust-format
 msgid "Start a new chat with {model}"
-msgstr ""
+msgstr "Commencer un nouveau tchat avec {model}"
 
 #: src/ui/window/model_manager.rs
 #, rust-format
 msgid "Download {model}"
-msgstr ""
+msgstr "Télécharger {model}"
 
 #: src/ui/window/model_manager.rs
 #, rust-format
 msgid "Use {model}"
-msgstr ""
+msgstr "Utiliser {model}"
 
 #: src/ui/window/model_manager.rs
 #, rust-format
@@ -7965,11 +8411,11 @@ msgstr ""
 
 #: src/ui/window/model_manager.rs
 msgid "Installed locally"
-msgstr ""
+msgstr "Installé localement"
 
 #: src/ui/window/model_manager.rs
 msgid "Unknown size"
-msgstr ""
+msgstr "Taille inconnue"
 
 #: src/ui/window/model_manager.rs
 msgid "hugging face huggingface hf.co"
@@ -7977,242 +8423,253 @@ msgstr "hugging face huggingface hf.co"
 
 #: src/ui/window/preferences.rs src/ui/window/shortcuts.rs
 msgid "Preferences"
-msgstr ""
+msgstr "Préférences"
 
 #: src/ui/window/preferences.rs
 msgid "Active Provider"
-msgstr ""
+msgstr "Fournisseur actif"
 
 #: src/ui/window/preferences.rs
 msgid "Save Provider"
-msgstr ""
+msgstr "Enregistrer fournisseur"
 
 #: src/ui/window/preferences.rs src/ui/window/provider_controls.rs
 msgid "Add Provider"
-msgstr ""
+msgstr "Ajouter fournisseur"
 
 #: src/ui/window/preferences.rs
 msgid "Delete Provider"
-msgstr ""
+msgstr "Supprimer fournisseur"
 
 #: src/ui/window/preferences.rs
 msgid "Local sandbox service"
-msgstr ""
+msgstr "Service de bac à sable local"
 
 #: src/ui/window/preferences.rs
 msgid "Custom Connection"
-msgstr ""
+msgstr "Connexion personnalisée"
 
 #: src/ui/window/preferences.rs
 msgid "Configure the server, authentication and model IDs."
-msgstr ""
+msgstr "Configure les ID du serveur, de l’authentification et du modèle."
 
 #: src/ui/window/preferences.rs
 msgid "Configure Provider"
-msgstr ""
+msgstr "Configurer fournisseur"
 
 #: src/ui/window/preferences.rs
 msgid "This provider is no longer available"
-msgstr ""
+msgstr "Ce fournisseur n’est plus disponible"
 
 #: src/ui/window/preferences.rs
 msgid "Credentials"
-msgstr ""
+msgstr "Identifiants"
 
 #: src/ui/window/preferences.rs
 msgid ""
 "API keys are protected by the desktop keyring and excluded from exports."
 msgstr ""
+"Les clés d'API sont protégées par le trousseau de clés du bureau et exclues "
+"des exportations."
 
 #: src/ui/window/preferences.rs
 msgid "Add, replace or remove the saved key"
-msgstr ""
+msgstr "Ajouter, remplacer ou supprimer la clé enregistrée"
 
 #: src/ui/window/preferences.rs src/ui/window/web_tools.rs
 msgid "Manage Key"
-msgstr ""
+msgstr "Clé gérée"
 
 #: src/ui/window/preferences.rs
 msgid "Managed Hardware"
-msgstr ""
+msgstr "Matériel géré"
 
 #: src/ui/window/preferences.rs
 msgid "Moose asks managed Ollama to use local GPU acceleration when available."
 msgstr ""
+"Moose demande à Ollama géré d’utiliser l’accélération GPU locale lorsqu’elle "
+"sera disponible."
 
 #: src/ui/window/preferences.rs
 msgid "GPU Acceleration"
-msgstr ""
+msgstr "Accélération GPU"
 
 #: src/ui/window/preferences.rs
 msgid "Attempts GPU acceleration when supported."
-msgstr ""
+msgstr "Tente l’accélération GPU lorsqu’elle est prise en charge."
 
 #: src/ui/window/preferences.rs
 msgid "Current Acceleration"
-msgstr ""
+msgstr "Accélération actuelle"
 
 #: src/ui/window/preferences.rs
 msgid "Privacy"
-msgstr ""
+msgstr "Confidentialité"
 
 #: src/ui/window/preferences.rs
 msgid "Local Data"
-msgstr ""
+msgstr "Données locales"
 
 #: src/ui/window/preferences.rs
 msgid "Telemetry"
-msgstr ""
+msgstr "Télémétrie"
 
 #: src/ui/window/preferences.rs src/ui/window/preferences/shortcuts.rs
 msgid "Disabled"
-msgstr ""
+msgstr "Désactivé(e)"
 
 #: src/ui/window/preferences.rs
 msgid "Conversation Storage"
-msgstr ""
+msgstr "Stockage conversations"
 
 #: src/ui/window/preferences.rs
 msgid "Local application data"
-msgstr ""
+msgstr "Données de l’app locale"
 
 #: src/ui/window/preferences.rs
 msgid "Sharing permissions could not be loaded"
-msgstr ""
+msgstr "Les autorisations de partage n’ont pas pu être chargées"
 
 #: src/ui/window/preferences.rs
 msgid "Managed hardware setting saved"
-msgstr ""
+msgstr "Paramètre matériel géré enregistré"
 
 #: src/ui/window/preferences.rs
 msgid "Create or connect an instance first"
-msgstr ""
+msgstr "Créer ou connecter d’abord une instance"
 
 #: src/ui/window/preferences.rs
 msgid "The active provider changed. Reopen Preferences to edit it."
 msgstr ""
+"Le fournisseur actif a changé. Rouvrez les préférences pour le modifier."
 
 #: src/ui/window/preferences.rs
 msgid "Managed port is unavailable"
-msgstr ""
+msgstr "Le port géré est indisponible"
 
 #: src/ui/window/preferences.rs
 msgid "Managed port is invalid"
-msgstr ""
+msgstr "Le port géré est invalide"
 
 #: src/ui/window/preferences.rs
 msgid "Provider saved"
-msgstr ""
+msgstr "Fournisseur enregistré"
 
 #: src/ui/window/preferences/shortcuts.rs
 msgid "Shortcuts"
-msgstr ""
+msgstr "Raccourcis"
 
 #: src/ui/window/preferences/shortcuts.rs
 msgid "Reset All"
-msgstr ""
+msgstr "Réinitialiser tous"
 
 #: src/ui/window/preferences/shortcuts.rs
 msgid "Restore all default keyboard shortcuts"
-msgstr ""
+msgstr "Restaurer tous les raccourcis clavier par défaut"
 
 #: src/ui/window/preferences/shortcuts.rs
 msgid "Keyboard Shortcuts"
-msgstr ""
+msgstr "Raccourcis clavier"
 
 #: src/ui/window/preferences/shortcuts.rs
 msgid "Select an action to change its keyboard shortcut."
-msgstr ""
+msgstr "Sélectionnez une action pour changer son raccourci clavier."
 
 #: src/ui/window/preferences/shortcuts.rs
 msgid "Conversations"
-msgstr ""
+msgstr "Conversations"
 
 #: src/ui/window/preferences/shortcuts.rs
 msgid "Application"
-msgstr ""
+msgstr "Application"
 
 #: src/ui/window/preferences/shortcuts.rs
 msgid "_Cancel"
-msgstr ""
+msgstr "_Annuler"
 
 #: src/ui/window/preferences/shortcuts.rs
 msgid "_Set"
-msgstr ""
+msgstr "_Définir"
 
 #: src/ui/window/preferences/shortcuts.rs
 msgid "Press a new key combination."
-msgstr ""
+msgstr "Appuyez sur une nouvelle combinaison de touches."
 
 #: src/ui/window/preferences/shortcuts.rs
 msgid ""
 "Press Tab to move between controls. Escape can be assigned as a shortcut."
 msgstr ""
+"Appuyez sur la touche Tab pour passer d’un contrôle à l’autre. Échap peut "
+"être attribuée sous forme de raccourci."
 
 #: src/ui/window/preferences/shortcuts.rs
 msgid "_Reset"
-msgstr ""
+msgstr "_Réinitialiser"
 
 #: src/ui/window/preferences/shortcuts.rs
 #, rust-format
 msgid "Restore default shortcut: {shortcut}"
-msgstr ""
+msgstr "Restaurer raccourci par défaut : {shortcut}"
 
 #: src/ui/window/preferences/shortcuts.rs
 msgid "_Disable"
-msgstr ""
+msgstr "_Désactiver"
 
 #: src/ui/window/preferences/shortcuts.rs
 msgid "Disable this keyboard shortcut"
-msgstr ""
+msgstr "_Désactiver ce raccourci clavier"
 
 #: src/ui/window/preferences/shortcuts.rs
 msgid "This key cannot be used as a shortcut"
-msgstr ""
+msgstr "Cette touche ne peut pas être utilisée comme raccourci"
 
 #: src/ui/window/preferences/shortcuts.rs
 #, rust-format
 msgid "{description} Current shortcut: {shortcut}. Activate to change it."
-msgstr ""
+msgstr "{description} Raccourci actuel : {shortcut}. Activez pour le changer."
 
 #: src/ui/window/preferences/shortcuts.rs
 #, rust-format
 msgid "Shortcut: {shortcut}"
-msgstr ""
+msgstr "Raccourci : {shortcut}"
 
 #: src/ui/window/privacy.rs
 msgid "Message Sharing"
-msgstr ""
+msgstr "Partage de message"
 
 #: src/ui/window/privacy.rs
 msgid "Prompts, instructions, and history. Files require separate permission."
 msgstr ""
+"Invites (prompts), instructions et historique. Les fichiers nécessitent une "
+"autorisation distincte."
 
 #: src/ui/window/privacy.rs
 msgid "Ask in Each Chat"
-msgstr ""
+msgstr "Demander dans chaque tchat"
 
 #: src/ui/window/privacy.rs
 msgid "Allow in All Chats"
-msgstr ""
+msgstr "Autoriser dans tous les tchats"
 
 #: src/ui/window/privacy.rs
 msgid "Connections"
-msgstr ""
+msgstr "Connexions"
 
 #: src/ui/window/privacy.rs
 msgid "Local Only"
-msgstr ""
+msgstr "Local seulement"
 
 #: src/ui/window/privacy.rs
 msgid ""
 "Only use Ollama managed by Moose. Web tools, cloud and external Ollama "
 "connections are blocked."
 msgstr ""
+"Utiliser uniquement Ollama géré par Moose. Les outils Web, le cloud et les "
+"connexions externes à Ollama sont bloqués."
 
 #: src/ui/window/privacy.rs
 msgid "Privacy setting could not be saved"
-msgstr ""
+msgstr "Le paramètre de confidentialité n’a pas pu être enregistré"
 
 #: src/ui/window/privacy.rs
 #, rust-format
@@ -8221,6 +8678,9 @@ msgid ""
 "Files: {arg2}\n"
 "{arg3}"
 msgstr ""
+"Messages : {arg1}\n"
+"Fichiers : {arg2}\n"
+"{arg3}"
 
 #: src/ui/window/privacy.rs
 msgid ""
@@ -8228,53 +8688,64 @@ msgid ""
 "clears them and permissions in existing chats. Local Only blocks remote "
 "connections regardless of these permissions."
 msgstr ""
+"Les autorisations mémorisées s’appliquent uniquement au fournisseur et au "
+"serveur sélectionnés. La réinitialisation les efface ainsi que les "
+"autorisations dans les chats existants. Local bloque uniquement les "
+"connexions à distance, quelles que soient ces autorisations."
 
 #: src/ui/window/privacy.rs src/ui/window/web_tools.rs
 msgid "Reset"
-msgstr ""
+msgstr "Réinitialiser"
 
 #: src/ui/window/privacy.rs
 msgid "Reset Permissions in All Chats"
-msgstr ""
+msgstr "Réinitialiser permissions dans tous les tchats"
 
 #: src/ui/window/privacy.rs
 msgid "Sharing permissions reset for this provider"
-msgstr ""
+msgstr "Réinitialisation des autorisations de partage pour ce fournisseur"
 
 #: src/ui/window/privacy.rs
 msgid "Permissions could not be reset"
-msgstr ""
+msgstr "Les autorisations n’ont pas pu être réinitialisées"
 
 #: src/ui/window/privacy.rs
 msgid "No Remote Providers"
-msgstr ""
+msgstr "Aucun fournisseur distant"
 
 #: src/ui/window/privacy.rs
 msgid "Managed Ollama runs on this device and needs no sharing permission."
 msgstr ""
+"Ollama géré fonctionne sur cet appareil et n’a pas besoin d’autorisation de "
+"partage."
 
 #: src/ui/window/privacy.rs
 msgid "Remote Context"
-msgstr ""
+msgstr "Contexte distant"
 
 #: src/ui/window/privacy.rs
 msgid ""
 "Remote requests can include recent messages, instructions, and approved "
 "attachments. Document search stays on this device."
 msgstr ""
+"Les requêtes distantes peuvent inclure des messages récents, des "
+"instructions et des pièces jointes approuvées. La recherche de documents "
+"reste sur cet appareil."
 
 #: src/ui/window/privacy.rs
 msgid "Provider Sharing Permissions"
-msgstr ""
+msgstr "Autorisations de partage du fournisseur"
 
 #: src/ui/window/privacy.rs
 #, rust-format
 msgid "Ask again in all chats with {arg1}. Also resets file sharing."
 msgstr ""
+"Reposer la question dans tous les tchats avec {arg1}. Réinitialise également "
+"le partage de fichiers."
 
 #: src/ui/window/privacy.rs
 msgid "Sharing permission could not be loaded"
-msgstr ""
+msgstr "L’autorisation de partage n’a pas pu être chargée"
 
 #: src/ui/window/privacy.rs
 #, rust-format
@@ -8289,6 +8760,17 @@ msgid ""
 "in all chats with this provider and server. Messages and files have separate "
 "permissions. You can reset them in Preferences → Privacy or Chat Settings."
 msgstr ""
+"Envoyer le contexte de cette conversation de {arg1} à {arg2} ?\n"
+"\n"
+"Cette demande comprend des messages {arg3} (y compris les instructions et "
+"l’historique), des images {arg4} et des extraits de documents {arg5}. Le "
+"fournisseur traite ce contenu selon sa propre politique de données.\n"
+"\n"
+"L’autorisation est enregistrée pour ce tchat. Choisissez les options ci-"
+"dessous pour autoriser le partage dans tous les tchats avec ce fournisseur "
+"et ce serveur. Les messages et les fichiers ont des autorisations séparées. "
+"Vous pouvez les réinitialiser dans Préférences → Confidentialité ou "
+"Paramètres de tchat."
 
 #: src/ui/window/privacy.rs
 msgid ""
@@ -8297,6 +8779,10 @@ msgid ""
 "Calculator runs on this device. Its results are also sent to this provider "
 "to complete the response."
 msgstr ""
+"\n"
+"\n"
+"Le calculateur fonctionne sur cet appareil. Ses résultats sont également "
+"envoyés à ce fournisseur pour compléter la réponse."
 
 #: src/ui/window/privacy.rs
 msgid ""
@@ -8306,25 +8792,30 @@ msgid ""
 "requires separate permission, which can be remembered for all chats in "
 "Preferences → Web."
 msgstr ""
+"\n"
+"\n"
+"Les résultats Web et les extraits de pages sont également envoyés à ce "
+"fournisseur. L’accès Web nécessite une autorisation distincte, qui peut être "
+"mémorisée pour tous les tchats dans Préférences → Web."
 
 #: src/ui/window/privacy.rs
 msgid "Share Files with Provider?"
-msgstr ""
+msgstr "Partager fichiers avec fournisseur ?"
 
 #: src/ui/window/privacy.rs
 msgid "Share Context and Files?"
-msgstr ""
+msgstr "Partager contexte et fichiers ?"
 
 #: src/ui/window/privacy.rs
 msgid "Share Context with Provider?"
-msgstr ""
+msgstr "Partager contexte avec fournisseur ?"
 
 #: src/ui/window/privacy.rs
 #, rust-format
 msgid "[{count} attached image]"
 msgid_plural "[{count} attached images]"
-msgstr[0] ""
-msgstr[1] ""
+msgstr[0] "[{count} image jointe]"
+msgstr[1] "[{count} images jointes]"
 
 #: src/ui/window/privacy.rs
 msgid "Review text being sent"
@@ -8332,64 +8823,70 @@ msgstr ""
 
 #: src/ui/window/privacy.rs
 msgid "Remember Permission"
-msgstr ""
+msgstr "Mémoriser autorisation"
 
 #: src/ui/window/privacy.rs
 msgid "Messages in All Chats"
-msgstr ""
+msgstr "Messages dans tous les tchats"
 
 #: src/ui/window/privacy.rs
 msgid ""
 "Allow prompts, instructions, and history with this provider without asking "
 "again."
 msgstr ""
+"Autoriser les invites (prompts), les instructions et l’historique avec ce "
+"fournisseur sans nouvelle demande."
 
 #: src/ui/window/privacy.rs
 msgid "Files in All Chats"
-msgstr ""
+msgstr "Fichiers dans tous les tchats"
 
 #: src/ui/window/privacy.rs
 msgid ""
 "Allow attached images and document excerpts with this provider without "
 "asking again."
 msgstr ""
+"Autoriser les images jointes et les extraits de documents avec ce "
+"fournisseur sans demander à nouveau."
 
 #: src/ui/window/privacy.rs
 msgid "Allow"
-msgstr ""
+msgstr "Autoriser"
 
 #: src/ui/window/privacy.rs
 msgid "Connection blocked"
-msgstr ""
+msgstr "Connexion bloquée"
 
 #: src/ui/window/privacy.rs
 msgid ""
 "The active chat or provider changed. Send the message again to review it."
 msgstr ""
+"Le tchat ou le fournisseur actif a été modifié. Envoyez à nouveau le message "
+"pour qu’il soit examiné."
 
 #: src/ui/window/privacy.rs
 msgid "Sharing permission could not be saved"
-msgstr ""
+msgstr "L’autorisation de partage n’a pas pu être enregistrée"
 
 #: src/ui/window/provider_controls.rs
 msgid "Select Provider"
-msgstr ""
+msgstr "Sélectionner fournisseur"
 
 #: src/ui/window/provider_controls.rs src/ui/window.rs
 msgid "Not Set"
-msgstr ""
+msgstr "Non défini"
 
 #: src/ui/window/provider_controls.rs
 msgid "Switch Provider"
-msgstr ""
+msgstr "Changement fournisseur"
 
 #: src/ui/window/provider_controls.rs
 msgid "No providers added"
-msgstr ""
+msgstr "Aucun fournisseur ajouté"
 
 #: src/ui/window/provider_controls.rs
 msgid "Add Provider…"
-msgstr ""
+msgstr "Ajouter fournisseur …"
 
 #: src/ui/window/provider_controls.rs
 #, rust-format
@@ -8399,61 +8896,65 @@ msgid ""
 "{arg2}\n"
 "{arg3}"
 msgstr ""
+"Changer de fournisseur\n"
+"{arg1}\n"
+"{arg2}\n"
+"{arg3}"
 
 #: src/ui/window/provider_controls.rs
 #, rust-format
 msgid "Switch Provider: {arg1}"
-msgstr ""
+msgstr "Changer de fournisseur : {arg1}"
 
 #: src/ui/window/provider_controls.rs
 msgid "Add or Select a Provider"
-msgstr ""
+msgstr "Ajouter ou sélectionner un fournisseur"
 
 #: src/ui/window/provider_controls.rs
 msgid "Providers could not be loaded"
-msgstr ""
+msgstr "Les fournisseurs n’ont pas pu être chargés"
 
 #: src/ui/window/provider_controls.rs
 #, rust-format
 msgid "Providers could not be loaded: {error}"
-msgstr ""
+msgstr "Les fournisseurs n’ont pas pu être chargés : {error}"
 
 #: src/ui/window/provider_controls.rs
 #, rust-format
 msgid "Delete {arg1}…"
-msgstr ""
+msgstr "Supprime {arg1}…"
 
 #: src/ui/window/provider_controls.rs
 msgid "Set Up for Me"
-msgstr ""
+msgstr "Mis en place pour moi"
 
 #: src/ui/window/provider_controls.rs
 msgid "Connect Existing"
-msgstr ""
+msgstr "Connecter existant"
 
 #: src/ui/window/provider_controls.rs
 msgid "Cloud Provider"
-msgstr ""
+msgstr "Fournisseur de cloud"
 
 #: src/ui/window/provider_controls.rs
 msgid "Moose installs and runs Ollama on this device."
-msgstr ""
+msgstr "Moose installe et fait fonctionner Ollama sur cet appareil."
 
 #: src/ui/window/provider_controls.rs
 msgid "Use an Ollama server you already run."
-msgstr ""
+msgstr "Utiliser un serveur Ollama que vous exécutez déjà."
 
 #: src/ui/window/provider_controls.rs
 msgid "Connect to an AI service using your own API key."
-msgstr ""
+msgstr "Se connecter à un service d’IA en utilisant votre propre clé API."
 
 #: src/ui/window/provider_controls.rs
 msgid "Instance Name"
-msgstr ""
+msgstr "Nom d'instance"
 
 #: src/ui/window/provider_controls.rs
 msgid "Ollama URL"
-msgstr ""
+msgstr "URL d'Ollama"
 
 #: src/ui/window/provider_controls.rs
 msgid ""
@@ -8461,113 +8962,124 @@ msgid ""
 "separate permission. Shared content is processed under the server's own data "
 "policy."
 msgstr ""
+"Choisissez si ce serveur peut recevoir des messages dans tous les tchats. "
+"Les fichiers nécessitent une autorisation distincte. Le contenu partagé est "
+"traité selon la propre politique de données du serveur."
 
 #: src/ui/window/provider_controls.rs
 msgid ""
 "Connecting enables external connections. Moose cannot verify where this "
 "server runs."
 msgstr ""
+"La connexion active les connexions externes. Moose ne peut pas vérifier où "
+"ce serveur fonctionne."
 
 #: src/ui/window/provider_controls.rs
 msgid "Connect"
-msgstr ""
+msgstr "Connecter"
 
 #: src/ui/window/provider_controls.rs
 msgid "Provider was not found"
-msgstr ""
+msgstr "Fournisseur introuvable"
 
 #: src/ui/window/provider_controls.rs
 #, rust-format
 msgid "Provider could not be loaded: {error}"
-msgstr ""
+msgstr "Le fournisseur n’a pas pu être chargé : {error}"
 
 #: src/ui/window/provider_controls.rs
 msgid "Delete Provider?"
-msgstr ""
+msgstr "Supprimer fournisseur ?"
 
 #: src/ui/window/provider_controls.rs
 #, rust-format
 msgid "Delete \"{arg1}\" at {arg2}?"
-msgstr ""
+msgstr "Supprimer « {arg1} » dans {arg2} ?"
 
 #: src/ui/window/provider_controls.rs
 #, rust-format
 msgid "Ollama Provider {arg1}"
-msgstr ""
+msgstr "Fournisseur Ollama {arg1}"
 
 #: src/ui/window/provider_controls.rs
 msgid "Ollama Provider"
-msgstr ""
+msgstr "Fournisseur Ollama"
 
 #: src/ui/window/provider_controls.rs
 #, rust-format
 msgid "Managed Ollama {arg1}"
-msgstr ""
+msgstr "Ollama géré {arg1}"
 
 #: src/ui/window/provider_controls.rs
 msgid "Provider could not be added"
-msgstr ""
+msgstr "Le fournisseur n’a pas pu être ajouté"
 
 #: src/ui/window/provider_controls.rs
 msgid "Provider could not be selected"
-msgstr ""
+msgstr "Le fournisseur n’a pas pu être sélectionné"
 
 #: src/ui/window/provider_controls.rs
 msgid "Provider deleted"
-msgstr ""
+msgstr "Fournisseur supprimé"
 
 #: src/ui/window/provider_controls.rs
 msgid "Provider switched"
-msgstr ""
+msgstr "Fournisseur changé"
 
 #: src/ui/window/provider_controls.rs
 msgid "Provider could not be switched"
-msgstr ""
+msgstr "Le fournisseur n’a pas pu être changé"
 
 #: src/ui/window/reasoning.rs
 #, rust-format
 msgid "Reasoning setting could not be saved: {error}"
-msgstr ""
+msgstr "Le paramètre de raisonnement n’a pas pu être enregistré : {error}"
 
 #: src/ui/window/reasoning.rs
 msgid "Reasoning: —"
-msgstr ""
+msgstr "Raisonnement : —"
 
 #: src/ui/window/reasoning.rs
 #, rust-format
 msgid "Reasoning: {arg1}"
-msgstr ""
+msgstr "Raisonnement : {arg1}"
 
 #: src/ui/window/reasoning.rs
 #, rust-format
 msgid "Reasoning setting could not be loaded: {error}"
-msgstr ""
+msgstr "Le paramètre de raisonnement n’a pas pu être chargé : {error}"
 
 #: src/ui/window/reasoning.rs
 msgid "This model does not support reasoning"
-msgstr ""
+msgstr "Ce modèle ne soutient pas le raisonnement"
 
 #: src/ui/window/reasoning.rs
 msgid ""
 "The provider has not provided reasoning controls. The model’s default "
 "behavior will be used."
 msgstr ""
+"Le fournisseur n’a pas fourni de contrôles de raisonnement. Le comportement "
+"par défaut du modèle sera utilisé."
 
 #: src/ui/window/reasoning.rs
 msgid ""
 "Choose how this model reasons in this chat. Automatic uses the model’s "
 "default."
 msgstr ""
+"Choisissez le raisonnement de ce modèle dans ce tchat. Automatique utilise "
+"la valeur par défaut du modèle."
 
 #: src/ui/window/reasoning.rs
 msgid "Checking this model’s reasoning controls…"
-msgstr ""
+msgstr "Vérifier les contrôles de raisonnement de ce modèle …"
 
 #: src/ui/window/reasoning.rs
 msgid ""
 "Reasoning controls could not be loaded. The model’s default behavior will be "
 "used."
 msgstr ""
+"Les contrôles de raisonnement n’ont pas pu être chargés. Le comportement par "
+"défaut du modèle sera utilisé."
 
 #: src/ui/window/reasoning.rs
 msgid "Select a model to see its reasoning controls"
@@ -8587,27 +9099,27 @@ msgstr ""
 
 #: src/ui/window/shortcuts.rs
 msgid "Move keyboard focus to the message composer."
-msgstr ""
+msgstr "Déplacer le focus du clavier vers l’éditeur de message."
 
 #: src/ui/window/shortcuts.rs
 msgid "Search Chats"
-msgstr ""
+msgstr "Rechercher tchats"
 
 #: src/ui/window/shortcuts.rs
 msgid "Move keyboard focus to the chat search field."
-msgstr ""
+msgstr "Déplacer le focus clavier vers le champ de recherche du tchat."
 
 #: src/ui/window/shortcuts.rs
 msgid "Show Models"
-msgstr ""
+msgstr "Afficher modèles"
 
 #: src/ui/window/shortcuts.rs
 msgid "Open the model manager."
-msgstr ""
+msgstr "Ouvrez le gestionnaire de modèles."
 
 #: src/ui/window/shortcuts.rs
 msgid "Refresh the active provider model list."
-msgstr ""
+msgstr "Actualisez la liste du modèle de fournisseur actif."
 
 #: src/ui/window/shortcuts.rs
 msgid "Open application preferences."
@@ -8632,7 +9144,7 @@ msgstr "Annuler la réponse active."
 #: src/ui/window/shortcuts.rs
 #, rust-format
 msgid "{arg1} uses a shortcut that is already assigned"
-msgstr ""
+msgstr "{arg1} utilise un raccourci déjà attribué"
 
 #: src/ui/window/shortcuts.rs
 msgid "Shortcut parts cannot be empty"
@@ -8786,33 +9298,35 @@ msgstr "Paramètres Web n’ont pas pu être enregistrés"
 
 #: src/ui/window/web_tools.rs
 msgid "Permissions"
-msgstr ""
+msgstr "Permissions"
 
 #: src/ui/window/web_tools.rs
 msgid "Web in Saved Chats"
-msgstr ""
+msgstr "Web dans tchats enregistrés"
 
 #: src/ui/window/web_tools.rs
 msgid "Turn off Web and clear its permissions in every conversation"
-msgstr ""
+msgstr "Désactive Web et efface ses autorisations dans chaque conversation"
 
 #: src/ui/window/web_tools.rs
 msgid "Web turned off in all chats"
-msgstr ""
+msgstr "Web désactivé dans tous les tchats"
 
 #: src/ui/window/web_tools.rs
 msgid "Web permissions could not be reset"
-msgstr ""
+msgstr "Les autorisations Web n’ont pas pu être réinitialisées"
 
 #: src/ui/window/web_tools.rs
 msgid "Allow Web in All Chats"
-msgstr ""
+msgstr "Autoriser Web dans tous les tchats"
 
 #: src/ui/window/web_tools.rs
 msgid ""
 "Skip permission prompts with the selected search provider. Web must still be "
 "enabled in each chat."
 msgstr ""
+"Ignorer les invites d’autorisation avec le fournisseur de recherche "
+"sélectionné. Web doit toujours être activé dans chaque tchat."
 
 #: src/ui/window/web_tools.rs
 msgid ""
@@ -8829,7 +9343,7 @@ msgstr "Clé Brave Search retirée"
 
 #: src/ui/window/web_tools.rs
 msgid "Brave Search key saved securely"
-msgstr ""
+msgstr "La clé de Brave Search est enregistrée en toute sécurité"
 
 #: src/ui/window/workspace.rs
 msgid "Saving…"
@@ -8846,12 +9360,12 @@ msgstr "Brouillon enregistré"
 #: src/ui/window/workspace.rs
 #, rust-format
 msgid "Workspace could not be restored: {error}"
-msgstr ""
+msgstr "L’espace de travail n’a pas pu être restauré : {error}"
 
 #: src/ui/window/workspace.rs
 #, rust-format
 msgid "Chat instance could not be loaded: {error}"
-msgstr ""
+msgstr "L’instance de tchat n’a pas pu être chargée : {error}"
 
 #: src/ui/window.rs
 msgid "A response is being generated in another chat"
@@ -8859,7 +9373,7 @@ msgstr "Une réponse est en cours de génération dans un autre tchat"
 
 #: src/ui/window.rs
 msgid "View"
-msgstr ""
+msgstr "Vue"
 
 #: src/ui/window.rs
 #, rust-format
@@ -8882,7 +9396,7 @@ msgstr "Téléchargement interrompu."
 #: src/ui/window.rs
 #, rust-format
 msgid "Could not save the interrupted response: {error}"
-msgstr ""
+msgstr "Impossible d’enregistrer la réponse interrompue : {error}"
 
 #: src/ui/window.rs
 msgid "Download interrupted because Moose closed."
@@ -9102,7 +9616,7 @@ msgstr "Sélectionner d’abord un modèle"
 #: src/ui/window.rs
 #, rust-format
 msgid "{profile} profile: {description}"
-msgstr ""
+msgstr "{profile} profil : {description}"
 
 #: src/ui/window.rs
 msgid "Title generation timed out."
