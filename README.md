@@ -70,6 +70,7 @@ You can start with a few strings and come back whenever you have time.
 | Contributor | Language |
 | --- | --- |
 | [Moose](https://github.com/moooossee) | English (original text) |
+| [David D](https://github.com/Dadu042) | French (France) |
 
 ## Build and run
 
