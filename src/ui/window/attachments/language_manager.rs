@@ -260,7 +260,8 @@ impl Manager {
         let busy = self.download.borrow().is_some();
         let mut counts = [0; 3];
         for language in &languages::catalog().models {
-            let installed = language.installed(&directory);
+            let installed_size = language.installed_size(&directory);
+            let installed = installed_size.is_some();
             if (self.installed.is_active() && !installed)
                 || (!language.name.to_lowercase().contains(&query)
                     && !language.code.to_lowercase().contains(&query))
@@ -269,7 +270,9 @@ impl Manager {
             }
             let category = category(language);
             counts[category] += 1;
-            let size = model_actions::format_download_size(language.size);
+            let size = model_actions::format_download_size(
+                installed_size.unwrap_or_else(|| language.download_size()),
+            );
             let row = adw::ActionRow::builder()
                 .title(gettext(&language.name))
                 .subtitle(format!(
@@ -332,6 +335,25 @@ impl Manager {
                 state.add_css_class("caption");
                 state.add_css_class(if installed { "success" } else { "dim-label" });
                 row.add_suffix(&state);
+            }
+            if installed_size.is_some_and(|size| size != language.download_size()) {
+                let upgrade = gtk::Button::with_label(&gettext("Upgrade"));
+                upgrade.set_tooltip_text(Some(&gettext_f(
+                    "Download the higher-accuracy model · {size}",
+                    &[(
+                        "size",
+                        &model_actions::format_download_size(language.download_size()),
+                    )],
+                )));
+                upgrade.set_valign(gtk::Align::Center);
+                upgrade.set_sensitive(!busy);
+                let target = Rc::downgrade(self);
+                upgrade.connect_clicked(move |_| {
+                    if let Some(manager) = target.upgrade() {
+                        manager.install(language);
+                    }
+                });
+                row.add_suffix(&upgrade);
             }
             let action = if installed {
                 let button = widgets::icon_button(
@@ -443,11 +465,12 @@ impl Manager {
         let worker = self.backend.runtime.spawn(async move {
             languages::install(&language.code, &directory, &worker_download).await
         });
+        let size = language.download_size();
         glib::MainContext::default().spawn_local(async move {
             while !worker.is_finished() {
                 target
                     .progress
-                    .set_fraction((download.bytes() as f64 / language.size as f64).min(1.0));
+                    .set_fraction((download.bytes() as f64 / size as f64).min(1.0));
                 target.status.set_label(&gettext_f(
                     "Downloading {name}… {downloaded} / {total}",
                     &[
@@ -456,7 +479,7 @@ impl Manager {
                             "downloaded",
                             &model_actions::format_download_size(download.bytes()),
                         ),
-                        ("total", &model_actions::format_download_size(language.size)),
+                        ("total", &model_actions::format_download_size(size)),
                     ],
                 ));
                 glib::timeout_future(Duration::from_millis(100)).await;

@@ -96,17 +96,15 @@ modules:
       - /bin/pdfattach
       - /bin/pdfdetach
       - /bin/pdffonts
-      - /bin/pdfimages
       - /bin/pdfseparate
       - /bin/pdfsig
       - /bin/pdftocairo
-      - /bin/pdftohtml
       - /bin/pdftops
       - /bin/pdfunite
     sources:
       - type: archive
-        url: https://poppler.freedesktop.org/poppler-26.09.0.tar.xz
-        sha256: 8059eadb6805340768f138c465b57f8164c92b4a0773c37ef031ea6c0d987b2e
+        url: https://poppler.freedesktop.org/poppler-26.11.0.tar.xz
+        sha256: 41c32680160addf5a8dd7a830e4869c01e9f6bee1abb91e44fabd1ba9d7828fb
   - name: moose
     buildsystem: meson
     config-opts:

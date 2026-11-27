@@ -2,8 +2,8 @@ use crate::i18n::gettext;
 
 use super::*;
 use crate::attachments::{
-    Asset, ExtractedPage, FileEntry, ImportedAsset, MAX_ATTACHMENTS, MAX_TEXT_BYTES, Source,
-    chunks, error, search_expression,
+    Asset, CHUNK_OVERLAP, ExtractedPage, FileEntry, ImportedAsset, MAX_ATTACHMENTS, MAX_TEXT_BYTES,
+    Source, chunks, error, search_expression,
 };
 use crate::documents::{CreatedDocument, DocumentFormat};
 use sha2::{Digest, Sha256};
@@ -302,7 +302,7 @@ impl ConversationRepository {
         selected: Option<usize>,
     ) -> Result<()> {
         if selected.is_some_and(|number| number == 0 || number > pages.len()) {
-            return Err(error(gettext("This page is not available in the PDF")));
+            return Err(error(gettext("This page is not available in the document")));
         }
         let mut text_bytes = pages
             .iter()
@@ -341,14 +341,15 @@ impl ConversationRepository {
                 continue;
             }
             self.connection.execute(
-                "INSERT INTO asset_pages VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+                "INSERT INTO asset_pages (asset_id, page, method, language, confidence, error, numeric_review) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
                 params![
                     id,
                     number,
                     page.method,
                     page.language,
                     page.confidence,
-                    page.error
+                    page.error,
+                    (!page.review.fields.is_empty()).then(|| serde_json::to_string(&page.review)).transpose()?
                 ],
             )?;
             if !page.text.trim().is_empty() {
@@ -365,11 +366,18 @@ impl ConversationRepository {
     }
 
     pub fn asset_page_info(&self, asset: &str, page: i64) -> Result<Option<ExtractedPage>> {
-        Ok(self.connection.query_row(
-            "SELECT method, language, confidence, error FROM asset_pages WHERE asset_id = ?1 AND page = ?2",
+        let info = self.connection.query_row(
+            "SELECT method, language, confidence, error, numeric_review FROM asset_pages WHERE asset_id = ?1 AND page = ?2",
             params![asset, page],
-            |row| Ok(ExtractedPage { method: row.get(0)?, language: row.get(1)?, confidence: row.get(2)?, error: row.get(3)?, ..ExtractedPage::default() }),
-        ).optional()?)
+            |row| Ok((ExtractedPage { method: row.get(0)?, language: row.get(1)?, confidence: row.get(2)?, error: row.get(3)?, ..ExtractedPage::default() }, row.get::<_, Option<String>>(4)?)),
+        ).optional()?;
+        info.map(|(mut page, review)| {
+            if let Some(review) = review {
+                page.review = serde_json::from_str(&review)?;
+            }
+            Ok(page)
+        })
+        .transpose()
     }
 
     pub fn set_draft_text_only(
@@ -539,16 +547,14 @@ impl ConversationRepository {
 
     pub fn asset_page(&self, asset: &str, page: i64) -> Result<String> {
         let mut statement = self.connection.prepare("SELECT content FROM document_chunks WHERE asset_id = ?1 AND page = ?2 ORDER BY position")?;
-        let chunks = statement
-            .query_map(params![asset, page], |row| row.get::<_, String>(0))?
-            .collect::<rusqlite::Result<Vec<_>>>()?;
+        let mut rows = statement.query(params![asset, page])?;
         let mut result = String::new();
-        for (index, chunk) in chunks.into_iter().enumerate() {
-            if index == 0 {
-                result.push_str(&chunk);
-            } else {
-                result.extend(chunk.chars().skip(180));
-            }
+        if let Some(first) = rows.next()? {
+            result = first.get(0)?;
+        }
+        while let Some(row) = rows.next()? {
+            let chunk: String = row.get(0)?;
+            result.extend(chunk.chars().skip(CHUNK_OVERLAP));
         }
         Ok(result)
     }

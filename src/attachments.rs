@@ -1,7 +1,7 @@
 use crate::i18n::gettext;
 
 use crate::error::{MooseError, Result};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 pub mod ocr;
 
@@ -9,6 +9,7 @@ pub const MAX_FILE_BYTES: usize = 25 * 1024 * 1024;
 pub const MAX_TEXT_BYTES: usize = 4 * 1024 * 1024;
 pub const MAX_ATTACHMENTS: usize = 8;
 pub const MAX_IMAGE_BYTES: usize = 20 * 1024 * 1024;
+pub(crate) const CHUNK_OVERLAP: usize = 180;
 
 #[derive(Clone, Debug, Serialize)]
 pub struct Asset {
@@ -24,6 +25,14 @@ pub struct Asset {
 }
 
 impl Asset {
+    pub fn is_paged_document(&self) -> bool {
+        self.kind == "pdf" || self.mime_type == "image/tiff"
+    }
+
+    pub fn supports_ocr(&self) -> bool {
+        self.kind == "image" || self.is_paged_document()
+    }
+
     pub fn requires_vision(&self) -> bool {
         self.kind == "image" && !self.text_only
     }
@@ -53,6 +62,22 @@ pub struct ExtractedPage {
     pub language: String,
     pub confidence: Option<f64>,
     pub error: String,
+    pub review: NumericReview,
+}
+
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
+pub struct NumericReview {
+    pub dimensions: [u32; 2],
+    pub fields: Vec<NumericReading>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct NumericReading {
+    pub text: String,
+    pub score: u8,
+    pub bounds: [u32; 4],
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub alternative: Option<String>,
 }
 
 impl From<String> for ExtractedPage {
@@ -78,25 +103,29 @@ pub fn error(message: impl Into<String>) -> MooseError {
 }
 
 pub fn chunks(text: &str) -> Vec<String> {
-    let chars = text.chars().collect::<Vec<_>>();
     let mut result = Vec::new();
     let mut start = 0;
-    while start < chars.len() {
-        let limit = (start + 1600).min(chars.len());
-        let end = if limit < chars.len() {
-            (start + 1000..limit)
-                .rev()
-                .find(|&index| chars[index] == '\n' || chars[index] == ' ')
-                .unwrap_or(limit)
-        } else {
-            limit
-        };
-        let chunk = chars[start..end].iter().collect::<String>();
-        result.push(chunk);
-        if end == chars.len() {
+    while start < text.len() {
+        let mut end = text.len();
+        let mut separator = None;
+        for (index, (byte, ch)) in text[start..].char_indices().take(1601).enumerate() {
+            if index == 1600 {
+                end = start + separator.unwrap_or(byte);
+                break;
+            }
+            if index >= 1000 && matches!(ch, '\n' | ' ') {
+                separator = Some(byte);
+            }
+        }
+        result.push(text[start..end].to_owned());
+        if end == text.len() {
             break;
         }
-        start = end.saturating_sub(180).max(start + 1);
+        start += text[start..end]
+            .char_indices()
+            .rev()
+            .nth(CHUNK_OVERLAP - 1)
+            .map_or(end - start, |(byte, _)| byte);
     }
     result
 }

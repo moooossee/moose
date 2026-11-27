@@ -76,9 +76,6 @@ pub(super) fn build(library_settings: &gtk::MenuButton) -> Controls {
     content.pack_end(&menu);
     content.pack_end(library_settings);
     library_settings.set_visible(false);
-    library_settings.update_property(&[gtk::accessible::Property::Label(&gettext(
-        "Chat Library Settings",
-    ))]);
 
     let models_action = gio::SimpleAction::new("show-models", None);
     models_action.set_enabled(false);

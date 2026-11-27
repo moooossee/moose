@@ -64,7 +64,7 @@ pub(super) fn menu(ui: &Rc<WindowUi>, backend: &Rc<Backend>, asset: &Asset) -> g
             gettext_noop("Remove from Library"),
         ),
     ] {
-        if matches!(action, Action::Recognize) && !matches!(asset.kind.as_str(), "image" | "pdf") {
+        if matches!(action, Action::Recognize) && !asset.supports_ocr() {
             continue;
         }
         if matches!(action, Action::Remove) && !asset.in_library {

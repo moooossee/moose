@@ -1,7 +1,7 @@
 use super::*;
 use crate::attachments::{
-    ExtractedPage,
-    ocr::{Job, PdfMode, valid_languages},
+    ExtractedPage, NumericReview,
+    ocr::{Job, PageTransform, PdfMode, valid_languages},
 };
 
 pub(super) async fn process<T: Send + 'static>(
@@ -92,14 +92,20 @@ pub(super) fn button(asset: &Asset) -> gtk::Button {
     button
 }
 
-pub(super) fn page_status(repository: &ConversationRepository, asset: &str, page: i64) -> String {
-    match repository.asset_page_info(asset, page) {
+pub(super) fn page_details(
+    repository: &ConversationRepository,
+    asset: &Asset,
+    page: i64,
+) -> gtk::Box {
+    let details = gtk::Box::new(gtk::Orientation::Vertical, 4);
+    let info = repository.asset_page_info(&asset.id, page);
+    let status = match info.as_ref() {
         Ok(Some(info)) if !info.error.is_empty() => {
             gettext_f("Recognition incomplete: {error}", &[("error", &info.error)])
         }
         Ok(Some(info)) if info.method.starts_with("tesseract") => match info.confidence {
             Some(confidence) => gettext_f(
-                "Recognized text · {language} · Confidence {confidence}%",
+                "Recognized text · {language} · OCR score {confidence}/100",
                 &[
                     ("language", &info.language),
                     ("confidence", &format!("{confidence:.0}")),
@@ -110,8 +116,143 @@ pub(super) fn page_status(repository: &ConversationRepository, asset: &str, page
                 &[("language", &info.language)],
             ),
         },
-        Err(failure) => crate::i18n::error_message(&failure),
+        Err(failure) => crate::i18n::error_message(failure),
         _ => gettext("Extracted text"),
+    };
+    let label = gtk::Label::builder()
+        .label(status)
+        .wrap(true)
+        .css_classes(["caption", "dim-label"])
+        .build();
+    details.append(&label);
+    if let Ok(Some(info)) = info
+        && !info.review.fields.is_empty()
+    {
+        details.append(&review_button(repository, asset, page, info.review));
+    }
+    details
+}
+
+fn review_button(
+    repository: &ConversationRepository,
+    asset: &Asset,
+    page: i64,
+    review: NumericReview,
+) -> gtk::MenuButton {
+    let list = gtk::Box::new(gtk::Orientation::Vertical, 4);
+    let choices = gtk::Box::new(gtk::Orientation::Vertical, 2);
+    list.append(&choices);
+    let picture = gtk::Picture::builder()
+        .width_request(240)
+        .height_request(72)
+        .visible(false)
+        .build();
+    list.append(&picture);
+    let message = gtk::Label::builder().wrap(true).visible(false).build();
+    list.append(&message);
+    for field in review.fields {
+        let title = if let Some(alternative) = &field.alternative {
+            gettext_f(
+                "{value} / {alternative} · OCR passes disagree",
+                &[("value", &field.text), ("alternative", alternative)],
+            )
+        } else {
+            gettext_f(
+                "{value} · OCR score {score}/100",
+                &[("value", &field.text), ("score", &field.score.to_string())],
+            )
+        };
+        let button = gtk::Button::with_label(&title);
+        choices.append(&button);
+        let repository = repository.clone();
+        let asset = asset.clone();
+        let picture = picture.clone();
+        let message = message.clone();
+        let choices = choices.downgrade();
+        button.connect_clicked(move |_| {
+            let Some(choices) = choices.upgrade() else {
+                return;
+            };
+            let bytes = repository.asset_original_bytes(&asset.id);
+            let image = asset.kind == "image";
+            let tiff = asset.mime_type == "image/tiff";
+            let bounds = field.bounds;
+            let dimensions = review.dimensions;
+            let message = message.clone();
+            let picture = picture.clone();
+            choices.set_sensitive(false);
+            picture.set_visible(false);
+            message.set_label(&gettext("Loading source region…"));
+            message.set_visible(true);
+            glib::spawn_future_local(async move {
+                let result = gio::spawn_blocking(move || {
+                    let job = Job::new(String::new(), Default::default());
+                    source_region(&bytes?, image, tiff, page, dimensions, bounds, &job)
+                })
+                .await
+                .ok()
+                .and_then(Result::ok)
+                .and_then(|png| gdk::Texture::from_bytes(&glib::Bytes::from_owned(png)).ok());
+                choices.set_sensitive(true);
+                message.set_visible(result.is_none());
+                if let Some(texture) = result {
+                    picture.set_paintable(Some(&texture));
+                    picture.set_visible(true);
+                } else {
+                    message.set_label(&gettext("This region could not be displayed"));
+                }
+            });
+        });
+    }
+    gtk::MenuButton::builder()
+        .label(gettext("Review uncertain numbers"))
+        .halign(gtk::Align::Center)
+        .popover(&gtk::Popover::builder().child(&list).build())
+        .build()
+}
+
+fn source_region(
+    bytes: &[u8],
+    image: bool,
+    tiff: bool,
+    page: i64,
+    [width, height]: [u32; 2],
+    [x, y, w, h]: [u32; 4],
+    job: &Job,
+) -> Result<Vec<u8>> {
+    let unavailable = || error(gettext("This region is unavailable"));
+    if w == 0 || h == 0 || x.saturating_add(w) > width || y.saturating_add(h) > height {
+        return Err(unavailable());
+    }
+    let pad = h.div_ceil(4);
+    let left = x.saturating_sub(pad);
+    let top = y.saturating_sub(pad);
+    let right = x.saturating_add(w).saturating_add(pad).min(width);
+    let bottom = y.saturating_add(h).saturating_add(pad).min(height);
+    if image {
+        let source = import::prepared_image(bytes, job)?;
+        if [source.width() as u32, source.height() as u32] != [width, height] {
+            return Err(unavailable());
+        }
+        source
+            .new_subpixbuf(
+                left as i32,
+                top as i32,
+                (right - left) as i32,
+                (bottom - top) as i32,
+            )
+            .save_to_bufferv("png", &[])
+            .map_err(|_| unavailable())
+    } else {
+        ocr::page_region(
+            bytes,
+            tiff,
+            page,
+            width.max(height),
+            [left, top, right - left, bottom - top],
+            &glib::user_cache_dir(),
+            job,
+        )
     }
 }
 
@@ -126,12 +267,7 @@ pub(super) fn preview_text(
         .content_height(560)
         .build();
     let root = gtk::Box::new(gtk::Orientation::Vertical, 8);
-    let status = gtk::Label::builder()
-        .label(page_status(repository, &asset.id, 1))
-        .wrap(true)
-        .build();
-    status.add_css_class("caption");
-    root.append(&status);
+    root.append(&page_details(repository, asset, 1));
     let text = repository
         .asset_page(&asset.id, 1)
         .unwrap_or_else(|failure| crate::i18n::error_message(&failure));
@@ -167,7 +303,7 @@ pub(super) fn show(ui: &Rc<WindowUi>, backend: &Rc<Backend>, asset: &Asset) {
         toast(ui, &gettext("Finish or cancel the current import first"));
         return;
     }
-    if !matches!(asset.kind.as_str(), "image" | "pdf") {
+    if !asset.supports_ocr() {
         return;
     }
     library::set_languages(ui, backend, &library::languages(ui));
@@ -181,13 +317,30 @@ pub(super) fn show(ui: &Rc<WindowUi>, backend: &Rc<Backend>, asset: &Asset) {
         .build();
     file.add_prefix(&gtk::Image::from_icon_name(if asset.kind == "image" {
         "image-x-generic-symbolic"
-    } else {
+    } else if asset.kind == "pdf" {
         "application-pdf-symbolic"
+    } else {
+        "x-office-document-symbolic"
     }));
     group.add(&file);
     let languages = library::language_summary(ui);
     group.add(&languages);
     content.append(&group);
+    let labels = [
+        gettext("Automatic"),
+        gettext("Rotate 90° clockwise"),
+        gettext("Rotate 180°"),
+        gettext("Rotate 90° counterclockwise"),
+        gettext("Flip horizontally"),
+        gettext("Flip vertically"),
+    ];
+    let orientation = adw::ComboRow::builder()
+        .title(gettext("Orientation"))
+        .model(&gtk::StringList::new(
+            &labels.each_ref().map(String::as_str),
+        ))
+        .build();
+    group.add(&orientation);
     let options = adw::PreferencesGroup::new();
     let all = adw::SwitchRow::builder()
         .title(gettext("All Pages"))
@@ -197,8 +350,16 @@ pub(super) fn show(ui: &Rc<WindowUi>, backend: &Rc<Backend>, asset: &Asset) {
     page.set_title(&gettext("Page"));
     page.set_numeric(true);
     page.set_snap_to_ticks(true);
-    if asset.kind == "pdf" && asset.page_count > 1 {
+    if asset.is_paged_document() && asset.page_count > 1 {
         options.add(&all);
+        let requested_pages = all.downgrade();
+        orientation.connect_selected_notify(move |row| {
+            if row.selected() != 0
+                && let Some(all) = requested_pages.upgrade()
+            {
+                all.set_active(false);
+            }
+        });
         all.bind_property("active", &page, "sensitive")
             .invert_boolean()
             .sync_create()
@@ -252,8 +413,16 @@ pub(super) fn show(ui: &Rc<WindowUi>, backend: &Rc<Backend>, asset: &Asset) {
         }
         page.update();
         let selected =
-            (asset.kind == "pdf" && !all.is_active()).then(|| page.value().round() as usize);
+            (asset.is_paged_document() && !all.is_active()).then(|| page.value().round() as usize);
         let language = library::languages(&ui);
+        let transform = match orientation.selected() {
+            1 => Some(PageTransform::Clockwise),
+            2 => Some(PageTransform::UpsideDown),
+            3 => Some(PageTransform::Counterclockwise),
+            4 => Some(PageTransform::MirrorHorizontal),
+            5 => Some(PageTransform::MirrorVertical),
+            _ => None,
+        };
         start(
             &ui,
             &backend,
@@ -261,6 +430,7 @@ pub(super) fn show(ui: &Rc<WindowUi>, backend: &Rc<Backend>, asset: &Asset) {
             language,
             selected,
             use_text.is_active(),
+            transform,
         );
     });
     dialog.present(Some(&ui.window));
@@ -273,6 +443,7 @@ fn start(
     language: String,
     selected: Option<usize>,
     use_text: bool,
+    transform: Option<PageTransform>,
 ) {
     ui.attachments.busy.set(1);
     update_status(ui, backend);
@@ -285,13 +456,26 @@ fn start(
                 .conversation_repository
                 .asset_original_bytes(&asset.id)?;
             let cache = backend.paths.cache_dir().to_path_buf();
-            let name = asset.name.clone();
             let image = asset.kind == "image";
+            let tiff = asset.mime_type == "image/tiff";
             let mut pages: Vec<ExtractedPage> = process(&ui, &backend, language, move |job| {
                 if image {
-                    Ok(import::image(name, bytes, &cache, &job, true)?.pages)
+                    let page = match transform {
+                        Some(transform) => {
+                            import::recognize_image_oriented(&bytes, &cache, &job, Some(transform))
+                        }
+                        None => import::recognize_image(&bytes, &cache, &job),
+                    }?;
+                    Ok(vec![page])
                 } else {
-                    ocr::pdf(&bytes, &cache, &job, PdfMode::Recognize(selected))
+                    let mode = transform.map_or(PdfMode::Recognize(selected), |orientation| {
+                        PdfMode::RecognizeOriented(selected, orientation)
+                    });
+                    if tiff {
+                        ocr::tiff(&bytes, &cache, &job, mode)
+                    } else {
+                        ocr::pdf(&bytes, &cache, &job, mode)
+                    }
                 }
             })
             .await?;
@@ -315,6 +499,7 @@ fn start(
                     page.method = previous.method;
                     page.language = previous.language;
                     page.confidence = previous.confidence;
+                    page.review = previous.review;
                 }
             }
             backend

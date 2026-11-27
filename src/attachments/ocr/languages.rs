@@ -5,10 +5,11 @@ use sha2::{Digest, Sha256};
 use std::{
     fs::{self, File, OpenOptions, TryLockError},
     future::Future,
-    os::unix::fs::{DirBuilderExt, OpenOptionsExt},
+    io::Read,
+    os::unix::fs::{DirBuilderExt, MetadataExt, OpenOptionsExt},
     path::{Path, PathBuf},
     sync::{
-        Arc, OnceLock,
+        Arc, Mutex, OnceLock,
         atomic::{AtomicBool, AtomicU64, Ordering},
     },
     time::Duration,
@@ -18,6 +19,7 @@ use tokio::io::AsyncWriteExt;
 #[derive(Deserialize)]
 pub struct Catalog {
     pub revision: String,
+    best_revision: String,
     pub models: Vec<Language>,
 }
 
@@ -25,8 +27,17 @@ pub struct Catalog {
 pub struct Language {
     pub code: String,
     pub name: String,
-    pub size: u64,
-    pub sha256: String,
+    #[serde(flatten)]
+    fast: Model,
+    best: Option<Model>,
+    #[serde(skip)]
+    verified: Mutex<Option<([u64; 7], bool)>>,
+}
+
+#[derive(Deserialize)]
+struct Model {
+    size: u64,
+    sha256: String,
 }
 
 pub fn catalog() -> &'static Catalog {
@@ -50,13 +61,97 @@ impl Language {
     }
 
     pub fn installed(&self, directory: &Path) -> bool {
-        fs::symlink_metadata(self.path(directory))
-            .is_ok_and(|metadata| metadata.is_file() && metadata.len() == self.size)
+        self.installed_size(directory).is_some()
+    }
+
+    pub fn installed_size(&self, directory: &Path) -> Option<u64> {
+        let metadata = fs::symlink_metadata(self.path(directory)).ok()?;
+        let size = metadata.len();
+        (metadata.is_file() && (size == self.fast.size || size == self.download_size()))
+            .then_some(size)
+    }
+
+    pub fn download_size(&self) -> u64 {
+        self.best.as_ref().unwrap_or(&self.fast).size
     }
 
     pub fn selectable(&self) -> bool {
         self.code != "osd"
     }
+
+    pub(super) fn verify(&self, directory: &Path) -> Result<bool> {
+        self.verify_model(directory, false)
+    }
+
+    fn verify_model(&self, directory: &Path, preferred_only: bool) -> Result<bool> {
+        let mut file = match OpenOptions::new()
+            .read(true)
+            .custom_flags(libc::O_NOFOLLOW | libc::O_NONBLOCK)
+            .open(self.path(directory))
+        {
+            Ok(file) => file,
+            Err(failure) if failure.kind() == std::io::ErrorKind::NotFound => return Ok(false),
+            Err(failure) if failure.raw_os_error() == Some(libc::ELOOP) => return Ok(false),
+            Err(failure) => return Err(failure.into()),
+        };
+        let metadata = file.metadata()?;
+        let size = metadata.len();
+        if !metadata.is_file()
+            || (preferred_only && size != self.download_size())
+            || (size != self.fast.size && size != self.download_size())
+        {
+            return Ok(false);
+        }
+        let key = model_key(&metadata);
+        let mut cached = self
+            .verified
+            .lock()
+            .unwrap_or_else(|failure| failure.into_inner());
+        if cached
+            .is_some_and(|(version, preferred)| version == key && (!preferred_only || preferred))
+        {
+            return Ok(true);
+        }
+        let mut hasher = Sha256::new();
+        let mut bytes = [0; 64 * 1024];
+        let mut input = (&mut file).take(size + 1);
+        loop {
+            let length = input.read(&mut bytes)?;
+            if length == 0 {
+                break;
+            }
+            hasher.update(&bytes[..length]);
+        }
+        let digest = digest_hex(hasher);
+        let matches = |model: &Model| size == model.size && digest == model.sha256;
+        let preferred = matches(self.best.as_ref().unwrap_or(&self.fast));
+        let valid = model_key(&file.metadata()?) == key
+            && (preferred || (!preferred_only && matches(&self.fast)));
+        if valid {
+            *cached = Some((key, preferred));
+        }
+        Ok(valid)
+    }
+}
+
+fn digest_hex(digest: Sha256) -> String {
+    digest
+        .finalize()
+        .iter()
+        .map(|byte| format!("{byte:02x}"))
+        .collect()
+}
+
+fn model_key(metadata: &fs::Metadata) -> [u64; 7] {
+    [
+        metadata.dev(),
+        metadata.ino(),
+        metadata.len(),
+        metadata.mtime() as u64,
+        metadata.mtime_nsec() as u64,
+        metadata.ctime() as u64,
+        metadata.ctime_nsec() as u64,
+    ]
 }
 
 pub fn selection(value: &str, directory: &Path) -> String {
@@ -143,7 +238,18 @@ pub async fn install(code: &str, directory: &Path, download: &Download) -> Resul
     let language = find(code).ok_or_else(|| error(gettext("This OCR language is unavailable")))?;
     let _lock = lock(directory, language)?;
     download.check()?;
-    if language.installed(directory) {
+    let (repository, revision, model) = match &language.best {
+        Some(best) => ("tessdata_best", &catalog().best_revision, best),
+        None => ("tessdata_fast", &catalog().revision, &language.fast),
+    };
+    let directory_to_verify = directory.to_path_buf();
+    if download
+        .wait(tokio::task::spawn_blocking(move || {
+            language.verify_model(&directory_to_verify, true)
+        }))
+        .await?
+        .map_err(|_| error(gettext("The OCR language could not be verified")))??
+    {
         return Ok(());
     }
     let destination = language.path(directory);
@@ -171,9 +277,7 @@ pub async fn install(code: &str, directory: &Path, download: &Download) -> Resul
         .user_agent(concat!("Moose/", env!("CARGO_PKG_VERSION")))
         .build()?;
     let url = format!(
-        "https://raw.githubusercontent.com/tesseract-ocr/tessdata_fast/{}/{}.traineddata",
-        catalog().revision,
-        language.code
+        "https://raw.githubusercontent.com/tesseract-ocr/{repository}/{revision}/{code}.traineddata"
     );
     let response = download
         .wait(
@@ -186,7 +290,7 @@ pub async fn install(code: &str, directory: &Path, download: &Download) -> Resul
         .error_for_status()?;
     if response
         .content_length()
-        .is_some_and(|size| size != language.size)
+        .is_some_and(|size| size != model.size)
     {
         return Err(error(gettext(
             "The OCR language download has an unexpected size",
@@ -198,7 +302,7 @@ pub async fn install(code: &str, directory: &Path, download: &Download) -> Resul
     while let Some(chunk) = download.wait(stream.next()).await? {
         let chunk = chunk?;
         bytes += chunk.len() as u64;
-        if bytes > language.size {
+        if bytes > model.size {
             return Err(error(gettext(
                 "The OCR language download exceeds its expected size",
             )));
@@ -207,12 +311,8 @@ pub async fn install(code: &str, directory: &Path, download: &Download) -> Resul
         digest.update(&chunk);
         download.0.bytes.store(bytes, Ordering::Relaxed);
     }
-    let digest = digest
-        .finalize()
-        .iter()
-        .map(|byte| format!("{byte:02x}"))
-        .collect::<String>();
-    if bytes != language.size || digest != language.sha256 {
+    let digest = digest_hex(digest);
+    if bytes != model.size || digest != model.sha256 {
         return Err(error(gettext(
             "The OCR language download is incomplete or failed integrity verification. Try again.",
         )));

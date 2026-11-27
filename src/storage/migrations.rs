@@ -67,6 +67,7 @@ const MIGRATIONS: &[(i64, &str)] = &[
     ),
     (22, include_str!("../../migrations/0022_chat_folders.sql")),
     (23, include_str!("../../migrations/0023_document_ocr.sql")),
+    (24, include_str!("../../migrations/0024_numeric_review.sql")),
 ];
 
 pub fn run_migrations(connection: &mut Connection) -> Result<()> {

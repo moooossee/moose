@@ -28,7 +28,7 @@ pub(super) fn list(ui: &WindowUi, backend: &Backend, assets: &[Asset]) -> Option
                 .map(str::to_uppercase)
                 .unwrap_or_else(|| gettext("Document"))
         };
-        let description = if asset.kind == "pdf" && asset.page_count > 0 {
+        let description = if asset.is_paged_document() && asset.page_count > 0 {
             ngettext_f(
                 "{kind} · {count} page · {size}",
                 "{kind} · {count} pages · {size}",

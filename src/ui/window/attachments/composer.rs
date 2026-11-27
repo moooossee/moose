@@ -89,7 +89,7 @@ pub(super) fn asset_widget(ui: &WindowUi, backend: &Backend, asset: &Asset) -> g
     let target_asset = asset.clone();
     button.connect_clicked(move |_| library::preview(&parent, &repository, &target_asset, 1));
     row.append(&button);
-    if matches!(asset.kind.as_str(), "image" | "pdf") {
+    if asset.supports_ocr() {
         row.append(&recognition::button(asset));
     }
     if asset.kind == "image" && asset.has_text {

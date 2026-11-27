@@ -18,7 +18,7 @@ pub(in crate::ui::window) struct Library {
     add: gtk::Button,
     cancel: gtk::Button,
     progress: gtk::Label,
-    languages: adw::EntryRow,
+    languages: gtk::EntryBuffer,
     pub(in crate::ui::window) options: gtk::MenuButton,
     scope: adw::SwitchRow,
     syncing: Cell<bool>,
@@ -58,34 +58,46 @@ pub(in crate::ui::window) fn build() -> Library {
     let scope = adw::SwitchRow::builder()
         .title(gettext("Search Library in This Chat"))
         .subtitle(gettext("Include relevant text when you send a message."))
+        .title_lines(2)
+        .subtitle_lines(2)
         .build();
     let group = adw::PreferencesGroup::new();
     group.add(&scope);
-    let languages = adw::EntryRow::builder()
+    let languages = gtk::EntryBuffer::default();
+    let languages_row = adw::ActionRow::builder()
         .title(gettext("Text Recognition Languages"))
-        .tooltip_text(gettext(
-            "Select installed languages in Preferences → Text Recognition",
-        ))
+        .title_lines(2)
+        .subtitle_lines(2)
+        .use_markup(false)
+        .activatable(true)
+        .tooltip_text(gettext("Open Text Recognition preferences"))
         .build();
-    languages.set_editable(false);
-    languages.add_suffix(&language_manager::button());
-    let recognition = adw::PreferencesGroup::new();
-    recognition.add(&languages);
-    let options_content = gtk::Box::new(gtk::Orientation::Vertical, 0);
-    options_content.set_margin_top(8);
-    options_content.set_margin_bottom(8);
-    options_content.set_margin_start(8);
-    options_content.set_margin_end(8);
-    options_content.append(&group);
-    options_content.append(&recognition);
-    let popover = gtk::Popover::builder().child(&options_content).build();
+    languages_row.add_suffix(&gtk::Image::from_icon_name("go-next-symbolic"));
+    bind_language_names(&languages, &languages_row);
+    group.add(&languages_row);
+    let settings_content = adw::Clamp::builder()
+        .maximum_size(320)
+        .tightening_threshold(320)
+        .unit(adw::LengthUnit::Sp)
+        .child(&group)
+        .build();
+    let popover = gtk::Popover::builder().child(&settings_content).build();
+    let target_popover = popover.downgrade();
+    languages_row.connect_activated(move |row| {
+        if let Some(popover) = target_popover.upgrade() {
+            popover.popdown();
+        }
+        let _ = row.activate_action("win.ocr-languages", None);
+    });
+    let settings_label = gettext("File Settings");
     let options = gtk::MenuButton::builder()
         .icon_name("emblem-system-symbolic")
-        .tooltip_text(gettext("File Settings"))
+        .tooltip_text(&settings_label)
         .valign(gtk::Align::Center)
         .popover(&popover)
         .build();
     options.add_css_class("flat");
+    options.update_property(&[gtk::accessible::Property::Label(&settings_label)]);
     heading.append(&titles);
     heading.append(&cancel);
     heading.append(&add);
@@ -214,19 +226,11 @@ pub(in crate::ui::window) fn bind(ui: &Rc<WindowUi>, backend: &Rc<Backend>) {
         );
         ui.files.languages.set_text(&selected);
         let _ = settings.set_string("ocr-languages", &selected);
+        let settings = settings.clone();
+        ui.files.languages.connect_text_notify(move |languages| {
+            let _ = settings.set_string("ocr-languages", &languages.text());
+        });
     }
-    let target_backend = backend.clone();
-    ui.files.languages.connect_changed(move |entry| {
-        let value = entry.text();
-        if value.trim().is_empty() || ocr::valid_languages(value.trim()) {
-            entry.remove_css_class("error");
-            if let Some(settings) = target_backend.settings.as_ref() {
-                let _ = settings.set_string("ocr-languages", value.trim());
-            }
-        } else {
-            entry.add_css_class("error");
-        }
-    });
     let target_ui = ui.clone();
     let target_backend = backend.clone();
     ui.files
@@ -384,8 +388,11 @@ pub(super) fn language_summary(ui: &WindowUi) -> adw::ActionRow {
 }
 
 pub(super) fn bind_language_summary(ui: &WindowUi, row: &adw::ActionRow) {
-    ui.files
-        .languages
+    bind_language_names(&ui.files.languages, row);
+}
+
+fn bind_language_names(languages: &gtk::EntryBuffer, row: &adw::ActionRow) {
+    languages
         .bind_property("text", row, "subtitle")
         .transform_to(|_, codes: String| {
             let names = codes
@@ -896,14 +903,16 @@ fn preview_asset(
             .hscrollbar_policy(gtk::PolicyType::Never)
             .build();
         let repository = repository.clone();
-        let id = asset.id.clone();
-        let status = gtk::Label::builder().wrap(true).build();
-        status.add_css_class("caption");
-        status.add_css_class("dim-label");
+        let asset = asset.clone();
+        let status = gtk::Box::new(gtk::Orientation::Vertical, 0);
         root.append(&status);
+        let paged_pdf = asset.kind == "pdf";
         let load = move |number| {
-            status.set_label(&recognition::page_status(&repository, &id, number));
-            match repository.asset_page(&id, number) {
+            if let Some(previous) = status.first_child() {
+                status.remove(&previous);
+            }
+            status.append(&recognition::page_details(&repository, &asset, number));
+            match repository.asset_page(&asset.id, number) {
                 Ok(text) if text.trim().is_empty() => {
                     buffer.set_text(&gettext("No readable text on this page."))
                 }
@@ -916,7 +925,7 @@ fn preview_asset(
         };
         load(page.value_as_int() as i64);
         page.connect_value_changed(move |page| load(page.value_as_int() as i64));
-        if asset.kind == "pdf" {
+        if paged_pdf {
             let hint = gtk::Label::new(Some(&gettext(
                 "Extracted text · Original layout is available in the saved PDF",
             )));

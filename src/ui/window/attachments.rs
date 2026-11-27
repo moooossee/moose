@@ -189,12 +189,20 @@ pub(super) fn choose_files(ui: &Rc<WindowUi>, backend: &Rc<Backend>, library_onl
     for extension in [
         "txt", "md", "markdown", "pdf", "rs", "py", "js", "jsx", "ts", "tsx", "json", "yaml",
         "yml", "toml", "xml", "html", "css", "csv", "log", "c", "h", "cpp", "hpp", "java", "go",
-        "sh", "rb", "sql", "swift", "kt", "ini", "conf",
+        "sh", "rb", "sql", "swift", "kt", "ini", "conf", "heic", "heif", "avif", "tif", "tiff",
     ] {
         filter.add_suffix(extension);
     }
     filter.add_mime_type("text/*");
-    for mime in ["image/png", "image/jpeg", "image/webp"] {
+    for mime in [
+        "image/png",
+        "image/jpeg",
+        "image/webp",
+        "image/tiff",
+        "image/heif",
+        "image/heic",
+        "image/avif",
+    ] {
         filter.add_mime_type(mime);
     }
     let filters = gio::ListStore::new::<gtk::FileFilter>();
@@ -420,10 +428,9 @@ fn paste_image(ui: &Rc<WindowUi>, backend: &Rc<Backend>) {
         let result = async {
             let bytes =
                 import_step(&ui, epoch, clipboard::read_image(&ui.entry.clipboard())).await?;
-            let cache = backend.paths.cache_dir().to_path_buf();
             let language = library::languages(&ui);
             let asset = recognition::process(&ui, &backend, language, move |job| {
-                import::image(gettext("Pasted image.png"), bytes, &cache, &job, false)
+                import::image(gettext("Pasted image.png"), bytes, &job)
             })
             .await?;
             if ui.attachments.import_epoch.get() != epoch {
@@ -770,9 +777,10 @@ fn asset_widget(ui: &WindowUi, backend: &Backend, asset: &Asset) -> gtk::Box {
     let kind = gettext(match asset.kind.as_str() {
         "image" => gettext_noop("Image"),
         "pdf" => "PDF",
+        _ if asset.mime_type == "image/tiff" => "TIFF",
         _ => gettext_noop("Text"),
     });
-    let description = if asset.kind == "pdf" {
+    let description = if asset.is_paged_document() {
         ngettext_f(
             "{kind} · {count} page · {size}",
             "{kind} · {count} pages · {size}",
