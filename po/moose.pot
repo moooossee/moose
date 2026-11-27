@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: moose 0.8.5\n"
 "Report-Msgid-Bugs-To: https://github.com/moooossee/moose/issues\n"
-"POT-Creation-Date: 2026-11-21 15:10-0600\n"
+"POT-Creation-Date: 2026-11-26 21:48-0600\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -608,24 +608,16 @@ msgid ""
 msgstr ""
 
 #: src/attachments/ocr.rs
-msgid "Text extraction could not start"
-msgstr ""
-
-#: src/attachments/ocr.rs
 msgid "Text extraction timed out. Try fewer pages or a smaller document."
-msgstr ""
-
-#: src/attachments/ocr.rs
-msgid "The extracted text exceeds the size limit"
-msgstr ""
-
-#: src/attachments/ocr.rs
-msgid "Text extraction stopped unexpectedly"
 msgstr ""
 
 #: src/attachments/ocr.rs
 #, rust-format
 msgid "{tool} could not process this file: {detail}"
+msgstr ""
+
+#: src/attachments/ocr.rs
+msgid "The extracted text exceeds the size limit"
 msgstr ""
 
 #: src/attachments/ocr.rs
@@ -635,32 +627,46 @@ msgid ""
 msgstr ""
 
 #: src/attachments/ocr.rs
-msgid ""
-"Some selected OCR languages are not installed. Open Preferences → Text "
-"Recognition to install or select languages."
+msgid "Some selected OCR languages are unavailable"
 msgstr ""
 
 #: src/attachments/ocr.rs
 #, rust-format
 msgid ""
-"OCR languages {languages} are unavailable. Install their Tesseract language "
-"data or select installed languages."
+"The OCR language {language} is missing or damaged. Reinstall it in "
+"Preferences → Text Recognition."
 msgstr ""
 
 #: src/attachments/ocr.rs
-msgid "Recognized text could not be decoded"
+msgid "Text extraction stopped unexpectedly"
 msgstr ""
 
 #: src/attachments/ocr.rs
-msgid "PDFs must contain between 1 and 1,000 pages"
+msgid "Some text detected in embedded images could not be added safely"
+msgstr ""
+
+#: src/attachments/ocr.rs src/ui/window/attachments/recognition.rs
+msgid "This region is unavailable"
+msgstr ""
+
+#: src/attachments/ocr.rs
+msgid "Documents must contain between 1 and 1,000 pages"
 msgstr ""
 
 #: src/attachments/ocr.rs src/storage/attachment_repository.rs
-msgid "This page is not available in the PDF"
+msgid "This page is not available in the document"
 msgstr ""
 
 #: src/attachments/ocr.rs
-msgid "PDF text could not be decoded"
+msgid "Embedded images could not be inspected for text"
+msgstr ""
+
+#: src/attachments/ocr.rs
+msgid "Page geometry could not be read"
+msgstr ""
+
+#: src/attachments/ocr.rs
+msgid "This page could not be rendered"
 msgstr ""
 
 #: src/attachments/ocr/languages.rs
@@ -673,6 +679,10 @@ msgstr ""
 
 #: src/attachments/ocr/languages.rs
 msgid "This OCR language is unavailable"
+msgstr ""
+
+#: src/attachments/ocr/languages.rs
+msgid "The OCR language could not be verified"
 msgstr ""
 
 #: src/attachments/ocr/languages.rs
@@ -2563,7 +2573,7 @@ msgid "This file is empty"
 msgstr ""
 
 #: src/ui/window/attachments/import.rs
-msgid "This file is not a supported PNG, JPEG or WebP image"
+msgid "This file is not a supported image"
 msgstr ""
 
 #: src/ui/window/attachments/import.rs
@@ -2571,7 +2581,7 @@ msgid "This file is not a valid PDF"
 msgstr ""
 
 #: src/ui/window/attachments/import.rs
-msgid "This image could not be decoded. Use PNG, JPEG or WebP."
+msgid "This image could not be decoded with the installed image codecs."
 msgstr ""
 
 #: src/ui/window/attachments/import.rs
@@ -2599,6 +2609,7 @@ msgid "Preferences…"
 msgstr ""
 
 #: src/ui/window/attachments/language_manager.rs
+#: src/ui/window/attachments/library.rs
 msgid "Open Text Recognition preferences"
 msgstr ""
 
@@ -2721,6 +2732,15 @@ msgid "Optional"
 msgstr ""
 
 #: src/ui/window/attachments/language_manager.rs
+msgid "Upgrade"
+msgstr ""
+
+#: src/ui/window/attachments/language_manager.rs
+#, rust-format
+msgid "Download the higher-accuracy model · {size}"
+msgstr ""
+
+#: src/ui/window/attachments/language_manager.rs
 #, rust-format
 msgid "Remove {name}"
 msgstr ""
@@ -2822,10 +2842,6 @@ msgstr ""
 
 #: src/ui/window/attachments/library.rs
 msgid "Text Recognition Languages"
-msgstr ""
-
-#: src/ui/window/attachments/library.rs
-msgid "Select installed languages in Preferences → Text Recognition"
 msgstr ""
 
 #: src/ui/window/attachments/library.rs
@@ -3173,7 +3189,7 @@ msgstr ""
 
 #: src/ui/window/attachments/recognition.rs
 #, rust-format
-msgid "Recognized text · {language} · Confidence {confidence}%"
+msgid "Recognized text · {language} · OCR score {confidence}/100"
 msgstr ""
 
 #: src/ui/window/attachments/recognition.rs
@@ -3186,6 +3202,28 @@ msgid "Extracted text"
 msgstr ""
 
 #: src/ui/window/attachments/recognition.rs
+#, rust-format
+msgid "{value} / {alternative} · OCR passes disagree"
+msgstr ""
+
+#: src/ui/window/attachments/recognition.rs
+#, rust-format
+msgid "{value} · OCR score {score}/100"
+msgstr ""
+
+#: src/ui/window/attachments/recognition.rs
+msgid "Loading source region…"
+msgstr ""
+
+#: src/ui/window/attachments/recognition.rs
+msgid "This region could not be displayed"
+msgstr ""
+
+#: src/ui/window/attachments/recognition.rs
+msgid "Review uncertain numbers"
+msgstr ""
+
+#: src/ui/window/attachments/recognition.rs
 msgid "No readable text was found"
 msgstr ""
 
@@ -3195,6 +3233,34 @@ msgstr ""
 
 #: src/ui/window/attachments/recognition.rs
 msgid "File"
+msgstr ""
+
+#: src/ui/window/attachments/recognition.rs src/ui/window/model_download.rs
+msgid "Automatic"
+msgstr ""
+
+#: src/ui/window/attachments/recognition.rs
+msgid "Rotate 90° clockwise"
+msgstr ""
+
+#: src/ui/window/attachments/recognition.rs
+msgid "Rotate 180°"
+msgstr ""
+
+#: src/ui/window/attachments/recognition.rs
+msgid "Rotate 90° counterclockwise"
+msgstr ""
+
+#: src/ui/window/attachments/recognition.rs
+msgid "Flip horizontally"
+msgstr ""
+
+#: src/ui/window/attachments/recognition.rs
+msgid "Flip vertically"
+msgstr ""
+
+#: src/ui/window/attachments/recognition.rs
+msgid "Orientation"
 msgstr ""
 
 #: src/ui/window/attachments/recognition.rs
@@ -5169,10 +5235,6 @@ msgid "Back to Chat"
 msgstr ""
 
 #: src/ui/window/header.rs
-msgid "Chat Library Settings"
-msgstr ""
-
-#: src/ui/window/header.rs
 msgid "Source Code"
 msgstr ""
 
@@ -5886,10 +5948,6 @@ msgstr ""
 
 #: src/ui/window/model_download.rs
 msgid " · Already installed"
-msgstr ""
-
-#: src/ui/window/model_download.rs
-msgid "Automatic"
 msgstr ""
 
 #: src/ui/window/model_download.rs

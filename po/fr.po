@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: moose 0.8.5\n"
 "Report-Msgid-Bugs-To: https://github.com/moooossee/moose/issues\n"
-"POT-Creation-Date: 2026-11-21 15:10-0600\n"
+"POT-Creation-Date: 2026-11-26 21:48-0600\n"
 "PO-Revision-Date: 2026-11-26 18:51+0000\n"
 "Last-Translator: \"David D.\" <dadu042@users.noreply.hosted.weblate.org>\n"
 "Language-Team: French <https://hosted.weblate.org/projects/moose/moose/fr/>\n"
@@ -230,7 +230,8 @@ msgstr "Explorer les maths avec des explications claires et formatées"
 
 #: data/io.github.moooossee.Moose.metainfo.xml.in
 msgid "Review and approve context shared with cloud providers"
-msgstr "Réviser et approuver le contexte partagé avec des fournisseurs de cloud"
+msgstr ""
+"Réviser et approuver le contexte partagé avec des fournisseurs de cloud"
 
 #: data/io.github.moooossee.Moose.metainfo.xml.in
 msgid "Control remote connections and reset sharing permissions"
@@ -751,7 +752,8 @@ msgstr "Dossier de tchat sélectionné"
 
 #: data/io.github.moooossee.Moose.gschema.xml
 msgid "The last folder selected in the conversation sidebar."
-msgstr "Le dernier dossier sélectionné dans le menu latéral de la conversation."
+msgstr ""
+"Le dernier dossier sélectionné dans le menu latéral de la conversation."
 
 #: data/io.github.moooossee.Moose.gschema.xml
 msgid "Keyboard shortcuts"
@@ -812,27 +814,19 @@ msgstr ""
 "cet outil pour une version native."
 
 #: src/attachments/ocr.rs
-msgid "Text extraction could not start"
-msgstr "L’extraction de texte n’a pas pu démarrer"
-
-#: src/attachments/ocr.rs
 msgid "Text extraction timed out. Try fewer pages or a smaller document."
 msgstr ""
 "L’extraction de texte a expiré. Essayez moins de pages ou un document plus "
 "petit."
 
 #: src/attachments/ocr.rs
-msgid "The extracted text exceeds the size limit"
-msgstr "Le texte extrait dépasse la limite de taille"
-
-#: src/attachments/ocr.rs
-msgid "Text extraction stopped unexpectedly"
-msgstr "L’extraction de texte s’est arrêtée de manière inattendue"
-
-#: src/attachments/ocr.rs
 #, rust-format
 msgid "{tool} could not process this file: {detail}"
 msgstr "{tool} n’a pas pu traiter ce fichier : {detail}"
+
+#: src/attachments/ocr.rs
+msgid "The extracted text exceeds the size limit"
+msgstr "Le texte extrait dépasse la limite de taille"
 
 #: src/attachments/ocr.rs
 msgid ""
@@ -843,38 +837,56 @@ msgstr ""
 "Reconnaissance de texte, avant de reconnaître le texte."
 
 #: src/attachments/ocr.rs
+#, fuzzy
+msgid "Some selected OCR languages are unavailable"
+msgstr "Cette langue d’OCR n’est pas disponible"
+
+#: src/attachments/ocr.rs
+#, fuzzy, rust-format
 msgid ""
-"Some selected OCR languages are not installed. Open Preferences → Text "
-"Recognition to install or select languages."
+"The OCR language {language} is missing or damaged. Reinstall it in "
+"Preferences → Text Recognition."
 msgstr ""
-"Certaines langues OCR sélectionnées ne sont pas installées. Ouvrez les "
-"préférences → Reconnaissance de texte pour installer ou sélectionner des "
-"langues."
+"Sélectionnez les langues installées dans les préférences → Reconnaissance de "
+"texte"
 
 #: src/attachments/ocr.rs
-#, rust-format
-msgid ""
-"OCR languages {languages} are unavailable. Install their Tesseract language "
-"data or select installed languages."
+msgid "Text extraction stopped unexpectedly"
+msgstr "L’extraction de texte s’est arrêtée de manière inattendue"
+
+#: src/attachments/ocr.rs
+msgid "Some text detected in embedded images could not be added safely"
 msgstr ""
-"Les langues OCR {languages} ne sont pas disponibles. Installez leurs données "
-"de langue Tesseract ou sélectionnez les langues installées."
+
+#: src/attachments/ocr.rs src/ui/window/attachments/recognition.rs
+#, fuzzy
+msgid "This region is unavailable"
+msgstr "Cet outil n’est pas disponible."
 
 #: src/attachments/ocr.rs
-msgid "Recognized text could not be decoded"
-msgstr "Le texte reconnu n’a pas pu être décodé"
-
-#: src/attachments/ocr.rs
-msgid "PDFs must contain between 1 and 1,000 pages"
+#, fuzzy
+msgid "Documents must contain between 1 and 1,000 pages"
 msgstr "Les fichiers PDF doivent contenir entre 1 et 1000 pages"
 
 #: src/attachments/ocr.rs src/storage/attachment_repository.rs
-msgid "This page is not available in the PDF"
+#, fuzzy
+msgid "This page is not available in the document"
 msgstr "Cette page n’est pas disponible dans le PDF"
 
 #: src/attachments/ocr.rs
-msgid "PDF text could not be decoded"
-msgstr "Le texte PDF n’a pas pu être décodé"
+#, fuzzy
+msgid "Embedded images could not be inspected for text"
+msgstr "Des fichiers n’ont pas pu être sélectionnés : {error}"
+
+#: src/attachments/ocr.rs
+#, fuzzy
+msgid "Page geometry could not be read"
+msgstr "La page n’a pas pu être lue."
+
+#: src/attachments/ocr.rs
+#, fuzzy
+msgid "This page could not be rendered"
+msgstr "Cette image n’a pas pu être préparée"
 
 #: src/attachments/ocr/languages.rs
 msgid "Download canceled"
@@ -887,6 +899,11 @@ msgstr "Une autre opération modifie déjà cette langue d’OCR"
 #: src/attachments/ocr/languages.rs
 msgid "This OCR language is unavailable"
 msgstr "Cette langue d’OCR n’est pas disponible"
+
+#: src/attachments/ocr/languages.rs
+#, fuzzy
+msgid "The OCR language could not be verified"
+msgstr "La page n’a pas pu être lue."
 
 #: src/attachments/ocr/languages.rs
 msgid "The OCR language directory is unavailable"
@@ -1270,8 +1287,8 @@ msgstr "Requête HTTP a échoué : {detail}"
 #, rust-format
 msgid "generation stream stalled after {seconds} second"
 msgid_plural "generation stream stalled after {seconds} seconds"
-msgstr[0] "flux de génération s’est arrêté après {secondes} seconde"
-msgstr[1] "flux de génération s’est arrêté après {secondes} secondes"
+msgstr[0] "flux de génération s’est arrêté après {seconds} seconde"
+msgstr[1] "flux de génération s’est arrêté après {seconds} secondes"
 
 #: src/i18n.rs
 #, rust-format
@@ -1431,7 +1448,7 @@ msgstr "le manifeste Ollama géré est invalide : {detail}"
 #: src/i18n.rs
 #, rust-format
 msgid "managed Ollama download failed: {detail}"
-msgstr "échec du téléchargement de Ollama géré : {détail}"
+msgstr "échec du téléchargement de Ollama géré : {detail}"
 
 #: src/i18n.rs
 #, rust-format
@@ -1684,8 +1701,8 @@ msgstr "Vérifier le propriétaire et le nom du référentiel de Hugging Face."
 #: src/models/reference.rs
 msgid "Enter a quantization such as Q4_K_M, or a GGUF filename after :."
 msgstr ""
-"Saisir une quantification telle que Q4_K_M, ou un nom de fichier GGUF après "
-":."
+"Saisir une quantification telle que Q4_K_M, ou un nom de fichier GGUF "
+"après :."
 
 #: src/models/reference.rs
 msgid "Paste the link to a specific Ollama model."
@@ -2087,16 +2104,16 @@ msgid ""
 "{error}. The previous installation was restored but could not restart: "
 "{restart}"
 msgstr ""
-"{error}. L’installation précédente a été restaurée mais n’a pas pu redémarrer"
-" : {restart}"
+"{error}. L’installation précédente a été restaurée mais n’a pas pu "
+"redémarrer : {restart}"
 
 #: src/ollama/update.rs
 #, rust-format
 msgid ""
 "{error}. The previous installation was restored but is unavailable: {restart}"
 msgstr ""
-"{error}. L’installation précédente a été restaurée mais n’est pas disponible "
-": {restart}"
+"{error}. L’installation précédente a été restaurée mais n’est pas "
+"disponible : {restart}"
 
 #: src/ollama/update.rs
 #, rust-format
@@ -2125,7 +2142,7 @@ msgstr ""
 #: src/ollama/update.rs
 #, rust-format
 msgid "Expected Ollama {expected}, but the server reported {actual}."
-msgstr "Ollama attendu {attendu}, mais le serveur a signalé {réel}."
+msgstr "Ollama attendu {expected}, mais le serveur a signalé {actual}."
 
 #: src/providers/client.rs
 #, rust-format
@@ -2598,7 +2615,8 @@ msgstr "L’accès Web n’est pas activé pour ce tchat."
 
 #: src/tools/mod.rs
 msgid "This tool is not available. Use only the provided tools."
-msgstr "Cet outil n’est pas disponible. Utilisez uniquement les outils fournis."
+msgstr ""
+"Cet outil n’est pas disponible. Utilisez uniquement les outils fournis."
 
 #: src/tools/mod.rs
 msgid "This tool is not enabled for this chat. Use only the provided tools."
@@ -2632,9 +2650,8 @@ msgid ""
 "DuckDuckGo redirected the search. Try a query without !bang shortcuts or "
 "choose another search provider in Preferences → Web."
 msgstr ""
-"DuckDuckGo a redirigé la recherche. Essayez une requête sans "
-"raccourcis !bang ou choisissez un autre fournisseur de recherche dans "
-"Préférences → Web."
+"DuckDuckGo a redirigé la recherche. Essayez une requête sans raccourcis !"
+"bang ou choisissez un autre fournisseur de recherche dans Préférences → Web."
 
 #: src/tools/web/duckduckgo.rs
 #, rust-format
@@ -2970,15 +2987,17 @@ msgid "This file is empty"
 msgstr "Ce fichier est vide"
 
 #: src/ui/window/attachments/import.rs
-msgid "This file is not a supported PNG, JPEG or WebP image"
-msgstr "Ce fichier n’est pas une image PNG, JPEG ou WebP prise en charge"
+#, fuzzy
+msgid "This file is not a supported image"
+msgstr "Ce fichier n’est pas un document texte pris en charge"
 
 #: src/ui/window/attachments/import.rs
 msgid "This file is not a valid PDF"
 msgstr "Ce fichier n’est pas un PDF valide"
 
 #: src/ui/window/attachments/import.rs
-msgid "This image could not be decoded. Use PNG, JPEG or WebP."
+#, fuzzy
+msgid "This image could not be decoded with the installed image codecs."
 msgstr "Cette image n’a pas pu être décodée. Utilisez PNG, JPEG ou WebP."
 
 #: src/ui/window/attachments/import.rs
@@ -3006,6 +3025,7 @@ msgid "Preferences…"
 msgstr "Préférences …"
 
 #: src/ui/window/attachments/language_manager.rs
+#: src/ui/window/attachments/library.rs
 msgid "Open Text Recognition preferences"
 msgstr ""
 
@@ -3141,6 +3161,15 @@ msgid "Optional"
 msgstr "Optionnel"
 
 #: src/ui/window/attachments/language_manager.rs
+msgid "Upgrade"
+msgstr ""
+
+#: src/ui/window/attachments/language_manager.rs
+#, rust-format
+msgid "Download the higher-accuracy model · {size}"
+msgstr ""
+
+#: src/ui/window/attachments/language_manager.rs
 #, rust-format
 msgid "Remove {name}"
 msgstr "Retirer {name}"
@@ -3246,12 +3275,6 @@ msgstr "Inclure un texte pertinent lorsque vous envoyez un message."
 #: src/ui/window/attachments/library.rs
 msgid "Text Recognition Languages"
 msgstr "Langues de reconnaissance de texte"
-
-#: src/ui/window/attachments/library.rs
-msgid "Select installed languages in Preferences → Text Recognition"
-msgstr ""
-"Sélectionnez les langues installées dans les préférences → Reconnaissance de "
-"texte"
 
 #: src/ui/window/attachments/library.rs
 msgid "File Settings"
@@ -3532,7 +3555,8 @@ msgstr "Pas encore utilisé dans un tchat"
 
 #: src/ui/window/attachments/library_actions.rs
 msgid "Attach this file to a chat to start a conversation about it."
-msgstr "Joignez ce fichier à un tchat pour lancer une conversation à son sujet."
+msgstr ""
+"Joignez ce fichier à un tchat pour lancer une conversation à son sujet."
 
 #: src/ui/window/attachments/library_actions.rs
 msgid "Archived chat"
@@ -3585,7 +3609,8 @@ msgstr "Retirer"
 
 #: src/ui/window/attachments/library_actions.rs
 msgid "Removed from library. Chat attachments are kept."
-msgstr "Retiré de la bibliothèque. Les pièces jointes au tchat sont conservées."
+msgstr ""
+"Retiré de la bibliothèque. Les pièces jointes au tchat sont conservées."
 
 #: src/ui/window/attachments/request.rs
 msgid "Wait for your files to finish importing"
@@ -3621,18 +3646,42 @@ msgid "Recognition incomplete: {error}"
 msgstr "Reconnaissance incomplète : {error}"
 
 #: src/ui/window/attachments/recognition.rs
-#, rust-format
-msgid "Recognized text · {language} · Confidence {confidence}%"
+#, fuzzy, rust-format
+msgid "Recognized text · {language} · OCR score {confidence}/100"
 msgstr "Texte reconnu · {langue} · Confiance {confiance} %"
 
 #: src/ui/window/attachments/recognition.rs
 #, rust-format
 msgid "Recognized text · {language}"
-msgstr "Texte reconnu · {langue}"
+msgstr "Texte reconnu · {language}"
 
 #: src/ui/window/attachments/recognition.rs
 msgid "Extracted text"
 msgstr "Texte extrait"
+
+#: src/ui/window/attachments/recognition.rs
+#, rust-format
+msgid "{value} / {alternative} · OCR passes disagree"
+msgstr ""
+
+#: src/ui/window/attachments/recognition.rs
+#, rust-format
+msgid "{value} · OCR score {score}/100"
+msgstr ""
+
+#: src/ui/window/attachments/recognition.rs
+#, fuzzy
+msgid "Loading source region…"
+msgstr "En attente de réponse …"
+
+#: src/ui/window/attachments/recognition.rs
+#, fuzzy
+msgid "This region could not be displayed"
+msgstr "Cette image n’a pas pu être affichée"
+
+#: src/ui/window/attachments/recognition.rs
+msgid "Review uncertain numbers"
+msgstr ""
 
 #: src/ui/window/attachments/recognition.rs
 msgid "No readable text was found"
@@ -3645,6 +3694,35 @@ msgstr "Terminez ou annulez d’abord l’importation actuelle"
 #: src/ui/window/attachments/recognition.rs
 msgid "File"
 msgstr "Fichier"
+
+#: src/ui/window/attachments/recognition.rs src/ui/window/model_download.rs
+msgid "Automatic"
+msgstr "Automatique"
+
+#: src/ui/window/attachments/recognition.rs
+msgid "Rotate 90° clockwise"
+msgstr ""
+
+#: src/ui/window/attachments/recognition.rs
+msgid "Rotate 180°"
+msgstr ""
+
+#: src/ui/window/attachments/recognition.rs
+msgid "Rotate 90° counterclockwise"
+msgstr ""
+
+#: src/ui/window/attachments/recognition.rs
+msgid "Flip horizontally"
+msgstr ""
+
+#: src/ui/window/attachments/recognition.rs
+msgid "Flip vertically"
+msgstr ""
+
+#: src/ui/window/attachments/recognition.rs
+#, fuzzy
+msgid "Orientation"
+msgstr "Présentations"
 
 #: src/ui/window/attachments/recognition.rs
 msgid "All Pages"
@@ -3781,7 +3859,7 @@ msgstr "La pièce jointe n’a pas pu être retirée : {error}"
 #: src/ui/window/attachments.rs
 #, rust-format
 msgid "Add Attachments · {count} of {MAX_ATTACHMENTS}"
-msgstr "Ajout de pièces jointes · {nombre} sur {MAX_ATTACHMENTS}"
+msgstr "Ajout de pièces jointes · {count} sur {MAX_ATTACHMENTS}"
 
 #: src/ui/window/attachments.rs
 msgid "Preparing files…"
@@ -4805,7 +4883,8 @@ msgstr ""
 
 #: src/ui/window/composer_commands.rs
 msgid "Read public links · Set up search in Preferences → Web"
-msgstr "Lire les liens publics · Configurer la recherche dans Préférences → Web"
+msgstr ""
+"Lire les liens publics · Configurer la recherche dans Préférences → Web"
 
 #: src/ui/window/composer_commands.rs
 msgid "Search and read public pages · Permission required before first use"
@@ -5647,7 +5726,8 @@ msgstr "Supprimer “{folder}” ?"
 
 #: src/ui/window/folders/dialogs.rs
 msgid "The chats in this folder will return to the main chat list."
-msgstr "Les tchats de ce dossier retourneront à la liste principale des tchats."
+msgstr ""
+"Les tchats de ce dossier retourneront à la liste principale des tchats."
 
 #: src/ui/window/folders/dialogs.rs
 msgid "Delete Folder"
@@ -5797,10 +5877,6 @@ msgstr "Masquer menu latéral"
 #: src/ui/window/header.rs
 msgid "Back to Chat"
 msgstr "Retour au tchat"
-
-#: src/ui/window/header.rs
-msgid "Chat Library Settings"
-msgstr "Paramètres bibliothèque tchat"
 
 #: src/ui/window/header.rs
 msgid "Source Code"
@@ -5989,7 +6065,7 @@ msgstr ""
 #: src/ui/window/managed_runtime.rs
 #, rust-format
 msgid "Last checked: {date} at {time} UTC"
-msgstr "Dernière vérification : {date} à {heure} UTC"
+msgstr "Dernière vérification : {date} à {time} UTC"
 
 #: src/ui/window/managed_runtime.rs
 #, rust-format
@@ -6561,10 +6637,6 @@ msgstr ""
 #: src/ui/window/model_download.rs
 msgid " · Already installed"
 msgstr " · Déjà installé"
-
-#: src/ui/window/model_download.rs
-msgid "Automatic"
-msgstr "Automatique"
 
 #: src/ui/window/model_download.rs
 msgid "This model is already installed and does not support chat."
@@ -9700,3 +9772,34 @@ msgstr "Fichiers et bibliothèque"
 #: src/ui/window.rs
 msgid "Wait for the Ollama installation to finish or cancel it."
 msgstr "Attendez que l’installation d’Ollama soit terminée ou annulez-la."
+
+#~ msgid "Text extraction could not start"
+#~ msgstr "L’extraction de texte n’a pas pu démarrer"
+
+#~ msgid ""
+#~ "Some selected OCR languages are not installed. Open Preferences → Text "
+#~ "Recognition to install or select languages."
+#~ msgstr ""
+#~ "Certaines langues OCR sélectionnées ne sont pas installées. Ouvrez les "
+#~ "préférences → Reconnaissance de texte pour installer ou sélectionner des "
+#~ "langues."
+
+#, rust-format
+#~ msgid ""
+#~ "OCR languages {languages} are unavailable. Install their Tesseract "
+#~ "language data or select installed languages."
+#~ msgstr ""
+#~ "Les langues OCR {languages} ne sont pas disponibles. Installez leurs "
+#~ "données de langue Tesseract ou sélectionnez les langues installées."
+
+#~ msgid "Recognized text could not be decoded"
+#~ msgstr "Le texte reconnu n’a pas pu être décodé"
+
+#~ msgid "PDF text could not be decoded"
+#~ msgstr "Le texte PDF n’a pas pu être décodé"
+
+#~ msgid "This file is not a supported PNG, JPEG or WebP image"
+#~ msgstr "Ce fichier n’est pas une image PNG, JPEG ou WebP prise en charge"
+
+#~ msgid "Chat Library Settings"
+#~ msgstr "Paramètres bibliothèque tchat"
