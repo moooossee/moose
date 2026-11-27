@@ -623,7 +623,6 @@ msgid "Import canceled"
 msgstr ""
 
 #: src/attachments/ocr.rs
-#, rust-format
 msgid ""
 "Text extraction requires {tool}. Reinstall the Flatpak or install this tool "
 "for a native build."
@@ -634,7 +633,6 @@ msgid "Text extraction timed out. Try fewer pages or a smaller document."
 msgstr ""
 
 #: src/attachments/ocr.rs
-#, rust-format
 msgid "{tool} could not process this file: {detail}"
 msgstr ""
 
@@ -653,7 +651,6 @@ msgid "Some selected OCR languages are unavailable"
 msgstr ""
 
 #: src/attachments/ocr.rs
-#, rust-format
 msgid ""
 "The OCR language {language} is missing or damaged. Reinstall it in "
 "Preferences → Text Recognition."
@@ -921,7 +918,6 @@ msgid "A spreadsheet needs between 1 and 64 Markdown tables."
 msgstr ""
 
 #: src/documents/opendocument.rs
-#, rust-format
 msgid "Slide {number}"
 msgstr ""
 
@@ -1016,7 +1012,6 @@ msgid ""
 msgstr ""
 
 #: src/i18n.rs
-#, rust-format
 msgid "invalid provider response: {detail}"
 msgstr ""
 
@@ -1032,44 +1027,36 @@ msgid ""
 msgstr ""
 
 #: src/i18n.rs
-#, rust-format
 msgid "I/O failed: {detail}"
 msgstr ""
 
 #: src/i18n.rs
-#, rust-format
 msgid "database operation failed: {detail}"
 msgstr ""
 
 #: src/i18n.rs
-#, rust-format
 msgid "HTTP request failed: {detail}"
 msgstr ""
 
 #: src/i18n.rs
-#, rust-format
 msgid "generation stream stalled after {seconds} second"
 msgid_plural "generation stream stalled after {seconds} seconds"
 msgstr[0] ""
 msgstr[1] ""
 
 #: src/i18n.rs
-#, rust-format
 msgid "HTTP request returned status {status}: {message}"
 msgstr ""
 
 #: src/i18n.rs
-#, rust-format
 msgid "JSON parsing failed: {detail}"
 msgstr ""
 
 #: src/i18n.rs
-#, rust-format
 msgid "URL parsing failed: {detail}"
 msgstr ""
 
 #: src/i18n.rs
-#, rust-format
 msgid "stream text decoding failed: {detail}"
 msgstr ""
 
@@ -1178,17 +1165,14 @@ msgid "no provider is configured"
 msgstr ""
 
 #: src/i18n.rs
-#, rust-format
 msgid "invalid Ollama response: {detail}"
 msgstr ""
 
 #: src/i18n.rs
-#, rust-format
 msgid "Ollama must be updated to download this model: {detail}"
 msgstr ""
 
 #: src/i18n.rs
-#, rust-format
 msgid "managed Ollama update failed: {detail}"
 msgstr ""
 
@@ -1197,32 +1181,26 @@ msgid "managed Ollama installation was cancelled"
 msgstr ""
 
 #: src/i18n.rs
-#, rust-format
 msgid "managed Ollama does not support architecture {detail}"
 msgstr ""
 
 #: src/i18n.rs
-#, rust-format
 msgid "managed Ollama manifest is invalid: {detail}"
 msgstr ""
 
 #: src/i18n.rs
-#, rust-format
 msgid "managed Ollama download failed: {detail}"
 msgstr ""
 
 #: src/i18n.rs
-#, rust-format
 msgid "managed Ollama checksum mismatch: expected {expected}, got {actual}"
 msgstr ""
 
 #: src/i18n.rs
-#, rust-format
 msgid "managed Ollama extraction failed: {detail}"
 msgstr ""
 
 #: src/i18n.rs
-#, rust-format
 msgid "managed Ollama binary is missing at {detail}"
 msgstr ""
 
@@ -1231,7 +1209,6 @@ msgid "managed Ollama is unavailable"
 msgstr ""
 
 #: src/i18n.rs
-#, rust-format
 msgid "managed Ollama failed to start: {detail}"
 msgstr ""
 
@@ -1246,19 +1223,16 @@ msgid ""
 msgstr ""
 
 #: src/i18n.rs
-#, rust-format
 msgid ""
 "managed Ollama port is already in use: {detail}; close any previous Moose "
 "instances or choose another managed port"
 msgstr ""
 
 #: src/i18n.rs
-#, rust-format
 msgid "managed Ollama port {detail} is invalid; use 1024-65535 except 11434"
 msgstr ""
 
 #: src/i18n.rs
-#, rust-format
 msgid "numeric conversion failed: {detail}"
 msgstr ""
 
@@ -1367,7 +1341,6 @@ msgid "Extra High"
 msgstr ""
 
 #: src/logging.rs
-#, rust-format
 msgid "Could not write Moose log: {error}"
 msgstr ""
 
@@ -1465,7 +1438,6 @@ msgid "The package size does not match the release metadata."
 msgstr ""
 
 #: src/ollama/manager/download.rs
-#, rust-format
 msgid "HTTP {arg1} while downloading Ollama"
 msgstr ""
 
@@ -1482,7 +1454,6 @@ msgid "An earlier update needs recovery before installing."
 msgstr ""
 
 #: src/ollama/manager/transaction.rs src/ollama/update.rs
-#, rust-format
 msgid "{error}; recovery failed: {recovery}"
 msgstr ""
 
@@ -1519,7 +1490,6 @@ msgid ""
 msgstr ""
 
 #: src/ollama/manager.rs
-#, rust-format
 msgid "could not parse JSON: {error}"
 msgstr ""
 
@@ -1532,72 +1502,58 @@ msgid "no supported packages"
 msgstr ""
 
 #: src/ollama/manager.rs
-#, rust-format
 msgid "invalid asset URL: {error}"
 msgstr ""
 
 #: src/ollama/manager.rs
-#, rust-format
 msgid "asset URL for {arg1} must point to the official Ollama GitHub release"
 msgstr ""
 
 #: src/ollama/manager.rs
-#, rust-format
 msgid "asset checksum for {arg1} must be a SHA-256 hex digest"
 msgstr ""
 
 #: src/ollama/manager.rs
-#, rust-format
 msgid "asset size for {arg1} must be greater than zero"
 msgstr ""
 
 #: src/ollama/manager.rs
-#, rust-format
 msgid "unsupported manifest architecture {value}"
 msgstr ""
 
 #: src/ollama/manager.rs
-#, rust-format
 msgid "could not open archive {arg1}: {error}"
 msgstr ""
 
 #: src/ollama/manager.rs
-#, rust-format
 msgid "could not decode zstd archive: {error}"
 msgstr ""
 
 #: src/ollama/manager.rs
-#, rust-format
 msgid "could not create extraction directory {arg1}: {error}"
 msgstr ""
 
 #: src/ollama/manager.rs
-#, rust-format
 msgid "could not resolve extraction directory {arg1}: {error}"
 msgstr ""
 
 #: src/ollama/manager.rs
-#, rust-format
 msgid "could not read archive entries: {error}"
 msgstr ""
 
 #: src/ollama/manager.rs
-#, rust-format
 msgid "could not read archive entry: {error}"
 msgstr ""
 
 #: src/ollama/manager.rs
-#, rust-format
 msgid "invalid archive path: {error}"
 msgstr ""
 
 #: src/ollama/manager.rs
-#, rust-format
 msgid "duplicate archive entry {arg1}"
 msgstr ""
 
 #: src/ollama/manager.rs
-#, rust-format
 msgid "unsupported archive entry type {arg1_formatted} for {arg2}"
 msgstr ""
 
@@ -1606,12 +1562,10 @@ msgid "archive entry has no parent directory"
 msgstr ""
 
 #: src/ollama/manager.rs
-#, rust-format
 msgid "could not create {arg1}: {error}"
 msgstr ""
 
 #: src/ollama/manager.rs
-#, rust-format
 msgid "invalid symlink target: {error}"
 msgstr ""
 
@@ -1624,7 +1578,6 @@ msgid "symlink entry has no parent directory"
 msgstr ""
 
 #: src/ollama/manager.rs
-#, rust-format
 msgid "could not create symlink {arg1} -> {arg2}: {error}"
 msgstr ""
 
@@ -1633,7 +1586,6 @@ msgid "symlink extraction requires Unix"
 msgstr ""
 
 #: src/ollama/manager.rs
-#, rust-format
 msgid "invalid hardlink target: {error}"
 msgstr ""
 
@@ -1646,12 +1598,10 @@ msgid "hardlink entry has no parent directory"
 msgstr ""
 
 #: src/ollama/manager.rs
-#, rust-format
 msgid "could not create hardlink {arg1} -> {arg2}: {error}"
 msgstr ""
 
 #: src/ollama/manager.rs
-#, rust-format
 msgid "archive path {arg1} is not a safe relative path"
 msgstr ""
 
@@ -1660,37 +1610,30 @@ msgid "archive path is empty"
 msgstr ""
 
 #: src/ollama/manager.rs
-#, rust-format
 msgid "{arg1} is not a safe directory"
 msgstr ""
 
 #: src/ollama/manager.rs
-#, rust-format
 msgid "could not create directory {arg1}: {error}"
 msgstr ""
 
 #: src/ollama/manager.rs
-#, rust-format
 msgid "could not inspect directory {arg1}: {error}"
 msgstr ""
 
 #: src/ollama/manager.rs
-#, rust-format
 msgid "{arg1} already exists during extraction"
 msgstr ""
 
 #: src/ollama/manager.rs
-#, rust-format
 msgid "could not inspect {arg1}: {error}"
 msgstr ""
 
 #: src/ollama/manager.rs
-#, rust-format
 msgid "could not inspect hardlink target {arg1}: {error}"
 msgstr ""
 
 #: src/ollama/manager.rs
-#, rust-format
 msgid "hardlink target {arg1} is not a regular file"
 msgstr ""
 
@@ -1736,7 +1679,6 @@ msgid ""
 msgstr ""
 
 #: src/ollama/releases.rs
-#, rust-format
 msgid "Could not check for updates: HTTP {arg1}"
 msgstr ""
 
@@ -1753,7 +1695,6 @@ msgid "The release contains duplicate packages."
 msgstr ""
 
 #: src/ollama/releases.rs
-#, rust-format
 msgid "The {name} package has no verifiable SHA-256 checksum."
 msgstr ""
 
@@ -1778,7 +1719,6 @@ msgid "CUDA"
 msgstr "CUDA"
 
 #: src/ollama/service.rs
-#, rust-format
 msgid "Starting managed Ollama at {arg1}"
 msgstr ""
 
@@ -1787,12 +1727,10 @@ msgid "Moose is shutting down"
 msgstr ""
 
 #: src/ollama/service.rs
-#, rust-format
 msgid "process exited with {status}"
 msgstr ""
 
 #: src/ollama/service.rs
-#, rust-format
 msgid "could not check {host}: {error}"
 msgstr ""
 
@@ -1801,59 +1739,49 @@ msgid "process exited before Ollama became ready"
 msgstr ""
 
 #: src/ollama/service.rs
-#, rust-format
 msgid "could not lock the managed Ollama installation: {error}"
 msgstr ""
 
 #: src/ollama/update.rs
-#, rust-format
 msgid "Preparing {version}"
 msgstr ""
 
 #: src/ollama/update.rs
-#, rust-format
 msgid "{error}; recovery failed: {recovery}. Restart Moose to retry recovery."
 msgstr ""
 
 #: src/ollama/update.rs
-#, rust-format
 msgid ""
 "{error}. The previous installation was restored but could not restart: "
 "{restart}"
 msgstr ""
 
 #: src/ollama/update.rs
-#, rust-format
 msgid ""
 "{error}. The previous installation was restored but is unavailable: {restart}"
 msgstr ""
 
 #: src/ollama/update.rs
-#, rust-format
 msgid ""
 "{error}. The installation was rolled back; your models and chats were "
 "preserved."
 msgstr ""
 
 #: src/ollama/update.rs
-#, rust-format
 msgid "Verified Ollama {version}"
 msgstr ""
 
 #: src/ollama/update.rs
-#, rust-format
 msgid ""
 "Ollama {installed} is already installed. Installing {target} would not "
 "upgrade it. Use Repair Installation to reinstall the same version."
 msgstr ""
 
 #: src/ollama/update.rs
-#, rust-format
 msgid "Expected Ollama {expected}, but the server reported {actual}."
 msgstr ""
 
 #: src/providers/client.rs
-#, rust-format
 msgid "Model discovery failed: {error}. Using your saved model IDs."
 msgstr ""
 
@@ -1953,7 +1881,6 @@ msgid "The provider returned an invalid model list."
 msgstr ""
 
 #: src/providers/credentials.rs
-#, rust-format
 msgid "Moose · {arg1} API key"
 msgstr ""
 
@@ -2008,7 +1935,6 @@ msgid "Add a model ID or enable automatic model discovery."
 msgstr ""
 
 #: src/providers/mod.rs
-#, rust-format
 msgid "unknown provider kind {value}"
 msgstr ""
 
@@ -2223,7 +2149,6 @@ msgid "Stopped"
 msgstr ""
 
 #: src/tools/mod.rs
-#, rust-format
 msgid "{count} source found"
 msgid_plural "{count} sources found"
 msgstr[0] ""
@@ -2234,14 +2159,12 @@ msgid "Page read"
 msgstr ""
 
 #: src/tools/mod.rs
-#, rust-format
 msgid ""
 "{input}\n"
 "Calculating…"
 msgstr ""
 
 #: src/tools/mod.rs
-#, rust-format
 msgid ""
 "{input}\n"
 "Calculation stopped"
@@ -2302,7 +2225,6 @@ msgid ""
 msgstr ""
 
 #: src/tools/web/duckduckgo.rs
-#, rust-format
 msgid ""
 "DuckDuckGo returned HTTP {arg1}. Try again later or choose another search "
 "provider in Preferences → Web."
@@ -2335,7 +2257,6 @@ msgid ""
 msgstr ""
 
 #: src/tools/web/mod.rs
-#, rust-format
 msgid ""
 "Use a public HTTPS SearXNG search URL without query parameters, such as "
 "{example_url}."
@@ -2352,7 +2273,6 @@ msgid "Search with Brave Search and read public links."
 msgstr ""
 
 #: src/tools/web/mod.rs
-#, rust-format
 msgid "Search with SearXNG at {arg1} and read public links."
 msgstr ""
 
@@ -2439,7 +2359,6 @@ msgid "The search provider's rate or usage limit was reached. Try again later."
 msgstr ""
 
 #: src/tools/web/mod.rs
-#, rust-format
 msgid ""
 "Search returned HTTP {status}. Check Preferences → Web or try again later."
 msgstr ""
@@ -2459,17 +2378,14 @@ msgid "Tool arguments must be an object."
 msgstr ""
 
 #: src/tools/web/mod.rs
-#, rust-format
 msgid "Provide only the {name} argument."
 msgstr ""
 
 #: src/tools/web/mod.rs
-#, rust-format
 msgid "Provide a {name} string."
 msgstr ""
 
 #: src/tools/web/mod.rs
-#, rust-format
 msgid "The {name} must contain 1–{limit} bytes without control characters."
 msgstr ""
 
@@ -2538,7 +2454,6 @@ msgid "The website redirected to an insecure connection."
 msgstr ""
 
 #: src/tools/web/network.rs
-#, rust-format
 msgid "The website returned HTTP {arg1}. Try another source."
 msgstr ""
 
@@ -2566,7 +2481,6 @@ msgid "Choose a file smaller than 25 MB"
 msgstr ""
 
 #: src/ui/window/attachments/composer.rs
-#, rust-format
 msgid ""
 "Preview {arg1}\n"
 "{size}"
@@ -2577,14 +2491,12 @@ msgid "Use recognized text instead of sending the image"
 msgstr ""
 
 #: src/ui/window/attachments/document.rs src/ui/window/attachments.rs
-#, rust-format
 msgid "{kind} · {count} page · {size}"
 msgid_plural "{kind} · {count} pages · {size}"
 msgstr[0] ""
 msgstr[1] ""
 
 #: src/ui/window/attachments/document.rs src/ui/window/attachments.rs
-#, rust-format
 msgid ""
 "Preview {arg1}\n"
 "{description}"
@@ -2739,7 +2651,6 @@ msgid "Orientation and Script Detection"
 msgstr ""
 
 #: src/ui/window/attachments/language_manager.rs
-#, rust-format
 msgid ""
 "Detects rotated pages and writing systems. Used automatically when "
 "installed. · {size}"
@@ -2758,12 +2669,10 @@ msgid "Upgrade"
 msgstr ""
 
 #: src/ui/window/attachments/language_manager.rs
-#, rust-format
 msgid "Download the higher-accuracy model · {size}"
 msgstr ""
 
 #: src/ui/window/attachments/language_manager.rs
-#, rust-format
 msgid "Remove {name}"
 msgstr ""
 
@@ -2792,32 +2701,26 @@ msgid "Try another search."
 msgstr ""
 
 #: src/ui/window/attachments/language_manager.rs
-#, rust-format
 msgid "{count} language"
 msgstr ""
 
 #: src/ui/window/attachments/language_manager.rs
-#, rust-format
 msgid "{count} languages"
 msgstr ""
 
 #: src/ui/window/attachments/language_manager.rs
-#, rust-format
 msgid "{count} writing system"
 msgstr ""
 
 #: src/ui/window/attachments/language_manager.rs
-#, rust-format
 msgid "{count} writing systems"
 msgstr ""
 
 #: src/ui/window/attachments/language_manager.rs
-#, rust-format
 msgid "{count} tool"
 msgstr ""
 
 #: src/ui/window/attachments/language_manager.rs
-#, rust-format
 msgid "{count} tools"
 msgstr ""
 
@@ -2826,7 +2729,6 @@ msgid "Finish or cancel text extraction before removing OCR languages"
 msgstr ""
 
 #: src/ui/window/attachments/language_manager.rs
-#, rust-format
 msgid "Downloading {name}… {downloaded} / {total}"
 msgstr ""
 
@@ -2910,13 +2812,11 @@ msgid "Show More"
 msgstr ""
 
 #: src/ui/window/attachments/library.rs
-#, rust-format
 msgid "Library setting could not be saved: {error}"
 msgstr ""
 
 #: src/ui/window/attachments/library.rs src/ui/window/conversation_list.rs
 #: src/ui/window/workspace.rs src/ui/window.rs
-#, rust-format
 msgid "Draft could not be saved: {error}"
 msgstr ""
 
@@ -2959,14 +2859,12 @@ msgid "Try another search or select All."
 msgstr ""
 
 #: src/ui/window/attachments/library.rs
-#, rust-format
 msgid "Showing {count} file"
 msgid_plural "Showing {count} files"
 msgstr[0] ""
 msgstr[1] ""
 
 #: src/ui/window/attachments/library.rs
-#, rust-format
 msgid "{count} file"
 msgid_plural "{count} files"
 msgstr[0] ""
@@ -2981,7 +2879,6 @@ msgid "Image"
 msgstr ""
 
 #: src/ui/window/attachments/library.rs
-#, rust-format
 msgid ""
 "{filename}\n"
 "Generated in {conversation_title}\n"
@@ -2989,13 +2886,11 @@ msgid ""
 msgstr ""
 
 #: src/ui/window/attachments/library.rs
-#, rust-format
 msgid "{filename} — Open chat or preview"
 msgstr ""
 
 #: src/ui/window/attachments/library.rs
 #: src/ui/window/attachments/library_actions.rs
-#, rust-format
 msgid "Actions for {arg1}"
 msgstr ""
 
@@ -3056,12 +2951,10 @@ msgid "Next Image"
 msgstr ""
 
 #: src/ui/window/attachments/library.rs
-#, rust-format
 msgid "{current} of {total}"
 msgstr ""
 
 #: src/ui/window/attachments/library.rs
-#, rust-format
 msgid "of {total}"
 msgstr ""
 
@@ -3070,7 +2963,6 @@ msgid "No readable text on this page."
 msgstr ""
 
 #: src/ui/window/attachments/library.rs
-#, rust-format
 msgid "Page could not be loaded: {error}"
 msgstr ""
 
@@ -3118,7 +3010,6 @@ msgid "Original location unavailable. Open Preview to save a copy."
 msgstr ""
 
 #: src/ui/window/attachments/library_actions.rs
-#, rust-format
 msgid "Chats could not be loaded: {error}"
 msgstr ""
 
@@ -3157,7 +3048,6 @@ msgid "Remove from Library?"
 msgstr ""
 
 #: src/ui/window/attachments/library_actions.rs
-#, rust-format
 msgid ""
 "Remove “{arg1}” from your library? Files attached to chats are kept. The "
 "original file is unchanged."
@@ -3205,17 +3095,14 @@ msgid "This file could not be processed"
 msgstr ""
 
 #: src/ui/window/attachments/recognition.rs
-#, rust-format
 msgid "Recognition incomplete: {error}"
 msgstr ""
 
 #: src/ui/window/attachments/recognition.rs
-#, rust-format
 msgid "Recognized text · {language} · OCR score {confidence}/100"
 msgstr ""
 
 #: src/ui/window/attachments/recognition.rs
-#, rust-format
 msgid "Recognized text · {language}"
 msgstr ""
 
@@ -3224,12 +3111,10 @@ msgid "Extracted text"
 msgstr ""
 
 #: src/ui/window/attachments/recognition.rs
-#, rust-format
 msgid "{value} / {alternative} · OCR passes disagree"
 msgstr ""
 
 #: src/ui/window/attachments/recognition.rs
-#, rust-format
 msgid "{value} · OCR score {score}/100"
 msgstr ""
 
@@ -3363,7 +3248,6 @@ msgid "Attach"
 msgstr ""
 
 #: src/ui/window/attachments.rs
-#, rust-format
 msgid "Files could not be selected: {error}"
 msgstr ""
 
@@ -3384,14 +3268,12 @@ msgid "Select up to 8 attachments or 32 library files at a time"
 msgstr ""
 
 #: src/ui/window/attachments.rs
-#, rust-format
 msgid "{count} file added to the library"
 msgid_plural "{count} files added to the library"
 msgstr[0] ""
 msgstr[1] ""
 
 #: src/ui/window/attachments.rs
-#, rust-format
 msgid "{count} file attached to the draft"
 msgid_plural "{count} files attached to the draft"
 msgstr[0] ""
@@ -3402,17 +3284,14 @@ msgid "Pasted image.png"
 msgstr ""
 
 #: src/ui/window/attachments.rs
-#, rust-format
 msgid "Remove {arg1}"
 msgstr ""
 
 #: src/ui/window/attachments.rs
-#, rust-format
 msgid "Attachment could not be removed: {error}"
 msgstr ""
 
 #: src/ui/window/attachments.rs
-#, rust-format
 msgid "Add Attachments · {count} of {MAX_ATTACHMENTS}"
 msgstr ""
 
@@ -3442,7 +3321,6 @@ msgid "Documents are saved in your library"
 msgstr ""
 
 #: src/ui/window/attachments.rs
-#, rust-format
 msgid "Reading page {page} of {total}…"
 msgstr ""
 
@@ -3459,7 +3337,6 @@ msgid "Active Model · Text Only"
 msgstr ""
 
 #: src/ui/window/attachments.rs
-#, rust-format
 msgid "Open image: {arg1}"
 msgstr ""
 
@@ -3468,12 +3345,10 @@ msgid "Recognized text"
 msgstr ""
 
 #: src/ui/window/attachments.rs
-#, rust-format
 msgid "[{arg1}] {arg2} · Page {arg3}"
 msgstr ""
 
 #: src/ui/window/attachments.rs
-#, rust-format
 msgid "Sources ({arg1})"
 msgstr ""
 
@@ -3666,7 +3541,6 @@ msgid "Defaults restored. Save to apply changes."
 msgstr ""
 
 #: src/ui/window/chat_settings.rs
-#, rust-format
 msgid "Profile indicator could not be updated: {error}"
 msgstr ""
 
@@ -3675,7 +3549,6 @@ msgid "Chat settings saved"
 msgstr ""
 
 #: src/ui/window/chat_settings.rs
-#, rust-format
 msgid "Chat settings could not be saved: {error}"
 msgstr ""
 
@@ -3752,7 +3625,6 @@ msgid ""
 msgstr ""
 
 #: src/ui/window/chat_settings.rs
-#, rust-format
 msgid "{count} character"
 msgid_plural "{count} characters"
 msgstr[0] ""
@@ -3796,7 +3668,6 @@ msgid "Short Description"
 msgstr ""
 
 #: src/ui/window/chat_settings.rs
-#, rust-format
 msgid "Profile could not be created: {error}"
 msgstr ""
 
@@ -3805,7 +3676,6 @@ msgid "Delete Profile?"
 msgstr ""
 
 #: src/ui/window/chat_settings.rs
-#, rust-format
 msgid "Delete \"{arg1}\"? Existing chats will keep their current settings."
 msgstr ""
 
@@ -3819,7 +3689,6 @@ msgid "Profile deleted"
 msgstr ""
 
 #: src/ui/window/chat_settings.rs
-#, rust-format
 msgid "Profile could not be deleted: {error}"
 msgstr ""
 
@@ -3836,22 +3705,18 @@ msgid "Use Selected Model"
 msgstr ""
 
 #: src/ui/window/chat_settings.rs
-#, rust-format
 msgid "{model} (Unavailable)"
 msgstr ""
 
 #: src/ui/window/chat_settings.rs
-#, rust-format
 msgid "{field} must be between 0 and 1"
 msgstr ""
 
 #: src/ui/window/chat_settings.rs
-#, rust-format
 msgid "{field} must be a number"
 msgstr ""
 
 #: src/ui/window/chat_settings.rs
-#, rust-format
 msgid "{field} must be 0 or greater"
 msgstr ""
 
@@ -3860,7 +3725,6 @@ msgid "Context Window must be between 1 and 262,144 tokens."
 msgstr ""
 
 #: src/ui/window/chat_settings.rs
-#, rust-format
 msgid "{field} must be a whole number"
 msgstr ""
 
@@ -3933,7 +3797,6 @@ msgid "Waiting for response"
 msgstr ""
 
 #: src/ui/window/chat_view.rs
-#, rust-format
 msgid "Reasoning · {arg1}s"
 msgstr ""
 
@@ -3942,7 +3805,6 @@ msgid "Tools · Check results"
 msgstr ""
 
 #: src/ui/window/chat_view.rs
-#, rust-format
 msgid "Tools · {count} action"
 msgid_plural "Tools · {count} actions"
 msgstr[0] ""
@@ -3953,7 +3815,6 @@ msgid "Web Sources"
 msgstr ""
 
 #: src/ui/window/chat_view.rs
-#, rust-format
 msgid "Web Sources · {arg1}"
 msgstr ""
 
@@ -3966,7 +3827,6 @@ msgid "Search snippet"
 msgstr ""
 
 #: src/ui/window/chat_view.rs
-#, rust-format
 msgid "Retrieved {arg1}"
 msgstr ""
 
@@ -4105,7 +3965,6 @@ msgid "Base URL"
 msgstr ""
 
 #: src/ui/window/cloud_setup.rs
-#, rust-format
 msgid ""
 "Enter the API base URL, including its version, such as {example_url}. Do not "
 "append /chat/completions or another endpoint."
@@ -4211,7 +4070,6 @@ msgid "Shared content is processed under the provider's own data policy."
 msgstr ""
 
 #: src/ui/window/cloud_setup.rs
-#, rust-format
 msgid "{arg1} API Key"
 msgstr ""
 
@@ -4298,7 +4156,6 @@ msgid "Shell"
 msgstr ""
 
 #: src/ui/window/composer_commands.rs
-#, rust-format
 msgid "Turn off {arg1} in this chat"
 msgstr ""
 
@@ -4384,7 +4241,6 @@ msgid "Apply Context Window"
 msgstr ""
 
 #: src/ui/window/context_usage.rs
-#, rust-format
 msgid "Use Default ({tokens} tokens)"
 msgstr ""
 
@@ -4398,7 +4254,6 @@ msgid "Context Window Warning"
 msgstr ""
 
 #: src/ui/window/context_usage.rs
-#, rust-format
 msgid "{tokens} tokens"
 msgstr ""
 
@@ -4407,17 +4262,14 @@ msgid "Default"
 msgstr ""
 
 #: src/ui/window/context_usage.rs
-#, rust-format
 msgid "Context window could not be saved: {error}"
 msgstr ""
 
 #: src/ui/window/context_usage.rs
-#, rust-format
 msgid "{used} of {capacity} tokens"
 msgstr ""
 
 #: src/ui/window/context_usage.rs
-#, rust-format
 msgid "{used} tokens"
 msgstr ""
 
@@ -4464,7 +4316,6 @@ msgid ""
 msgstr ""
 
 #: src/ui/window/context_usage.rs
-#, rust-format
 msgid "Context usage: {usage}"
 msgstr ""
 
@@ -4512,7 +4363,6 @@ msgid ""
 msgstr ""
 
 #: src/ui/window/conversation_export.rs
-#, rust-format
 msgid "Conversation could not be exported: {error}"
 msgstr ""
 
@@ -4533,14 +4383,12 @@ msgid "Exported: "
 msgstr ""
 
 #: src/ui/window/conversation_export.rs
-#, rust-format
 msgid ""
 "Created document: {arg1} ({arg2})\n"
 "\n"
 msgstr ""
 
 #: src/ui/window/conversation_export.rs
-#, rust-format
 msgid ""
 "Web source [{arg1}]: {arg2}\n"
 "{arg3}\n"
@@ -4549,14 +4397,12 @@ msgid ""
 msgstr ""
 
 #: src/ui/window/conversation_export.rs
-#, rust-format
 msgid ""
 "Attachment: {arg1} ({arg2})\n"
 "\n"
 msgstr ""
 
 #: src/ui/window/conversation_export.rs
-#, rust-format
 msgid ""
 "Source [{arg1}]: {arg2} — page {arg3}\n"
 "\n"
@@ -4571,7 +4417,6 @@ msgid "Export"
 msgstr ""
 
 #: src/ui/window/conversation_export.rs
-#, rust-format
 msgid "Export destination could not be opened: {error}"
 msgstr ""
 
@@ -4580,7 +4425,6 @@ msgid "Conversation exported"
 msgstr ""
 
 #: src/ui/window/conversation_export.rs src/ui/window.rs
-#, rust-format
 msgid "Conversation could not be saved: {error}"
 msgstr ""
 
@@ -4589,12 +4433,10 @@ msgid "Archived"
 msgstr ""
 
 #: src/ui/window/conversation_list.rs
-#, rust-format
 msgid "Folders could not be loaded: {error}"
 msgstr ""
 
 #: src/ui/window/conversation_list.rs
-#, rust-format
 msgid "Conversations could not be loaded: {error}"
 msgstr ""
 
@@ -4619,7 +4461,6 @@ msgid "Generating Response"
 msgstr ""
 
 #: src/ui/window/conversation_list.rs src/ui/window.rs
-#, rust-format
 msgid "Conversation could not be loaded: {error}"
 msgstr ""
 
@@ -4676,7 +4517,6 @@ msgid "Conversation renamed"
 msgstr ""
 
 #: src/ui/window/conversation_list.rs
-#, rust-format
 msgid "Conversation could not be renamed: {error}"
 msgstr ""
 
@@ -4689,7 +4529,6 @@ msgid "Conversation unpinned"
 msgstr ""
 
 #: src/ui/window/conversation_list.rs
-#, rust-format
 msgid "Conversation could not be updated: {error}"
 msgstr ""
 
@@ -4710,7 +4549,6 @@ msgid "Delete Conversation?"
 msgstr ""
 
 #: src/ui/window/conversation_list.rs
-#, rust-format
 msgid "Delete \"{title}\" and all of its messages?"
 msgstr ""
 
@@ -4723,7 +4561,6 @@ msgid "Conversation deleted"
 msgstr ""
 
 #: src/ui/window/conversation_list.rs
-#, rust-format
 msgid "Conversation could not be deleted: {error}"
 msgstr ""
 
@@ -4798,12 +4635,10 @@ msgid "Moose Log"
 msgstr ""
 
 #: src/ui/window/diagnostics.rs
-#, rust-format
 msgid "The log could not be read: {error}"
 msgstr ""
 
 #: src/ui/window/diagnostics.rs
-#, rust-format
 msgid ""
 "Moose {arg1}\n"
 "{arg2}\n"
@@ -4816,7 +4651,6 @@ msgstr ""
 "{arg3}"
 
 #: src/ui/window/diagnostics.rs
-#, rust-format
 msgid "Moose {arg1}"
 msgstr "Moose {arg1}"
 
@@ -4851,12 +4685,10 @@ msgid "Sans 9"
 msgstr "Sans 9"
 
 #: src/ui/window/document_creation/pdf.rs
-#, rust-format
 msgid "The PDF page could not be drawn: {error}"
 msgstr ""
 
 #: src/ui/window/document_creation/pdf.rs
-#, rust-format
 msgid "PDF generation failed: {error}"
 msgstr ""
 
@@ -4963,7 +4795,6 @@ msgid ""
 msgstr ""
 
 #: src/ui/window/document_creation.rs
-#, rust-format
 msgid ""
 "Create a {format}.\n"
 "\n"
@@ -4971,7 +4802,6 @@ msgid ""
 msgstr ""
 
 #: src/ui/window/document_creation.rs
-#, rust-format
 msgid ""
 "Create a {format} named “{title}”.\n"
 "\n"
@@ -5032,12 +4862,10 @@ msgid ""
 msgstr ""
 
 #: src/ui/window/document_creation.rs src/ui/window/generation.rs
-#, rust-format
 msgid "Chat could not be opened: {error}"
 msgstr ""
 
 #: src/ui/window/document_creation.rs
-#, rust-format
 msgid "Document could not be opened: {error}"
 msgstr ""
 
@@ -5046,7 +4874,6 @@ msgid "Save Document"
 msgstr ""
 
 #: src/ui/window/document_creation.rs
-#, rust-format
 msgid "Save location could not be opened: {error}"
 msgstr ""
 
@@ -5055,7 +4882,6 @@ msgid "Document saved"
 msgstr ""
 
 #: src/ui/window/document_creation.rs
-#, rust-format
 msgid "Document could not be saved: {error}"
 msgstr ""
 
@@ -5105,7 +4931,6 @@ msgid "Folder Name"
 msgstr ""
 
 #: src/ui/window/folders/dialogs.rs
-#, rust-format
 msgid "Delete “{folder}”?"
 msgstr ""
 
@@ -5162,7 +4987,6 @@ msgid "Search chats"
 msgstr ""
 
 #: src/ui/window/folders.rs
-#, rust-format
 msgid "Search in {folder}"
 msgstr ""
 
@@ -5179,7 +5003,6 @@ msgid "Undo"
 msgstr ""
 
 #: src/ui/window/folders.rs
-#, rust-format
 msgid "Folders could not be updated: {error}"
 msgstr ""
 
@@ -5196,7 +5019,6 @@ msgid "Send Message"
 msgstr ""
 
 #: src/ui/window/generation.rs
-#, rust-format
 msgid "Draft could not be cleared: {error}"
 msgstr ""
 
@@ -5209,12 +5031,10 @@ msgid "The connection closed before the response finished"
 msgstr ""
 
 #: src/ui/window/generation.rs src/ui/window/workspace.rs
-#, rust-format
 msgid "Response could not be saved: {error}"
 msgstr ""
 
 #: src/ui/window/generation.rs
-#, rust-format
 msgid "Generation failed: {error}"
 msgstr ""
 
@@ -5275,7 +5095,6 @@ msgid "Main Menu"
 msgstr ""
 
 #: src/ui/window/managed_install.rs
-#, rust-format
 msgid "Verifying {arg1}"
 msgstr ""
 
@@ -5296,17 +5115,14 @@ msgid "Restoring the previous installation"
 msgstr ""
 
 #: src/ui/window/managed_install.rs
-#, rust-format
 msgid "Ollama {version} installed"
 msgstr ""
 
 #: src/ui/window/managed_install.rs
-#, rust-format
 msgid "Downloading {arg1} of {arg2}"
 msgstr ""
 
 #: src/ui/window/managed_install.rs
-#, rust-format
 msgid "Downloading {arg1}"
 msgstr ""
 
@@ -5382,7 +5198,6 @@ msgid "Retry"
 msgstr ""
 
 #: src/ui/window/managed_install.rs
-#, rust-format
 msgid "Ollama start failed: {error}"
 msgstr ""
 
@@ -5411,7 +5226,6 @@ msgid "Available Version"
 msgstr ""
 
 #: src/ui/window/managed_runtime.rs
-#, rust-format
 msgid "Official stable release. Included with Moose: {arg1}."
 msgstr ""
 
@@ -5440,12 +5254,10 @@ msgid "Cancelling. The partial download will be kept for retry."
 msgstr ""
 
 #: src/ui/window/managed_runtime.rs
-#, rust-format
 msgid "Last checked: {date} at {time} UTC"
 msgstr ""
 
 #: src/ui/window/managed_runtime.rs
-#, rust-format
 msgid "Last checked: {timestamp}"
 msgstr ""
 
@@ -5466,7 +5278,6 @@ msgid "Update available"
 msgstr ""
 
 #: src/ui/window/managed_runtime.rs
-#, rust-format
 msgid "Reinstall {repair_version} and keep your data"
 msgstr ""
 
@@ -5571,7 +5382,6 @@ msgid "Spreadsheet"
 msgstr ""
 
 #: src/ui/window/math_view.rs
-#, rust-format
 msgid "Copy formula: {arg1}"
 msgstr ""
 
@@ -5592,17 +5402,14 @@ msgid "LaTeX source"
 msgstr ""
 
 #: src/ui/window/message_actions.rs
-#, rust-format
 msgid "Message action could not be completed: {error}"
 msgstr ""
 
 #: src/ui/window/message_actions.rs
-#, rust-format
 msgid "Conversation could not be displayed: {error}"
 msgstr ""
 
 #: src/ui/window/message_actions.rs
-#, rust-format
 msgid "Message could not be displayed: {error}"
 msgstr ""
 
@@ -5691,7 +5498,6 @@ msgid "Download on Remote Provider?"
 msgstr ""
 
 #: src/ui/window/model_actions.rs
-#, rust-format
 msgid "The model will be downloaded by {arg1} at {arg2}."
 msgstr ""
 
@@ -5705,7 +5511,6 @@ msgid "The connection changed. Try downloading the model again."
 msgstr ""
 
 #: src/ui/window/model_actions.rs
-#, rust-format
 msgid "Download jobs could not be loaded: {error}"
 msgstr ""
 
@@ -5746,12 +5551,10 @@ msgid "Download history cleared"
 msgstr ""
 
 #: src/ui/window/model_actions.rs
-#, rust-format
 msgid "Download history could not be cleared: {error}"
 msgstr ""
 
 #: src/ui/window/model_actions.rs
-#, rust-format
 msgid "Updated {arg1}"
 msgstr ""
 
@@ -5776,17 +5579,14 @@ msgid "Failed"
 msgstr ""
 
 #: src/ui/window/model_actions.rs
-#, rust-format
 msgid "{completed} of {total}"
 msgstr ""
 
 #: src/ui/window/model_actions.rs
-#, rust-format
 msgid "{size} downloaded"
 msgstr ""
 
 #: src/ui/window/model_actions.rs
-#, rust-format
 msgid "{size} total"
 msgstr ""
 
@@ -5799,17 +5599,14 @@ msgid "Finish the active model deletion first"
 msgstr ""
 
 #: src/ui/window/model_actions.rs src/ui/window.rs
-#, rust-format
 msgid "Download job could not be saved: {error}"
 msgstr ""
 
 #: src/ui/window/model_actions.rs
-#, rust-format
 msgid "Model: {target_model}; server: {arg1}"
 msgstr ""
 
 #: src/ui/window/model_actions.rs
-#, rust-format
 msgid ""
 "Model: {target_model}\n"
 "Server: {arg1}\n"
@@ -5818,7 +5615,6 @@ msgid ""
 msgstr ""
 
 #: src/ui/window/model_actions.rs
-#, rust-format
 msgid "Download progress could not be saved: {error}"
 msgstr ""
 
@@ -5827,12 +5623,10 @@ msgid "Model download complete"
 msgstr ""
 
 #: src/ui/window/model_actions.rs
-#, rust-format
 msgid "Download job could not be saved: {save_error}"
 msgstr ""
 
 #: src/ui/window/model_actions.rs
-#, rust-format
 msgid ""
 "Provider: {arg1} at {arg2}\n"
 "{error}"
@@ -5859,12 +5653,10 @@ msgid "A model deletion is already running"
 msgstr ""
 
 #: src/ui/window/model_actions.rs
-#, rust-format
 msgid "Delete \"{model}\" from Ollama? You can download it again later."
 msgstr ""
 
 #: src/ui/window/model_actions.rs
-#, rust-format
 msgid ""
 "Delete \"{model}\" from {arg1} at {arg2}? This changes the remote provider."
 msgstr ""
@@ -5886,7 +5678,6 @@ msgid "Model Deleted"
 msgstr ""
 
 #: src/ui/window/model_actions.rs
-#, rust-format
 msgid "{model} was removed from Ollama."
 msgstr ""
 
@@ -5917,7 +5708,6 @@ msgid "Select the original connection and refresh its models to start a chat."
 msgstr ""
 
 #: src/ui/window/model_actions.rs
-#, rust-format
 msgid ""
 "Moose {arg1}\n"
 "Model: {model}\n"
@@ -6018,12 +5808,10 @@ msgid "Browse Hugging Face Models"
 msgstr ""
 
 #: src/ui/window/model_download.rs
-#, rust-format
 msgid "Downloads to {arg1} on this device."
 msgstr ""
 
 #: src/ui/window/model_download.rs
-#, rust-format
 msgid "Downloads to {arg1} at {arg2}."
 msgstr ""
 
@@ -6104,21 +5892,18 @@ msgid "Chat and writing"
 msgstr ""
 
 #: src/ui/window/model_manager/requirements.rs
-#, rust-format
 msgid ""
 "About {ram} GiB of available RAM for CPU-only use. Leave additional memory "
 "for the system and other apps."
 msgstr ""
 
 #: src/ui/window/model_manager/requirements.rs
-#, rust-format
 msgid ""
 "Model files are about {arg1}. Full GPU execution also needs VRAM for context "
 "and runtime. The exact VRAM minimum is not verified."
 msgstr ""
 
 #: src/ui/window/model_manager/requirements.rs
-#, rust-format
 msgid ""
 "About {arg1} for model files. Ollama and its runtime need additional disk "
 "space. Shared files may reduce the additional space used."
@@ -6130,7 +5915,6 @@ msgid ""
 msgstr ""
 
 #: src/ui/window/model_manager/requirements.rs
-#, rust-format
 msgid "{arg1_formatted} GiB available on this device. {arg2}."
 msgstr ""
 
@@ -6169,7 +5953,6 @@ msgid ""
 msgstr ""
 
 #: src/ui/window/model_manager/requirements.rs
-#, rust-format
 msgid ""
 "Moose defaults to {arg1} tokens. Chat settings can override this value; "
 "longer contexts and images can use substantially more memory."
@@ -7519,7 +7302,6 @@ msgid "Loading Models"
 msgstr ""
 
 #: src/ui/window/model_manager.rs
-#, rust-format
 msgid "Filters ({extra_count} active)"
 msgstr ""
 
@@ -7528,7 +7310,6 @@ msgid "Memory guidance is unavailable for this connection."
 msgstr ""
 
 #: src/ui/window/model_manager.rs
-#, rust-format
 msgid "{arg1_formatted} GiB available · Memory estimates are approximate"
 msgstr ""
 
@@ -7556,7 +7337,6 @@ msgid "Try another task or clear your search and filters."
 msgstr ""
 
 #: src/ui/window/model_manager.rs
-#, rust-format
 msgid ""
 "Model: {model}\n"
 "Preparing download"
@@ -7575,12 +7355,10 @@ msgid "Downloading…"
 msgstr ""
 
 #: src/ui/window/model_manager.rs
-#, rust-format
 msgid "Downloading · {arg1} of {arg2}"
 msgstr ""
 
 #: src/ui/window/model_manager.rs
-#, rust-format
 msgid ""
 "Model: {model}\n"
 "Status: {arg1}\n"
@@ -7588,7 +7366,6 @@ msgid ""
 msgstr ""
 
 #: src/ui/window/model_manager.rs
-#, rust-format
 msgid ""
 "\n"
 "Digest: {digest}"
@@ -7599,7 +7376,6 @@ msgid "Removing model…"
 msgstr ""
 
 #: src/ui/window/model_manager.rs
-#, rust-format
 msgid ""
 "Model: {model}\n"
 "Removing model from Ollama"
@@ -7614,7 +7390,6 @@ msgid "Open details for more information"
 msgstr ""
 
 #: src/ui/window/model_manager.rs
-#, rust-format
 msgid "{arg1} · Not a chat model"
 msgstr ""
 
@@ -7639,7 +7414,6 @@ msgid "Download from Hugging Face"
 msgstr ""
 
 #: src/ui/window/model_manager.rs
-#, rust-format
 msgid "{arg1} · View details and other versions"
 msgstr ""
 
@@ -7656,27 +7430,22 @@ msgid "Versions"
 msgstr ""
 
 #: src/ui/window/model_manager.rs
-#, rust-format
 msgid "{arg1} · Recommended"
 msgstr ""
 
 #: src/ui/window/model_manager.rs
-#, rust-format
 msgid "Start a new chat with {model}"
 msgstr ""
 
 #: src/ui/window/model_manager.rs
-#, rust-format
 msgid "Download {model}"
 msgstr ""
 
 #: src/ui/window/model_manager.rs
-#, rust-format
 msgid "Use {model}"
 msgstr ""
 
 #: src/ui/window/model_manager.rs
-#, rust-format
 msgid "Modified {arg1}"
 msgstr ""
 
@@ -7871,7 +7640,6 @@ msgid "_Reset"
 msgstr ""
 
 #: src/ui/window/preferences/shortcuts.rs
-#, rust-format
 msgid "Restore default shortcut: {shortcut}"
 msgstr ""
 
@@ -7888,12 +7656,10 @@ msgid "This key cannot be used as a shortcut"
 msgstr ""
 
 #: src/ui/window/preferences/shortcuts.rs
-#, rust-format
 msgid "{description} Current shortcut: {shortcut}. Activate to change it."
 msgstr ""
 
 #: src/ui/window/preferences/shortcuts.rs
-#, rust-format
 msgid "Shortcut: {shortcut}"
 msgstr ""
 
@@ -7932,7 +7698,6 @@ msgid "Privacy setting could not be saved"
 msgstr ""
 
 #: src/ui/window/privacy.rs
-#, rust-format
 msgid ""
 "Messages: {arg1}\n"
 "Files: {arg2}\n"
@@ -7985,7 +7750,6 @@ msgid "Provider Sharing Permissions"
 msgstr ""
 
 #: src/ui/window/privacy.rs
-#, rust-format
 msgid "Ask again in all chats with {arg1}. Also resets file sharing."
 msgstr ""
 
@@ -7994,7 +7758,6 @@ msgid "Sharing permission could not be loaded"
 msgstr ""
 
 #: src/ui/window/privacy.rs
-#, rust-format
 msgid ""
 "Send this conversation's context to {arg1} at {arg2}?\n"
 "\n"
@@ -8037,7 +7800,6 @@ msgid "Share Context with Provider?"
 msgstr ""
 
 #: src/ui/window/privacy.rs
-#, rust-format
 msgid "[{count} attached image]"
 msgid_plural "[{count} attached images]"
 msgstr[0] ""
@@ -8109,7 +7871,6 @@ msgid "Add Provider…"
 msgstr ""
 
 #: src/ui/window/provider_controls.rs
-#, rust-format
 msgid ""
 "Switch Provider\n"
 "{arg1}\n"
@@ -8118,7 +7879,6 @@ msgid ""
 msgstr ""
 
 #: src/ui/window/provider_controls.rs
-#, rust-format
 msgid "Switch Provider: {arg1}"
 msgstr ""
 
@@ -8131,12 +7891,10 @@ msgid "Providers could not be loaded"
 msgstr ""
 
 #: src/ui/window/provider_controls.rs
-#, rust-format
 msgid "Providers could not be loaded: {error}"
 msgstr ""
 
 #: src/ui/window/provider_controls.rs
-#, rust-format
 msgid "Delete {arg1}…"
 msgstr ""
 
@@ -8194,7 +7952,6 @@ msgid "Provider was not found"
 msgstr ""
 
 #: src/ui/window/provider_controls.rs
-#, rust-format
 msgid "Provider could not be loaded: {error}"
 msgstr ""
 
@@ -8203,12 +7960,10 @@ msgid "Delete Provider?"
 msgstr ""
 
 #: src/ui/window/provider_controls.rs
-#, rust-format
 msgid "Delete \"{arg1}\" at {arg2}?"
 msgstr ""
 
 #: src/ui/window/provider_controls.rs
-#, rust-format
 msgid "Ollama Provider {arg1}"
 msgstr ""
 
@@ -8217,7 +7972,6 @@ msgid "Ollama Provider"
 msgstr ""
 
 #: src/ui/window/provider_controls.rs
-#, rust-format
 msgid "Managed Ollama {arg1}"
 msgstr ""
 
@@ -8242,7 +7996,6 @@ msgid "Provider could not be switched"
 msgstr ""
 
 #: src/ui/window/reasoning.rs
-#, rust-format
 msgid "Reasoning setting could not be saved: {error}"
 msgstr ""
 
@@ -8251,12 +8004,10 @@ msgid "Reasoning: —"
 msgstr ""
 
 #: src/ui/window/reasoning.rs
-#, rust-format
 msgid "Reasoning: {arg1}"
 msgstr ""
 
 #: src/ui/window/reasoning.rs
-#, rust-format
 msgid "Reasoning setting could not be loaded: {error}"
 msgstr ""
 
@@ -8347,7 +8098,6 @@ msgid "Cancel the active response."
 msgstr ""
 
 #: src/ui/window/shortcuts.rs
-#, rust-format
 msgid "{arg1} uses a shortcut that is already assigned"
 msgstr ""
 
@@ -8368,7 +8118,6 @@ msgid "Use Ctrl, Alt, Shift or Super with printable shortcuts"
 msgstr ""
 
 #: src/ui/window/shortcuts.rs
-#, rust-format
 msgid "Unsupported key: {value}"
 msgstr ""
 
@@ -8385,7 +8134,6 @@ msgid "Allow Web Access?"
 msgstr ""
 
 #: src/ui/window/web_tools.rs
-#, rust-format
 msgid ""
 "{arg1}\n"
 "\n"
@@ -8441,7 +8189,6 @@ msgid "SearXNG Instance"
 msgstr ""
 
 #: src/ui/window/web_tools.rs
-#, rust-format
 msgid ""
 "Use a public HTTPS search endpoint, such as {example_url}. The instance must "
 "allow JSON searches."
@@ -8536,12 +8283,10 @@ msgid "Draft saved"
 msgstr ""
 
 #: src/ui/window/workspace.rs
-#, rust-format
 msgid "Workspace could not be restored: {error}"
 msgstr ""
 
 #: src/ui/window/workspace.rs
-#, rust-format
 msgid "Chat instance could not be loaded: {error}"
 msgstr ""
 
@@ -8554,7 +8299,6 @@ msgid "View"
 msgstr ""
 
 #: src/ui/window.rs
-#, rust-format
 msgid "Interrupted responses could not be restored: {error}"
 msgstr ""
 
@@ -8563,7 +8307,6 @@ msgid "Storage Error"
 msgstr ""
 
 #: src/ui/window.rs
-#, rust-format
 msgid "Storage setup failed: {error}"
 msgstr ""
 
@@ -8572,7 +8315,6 @@ msgid "Download interrupted."
 msgstr ""
 
 #: src/ui/window.rs
-#, rust-format
 msgid "Could not save the interrupted response: {error}"
 msgstr ""
 
@@ -8581,7 +8323,6 @@ msgid "Download interrupted because Moose closed."
 msgstr ""
 
 #: src/ui/window.rs
-#, rust-format
 msgid "Could not save the interrupted download: {error}"
 msgstr ""
 
@@ -8598,7 +8339,6 @@ msgid "Model download cancelled"
 msgstr ""
 
 #: src/ui/window.rs
-#, rust-format
 msgid "Conversation could not be created: {error}"
 msgstr ""
 
@@ -8651,7 +8391,6 @@ msgid "Disconnected"
 msgstr ""
 
 #: src/ui/window.rs
-#, rust-format
 msgid "Provider unavailable: {status}"
 msgstr ""
 
@@ -8668,7 +8407,6 @@ msgid "Error"
 msgstr ""
 
 #: src/ui/window.rs
-#, rust-format
 msgid "Model list failed: {error}"
 msgstr ""
 
@@ -8717,7 +8455,6 @@ msgid "Generation is already running"
 msgstr ""
 
 #: src/ui/window.rs
-#, rust-format
 msgid "Previous response could not be saved: {error}"
 msgstr ""
 
@@ -8726,17 +8463,14 @@ msgid "This chat’s instance must be ready before sending. Your draft is saved.
 msgstr ""
 
 #: src/ui/window.rs
-#, rust-format
 msgid "Chat settings could not be loaded: {error}"
 msgstr ""
 
 #: src/ui/window.rs
-#, rust-format
 msgid "Message could not be prepared: {error}"
 msgstr ""
 
 #: src/ui/window.rs
-#, rust-format
 msgid "Document request could not be prepared: {error}"
 msgstr ""
 
@@ -8748,12 +8482,10 @@ msgid ""
 msgstr ""
 
 #: src/ui/window.rs
-#, rust-format
 msgid "Tool history could not be loaded: {error}"
 msgstr ""
 
 #: src/ui/window.rs
-#, rust-format
 msgid "Message could not be sent: {error}"
 msgstr ""
 
@@ -8768,12 +8500,10 @@ msgid "Web settings changed. Review Chat Settings and send your message again."
 msgstr ""
 
 #: src/ui/window.rs
-#, rust-format
 msgid "Message could not be saved: {error}"
 msgstr ""
 
 #: src/ui/window.rs
-#, rust-format
 msgid "Preferred model \"{model}\" is not available"
 msgstr ""
 
@@ -8782,7 +8512,6 @@ msgid "Select a model first"
 msgstr ""
 
 #: src/ui/window.rs
-#, rust-format
 msgid "{profile} profile: {description}"
 msgstr ""
 
