@@ -10,7 +10,7 @@ license = "GPL-3.0-or-later"
 [features]
 default = []
 i18n = ["dep:gettext-rs"]
-gui = ["i18n", "dep:adw", "dep:comrak", "dep:gtk", "dep:sourceview5", "dep:latex-rust"]
+gui = ["i18n", "dep:adw", "dep:comrak", "dep:gtk", "dep:sourceview5", "dep:latex-rust", "dep:zip"]
 
 [[bin]]
 name = "moose"
@@ -44,4 +44,5 @@ tokio = { version = "1.48.0", features = ["fs", "io-util", "macros", "net", "rt-
 url = "2.5.7"
 uuid = { version = "1.18.1", features = ["rng", "v7"] }
 zeroize = "1.9.0"
+zip = { version = "8.6.0", default-features = false, features = ["deflate-flate2-zlib-rs"], optional = true }
 zstd = { version = "0.13.3", default-features = false }

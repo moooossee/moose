@@ -117,6 +117,11 @@ modules:
       - install -Dm644 /run/build/moose/cargo/vendor/latex-rust-1.0.4/NOTICE /app/share/licenses/io.github.moooossee.Moose/latex-rust/NOTICE
       - install -Dm644 /run/build/moose/cargo/vendor/latex-rust-1.0.4/fonts/stix-two-math/OFL.txt /app/share/licenses/io.github.moooossee.Moose/latex-rust/fonts/stix-two-math/OFL.txt
       - install -Dm644 /run/build/moose/cargo/vendor/ttf-parser-0.25.1/LICENSE-MIT /app/share/licenses/io.github.moooossee.Moose/ttf-parser/LICENSE-MIT
+      - install -Dm644 /run/build/moose/cargo/vendor/crc32fast-1.5.6/LICENSE-MIT /app/share/licenses/io.github.moooossee.Moose/crc32fast/LICENSE-MIT
+      - install -Dm644 /run/build/moose/cargo/vendor/flate2-1.1.11/LICENSE-MIT /app/share/licenses/io.github.moooossee.Moose/flate2/LICENSE-MIT
+      - install -Dm644 /run/build/moose/cargo/vendor/typed-path-0.12.4/LICENSE-MIT /app/share/licenses/io.github.moooossee.Moose/typed-path/LICENSE-MIT
+      - install -Dm644 /run/build/moose/cargo/vendor/zip-8.6.0/LICENSE /app/share/licenses/io.github.moooossee.Moose/zip/LICENSE
+      - install -Dm644 /run/build/moose/cargo/vendor/zlib-rs-0.6.9/LICENSE /app/share/licenses/io.github.moooossee.Moose/zlib-rs/LICENSE
     sources:
       - type: dir
         path: .
