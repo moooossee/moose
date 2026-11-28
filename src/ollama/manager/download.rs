@@ -10,11 +10,12 @@ use futures_util::StreamExt;
 use sha2::{Digest, Sha256};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
-use crate::error::{MooseError, Result};
-
-use super::{
-    ManagedOllamaAsset, ManagedOllamaInstallProgress, hex_digest, transaction::check_disk_space,
+use crate::{
+    core::hex_digest,
+    error::{MooseError, Result},
 };
+
+use super::{ManagedOllamaAsset, ManagedOllamaInstallProgress, transaction::check_disk_space};
 use crate::ollama::update::InstallCancellation;
 
 pub(super) async fn download_asset<F>(

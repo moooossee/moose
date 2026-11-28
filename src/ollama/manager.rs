@@ -838,10 +838,6 @@ fn is_sha256_hex(value: &str) -> bool {
     value.len() == 64 && value.bytes().all(|byte| byte.is_ascii_hexdigit())
 }
 
-fn hex_digest(bytes: &[u8]) -> String {
-    bytes.iter().map(|byte| format!("{byte:02x}")).collect()
-}
-
 fn extraction_failed(message: impl Into<String>) -> MooseError {
     MooseError::ManagedOllamaExtractionFailed(message.into())
 }

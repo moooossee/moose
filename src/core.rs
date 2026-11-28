@@ -10,3 +10,7 @@ pub fn utc_now() -> String {
         .format(&Rfc3339)
         .expect("UTC timestamps always format as RFC 3339")
 }
+
+pub(crate) fn hex_digest(bytes: &[u8]) -> String {
+    bytes.iter().map(|byte| format!("{byte:02x}")).collect()
+}
