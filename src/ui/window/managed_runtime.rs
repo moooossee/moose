@@ -43,6 +43,156 @@ struct Controls {
     candidate: Rc<RefCell<ManagedOllamaManifest>>,
 }
 
+pub(super) struct RuntimePanel {
+    pub setup: widgets::SetupView,
+    pub summary: gtk::Label,
+    pub installed: gtk::Label,
+    pub available: gtk::Label,
+    pub primary: gtk::Box,
+    pub activity: gtk::Box,
+    pub progress: gtk::ProgressBar,
+    pub status: gtk::Label,
+    pub last_checked: gtk::Label,
+    pub check: gtk::Button,
+    pub check_label: gtk::Label,
+    pub check_spinner: gtk::Spinner,
+    pub update: gtk::Button,
+    pub cancel: gtk::Button,
+}
+
+impl RuntimePanel {
+    pub(super) fn new(
+        product: &str,
+        description: &str,
+        keep_note: &str,
+        available_hint: Option<&str>,
+        updates_in_footer: bool,
+    ) -> Self {
+        let setup = widgets::SetupView::new(product, description);
+        let content = &setup.content;
+        let summary = gtk::Label::builder()
+            .halign(gtk::Align::Center)
+            .margin_top(4)
+            .css_classes(["caption-heading"])
+            .build();
+        setup.hero.append(&summary);
+        let engine = gtk::Box::builder()
+            .orientation(gtk::Orientation::Vertical)
+            .spacing(12)
+            .build();
+        let group = adw::PreferencesGroup::new();
+        let installed_row = adw::ActionRow::builder()
+            .title(gettext("Installed Version"))
+            .use_markup(false)
+            .build();
+        let installed = gtk::Label::builder()
+            .selectable(true)
+            .valign(gtk::Align::Center)
+            .css_classes(["dim-label"])
+            .build();
+        installed_row.add_suffix(&installed);
+        let available_row = adw::ActionRow::builder()
+            .title(gettext("Available Version"))
+            .use_markup(false)
+            .build();
+        let available = gtk::Label::builder()
+            .selectable(true)
+            .valign(gtk::Align::Center)
+            .css_classes(["dim-label"])
+            .build();
+        available_row.set_tooltip_text(available_hint);
+        available_row.add_suffix(&available);
+        group.add(&installed_row);
+        group.add(&available_row);
+        engine.append(&group);
+        let primary = gtk::Box::builder()
+            .orientation(gtk::Orientation::Vertical)
+            .spacing(8)
+            .build();
+        let update = gtk::Button::new();
+        primary.append(&widgets::primary_action(&update));
+        primary.append(
+            &gtk::Label::builder()
+                .label(keep_note)
+                .wrap(true)
+                .justify(gtk::Justification::Center)
+                .css_classes(["caption", "dim-label"])
+                .build(),
+        );
+        engine.append(&primary);
+        let updates = gtk::Box::builder()
+            .orientation(gtk::Orientation::Vertical)
+            .spacing(4)
+            .build();
+        let check_content = gtk::Box::builder()
+            .spacing(8)
+            .halign(gtk::Align::Center)
+            .build();
+        let check_spinner = gtk::Spinner::new();
+        check_spinner.set_visible(false);
+        let check_label = gtk::Label::new(Some(&gettext("Check for Updates")));
+        check_content.append(&check_spinner);
+        check_content.append(&check_label);
+        let check = gtk::Button::builder()
+            .child(&check_content)
+            .halign(gtk::Align::Center)
+            .css_classes(["flat"])
+            .build();
+        updates.append(&check);
+        let last_checked = gtk::Label::builder()
+            .wrap(true)
+            .justify(gtk::Justification::Center)
+            .selectable(true)
+            .css_classes(["caption", "dim-label"])
+            .build();
+        updates.append(&last_checked);
+        if updates_in_footer {
+            setup.append_footer(&updates);
+        } else {
+            engine.append(&updates);
+        }
+        let activity = gtk::Box::builder()
+            .orientation(gtk::Orientation::Vertical)
+            .spacing(12)
+            .visible(false)
+            .build();
+        let progress = gtk::ProgressBar::new();
+        let status = gtk::Label::builder()
+            .wrap(true)
+            .wrap_mode(gtk::pango::WrapMode::WordChar)
+            .selectable(true)
+            .xalign(0.0)
+            .build();
+        let cancel = gtk::Button::builder()
+            .label(gettext("Cancel"))
+            .halign(gtk::Align::Center)
+            .visible(false)
+            .css_classes(["flat"])
+            .build();
+        activity.append(&progress);
+        activity.append(&status);
+        activity.append(&cancel);
+        engine.append(&activity);
+        content.append(&engine);
+        Self {
+            setup,
+            summary,
+            installed,
+            available,
+            primary,
+            activity,
+            progress,
+            status,
+            last_checked,
+            check,
+            check_label,
+            check_spinner,
+            update,
+            cancel,
+        }
+    }
+}
+
 enum Event {
     Progress(ManagedOllamaInstallProgress),
     Finished(std::result::Result<(), String>),
@@ -96,121 +246,39 @@ pub(super) fn show_dialog(
         .filter(|manifest| releases::is_newer(&manifest.version, &included.version))
         .cloned()
         .unwrap_or_else(|| included.clone());
-    let setup = widgets::SetupDialog::new(
-        &gettext("Managed Ollama"),
+    let available_hint = gettext_f(
+        "Official stable release. Included with Moose: {arg1}.",
+        &[("arg1", &included.version)],
+    );
+    let RuntimePanel {
+        setup,
+        summary,
+        installed,
+        available,
+        primary,
+        activity,
+        progress,
+        status,
+        last_checked,
+        check,
+        check_label,
+        check_spinner,
+        update,
+        cancel,
+    } = RuntimePanel::new(
         "Ollama",
         &gettext("Your local AI engine, managed by Moose."),
+        &gettext("Your models, chats, and connections are kept."),
+        Some(&available_hint),
+        false,
     );
-    let dialog = setup.dialog.clone();
-    let content = &setup.content;
-    let summary = gtk::Label::builder()
-        .halign(gtk::Align::Center)
-        .margin_top(4)
-        .css_classes(["caption-heading"])
-        .build();
-    setup.hero.append(&summary);
-    let engine = gtk::Box::builder()
-        .orientation(gtk::Orientation::Vertical)
-        .spacing(12)
-        .build();
-    let group = adw::PreferencesGroup::new();
-    let installed_row = adw::ActionRow::builder()
-        .title(gettext("Installed Version"))
-        .use_markup(false)
-        .build();
-    let installed = gtk::Label::builder()
-        .selectable(true)
-        .valign(gtk::Align::Center)
-        .css_classes(["dim-label"])
-        .build();
-    installed_row.add_suffix(&installed);
-    let available_row = adw::ActionRow::builder()
-        .title(gettext("Available Version"))
-        .use_markup(false)
-        .build();
-    let available = gtk::Label::builder()
-        .selectable(true)
-        .valign(gtk::Align::Center)
-        .css_classes(["dim-label"])
-        .build();
-    available_row.set_tooltip_text(Some(&gettext_f(
-        "Official stable release. Included with Moose: {arg1}.",
-        &[("arg1", &(included.version).to_string())],
-    )));
-    available_row.add_suffix(&available);
-    group.add(&installed_row);
-    group.add(&available_row);
-    engine.append(&group);
-    let primary = gtk::Box::builder()
-        .orientation(gtk::Orientation::Vertical)
-        .spacing(8)
-        .build();
-    let update = gtk::Button::with_label(&gettext("Update Ollama"));
-    primary.append(&widgets::primary_action(&update));
-    primary.append(
-        &gtk::Label::builder()
-            .label(gettext("Your models, chats, and connections are kept."))
-            .wrap(true)
-            .justify(gtk::Justification::Center)
-            .css_classes(["caption", "dim-label"])
-            .build(),
-    );
-    engine.append(&primary);
-    let updates = gtk::Box::builder()
-        .orientation(gtk::Orientation::Vertical)
-        .spacing(4)
-        .build();
-    let check_content = gtk::Box::builder()
-        .spacing(8)
-        .halign(gtk::Align::Center)
-        .build();
-    let check_spinner = gtk::Spinner::new();
-    check_spinner.set_visible(false);
-    let check_label = gtk::Label::new(Some(&gettext("Check for Updates")));
-    check_content.append(&check_spinner);
-    check_content.append(&check_label);
-    let check = gtk::Button::builder()
-        .child(&check_content)
-        .halign(gtk::Align::Center)
-        .css_classes(["flat"])
-        .build();
-    updates.append(&check);
-    let last_checked = gtk::Label::builder()
-        .wrap(true)
-        .justify(gtk::Justification::Center)
-        .selectable(true)
-        .css_classes(["caption", "dim-label"])
-        .build();
     if let Some(cached) = cached.as_ref() {
         last_checked.set_label(&last_checked_text(&cached.checked_at));
     } else {
         last_checked.set_visible(false);
     }
-    updates.append(&last_checked);
-    engine.append(&updates);
-    let activity = gtk::Box::builder()
-        .orientation(gtk::Orientation::Vertical)
-        .spacing(12)
-        .visible(false)
-        .build();
-    let progress = gtk::ProgressBar::new();
-    let status = gtk::Label::builder()
-        .wrap(true)
-        .wrap_mode(gtk::pango::WrapMode::WordChar)
-        .selectable(true)
-        .xalign(0.0)
-        .build();
-    let cancel = gtk::Button::builder()
-        .label(gettext("Cancel"))
-        .halign(gtk::Align::Center)
-        .visible(false)
-        .css_classes(["flat"])
-        .build();
-    activity.append(&progress);
-    activity.append(&status);
-    activity.append(&cancel);
-    engine.append(&activity);
-    content.append(&engine);
+    let dialog = setup.dialog(&gettext("Managed Ollama"));
+    let content = &setup.content;
     let actions = adw::PreferencesGroup::new();
     let configure = adw::ActionRow::builder()
         .title(gettext("Add Managed Connection"))
@@ -312,11 +380,15 @@ fn last_checked_text(timestamp: &str) -> String {
 }
 
 fn set_summary(controls: &Controls, text: &str, style: &str) {
-    controls.summary.set_label(text);
+    set_runtime_summary(&controls.summary, text, style);
+}
+
+pub(super) fn set_runtime_summary(label: &gtk::Label, text: &str, style: &str) {
+    label.set_label(text);
     for class in ["accent", "success", "warning", "error", "dim-label"] {
-        controls.summary.remove_css_class(class);
+        label.remove_css_class(class);
     }
-    controls.summary.add_css_class(style);
+    label.add_css_class(style);
 }
 
 fn update_controls(controls: &Controls, backend: &Backend) {

@@ -4,7 +4,6 @@ use gtk::Align;
 pub(super) struct SetupDialog {
     pub dialog: adw::Dialog,
     pub content: gtk::Box,
-    pub hero: gtk::Box,
     pub heading: gtk::Label,
     pub description: gtk::Label,
     footer: gtk::Box,
@@ -12,11 +11,36 @@ pub(super) struct SetupDialog {
 
 impl SetupDialog {
     pub fn new(title: &str, heading: &str, description: &str) -> Self {
-        let dialog = adw::Dialog::builder()
-            .title(title)
-            .content_width(620)
-            .content_height(620)
-            .build();
+        let view = SetupView::new(heading, description);
+        Self {
+            dialog: view.dialog(title),
+            content: view.content,
+            heading: view.heading,
+            description: view.description,
+            footer: view.footer,
+        }
+    }
+
+    pub fn set_actions(&self, primary: &gtk::Button, cancel: &gtk::Button) {
+        cancel.add_css_class("flat");
+        cancel.set_halign(Align::Center);
+        self.footer.append(&primary_action(primary));
+        self.footer.append(cancel);
+        self.footer.set_visible(true);
+    }
+}
+
+pub(super) struct SetupView {
+    pub toolbar: adw::ToolbarView,
+    pub content: gtk::Box,
+    pub hero: gtk::Box,
+    pub heading: gtk::Label,
+    pub description: gtk::Label,
+    footer: gtk::Box,
+}
+
+impl SetupView {
+    pub(super) fn new(heading: &str, description: &str) -> Self {
         let content = gtk::Box::builder()
             .orientation(gtk::Orientation::Vertical)
             .spacing(20)
@@ -67,9 +91,8 @@ impl SetupDialog {
             .visible(false)
             .build();
         toolbar.add_bottom_bar(&footer);
-        dialog.set_child(Some(&toolbar));
         Self {
-            dialog,
+            toolbar,
             content,
             hero,
             heading,
@@ -78,11 +101,18 @@ impl SetupDialog {
         }
     }
 
-    pub fn set_actions(&self, primary: &gtk::Button, cancel: &gtk::Button) {
-        cancel.add_css_class("flat");
-        cancel.set_halign(Align::Center);
-        self.footer.append(&primary_action(primary));
-        self.footer.append(cancel);
+    pub(super) fn dialog(&self, title: &str) -> adw::Dialog {
+        adw::Dialog::builder()
+            .title(title)
+            .content_width(620)
+            .content_height(620)
+            .child(&self.toolbar)
+            .build()
+    }
+
+    pub(super) fn append_footer(&self, widget: &impl IsA<gtk::Widget>) {
+        self.toolbar.set_bottom_bar_style(adw::ToolbarStyle::Flat);
+        self.footer.append(widget);
         self.footer.set_visible(true);
     }
 }
